@@ -201,7 +201,6 @@ proxy_start_connect_fn (const u32 * session_index)
   upf_far_t *far;
   u32 fib_index;
   int is_ip4;
-  int rv = 0;
 
   proxy_server_sessions_reader_lock ();
 
@@ -240,8 +239,7 @@ proxy_start_connect_fn (const u32 * session_index)
   a->sep_ext.peer.ip = *src;
   a->sep_ext.peer.port = flow->key.port[FT_ORIGIN ^ flow->is_reverse];
 
-  rv = vnet_connect (a);
-  upf_debug ("Connect Result: %u", rv);
+  vnet_connect (a);
 
 out:
   proxy_server_sessions_reader_unlock ();
@@ -387,9 +385,9 @@ delete_proxy_session (session_t * s, int is_active_open)
       if (!ps)
 	{
 	  u64 handle = session_handle (s);
-	  upf_debug ("proxy session for %s handle %lld (%llx) AWOL",
-		     is_active_open ? "active open" : "server",
-		     handle, handle);
+	  clib_warning ("proxy session for %s handle %lld (%llx) AWOL",
+			is_active_open ? "active open" : "server",
+			handle, handle);
 	}
       else
 	{
