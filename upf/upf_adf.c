@@ -191,10 +191,10 @@ upf_adr_try_http (u16 port, u8 * p, u8 ** uri)
   word uri_len;
   u8 *eol;
   u8 *s;
+  int r;
 
-  if (!is_http_request (&p, &len))
-    /* payload to short, abort ADR scanning for this flow */
-    return ADR_NEED_MORE_DATA;
+  if ((r = is_http_request (&p, &len)) != ADR_OK)
+    return r;
 
   upf_debug ("p: %*s", len, p);
   eol = memchr (p, '\n', len);

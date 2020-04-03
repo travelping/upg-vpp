@@ -115,14 +115,14 @@ is_http_request (u8 ** payload, word * len)
   u64 d0 = *(u64 *) * payload;
 
   if (*len < 10)
-    return 0;
+    return ADR_NEED_MORE_DATA;
 
   if (c0 == char_to_u32 ('G', 'E', 'T', ' ') ||
       c0 == char_to_u32 ('P', 'U', 'T', ' '))
     {
       *payload += 4;
       *len -= 4;
-      return 1;
+      return ADR_OK;
     }
   else if ((c0 == char_to_u32 ('H', 'E', 'A', 'D') ||
 	    c0 == char_to_u32 ('P', 'O', 'S', 'T') ||
@@ -132,7 +132,7 @@ is_http_request (u8 ** payload, word * len)
     {
       *payload += 5;
       *len -= 5;
-      return 1;
+      return ADR_OK;
     }
   else
     if (((d0 & char_mask_64_6) ==
@@ -144,7 +144,7 @@ is_http_request (u8 ** payload, word * len)
     {
       *payload += 6;
       *len -= 6;
-      return 1;
+      return ADR_OK;
     }
   else
     if (((d0 & char_mask_64_7) ==
@@ -154,14 +154,14 @@ is_http_request (u8 ** payload, word * len)
     {
       *payload += 7;
       *len -= 7;
-      return 1;
+      return ADR_OK;
     }
   else if ((d0 == char_to_u64 ('C', 'O', 'N', 'N', 'E', 'C', 'T', ' ')) ||
 	   (d0 == char_to_u64 ('O', 'P', 'T', 'I', 'O', 'N', 'S', ' ')))
     {
       *payload += 8;
       *len -= 8;
-      return 1;
+      return ADR_OK;
     }
   if (c0 == char_to_u32 ('P', 'R', 'O', 'P'))
     {
@@ -172,18 +172,18 @@ is_http_request (u8 ** payload, word * len)
 	{
 	  *payload += 9;
 	  *len -= 9;
-	  return 1;
+	  return ADR_OK;
 	}
       else if ((d1 & char_mask_64_6) ==
 	       char_to_u64 ('P', 'A', 'T', 'C', 'H', ' ', 0, 0))
 	{
 	  *payload += 10;
 	  *len -= 10;
-	  return 1;
+	  return ADR_OK;
 	}
     }
 
-  return 0;
+  return ADR_FAIL;
 }
 
 #endif /* __included_upf_app_db_h__ */
