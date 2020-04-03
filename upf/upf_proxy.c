@@ -185,6 +185,65 @@ session_from_proxy_session_get (upf_proxy_session_t * ps, int is_active_open)
 				 ps->active_open_thread_index);
 }
 
+static_always_inline int
+rx_callback_inline (svm_fifo_t *tx_fifo)
+{
+  /*
+   * Send event for server tx fifo
+   */
+  if (svm_fifo_set_event (tx_fifo))
+    {
+      u8 thread_index = tx_fifo->master_thread_index;
+      u32 session_index = tx_fifo->master_session_index;
+      return session_send_io_evt_to_thread_custom (&session_index,
+						   thread_index,
+						   SESSION_IO_EVT_TX);
+    }
+
+  if (svm_fifo_max_enqueue (tx_fifo) <= TCP_MSS)
+    svm_fifo_add_want_deq_ntf (tx_fifo, SVM_FIFO_WANT_DEQ_NOTIF);
+
+  return 0;
+}
+
+static_always_inline int
+tx_callback_inline (session_t * s, int is_active_open)
+{
+  transport_connection_t *tc;
+  upf_proxy_session_t *ps;
+  session_t *tx;
+  u32 min_free;
+
+  min_free = clib_min (svm_fifo_size (s->tx_fifo) >> 3, 128 << 10);
+  if (svm_fifo_max_enqueue (s->tx_fifo) < min_free)
+    {
+      svm_fifo_add_want_deq_ntf (s->tx_fifo, SVM_FIFO_WANT_DEQ_NOTIF);
+      return 0;
+    }
+
+  proxy_server_sessions_reader_lock ();
+
+  if (!is_active_open)
+    ps = proxy_session_lookup (s);
+  else
+    ps = active_open_session_lookup (s);
+  if (!ps)
+    goto out_unlock;
+
+  tx = session_from_proxy_session_get (ps, !is_active_open);
+  if (!tx)
+    goto out_unlock;
+
+  /* Force ack on proxy side to update rcv wnd */
+  tc = session_get_transport (tx);
+  tcp_send_ack ((tcp_connection_t *) tc);
+
+out_unlock:
+  proxy_server_sessions_reader_unlock ();
+
+  return 0;
+}
+
 static void
 proxy_start_connect_fn (const u32 * session_index)
 {
@@ -403,7 +462,7 @@ delete_proxy_session (session_t * s, int is_active_open)
     {
       a->handle = session_handle (active_open_session);
       a->app_index = pm->active_open_app_index;
-      active_open_session_lookup_del (s);
+      active_open_session_lookup_del (active_open_session);
       vnet_disconnect_session (a);
     }
 
@@ -411,7 +470,7 @@ delete_proxy_session (session_t * s, int is_active_open)
     {
       a->handle = session_handle (proxy_session);
       a->app_index = pm->server_app_index;
-      proxy_session_lookup_del (s);
+      proxy_session_lookup_del (proxy_session);
       vnet_disconnect_session (a);
     }
 
@@ -639,26 +698,10 @@ proxy_rx_callback (session_t * s)
 
   if (ps->active_open_session_index != ~0)
     {
-      svm_fifo_t *ao_tx_fifo;
-
       proxy_server_sessions_reader_unlock ();
-      ao_tx_fifo = ps->rx_fifo;
 
-      /*
-       * Send event for active open tx fifo
-       */
-      if (svm_fifo_set_event (ao_tx_fifo))
-	{
-	  u32 ao_thread_index = ao_tx_fifo->master_thread_index;
-	  u32 ao_session_index = ao_tx_fifo->master_session_index;
-	  if (session_send_io_evt_to_thread_custom (&ao_session_index,
-						    ao_thread_index,
-						    SESSION_IO_EVT_TX))
-	    upf_debug ("failed to enqueue tx evt");
-	}
-
-      if (svm_fifo_max_enqueue (ao_tx_fifo) <= TCP_MSS)
-	svm_fifo_add_want_deq_ntf (ao_tx_fifo, SVM_FIFO_WANT_DEQ_NOTIF);
+      if (rx_callback_inline (ps->rx_fifo))
+	clib_warning ("failed to enqueue tx evt");
     }
   else
     {
@@ -670,12 +713,19 @@ proxy_rx_callback (session_t * s)
   return 0;
 }
 
+static int
+proxy_tx_callback (session_t * s)
+{
+  return tx_callback_inline (s, 0);
+}
+
 static session_cb_vft_t proxy_session_cb_vft = {
   .session_accept_callback = proxy_accept_callback,
   .session_disconnect_callback = proxy_disconnect_callback,
   .session_connected_callback = proxy_connected_callback,
   .add_segment_callback = proxy_add_segment_callback,
   .builtin_app_rx_callback = proxy_rx_callback,
+  .builtin_app_tx_callback = proxy_tx_callback,
   .session_reset_callback = proxy_reset_callback
 };
 
@@ -699,6 +749,9 @@ active_open_connected_callback (u32 app_index, u32 opaque,
    * Setup proxy session handle.
    */
   proxy_server_sessions_writer_lock ();
+
+  if (pool_is_free_index (pm->sessions, opaque))
+    return -1;
 
   ps = pool_elt_at_index (pm->sessions, opaque);
   ps->active_open_session_index = s->session_index;
@@ -765,26 +818,13 @@ active_open_disconnect_callback (session_t * s)
 static int
 active_open_rx_callback (session_t * s)
 {
-  svm_fifo_t *proxy_tx_fifo;
+  return rx_callback_inline (s->rx_fifo);
+}
 
-  proxy_tx_fifo = s->rx_fifo;
-
-  /*
-   * Send event for server tx fifo
-   */
-  if (svm_fifo_set_event (proxy_tx_fifo))
-    {
-      u8 thread_index = proxy_tx_fifo->master_thread_index;
-      u32 session_index = proxy_tx_fifo->master_session_index;
-      return session_send_io_evt_to_thread_custom (&session_index,
-						   thread_index,
-						   SESSION_IO_EVT_TX);
-    }
-
-  if (svm_fifo_max_enqueue (proxy_tx_fifo) <= TCP_MSS)
-    svm_fifo_add_want_deq_ntf (proxy_tx_fifo, SVM_FIFO_WANT_DEQ_NOTIF);
-
-  return 0;
+static int
+active_open_tx_callback (session_t * s)
+{
+  return tx_callback_inline (s, 1);
 }
 
 /* *INDENT-OFF* */
@@ -793,7 +833,8 @@ static session_cb_vft_t active_open_clients = {
   .session_connected_callback = active_open_connected_callback,
   .session_accept_callback = active_open_create_callback,
   .session_disconnect_callback = active_open_disconnect_callback,
-  .builtin_app_rx_callback = active_open_rx_callback
+  .builtin_app_rx_callback = active_open_rx_callback,
+  .builtin_app_tx_callback = active_open_tx_callback
 };
 /* *INDENT-ON* */
 
@@ -803,7 +844,6 @@ proxy_server_attach ()
   upf_proxy_main_t *pm = &upf_proxy_main;
   u64 options[APP_OPTIONS_N_OPTIONS];
   vnet_app_attach_args_t _a, *a = &_a;
-  u32 segment_size = 128 << 20;
   app_worker_t *app_wrk;
   application_t *app;
   u8 *name;
@@ -812,13 +852,11 @@ proxy_server_attach ()
   clib_memset (a, 0, sizeof (*a));
   clib_memset (options, 0, sizeof (options));
 
-  if (pm->private_segment_size)
-    segment_size = pm->private_segment_size;
   a->name = name = format (0, "upf-proxy-server");
   a->api_client_index = pm->server_client_index;
   a->session_cb_vft = &proxy_session_cb_vft;
   a->options = options;
-  a->options[APP_OPTIONS_SEGMENT_SIZE] = segment_size;
+  a->options[APP_OPTIONS_SEGMENT_SIZE] = pm->private_segment_size;
   a->options[APP_OPTIONS_RX_FIFO_SIZE] = pm->fifo_size;
   a->options[APP_OPTIONS_TX_FIFO_SIZE] = pm->fifo_size;
   a->options[APP_OPTIONS_PRIVATE_SEGMENT_COUNT] = pm->private_segment_count;
@@ -957,7 +995,7 @@ upf_proxy_main_init (vlib_main_t * vm)
   pm->rcv_buffer_size = 1024;
   pm->prealloc_fifos = 0;
   pm->private_segment_count = 0;
-  pm->private_segment_size = 0;
+  pm->private_segment_size = 512 << 20;
 
   pm->server_client_index = ~0;
   pm->active_open_client_index = ~0;
