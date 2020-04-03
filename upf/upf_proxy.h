@@ -64,7 +64,10 @@ typedef struct
    * Configuration params
    */
   u32 configured_segment_size;
-  u32 fifo_size;
+  u32 fifo_size;			/**< initial fifo size */
+  u32 max_fifo_size;			/**< max fifo size */
+  u8 high_watermark;			/**< high watermark (%) */
+  u8 low_watermark;			/**< low watermark (%) */
   u32 private_segment_count;		/**< Number of private fifo segs */
   u32 private_segment_size;		/**< size of private fifo segs */
   int rcv_buffer_size;
