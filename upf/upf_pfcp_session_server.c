@@ -142,7 +142,7 @@ pfcp_session_server_session_reset_callback (session_t * s)
 static int
 pfcp_session_server_session_connected_callback (u32 app_index,
 						u32 api_context,
-						session_t * s, u8 is_fail)
+						session_t * s, session_error_t err)
 {
   upf_debug ("called...");
   return -1;

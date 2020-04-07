@@ -562,7 +562,7 @@ proxy_reset_callback (session_t * s)
 
 static int
 proxy_connected_callback (u32 app_index, u32 api_context,
-			  session_t * s, u8 is_fail)
+			  session_t * s, session_error_t err)
 {
   upf_debug ("called...");
   return -1;
@@ -776,7 +776,7 @@ static session_cb_vft_t proxy_session_cb_vft = {
 
 static int
 active_open_connected_callback (u32 app_index, u32 opaque,
-				session_t * s, u8 is_fail)
+				session_t * s, session_error_t err)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   upf_proxy_session_t *ps;
@@ -784,7 +784,7 @@ active_open_connected_callback (u32 app_index, u32 opaque,
 
   upf_debug ("called...");
 
-  if (is_fail)
+  if (err)
     {
       upf_debug ("connection %d failed!", opaque);
       return 0;
