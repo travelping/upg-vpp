@@ -185,7 +185,7 @@ session_from_proxy_session_get (upf_proxy_session_t * ps, int is_active_open)
 				 ps->active_open_thread_index);
 }
 
-static_always_inline int
+static_always_inline void
 rx_callback_inline (svm_fifo_t *tx_fifo)
 {
   /*
@@ -195,15 +195,14 @@ rx_callback_inline (svm_fifo_t *tx_fifo)
     {
       u8 thread_index = tx_fifo->master_thread_index;
       u32 session_index = tx_fifo->master_session_index;
-      return session_send_io_evt_to_thread_custom (&session_index,
-						   thread_index,
-						   SESSION_IO_EVT_TX);
+      if (session_send_io_evt_to_thread_custom (&session_index,
+						thread_index,
+						SESSION_IO_EVT_TX))
+	clib_warning ("failed to enqueue tx evt");
     }
 
   if (svm_fifo_max_enqueue (tx_fifo) <= TCP_MSS)
     svm_fifo_add_want_deq_ntf (tx_fifo, SVM_FIFO_WANT_DEQ_NOTIF);
-
-  return 0;
 }
 
 static_always_inline int
@@ -234,7 +233,9 @@ tx_callback_inline (session_t * s, int is_active_open)
   if (!tx)
     goto out_unlock;
 
-  /* Force ack on proxy side to update rcv wnd */
+  ASSERT (tx != s);
+
+  /* Force ack on other side to update rcv wnd */
   tc = session_get_transport (tx);
   tcp_send_ack ((tcp_connection_t *) tc);
 
@@ -572,7 +573,7 @@ static int
 proxy_add_segment_callback (u32 client_index, u64 segment_handle)
 {
   upf_debug ("called...");
-  return -1;
+  return 0;
 }
 
 static int
@@ -744,8 +745,7 @@ proxy_rx_callback (session_t * s)
     {
       proxy_server_sessions_reader_unlock ();
 
-      if (rx_callback_inline (ps->rx_fifo))
-	clib_warning ("failed to enqueue tx evt");
+      rx_callback_inline (s->rx_fifo);
     }
   else
     {
@@ -778,9 +778,10 @@ static int
 active_open_connected_callback (u32 app_index, u32 opaque,
 				session_t * s, session_error_t err)
 {
-  upf_proxy_main_t *pm = &upf_proxy_main;
-  upf_proxy_session_t *ps;
   u8 thread_index = vlib_get_thread_index ();
+  upf_proxy_main_t *pm = &upf_proxy_main;
+  flowtable_main_t *fm = &flowtable_main;
+  upf_proxy_session_t *ps;
 
   upf_debug ("called...");
 
@@ -796,7 +797,10 @@ active_open_connected_callback (u32 app_index, u32 opaque,
   proxy_server_sessions_writer_lock ();
 
   if (pool_is_free_index (pm->sessions, opaque))
-    return -1;
+    {
+      proxy_server_sessions_writer_unlock ();
+      return -1;
+    }
 
   ps = pool_elt_at_index (pm->sessions, opaque);
   ps->active_open_session_index = s->session_index;
@@ -825,7 +829,24 @@ active_open_connected_callback (u32 app_index, u32 opaque,
 
   active_open_session_lookup_add (s, ps);
 
+  if (!pool_is_free_index (fm->flows, ps->flow_index))
+    {
+      transport_connection_t *tc;
+      flow_entry_t *flow;
+      flow_tc_t *ftc;
+
+      flow = pool_elt_at_index (fm->flows, ps->flow_index);
+      tc = session_get_transport (s);
+
+      ASSERT (tc->thread_index == thread_index);
+
+      ftc = &flow_tc (flow, FT_REVERSE);
+      ftc->conn_index = tc->c_index;
+      ftc->thread_index = tc->thread_index;
+    }
+
   proxy_server_sessions_writer_unlock ();
+
 
   /*
    * Send event for active open tx fifo
@@ -861,9 +882,17 @@ active_open_disconnect_callback (session_t * s)
 }
 
 static int
+active_open_add_segment_callback (u32 client_index, u64 segment_handle)
+{
+  upf_debug ("called...");
+  return 0;
+}
+
+static int
 active_open_rx_callback (session_t * s)
 {
-  return rx_callback_inline (s->rx_fifo);
+  rx_callback_inline (s->rx_fifo);
+  return 0;
 }
 
 static int
@@ -878,6 +907,7 @@ static session_cb_vft_t active_open_clients = {
   .session_connected_callback = active_open_connected_callback,
   .session_accept_callback = active_open_create_callback,
   .session_disconnect_callback = active_open_disconnect_callback,
+  .add_segment_callback = active_open_add_segment_callback,
   .builtin_app_rx_callback = active_open_rx_callback,
   .builtin_app_tx_callback = active_open_tx_callback,
   .fifo_tuning_callback = common_fifo_tuning_callback
@@ -903,6 +933,7 @@ proxy_server_attach ()
   a->session_cb_vft = &proxy_session_cb_vft;
   a->options = options;
   a->options[APP_OPTIONS_SEGMENT_SIZE] = pm->private_segment_size;
+  a->options[APP_OPTIONS_ADD_SEGMENT_SIZE] = pm->private_segment_size;
   a->options[APP_OPTIONS_RX_FIFO_SIZE] = pm->fifo_size;
   a->options[APP_OPTIONS_TX_FIFO_SIZE] = pm->fifo_size;
   a->options[APP_OPTIONS_MAX_FIFO_SIZE] = pm->max_fifo_size;
@@ -951,6 +982,7 @@ active_open_attach (void)
 
   options[APP_OPTIONS_ACCEPT_COOKIE] = 0x12345678;
   options[APP_OPTIONS_SEGMENT_SIZE] = 128 << 20;
+  options[APP_OPTIONS_ADD_SEGMENT_SIZE] = pm->private_segment_size;
   options[APP_OPTIONS_RX_FIFO_SIZE] = pm->fifo_size;
   options[APP_OPTIONS_TX_FIFO_SIZE] = pm->fifo_size;
   options[APP_OPTIONS_MAX_FIFO_SIZE] = pm->max_fifo_size;
