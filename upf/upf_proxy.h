@@ -63,6 +63,7 @@ typedef struct
   /*
    * Configuration params
    */
+  u16 mss;
   u32 configured_segment_size;
   u32 fifo_size;			/**< initial fifo size */
   u32 max_fifo_size;			/**< max fifo size */

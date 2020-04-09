@@ -291,6 +291,7 @@ proxy_start_connect_fn (const u32 * session_index)
   a->sep_ext = (session_endpoint_cfg_t) SESSION_ENDPOINT_CFG_NULL;
   a->sep_ext.fib_index = fib_index;
   a->sep_ext.transport_proto = TRANSPORT_PROTO_TCP;
+  a->sep_ext.mss = pm->mss;
   a->sep_ext.is_ip4 = is_ip4;
   a->sep_ext.ip = *dst;
   a->sep_ext.port = flow->key.port[FT_REVERSE ^ flow->is_reverse];
@@ -1075,6 +1076,7 @@ upf_proxy_main_init (vlib_main_t * vm)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
 
+  pm->mss = 1350;
   pm->fifo_size = 64 << 10;
   pm->max_fifo_size = 128 << 20;
   pm->high_watermark = 80;
