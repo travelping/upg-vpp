@@ -90,6 +90,56 @@ typedef struct
 
 extern upf_proxy_main_t upf_proxy_main;
 
+static inline void
+proxy_server_sessions_reader_lock (void)
+{
+  clib_rwlock_reader_lock (&upf_proxy_main.sessions_lock);
+}
+
+static inline void
+proxy_server_sessions_reader_unlock (void)
+{
+  clib_rwlock_reader_unlock (&upf_proxy_main.sessions_lock);
+}
+
+static inline void
+proxy_server_sessions_writer_lock (void)
+{
+  clib_rwlock_writer_lock (&upf_proxy_main.sessions_lock);
+}
+
+static inline void
+proxy_server_sessions_writer_unlock (void)
+{
+  clib_rwlock_writer_unlock (&upf_proxy_main.sessions_lock);
+}
+
+static inline upf_proxy_session_t *
+proxy_session_get (u32 ps_index)
+{
+  upf_proxy_main_t *pm = &upf_proxy_main;
+
+  if (pool_is_free_index (pm->sessions, ps_index))
+    return 0;
+  return pool_elt_at_index (pm->sessions, ps_index);
+}
+
+static inline upf_proxy_session_t *
+proxy_session_lookup_by_index (u32 session_index, u32 thread_index)
+{
+  upf_proxy_main_t *pm = &upf_proxy_main;
+  u32 ps_index;
+
+  if (session_index <
+      vec_len (pm->session_to_proxy_session[thread_index]))
+    {
+      ps_index =
+	pm->session_to_proxy_session[thread_index][session_index];
+      return proxy_session_get (ps_index);
+    }
+  return 0;
+}
+
 #endif
 
 /*

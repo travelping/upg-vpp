@@ -45,30 +45,6 @@ upf_proxy_main_t upf_proxy_main;
 
 static void delete_proxy_session (session_t * s, int is_active_open);
 
-static void
-proxy_server_sessions_reader_lock (void)
-{
-  clib_rwlock_reader_lock (&upf_proxy_main.sessions_lock);
-}
-
-static void
-proxy_server_sessions_reader_unlock (void)
-{
-  clib_rwlock_reader_unlock (&upf_proxy_main.sessions_lock);
-}
-
-static void
-proxy_server_sessions_writer_lock (void)
-{
-  clib_rwlock_writer_lock (&upf_proxy_main.sessions_lock);
-}
-
-static void
-proxy_server_sessions_writer_unlock (void)
-{
-  clib_rwlock_writer_unlock (&upf_proxy_main.sessions_lock);
-}
-
 static upf_proxy_session_t *
 proxy_session_alloc (u32 thread_index)
 {
@@ -83,16 +59,6 @@ proxy_session_alloc (u32 thread_index)
   ps->active_open_session_index = ~0;
 
   return ps;
-}
-
-static upf_proxy_session_t *
-proxy_session_get (u32 ps_index)
-{
-  upf_proxy_main_t *pm = &upf_proxy_main;
-
-  if (pool_is_free_index (pm->sessions, ps_index))
-    return 0;
-  return pool_elt_at_index (pm->sessions, ps_index);
 }
 
 static void

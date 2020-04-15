@@ -46,6 +46,7 @@ if(HS_FOUND)
     upf_proxy_accept.c
     upf_proxy_input.c
     upf_proxy_output.c
+    upf_tcp_forward.c
     upf_proxy.c
     upf_app_db.c
     flowtable_init.c
@@ -60,6 +61,7 @@ if(HS_FOUND)
     upf_proxy_accept.c
     upf_proxy_input.c
     upf_proxy_output.c
+    upf_tcp_forward.c
     upf_input.c
     upf_forward.c
     upf_session_dpo.c

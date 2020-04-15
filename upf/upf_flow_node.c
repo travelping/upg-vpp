@@ -443,10 +443,10 @@ VLIB_REGISTER_NODE(upf_ip4_flow_node) = {
   .error_strings = flowtable_error_strings,
   .n_next_nodes = FT_NEXT_N_NEXT,
   .next_nodes = {
-    [FT_NEXT_DROP] = "error-drop",
+    [FT_NEXT_DROP]     = "error-drop",
     [FT_NEXT_CLASSIFY] = "upf-ip4-classify",
-    [FT_NEXT_PROCESS] = "upf-ip4-input",
-    [FT_NEXT_PROXY]   = "upf-ip4-proxy-input",
+    [FT_NEXT_PROCESS ] = "upf-ip4-input",
+    [FT_NEXT_PROXY]    = "upf-ip4-proxy-input",
   }
 };
 /* *INDENT-ON* */
@@ -461,10 +461,10 @@ VLIB_REGISTER_NODE(upf_ip6_flow_node) = {
   .error_strings = flowtable_error_strings,
   .n_next_nodes = FT_NEXT_N_NEXT,
   .next_nodes = {
-    [FT_NEXT_DROP] = "error-drop",
+    [FT_NEXT_DROP]     = "error-drop",
     [FT_NEXT_CLASSIFY] = "upf-ip6-classify",
-    [FT_NEXT_PROCESS] = "upf-ip6-input",
-    [FT_NEXT_PROXY]   = "upf-ip6-proxy-input",
+    [FT_NEXT_PROCESS]  = "upf-ip6-input",
+    [FT_NEXT_PROXY]    = "upf-ip6-proxy-input",
   }
 };
 /* *INDENT-ON* */

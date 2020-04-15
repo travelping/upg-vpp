@@ -42,6 +42,7 @@ typedef enum
   UPF_PROXY_INPUT_NEXT_DROP,
   UPF_PROXY_INPUT_NEXT_TCP_INPUT,
   UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP,
+  UPF_PROXY_INPUT_NEXT_TCP_FORWARD,
   UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT,
   UPF_PROXY_INPUT_N_NEXT,
 } upf_proxy_input_next_t;
@@ -89,6 +90,137 @@ format_upf_proxy_input_trace (u8 * s, va_list * args)
 	      format_white_space, indent,
 	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
   return s;
+}
+
+static_always_inline u32
+splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
+{
+  flow_direction_t origin = FT_ORIGIN ^ direction;
+  flow_direction_t reverse = FT_REVERSE ^ direction;
+  flow_tc_t *rev = &flow_tc (flow, reverse);
+  flow_tc_t *ftc = &flow_tc (flow, origin);
+  transport_connection_t *tc;
+  tcp_connection_t *tcpRx, *tcpTx;
+  session_t *s;
+
+  if (rev->conn_index == ~0)
+    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+
+  if (flow->dont_splice)
+    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+
+  // lookup connections
+  tc = transport_get_connection (TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index);
+  if (!tc)
+    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+
+  s = session_get_if_valid (tc->s_index, tc->thread_index);
+  if (!s)
+    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+
+  // check fifo, proxy Tx/Rx are connected...
+  if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
+      svm_fifo_max_dequeue (s->tx_fifo) != 0)
+    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+
+  tcpRx = tcp_get_connection_from_transport
+    (transport_get_connection (TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index));
+  tcpTx = tcp_get_connection_from_transport
+    (transport_get_connection (TRANSPORT_PROTO_TCP, rev->conn_index, rev->thread_index));
+
+  /* check TCP connection properties */
+  if ((tcpRx->snd_mss > tcpTx->rcv_opts.mss) ||
+      (tcpTx->snd_mss > tcpRx->rcv_opts.mss))
+    {
+      upf_debug ("=============> DON'T SPLICE <=============");
+      flow->dont_splice = 1;
+      return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    }
+
+  if (tcp_opts_tstamp (&tcpTx->rcv_opts) != tcp_opts_tstamp (&tcpRx->rcv_opts))
+    {
+      upf_debug ("=============> DON'T SPLICE <=============");
+      flow->dont_splice = 1;
+      return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    }
+
+  if (tcp_opts_sack_permitted (&tcpTx->rcv_opts) !=
+      tcp_opts_sack_permitted (&tcpRx->rcv_opts))
+    {
+      upf_debug ("=============> DON'T SPLICE <=============");
+      flow->dont_splice = 1;
+      return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    }
+
+  if (flow_seq_offs(flow, origin) == 0)
+    flow_seq_offs(flow, origin) = tcpRx->rcv_nxt - tcpTx->snd_nxt;
+
+  if (flow_seq_offs(flow, reverse) == 0)
+    flow_seq_offs(flow, reverse) = tcpRx->snd_nxt - tcpTx->rcv_nxt;
+
+  /* kill the TCP connections, session and proxy session */
+  tcp_connection_set_state (tcpRx, TCP_STATE_CLOSED);
+  tcp_connection_cleanup (tcpRx);
+  tcp_connection_set_state (tcpTx, TCP_STATE_CLOSED);
+  tcp_connection_cleanup (tcpTx);
+
+  /* switch to direct spliceing */
+  flow->is_spliced = 1;
+
+  return UPF_PROXY_INPUT_NEXT_TCP_FORWARD;
+}
+
+static_always_inline int
+upf_vnet_load_tcp_hdr_offset (vlib_buffer_t * b)
+{
+  ip4_header_t *ip4 = vlib_buffer_get_current (b);
+  tcp_header_t *tcp;
+
+  if ((ip4->ip_version_and_header_length & 0xF0) == 0x40)
+    {
+      int ip_hdr_bytes = ip4_header_bytes (ip4);
+      if (PREDICT_FALSE (b->current_length < ip_hdr_bytes + sizeof (*tcp)))
+	  return -1;
+
+      tcp = ip4_next_header (ip4);
+      vnet_buffer (b)->tcp.hdr_offset = (u8 *) tcp - (u8 *) ip4;
+    }
+  else if ((ip4->ip_version_and_header_length & 0xF0) == 0x60)
+    {
+      ip6_header_t *ip6 = vlib_buffer_get_current (b);
+      if (PREDICT_FALSE (b->current_length < sizeof (*ip6) + sizeof (*tcp)))
+	return -1;
+
+      tcp = ip6_next_header (ip6);
+      vnet_buffer (b)->tcp.hdr_offset = (u8 *) tcp - (u8 *) ip6;
+    }
+  else
+    return -1;
+
+  return 0;
+}
+
+static_always_inline void
+load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction, flow_entry_t * flow)
+{
+  tcp_header_t *tcp;
+  tcp_options_t opts;
+
+  if (flow_tsval_offs (flow, direction) != 0)
+    return;
+
+  if (upf_vnet_load_tcp_hdr_offset (b))
+    return;
+
+  tcp = tcp_buffer_hdr (b);
+  memset (&opts, 0, sizeof(opts));
+  if (tcp_options_parse (tcp, &opts, 1))
+    return;
+
+  if (!tcp_opts_tstamp (&opts))
+    return;
+
+  flow_tsval_offs (flow, direction) = opts.tsval - tcp_time_now ();
 }
 
 static_always_inline void
@@ -208,9 +340,14 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 		     flow->is_reverse);
 
 	  ftc = &flow_tc (flow, direction);
-	  upf_debug ("ftc conn_index %u", ftc->conn_index);
 
-	  if (ftc->conn_index != ~0)
+	  if (flow->is_spliced)
+	    {
+	      /* bypass TCP connection handling */
+	      upf_debug ("TCP_FORWARD");
+	      next = UPF_PROXY_INPUT_NEXT_TCP_FORWARD;
+	    }
+	  else if (ftc->conn_index != ~0)
 	    {
 	      ASSERT (ftc->thread_index == thread_index);
 
@@ -218,16 +355,18 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      vnet_buffer (b)->tcp.connection_index = ftc->conn_index;
 
 	      /* transport connection already setup */
-	      next = UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+	      next = splice_tcp_connection (flow, direction);
 	    }
 	  else if (direction == FT_ORIGIN)
 	    {
 	      upf_debug ("PROXY_ACCEPT");
+	      load_tstamp_offset (b, direction, flow);
 	      next = UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT;
 	    }
 	  else if (direction == FT_REVERSE && ftc->conn_index == ~0)
 	    {
 	      upf_debug ("INPUT_LOOKUP");
+	      load_tstamp_offset (b, direction, flow);
 	      next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
 	    }
 	  else
@@ -335,10 +474,11 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_input_node) = {
   .error_strings = upf_proxy_input_error_strings,
   .n_next_nodes = UPF_PROXY_INPUT_N_NEXT,
   .next_nodes = {
-    [UPF_PROXY_INPUT_NEXT_DROP]          = "error-drop",
-    [UPF_PROXY_INPUT_NEXT_TCP_INPUT]     = "tcp4-input-nolookup",
-    [UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP]     = "tcp4-input",
-    [UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT]  = "upf-ip4-proxy-accept",
+    [UPF_PROXY_INPUT_NEXT_DROP]             = "error-drop",
+    [UPF_PROXY_INPUT_NEXT_TCP_INPUT]        = "tcp4-input-nolookup",
+    [UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP] = "tcp4-input",
+    [UPF_PROXY_INPUT_NEXT_TCP_FORWARD]      = "upf-tcp4-forward",
+    [UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT]     = "upf-ip4-proxy-accept",
   },
 };
 /* *INDENT-ON* */
@@ -353,10 +493,11 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_input_node) = {
   .error_strings = upf_proxy_input_error_strings,
   .n_next_nodes = UPF_PROXY_INPUT_N_NEXT,
   .next_nodes = {
-    [UPF_PROXY_INPUT_NEXT_DROP]          = "error-drop",
-    [UPF_PROXY_INPUT_NEXT_TCP_INPUT]     = "tcp6-input-nolookup",
-    [UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP]     = "tcp6-input",
-    [UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT]  = "upf-ip6-proxy-accept",
+    [UPF_PROXY_INPUT_NEXT_DROP]             = "error-drop",
+    [UPF_PROXY_INPUT_NEXT_TCP_INPUT]        = "tcp6-input-nolookup",
+    [UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP] = "tcp6-input",
+    [UPF_PROXY_INPUT_NEXT_TCP_FORWARD]      = "upf-tcp6-forward",
+    [UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT]     = "upf-ip6-proxy-accept",
   },
 };
 /* *INDENT-ON* */

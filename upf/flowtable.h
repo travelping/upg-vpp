@@ -119,6 +119,8 @@ typedef struct flow_entry
   u8 is_reverse:1;
   u8 is_redirect:1;
   u8 is_l3_proxy:1;
+  u8 is_spliced:1;
+  u8 dont_splice:1;
   u16 tcp_state;
 
   /* stats */
@@ -136,6 +138,10 @@ typedef struct flow_entry
   u32 _next[FT_ORDER_MAX];
 
   flow_tc_t _tc[FT_ORDER_MAX];
+
+  u32 _seq_offs[FT_ORDER_MAX];
+  u32 _tsval_offs[FT_ORDER_MAX];
+
 #if CLIB_DEBUG > 0
   u32 cpu_index;
 #endif
@@ -147,6 +153,8 @@ typedef struct flow_entry
 #define flow_teid(F, D) flow_member((F), _teid, (D))
 #define flow_pdr_id(F, D) flow_member((F), _pdr_id, (D))
 #define flow_tc(F, D) flow_member((F), _tc, (D))
+#define flow_seq_offs(F, D) flow_member((F), _seq_offs, (D))
+#define flow_tsval_offs(F, D) flow_member((F), _tsval_offs, (D))
 
 /* Timers (in seconds) */
 #define TIMER_DEFAULT_LIFETIME (60)
