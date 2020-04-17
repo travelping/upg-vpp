@@ -41,6 +41,16 @@ typedef struct
   u8 *rx_buf;				/**< intermediate rx buffers */
 } upf_proxy_session_t;
 
+#define foreach_upf_proxy_config_fields						\
+  _(u16, mss)				/**< TCP MSS */				\
+  _(uword, fifo_size)			/**< initial fifo size */		\
+  _(uword, max_fifo_size)			/**< max fifo size */			\
+  _(u8, high_watermark)			/**< high watermark (%) */		\
+  _(u8, low_watermark)			/**< low watermark (%) */		\
+  _(u32, private_segment_count)		/**< Number of private fifo segs */	\
+  _(uword, private_segment_size)		/**< size of private fifo segs */	\
+  _(u8, prealloc_fifos)			/**< Request fifo preallocation */	\
+
 typedef struct
 {
   u16 tcp4_server_output_next;
@@ -63,15 +73,9 @@ typedef struct
   /*
    * Configuration params
    */
-  u16 mss;
-  u32 configured_segment_size;
-  u32 fifo_size;			/**< initial fifo size */
-  u32 max_fifo_size;			/**< max fifo size */
-  u8 high_watermark;			/**< high watermark (%) */
-  u8 low_watermark;			/**< low watermark (%) */
-  u32 private_segment_count;		/**< Number of private fifo segs */
-  u32 private_segment_size;		/**< size of private fifo segs */
-  int rcv_buffer_size;
+#define _(type, name) type name;
+  foreach_upf_proxy_config_fields
+#undef _
 
   /*
    * Test state variables
@@ -85,7 +89,6 @@ typedef struct
    * Flags
    */
   u8 is_init;
-  u8 prealloc_fifos;		/**< Request fifo preallocation */
 } upf_proxy_main_t;
 
 extern upf_proxy_main_t upf_proxy_main;

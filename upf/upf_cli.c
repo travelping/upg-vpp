@@ -29,6 +29,7 @@
 #include <upf/upf_pfcp.h>
 #include <upf/pfcp.h>
 #include <upf/upf_pfcp_server.h>
+#include <upf/upf_proxy.h>
 
 /* Action function shared between message handler and debug CLI */
 #include <upf/flowtable.h>
@@ -1064,6 +1065,115 @@ VLIB_CLI_COMMAND (upf_show_bihash_command, static) =
   .short_help =
   "show upf bihash <v4-tunnel-by-key | v6-tunnel-by-key | qer-by-id | peer-index-by-ip> [detail|verbose]",
   .function = upf_show_bihash_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
+			  vlib_cli_command_t * cmd)
+{
+  upf_proxy_main_t *pm = &upf_proxy_main;
+#define _(type, name) type name;
+  foreach_upf_proxy_config_fields
+#undef _
+  u32 tmp32;
+
+#define _(type, name) name = pm->name;
+  foreach_upf_proxy_config_fields
+#undef _
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "mss %d", &tmp32))
+	mss = (u16) tmp32;
+      else if (unformat (input, "fifo-size %U",
+		    unformat_memory_size, &fifo_size))
+	;
+      else if (unformat (input, "max-fifo-size %U",
+			 unformat_memory_size, &max_fifo_size))
+	;
+      else if (unformat (input, "high-watermark %d", &tmp32))
+	high_watermark = (u8) tmp32;
+      else if (unformat (input, "low-watermark %d", &tmp32))
+	low_watermark = (u8) tmp32;
+      else if (unformat (input, "prealloc-fifos %d", &prealloc_fifos))
+	;
+      else if (unformat (input, "private-segment-count %d",
+			 &private_segment_count))
+	;
+      else if (unformat (input, "private-segment-size %U",
+			 unformat_memory_size, &private_segment_size))
+	;
+      else
+	return clib_error_return (0, "unknown input `%U'",
+				  format_unformat_error, input);
+    }
+
+#define _(type, name) pm->name = name;
+  foreach_upf_proxy_config_fields
+#undef _
+
+  return 0;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_proxy_set_command, static) =
+{
+  .path = "set upf proxy",
+  .short_help = "set upf server [mss <nn>] [fifo-size <nn>[k|m]]"
+      "[max-fifo-size <nn>[k|m]][high-watermark <nn>]"
+      "[low-watermark <nn>][prealloc-fifos <nn>]"
+      "[private-segment-size <mem>][private-segment-count <nn>]",
+  .function = upf_proxy_set_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_show_proxy_command_fn (vlib_main_t * vm,
+			   unformat_input_t * main_input,
+			   vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  upf_proxy_main_t *pm = &upf_proxy_main;
+  clib_error_t *error = NULL;
+
+  if (unformat_user (main_input, unformat_line_input, line_input))
+    {
+      while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+	{
+	  error = unformat_parse_error (line_input);
+	  unformat_free (line_input);
+	  goto done;
+	}
+
+      unformat_free (line_input);
+    }
+
+  vlib_cli_output (vm, "MSS: %u\n"
+		   "FIFO Size: %U\n"
+		   "Max FIFO Size: %U\n"
+		   "Hi/Lo Watermark: %u %% / %u %%\n"
+		   "Prealloc FIFOs: %u\n"
+		   "Private Segment Count: %u\n"
+		   "Private Segment Size: %U\n",
+		   pm->mss,
+		   format_memory_size, pm->fifo_size,
+		   format_memory_size, pm->max_fifo_size,
+		   pm->high_watermark, pm->low_watermark,
+		   pm->prealloc_fifos,
+		   pm->private_segment_count,
+		   format_memory_size, pm->private_segment_size);
+
+done:
+  return error;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_show_proxy_command, static) =
+{
+  .path = "show upf proxy",
+  .short_help = "show upf proxy",
+  .function = upf_show_proxy_command_fn,
 };
 /* *INDENT-ON* */
 

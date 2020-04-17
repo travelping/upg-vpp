@@ -1047,7 +1047,6 @@ upf_proxy_main_init (vlib_main_t * vm)
   pm->max_fifo_size = 128 << 20;
   pm->high_watermark = 80;
   pm->low_watermark = 50;
-  pm->rcv_buffer_size = 1024;
   pm->prealloc_fifos = 0;
   pm->private_segment_count = 0;
   pm->private_segment_size = 512 << 20;
