@@ -659,11 +659,6 @@ typedef struct
 
 typedef struct
 {
-  ip46_address_fib_t key;
-} upf_pfcp_endpoint_t;
-
-typedef struct
-{
   ip4_address_t ip4;
   ip6_address_t ip6;
   u32 nwi_index;
@@ -744,7 +739,6 @@ typedef enum
 
 typedef struct
 {
-  upf_pfcp_endpoint_t *pfcp_endpoints;
   mhash_t pfcp_endpoint_index;
 
   /* vector of network instances */

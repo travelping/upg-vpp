@@ -83,7 +83,7 @@ void upf_pfcp_error_report (upf_session_t * sx, gtp_error_ind_t * error);
 u8 *format_pfcp_node_association (u8 * s, va_list * args);
 u8 *format_upf_far (u8 * s, va_list * args);
 u8 *format_pfcp_session (u8 * s, va_list * args);
-u8 *format_pfcp_endpoint (u8 * s, va_list * args);
+u8 *format_pfcp_endpoint_key (u8 * s, va_list * args);
 u8 *format_network_instance_index (u8 * s, va_list * args);
 u8 *format_gtpu_endpoint (u8 * s, va_list * args);
 

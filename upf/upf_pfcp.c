@@ -2774,13 +2774,13 @@ format_pfcp_node_association (u8 * s, va_list * args)
 }
 
 u8 *
-format_pfcp_endpoint (u8 * s, va_list * args)
+format_pfcp_endpoint_key (u8 * s, va_list * args)
 {
-  upf_pfcp_endpoint_t *ep = va_arg (*args, upf_pfcp_endpoint_t *);
+  ip46_address_fib_t *key = va_arg (*args, ip46_address_fib_t *);
 
   s = format (s, "%U [@%u]",
-	      format_ip46_address, &ep->key.addr, IP46_TYPE_ANY,
-	      ep->key.fib_index);
+	      format_ip46_address, &key->addr, IP46_TYPE_ANY,
+	      key->fib_index);
 
   return s;
 }

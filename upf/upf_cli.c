@@ -126,7 +126,8 @@ upf_pfcp_show_endpoint_command_fn (vlib_main_t * vm,
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_main_t *gtm = &upf_main;
   clib_error_t *error = NULL;
-  upf_pfcp_endpoint_t *ep;
+  ip46_address_fib_t  *key;
+  uword *v;
 
   if (unformat_user (main_input, unformat_line_input, line_input))
     {
@@ -140,11 +141,12 @@ upf_pfcp_show_endpoint_command_fn (vlib_main_t * vm,
       unformat_free (line_input);
     }
 
-  vlib_cli_output (vm, "Endpoints: %d\n", pool_elts (gtm->pfcp_endpoints));
+  vlib_cli_output (vm, "Endpoints: %d\n", mhash_elts (&gtm->pfcp_endpoint_index));
+
   /* *INDENT-OFF* */
-  pool_foreach (ep, gtm->pfcp_endpoints,
+  mhash_foreach(key, v, &gtm->pfcp_endpoint_index,
   ({
-    vlib_cli_output (vm, "  %U\n", format_pfcp_endpoint, ep);
+    vlib_cli_output (vm, "  %U: %u\n", format_pfcp_endpoint_key, key, *v);
   }));
   /* *INDENT-ON* */
 
