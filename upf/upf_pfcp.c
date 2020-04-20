@@ -1639,7 +1639,7 @@ build_pfcp_rules (upf_session_t * sx)
 			     pdr->pdi.teid.teid, idx);
       }
 
-    if (pdr->pdi.fields & F_PDI_SDF_FILTER)
+    if ((pdr->pdi.fields & F_PDI_SDF_FILTER))
       {
 	acl_rule_t *rule;
 
@@ -1666,7 +1666,8 @@ build_pfcp_rules (upf_session_t * sx)
 	    }
 	}
       }
-    else if ((pdr->pdi.fields & F_PDI_APPLICATION_ID))
+
+    if ((pdr->pdi.fields & F_PDI_APPLICATION_ID))
       {
 
 	if ((pdr->pdi.adr.flags & UPF_ADR_PROXY) &&

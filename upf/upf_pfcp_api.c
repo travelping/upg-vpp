@@ -61,6 +61,25 @@ typedef struct
 static int node_msg (pfcp_msg_t * msg);
 static int session_msg (pfcp_msg_t * msg);
 
+/* permit out ip from any to assigned */
+static const acl_rule_t wildcard_acl =
+  {
+   .type = IPFILTER_WILDCARD,
+   .action = ACL_PERMIT,
+   .direction = ACL_OUT,
+   .proto = ~0,
+   .address =
+   {
+    [UPF_ACL_FIELD_SRC] = ACL_ADDR_ANY,
+    [UPF_ACL_FIELD_DST] = ACL_ADDR_ASSIGNED
+   },
+   .port =
+   {
+    [UPF_ACL_FIELD_SRC] = {.min = 0, .max = ~0},
+    [UPF_ACL_FIELD_DST] = {.min = 0, .max = ~0}
+   }
+  };
+
 size_t
 upf_pfcp_api_session_data_size ()
 {
@@ -854,11 +873,22 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	 */
 	create->pdi.teid = pdr->pdi.f_teid;
       }
+
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_UE_IP_ADDRESS))
       {
 	create->pdi.fields |= F_PDI_UE_IP_ADDR;
 	create->pdi.ue_addr = pdr->pdi.ue_ip_address;
+
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
+	  {
+	    /* neither SDF, nor Application Id, generate a wildcard
+	       ACL to make ACL scanning simpler */
+	    create->pdi.fields |= F_PDI_SDF_FILTER;
+	    vec_add1 (create->pdi.acl, wildcard_acl);
+	  }
       }
+
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
       {
 	pfcp_sdf_filter_t *sdf;
@@ -1013,11 +1043,23 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	/* TODO validate TEID and mask */
 	update->pdi.teid = pdr->pdi.f_teid;
       }
+
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_UE_IP_ADDRESS))
       {
 	update->pdi.fields |= F_PDI_UE_IP_ADDR;
 	update->pdi.ue_addr = pdr->pdi.ue_ip_address;
+
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
+	  {
+	    /* neither SDF, nor Application Id, generate a wildcard
+	       ACL to make ACL scanning simpler */
+	    update->pdi.fields |= F_PDI_SDF_FILTER;
+	    vec_reset_length (update->pdi.acl);
+	    vec_add1 (update->pdi.acl, wildcard_acl);
+	  }
       }
+
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
       {
 	pfcp_sdf_filter_t *sdf;
