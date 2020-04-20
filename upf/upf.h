@@ -55,6 +55,7 @@ typedef struct
     u32 session_index;
     u16 ext_hdr_len;
     u16 data_offset;		/* offset relative to ip hdr */
+    u8 hdr_flags;
     u8 flags;
     u8 is_reverse:1;
     u8 is_proxied:1;

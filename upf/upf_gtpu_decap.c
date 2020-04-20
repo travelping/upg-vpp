@@ -310,13 +310,13 @@ upf_gtpu_input (vlib_main_t * vm,
 	  hdr_len0 += gtpu_hdr_len0;
 	  upf_buffer_opaque (b0)->gtpu.data_offset = hdr_len0;
 	  upf_buffer_opaque (b0)->gtpu.ext_hdr_len = gtpu_hdr_len0 - (sizeof (gtpu_header_t) - 4);
-	  upf_buffer_opaque (b0)->gtpu.flags = (gtpu0->ver_flags & GTPU_E_S_PN_BIT);
+	  upf_buffer_opaque (b0)->gtpu.hdr_flags = gtpu0->ver_flags;
 	  upf_buffer_opaque (b0)->gtpu.is_proxied = 0;
 	  upf_buffer_opaque (b0)->gtpu.teid = clib_net_to_host_u32 (gtpu0->teid);
 	  upf_buffer_opaque (b0)->gtpu.session_index = session_index0;
 	  upf_buffer_opaque (b0)->gtpu.pdr_idx =
 	    !(pfcp_get_rules (t0, PFCP_ACTIVE)->flags & PFCP_CLASSIFY) ? rule_index0 : ~0;
-	  upf_buffer_opaque (b0)->gtpu.flags |=
+	  upf_buffer_opaque (b0)->gtpu.flags =
 	    is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;
 	  upf_buffer_opaque (b0)->gtpu.flow_id = ~0;
 
@@ -488,13 +488,13 @@ upf_gtpu_input (vlib_main_t * vm,
 	  hdr_len1 += gtpu_hdr_len1;
 	  upf_buffer_opaque (b1)->gtpu.data_offset = hdr_len1;
 	  upf_buffer_opaque (b1)->gtpu.ext_hdr_len = gtpu_hdr_len1 - (sizeof (gtpu_header_t) - 4);
-	  upf_buffer_opaque (b1)->gtpu.flags = (gtpu1->ver_flags & GTPU_E_S_PN_BIT);
+	  upf_buffer_opaque (b1)->gtpu.hdr_flags = gtpu1->ver_flags;
 	  upf_buffer_opaque (b1)->gtpu.is_proxied = 0;
 	  upf_buffer_opaque (b1)->gtpu.teid = clib_net_to_host_u32 (gtpu1->teid);
 	  upf_buffer_opaque (b1)->gtpu.session_index = session_index1;
 	  upf_buffer_opaque (b1)->gtpu.pdr_idx =
 	    !(pfcp_get_rules (t1, PFCP_ACTIVE)->flags & PFCP_CLASSIFY) ? rule_index1 : ~0;
-	  upf_buffer_opaque (b1)->gtpu.flags |=
+	  upf_buffer_opaque (b1)->gtpu.flags =
 	    is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;
 	  upf_buffer_opaque (b1)->gtpu.flow_id = ~0;
 
@@ -718,13 +718,13 @@ upf_gtpu_input (vlib_main_t * vm,
 	  hdr_len0 += gtpu_hdr_len0;
 	  upf_buffer_opaque (b0)->gtpu.data_offset = hdr_len0;
 	  upf_buffer_opaque (b0)->gtpu.ext_hdr_len = gtpu_hdr_len0 - (sizeof (gtpu_header_t) - 4);
-	  upf_buffer_opaque (b0)->gtpu.flags = (gtpu0->ver_flags & GTPU_E_S_PN_BIT);
+	  upf_buffer_opaque (b0)->gtpu.hdr_flags = gtpu0->ver_flags;
 	  upf_buffer_opaque (b0)->gtpu.is_proxied = 0;
 	  upf_buffer_opaque (b0)->gtpu.teid = clib_net_to_host_u32 (gtpu0->teid);
 	  upf_buffer_opaque (b0)->gtpu.session_index = session_index0;
 	  upf_buffer_opaque (b0)->gtpu.pdr_idx =
 	    !(pfcp_get_rules (t0, PFCP_ACTIVE)->flags & PFCP_CLASSIFY) ? rule_index0 : ~0;
-	  upf_buffer_opaque (b0)->gtpu.flags |=
+	  upf_buffer_opaque (b0)->gtpu.flags =
 	    (is_ip4) ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;
 	  upf_buffer_opaque (b0)->gtpu.flow_id = ~0;
 
@@ -1860,3 +1860,11 @@ clib_error_t * ip6_gtpu_upf_bypass_init (vlib_main_t * vm)
 
 VLIB_INIT_FUNCTION (ip6_gtpu_upf_bypass_init);
 #endif /* CLIB_MARCH_VARIANT */
+
+/*
+ * fd.io coding-style-patch-verification: ON
+ *
+ * Local Variables:
+ * eval: (c-set-style "gnu")
+ * End:
+ */

@@ -277,13 +277,13 @@ upf_encap_inline (vlib_main_t * vm,
 	  vnet_buffer (b3)->ip.adj_index[VLIB_TX] =
 	    peer3->next_dpo.dpoi_index;
 
-	  if (PREDICT_FALSE ((upf_buffer_opaque (b0)->gtpu.flags & GTPU_E_S_PN_BIT) != 0))
+	  if (PREDICT_FALSE ((upf_buffer_opaque (b0)->gtpu.hdr_flags & GTPU_E_S_PN_BIT) != 0))
 	    vlib_buffer_advance (b0, -upf_buffer_opaque (b0)->gtpu.ext_hdr_len);
-	  if (PREDICT_FALSE ((upf_buffer_opaque (b1)->gtpu.flags & GTPU_E_S_PN_BIT) != 0))
+	  if (PREDICT_FALSE ((upf_buffer_opaque (b1)->gtpu.hdr_flags & GTPU_E_S_PN_BIT) != 0))
 	    vlib_buffer_advance (b1, -upf_buffer_opaque (b1)->gtpu.ext_hdr_len);
-	  if (PREDICT_FALSE ((upf_buffer_opaque (b2)->gtpu.flags & GTPU_E_S_PN_BIT) != 0))
+	  if (PREDICT_FALSE ((upf_buffer_opaque (b2)->gtpu.hdr_flags & GTPU_E_S_PN_BIT) != 0))
 	    vlib_buffer_advance (b2, -upf_buffer_opaque (b2)->gtpu.ext_hdr_len);
-	  if (PREDICT_FALSE ((upf_buffer_opaque (b3)->gtpu.flags & GTPU_E_S_PN_BIT) != 0))
+	  if (PREDICT_FALSE ((upf_buffer_opaque (b3)->gtpu.hdr_flags & GTPU_E_S_PN_BIT) != 0))
 	    vlib_buffer_advance (b3, -upf_buffer_opaque (b3)->gtpu.ext_hdr_len);
 
 	  /* Apply the rewrite string. $$$$ vnet_rewrite? */
@@ -399,28 +399,28 @@ upf_encap_inline (vlib_main_t * vm,
 				      sizeof (*ip4_0) - sizeof (*udp0) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu0->length = new_l0;
-	      gtpu0->ver_flags |= (upf_buffer_opaque (b0)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu0->ver_flags |= (upf_buffer_opaque (b0)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 	      gtpu1 = (gtpu_header_t *) (udp1 + 1);
 	      new_l1 =
 		clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b1) -
 				      sizeof (*ip4_1) - sizeof (*udp1) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu1->length = new_l1;
-	      gtpu1->ver_flags |= (upf_buffer_opaque (b1)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu1->ver_flags |= (upf_buffer_opaque (b1)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 	      gtpu2 = (gtpu_header_t *) (udp2 + 1);
 	      new_l2 =
 		clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b2) -
 				      sizeof (*ip4_2) - sizeof (*udp2) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu2->length = new_l2;
-	      gtpu2->ver_flags |= (upf_buffer_opaque (b2)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu2->ver_flags |= (upf_buffer_opaque (b2)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 	      gtpu3 = (gtpu_header_t *) (udp3 + 1);
 	      new_l3 =
 		clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b3) -
 				      sizeof (*ip4_3) - sizeof (*udp3) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu3->length = new_l3;
-	      gtpu3->ver_flags |= (upf_buffer_opaque (b3)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu3->ver_flags |= (upf_buffer_opaque (b3)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 	    }
 	  else			/* ipv6 */
 	    {
@@ -492,28 +492,28 @@ upf_encap_inline (vlib_main_t * vm,
 				      sizeof (*ip6_0) - sizeof (*udp0) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu0->length = new_l0;
-	      gtpu0->ver_flags |= (upf_buffer_opaque (b0)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu0->ver_flags |= (upf_buffer_opaque (b0)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 	      gtpu1 = (gtpu_header_t *) (udp1 + 1);
 	      new_l1 =
 		clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b1) -
 				      sizeof (*ip6_1) - sizeof (*udp1) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu1->length = new_l1;
-	      gtpu1->ver_flags |= (upf_buffer_opaque (b1)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu1->ver_flags |= (upf_buffer_opaque (b1)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 	      gtpu2 = (gtpu_header_t *) (udp2 + 1);
 	      new_l2 =
 		clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b2) -
 				      sizeof (*ip6_2) - sizeof (*udp2) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu2->length = new_l2;
-	      gtpu2->ver_flags |= (upf_buffer_opaque (b2)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu2->ver_flags |= (upf_buffer_opaque (b2)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 	      gtpu3 = (gtpu_header_t *) (udp3 + 1);
 	      new_l3 =
 		clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b3) -
 				      sizeof (*ip6_3) - sizeof (*udp3) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu3->length = new_l3;
-	      gtpu3->ver_flags |= (upf_buffer_opaque (b3)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu3->ver_flags |= (upf_buffer_opaque (b3)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 
 	      /* IPv6 UDP checksum is mandatory */
 	      udp0->checksum = ip6_tcp_udp_icmp_compute_checksum (vm, b0,
@@ -631,7 +631,7 @@ upf_encap_inline (vlib_main_t * vm,
 	  vnet_buffer (b0)->ip.adj_index[VLIB_TX] =
 	    peer0->next_dpo.dpoi_index;
 
-	  if (PREDICT_FALSE ((upf_buffer_opaque (b0)->gtpu.flags & GTPU_E_S_PN_BIT) != 0))
+	  if (PREDICT_FALSE ((upf_buffer_opaque (b0)->gtpu.hdr_flags & GTPU_E_S_PN_BIT) != 0))
 	    vlib_buffer_advance (b0, -upf_buffer_opaque (b0)->gtpu.ext_hdr_len);
 
 	  /* Apply the rewrite string. $$$$ vnet_rewrite? */
@@ -677,7 +677,7 @@ upf_encap_inline (vlib_main_t * vm,
 				      sizeof (*ip4_0) - sizeof (*udp0) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu0->length = new_l0;
-	      gtpu0->ver_flags |= (upf_buffer_opaque (b0)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu0->ver_flags |= (upf_buffer_opaque (b0)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 	    }
 
 	  else			/* ip6 path */
@@ -710,7 +710,7 @@ upf_encap_inline (vlib_main_t * vm,
 				      sizeof (*ip6_0) - sizeof (*udp0) -
 				      GTPU_V1_HDR_LEN);
 	      gtpu0->length = new_l0;
-	      gtpu0->ver_flags |= (upf_buffer_opaque (b0)->gtpu.flags & GTPU_E_S_PN_BIT);
+	      gtpu0->ver_flags |= (upf_buffer_opaque (b0)->gtpu.hdr_flags & GTPU_E_S_PN_BIT);
 
 	      /* IPv6 UDP checksum is mandatory */
 	      udp0->checksum = ip6_tcp_udp_icmp_compute_checksum (vm, b0,
