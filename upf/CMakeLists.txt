@@ -34,7 +34,6 @@ if(HS_FOUND)
     upf_flow_node.c
     upf_classify.c
     upf_adf.c
-    upf_tdf.c
     upf_input.c
     upf_forward.c
     upf_session_dpo.c
@@ -57,7 +56,6 @@ if(HS_FOUND)
     upf_gtpu_decap.c
     upf_flow_node.c
     upf_classify.c
-    upf_tdf.c
     upf_proxy_accept.c
     upf_proxy_input.c
     upf_proxy_output.c
