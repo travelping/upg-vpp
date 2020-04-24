@@ -1,6 +1,8 @@
 from datetime import datetime
 import uuid
 import framework
+from unittest import skip
+from random import getrandbits
 from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     IE_CreateFAR, IE_CreatePDR, IE_CreateURR, IE_DestinationInterface, \
     IE_DurationMeasurement, IE_EndTime, IE_EnterpriseSpecific, IE_FAR_Id, \
@@ -9,14 +11,18 @@ from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     IE_QueryURR, IE_RecoveryTimeStamp, IE_RedirectInformation, IE_ReportType, \
     IE_ReportingTriggers, IE_SDF_Filter, IE_SourceInterface, IE_StartTime, \
     IE_TimeQuota, IE_UE_IP_Address, IE_URR_Id, IE_UR_SEQN, \
-    IE_UsageReportTrigger, IE_VolumeMeasurement, PFCP, \
+    IE_UsageReportTrigger, IE_VolumeMeasurement, IE_ApplicationId, PFCP, \
     PFCPAssociationSetupRequest, PFCPAssociationSetupResponse, \
     PFCPHeartbeatRequest, PFCPHeartbeatResponse, PFCPSessionDeletionRequest, \
     PFCPSessionDeletionResponse, PFCPSessionEstablishmentRequest, \
     PFCPSessionEstablishmentResponse, PFCPSessionModificationRequest, \
     PFCPSessionModificationResponse, PFCPSessionReportRequest
 from scapy.layers.l2 import Ether
-from scapy.layers.inet import IP, UDP
+from scapy.layers.inet import IP, UDP, TCP
+from scapy.layers.inet6 import IPv6
+from scapy.layers.tls.all import TLS, TLSClientHello, TLS_Ext_ServerName, \
+    ServerName, TLS_Ext_SupportedPointFormat, TLS_Ext_SupportedGroups, \
+    TLS_Ext_SignatureAlgorithms, TLS_Ext_ALPN, ProtocolName
 from scapy.packet import Raw
 
 
@@ -24,69 +30,253 @@ def seid():
     return uuid.uuid4().int & (1 << 64) - 1
 
 
-DROP_IP = "192.0.2.99"
-REDIR_IP = "192.0.2.100"
-REDIR_TARGET_IP = "198.51.100.42"
+def filter_ies(ies):
+    return [ie for ie in ies if ie]
 
 
-class TestUPF(framework.VppTestCase):
-    """Test UPF"""
+DROP_IP_V4 = "192.0.2.99"
+DROP_IP_V6 = "2001:db8::5"
+REDIR_IP_V4 = "192.0.2.100"
+REDIR_IP_V6 = "2001:db8::6"
+REDIR_TARGET_IP_V4 = "198.51.100.42"
+REDIR_TARGET_IP_V6 = "2001:db8::1:7"
+APP_RULE_IP_V4 = "192.0.2.101"
+APP_RULE_IP_V6 = "2001:db8::2:1"
+NON_APP_RULE_IP_V4 = "192.0.9.201"
+NON_APP_RULE_IP_V6 = "2001:db8::2:2"
+NON_APP_RULE_IP_2_V4 = "192.0.9.202"
+NON_APP_RULE_IP_2_V6 = "2001:db8::2:3"
+NON_APP_RULE_IP_3_V4 = "192.0.9.203"
+NON_APP_RULE_IP_3_V6 = "2001:db8::2:4"
+EXTRA_SDF_IP_V4 = "192.0.9.204"
+EXTRA_SDF_IP_V6 = "2001:db8::3:1"
+
+
+class IPv4Mixin(object):
+    drop_ip = DROP_IP_V4
+    redir_ip = REDIR_IP_V4
+    redir_target_ip = REDIR_TARGET_IP_V4
+    non_app_rule_ip = NON_APP_RULE_IP_V4
+    non_app_rule_ip_2 = NON_APP_RULE_IP_2_V4
+    non_app_rule_ip_3 = NON_APP_RULE_IP_3_V4
+    extra_sdf_ip = EXTRA_SDF_IP_V4
+
+    @classmethod
+    def setup_tables(cls):
+        cls.vapi.cli("ip table add 100")
+        cls.vapi.cli("ip table add 200")
+
+    @classmethod
+    def config_interface(self, test_cls, iface, n):
+        test_cls.vapi.cli("set interface ip table %s %d" %
+                          (iface.name, n * 100))
+        iface.config_ip4()
+        iface.resolve_arp()
+
+    @classmethod
+    def upf_setup_cmds(cls):
+        return [
+            "upf nwi name cp vrf 0",
+            "upf nwi name access vrf 100",
+            "upf nwi name sgi vrf 200",
+            "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip4,
+            "upf tdf ul table vrf 100 ip4 table-id 1001",
+            "upf tdf ul enable ip4 %s" % cls.if_access.name,
+            "ip route add 0.0.0.0/0 table 200 via %s %s" %
+            (cls.if_sgi.remote_ip4, cls.if_sgi.name),
+            "create upf application proxy name TST",
+            "upf application TST rule 3000 add l7 regex " +
+            r"^https?://(.*\\.)*(example)\\.com/",
+            # TODO: uncomment when IP rules are implemented
+            # "upf application TST rule 3001 add ipfilter " +
+            # "permit out ip from %s to assigned" % APP_RULE_IP_V4,
+        ]
+
+    @property
+    def pfcp_cp_ip(self):
+        return self.if_cp.remote_ip4
+
+    @property
+    def pfcp_up_ip(self):
+        return self.if_cp.local_ip4
+
+    @property
+    def ue_ip(self):
+        return self.if_access.remote_ip4
+
+    @property
+    def sgi_remote_ip(self):
+        return self.if_sgi.remote_ip4
+
+    def ie_ue_ip_address(self, SD=0):
+        return IE_UE_IP_Address(ipv4=self.ue_ip, V4=1, SD=SD)
+
+    def ie_redirect_information(self):
+        return IE_RedirectInformation(
+            type="IPv4 address",
+            address=REDIR_TARGET_IP_V4)
+
+    def ie_sdf_filter_for_redirect(self):
+        return IE_SDF_Filter(
+            FD=1,
+            flow_description="permit out ip from %s to assigned" %
+            REDIR_IP_V4)
+
+    def ie_sdf_filter_extra_for_app_pdi(self):
+        return IE_SDF_Filter(
+            FD=1,
+            flow_description="permit out ip from %s to assigned" %
+            EXTRA_SDF_IP_V4)
+
+    def ie_fseid(self):
+        return IE_FSEID(ipv4=self.pfcp_cp_ip, v4=1, seid=self.cur_seid)
+
+    def verify_ie_fseid(self, ie_fseid):
+        self.assertTrue(ie_fseid.v4)
+        self.assertFalse(ie_fseid.v6)
+        self.assertEqual(ie_fseid.ipv4, self.pfcp_up_ip)
+
+    def verify_ie_ue_ip_address(self, ie_ue_ip):
+        self.assertEqual(ie_ue_ip.V4, 1)
+        self.assertEqual(ie_ue_ip.V6, 0)
+        self.assertEqual(ie_ue_ip.ipv4, self.ue_ip)
+
+    @property
+    def IP(self):
+        return IP
+
+
+class IPv6Mixin(object):
+    drop_ip = DROP_IP_V6
+    redir_ip = REDIR_IP_V6
+    redir_target_ip = REDIR_TARGET_IP_V6
+    non_app_rule_ip = NON_APP_RULE_IP_V6
+    non_app_rule_ip_2 = NON_APP_RULE_IP_2_V6
+    non_app_rule_ip_3 = NON_APP_RULE_IP_3_V6
+    extra_sdf_ip = EXTRA_SDF_IP_V6
+
+    @classmethod
+    def setup_tables(cls):
+        cls.vapi.cli("ip6 table add 100")
+        cls.vapi.cli("ip6 table add 200")
+
+    @classmethod
+    def config_interface(self, test_cls, iface, n):
+        test_cls.vapi.cli("set interface ip6 table %s %d" %
+                          (iface.name, n * 100))
+        iface.config_ip6()
+        iface.resolve_ndp()
+
+    @classmethod
+    def upf_setup_cmds(cls):
+        return [
+            "upf nwi name cp vrf 0",
+            "upf nwi name access vrf 100",
+            "upf nwi name sgi vrf 200",
+            "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip6,
+            "upf tdf ul table vrf 100 ip6 table-id 1001",
+            "upf tdf ul enable ip6 %s" % cls.if_access.name,
+            "ip route add ::/0 table 200 via %s %s" %
+            (cls.if_sgi.remote_ip6, cls.if_sgi.name),
+            "create upf application proxy name TST",
+            "upf application TST rule 3000 add l7 regex " +
+            r"^https?://(.*\\.)*(example)\\.com/",
+            # TODO: uncomment when IP rules are implemented
+            # "upf application TST rule 3001 add ipfilter " +
+            # "permit out ip from %s to assigned" % APP_RULE_IP_V6,
+        ]
+
+    @property
+    def pfcp_cp_ip(self):
+        return self.if_cp.remote_ip6
+
+    @property
+    def pfcp_up_ip(self):
+        return self.if_cp.local_ip6
+
+    @property
+    def ue_ip(self):
+        return self.if_access.remote_ip6
+
+    @property
+    def sgi_remote_ip(self):
+        return self.if_sgi.remote_ip6
+
+    def ie_ue_ip_address(self, SD=0):
+        return IE_UE_IP_Address(ipv6=self.ue_ip, V6=1, SD=SD)
+
+    def ie_redirect_information(self):
+        return IE_RedirectInformation(
+            type="IPv6 address",
+            address=REDIR_TARGET_IP_V6)
+
+    def ie_sdf_filter_for_redirect(self):
+        return IE_SDF_Filter(
+            FD=1,
+            flow_description="permit out ip from %s to assigned" %
+            REDIR_IP_V6)
+
+    def ie_sdf_filter_extra_for_app_pdi(self):
+        return IE_SDF_Filter(
+            FD=1,
+            flow_description="permit out ip from %s to assigned" %
+            EXTRA_SDF_IP_V6)
+
+    def ie_fseid(self):
+        return IE_FSEID(ipv6=self.pfcp_cp_ip, v6=1, seid=self.cur_seid)
+
+    def verify_ie_fseid(self, ie_fseid):
+        self.assertFalse(ie_fseid.v4)
+        self.assertTrue(ie_fseid.v6)
+        self.assertEqual(ie_fseid.ipv6, self.pfcp_up_ip)
+
+    def verify_ie_ue_ip_address(self, ie_ue_ip):
+        self.assertEqual(ie_ue_ip.V4, 0)
+        self.assertEqual(ie_ue_ip.V6, 1)
+        self.assertEqual(ie_ue_ip.ipv6, self.ue_ip)
+
+    @property
+    def IP(self):
+        return IPv6
+
+
+class TestUPFBase(object):
+    """Base UPF Test"""
 
     @classmethod
     def setUpClass(cls):
         cls.ts = int((datetime.now() - datetime(1900, 1, 1)).total_seconds())
-        super(TestUPF, cls).setUpClass()
+        super(TestUPFBase, cls).setUpClass()
         try:
             cls.create_pg_interfaces(range(3))
             cls.interfaces = list(cls.pg_interfaces)
 
-            cls.vapi.cli("ip table add 1")
-            cls.vapi.cli("ip table add 2")
+            cls.setup_tables()
             # separate assignments are easier to understand for some
             # tools like elpy than this:
             # cls.if_cp, cls.if_access, cls.if_sgi = cls.interfaces
             cls.if_cp = cls.interfaces[0]
             cls.if_access = cls.interfaces[1]
             cls.if_sgi = cls.interfaces[2]
-            for n, i in enumerate(cls.interfaces):
-                i.admin_up()
-                cls.vapi.cli("set interface ip table %s %d" % (i.name, n))
-                i.config_ip4()
-                i.resolve_arp()
+            for n, iface in enumerate(cls.interfaces):
+                iface.admin_up()
+                cls.config_interface(cls, iface, n)
             for cmd in cls.upf_setup_cmds():
                 cls.vapi.cli(cmd)
         except Exception:
-            super(TestUPF, cls).tearDownClass()
+            super(TestUPFBase, cls).tearDownClass()
             raise
 
     @classmethod
     def tearDownClass(cls):
-        super(TestUPF, cls).tearDownClass()
-
-    @classmethod
-    def upf_setup_cmds(cls):
-        return [
-            "upf nwi name cp vrf 0",
-            "upf nwi name access vrf 1",
-            "upf nwi name sgi vrf 2",
-            "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip4,
-            "upf gtpu endpoint ip %s nwi cp teid 0x80000000/2" %
-            cls.if_cp.local_ip4,
-            "upf tdf ul table vrf 1 ip4 table-id 1001",
-            "upf tdf ul enable ip4 %s" % cls.if_access.name,
-            "ip route add 0.0.0.0/0 table 2 via %s %s" %
-            (cls.if_sgi.remote_ip4, cls.if_sgi.name),
-            "create upf application name TST",
-            "upf application TST rule 3000 add l7 regex " +
-            r"^https?://(.*\\.)*(example)\\.com/",
-        ]
+        super(TestUPFBase, cls).tearDownClass()
 
     def setUp(self):
-        super(TestUPF, self).setUp()
+        super(TestUPFBase, self).setUp()
         self.seq = 1
 
     def tearDown(self):
-        super(TestUPF, self).tearDown()
+        super(TestUPFBase, self).tearDown()
 
     def test_upf(self):
         try:
@@ -107,9 +297,21 @@ class TestUPF(framework.VppTestCase):
         try:
             self.associate()
             self.heartbeat()
-            self.establish_reporting_session()
+            self.establish_reporting_session(report_app=False)
             self.verify_reporting()
             self.verify_session_modification()
+            self.delete_session()
+        finally:
+            self.vapi.cli("show error")
+
+    @skip("app reporting is disabled for now")
+    def test_app_reporting(self):
+        try:
+            self.associate()
+            self.heartbeat()
+            self.establish_reporting_session(report_app=True)
+            self.verify_app_reporting()
+            self.vapi.cli("show upf flows")
             self.delete_session()
         finally:
             self.vapi.cli("show error")
@@ -122,7 +324,7 @@ class TestUPF(framework.VppTestCase):
         self.logger.info("REQ: %r" % pkt)
         self.if_cp.add_stream(
             Ether(src=self.if_cp.remote_mac, dst=self.if_cp.local_mac) /
-            IP(src=self.if_cp.remote_ip4, dst=self.if_cp.local_ip4) /
+            self.IP(src=self.pfcp_cp_ip, dst=self.pfcp_up_ip) /
             UDP(sport=8805, dport=8805) /
             PFCP(
                 version=1, seq=self.seq,
@@ -152,8 +354,6 @@ class TestUPF(framework.VppTestCase):
         self.assertIn(IE_RecoveryTimeStamp, resp)
 
     def establish_session(self):
-        cp_ip = self.if_cp.remote_ip4
-        ue_ip = self.if_access.remote_ip4
         self.cur_seid = seid()
         resp = self.chat(PFCPSessionEstablishmentRequest(IE_list=[
             IE_CreateFAR(IE_list=[
@@ -179,9 +379,7 @@ class TestUPF(framework.VppTestCase):
                 IE_ForwardingParameters(IE_list=[
                     IE_DestinationInterface(interface="SGi-LAN/N6-LAN"),
                     IE_NetworkInstance(instance="sgi"),
-                    IE_RedirectInformation(
-                        type="IPv4 address",
-                        address=REDIR_TARGET_IP)
+                    self.ie_redirect_information(),
                 ])
             ]),
             IE_CreateFAR(IE_list=[
@@ -196,7 +394,7 @@ class TestUPF(framework.VppTestCase):
                         FD=1,
                         flow_description="permit out ip from any to assigned"),
                     IE_SourceInterface(interface="Access"),
-                    IE_UE_IP_Address(ipv4=ue_ip, V4=1)
+                    self.ie_ue_ip_address(),
                 ]),
                 IE_PDR_Id(id=1),
                 IE_Precedence(precedence=200),
@@ -209,7 +407,7 @@ class TestUPF(framework.VppTestCase):
                         FD=1,
                         flow_description="permit out ip from any to assigned"),
                     IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
-                    IE_UE_IP_Address(ipv4=ue_ip, SD=1, V4=1)
+                    self.ie_ue_ip_address(SD=1)
                 ]),
                 IE_PDR_Id(id=2),
                 IE_Precedence(precedence=200),
@@ -218,12 +416,9 @@ class TestUPF(framework.VppTestCase):
                 IE_FAR_Id(id=3),
                 IE_PDI(IE_list=[
                     IE_NetworkInstance(instance="access"),
-                    IE_SDF_Filter(
-                        FD=1,
-                        flow_description="permit out ip from %s to assigned" %
-                        REDIR_IP),
+                    self.ie_sdf_filter_for_redirect(),
                     IE_SourceInterface(interface="Access"),
-                    IE_UE_IP_Address(ipv4=ue_ip, V4=1)
+                    self.ie_ue_ip_address(),
                 ]),
                 IE_PDR_Id(id=3),
                 IE_Precedence(precedence=100),
@@ -235,25 +430,23 @@ class TestUPF(framework.VppTestCase):
                     IE_SDF_Filter(
                         FD=1,
                         flow_description="permit out ip from %s to assigned" %
-                        DROP_IP),
+                        self.drop_ip),
                     IE_SourceInterface(interface="Access"),
-                    IE_UE_IP_Address(ipv4=ue_ip, V4=1)
+                    self.ie_ue_ip_address(),
                 ]),
                 IE_PDR_Id(id=4),
                 IE_Precedence(precedence=100),
             ]),
-            IE_FSEID(ipv4=cp_ip, v4=1, seid=self.cur_seid),
+            self.ie_fseid(),
             IE_NodeId(id_type=2, id="ergw")
         ]), PFCPSessionEstablishmentResponse, seid=self.cur_seid)
         self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
-        self.assertEqual(resp[IE_FSEID].ipv4, self.if_cp.local_ip4)
+        self.verify_ie_fseid(resp[IE_FSEID])
         self.assertEqual(resp[IE_FSEID].seid, self.cur_seid)
 
-    def establish_reporting_session(self):
-        cp_ip = self.if_cp.remote_ip4
-        ue_ip = self.if_access.remote_ip4
+    def establish_reporting_session(self, report_app=False):
         self.cur_seid = seid()
-        resp = self.chat(PFCPSessionEstablishmentRequest(IE_list=[
+        resp = self.chat(PFCPSessionEstablishmentRequest(IE_list=filter_ies([
             IE_CreateFAR(IE_list=[
                 IE_ApplyAction(FORW=1),
                 IE_FAR_Id(id=1),
@@ -275,8 +468,8 @@ class TestUPF(framework.VppTestCase):
                 IE_ReportingTriggers(start_of_traffic=1),
                 IE_TimeQuota(quota=60),
                 IE_URR_Id(id=1)
-            ]),
-            IE_CreatePDR(IE_list=[
+            ]) if not report_app else None,
+            IE_CreatePDR(IE_list=filter_ies([
                 IE_FAR_Id(id=1),
                 IE_PDI(IE_list=[
                     IE_NetworkInstance(instance="access"),
@@ -284,12 +477,12 @@ class TestUPF(framework.VppTestCase):
                         FD=1,
                         flow_description="permit out ip from any to assigned"),
                     IE_SourceInterface(interface="Access"),
-                    IE_UE_IP_Address(ipv4=ue_ip, V4=1)
+                    self.ie_ue_ip_address()
                 ]),
                 IE_PDR_Id(id=1),
                 IE_Precedence(precedence=200),
-                IE_URR_Id(id=1)
-            ]),
+                IE_URR_Id(id=1) if not report_app else None
+            ])),
             IE_CreatePDR(IE_list=[
                 IE_FAR_Id(id=2),
                 IE_PDI(IE_list=[
@@ -298,125 +491,158 @@ class TestUPF(framework.VppTestCase):
                         FD=1,
                         flow_description="permit out ip from any to assigned"),
                     IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
-                    IE_UE_IP_Address(ipv4=ue_ip, SD=1, V4=1)
+                    self.ie_ue_ip_address(SD=1)
                 ]),
                 IE_PDR_Id(id=2),
                 IE_Precedence(precedence=200),
             ]),
-            IE_FSEID(ipv4=cp_ip, v4=1, seid=self.cur_seid),
+            IE_CreateURR(IE_list=[
+                IE_MeasurementMethod(VOLUM=1, DURAT=1),
+                IE_ReportingTriggers(),
+                IE_TimeQuota(quota=60),
+                IE_URR_Id(id=2)
+            ]) if report_app else None,
+            IE_CreatePDR(IE_list=[
+                IE_FAR_Id(id=1),
+                IE_PDI(IE_list=[
+                    self.ie_sdf_filter_extra_for_app_pdi(),
+                    IE_ApplicationId(id="TST"),
+                    IE_NetworkInstance(instance="access"),
+                    IE_SourceInterface(interface="Access"),
+                    self.ie_ue_ip_address(),
+                ]),
+                IE_PDR_Id(id=3),
+                IE_Precedence(precedence=100),
+                IE_URR_Id(id=2)
+            ]) if report_app else None,
+            IE_CreatePDR(IE_list=[
+                IE_FAR_Id(id=2),
+                IE_PDI(IE_list=[
+                    # FIXME: this currently appears not to work
+                    # (to be fixed in ip-rules branch)
+                    # IE_SDF_Filter(
+                    #     FD=1,
+                    #     flow_description="permit out ip from %s to assigned"
+                    #     % self.extra_sdf_ip),
+                    IE_ApplicationId(id="TST"),
+                    IE_NetworkInstance(instance="sgi"),
+                    IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
+                    self.ie_ue_ip_address(SD=1),
+                ]),
+                IE_PDR_Id(id=4),
+                # FIXME: likely a bug in 20.01 branch: PDR for DL
+                # traffic must have lower precedence
+                IE_Precedence(precedence=10),
+                IE_URR_Id(id=2)
+            ]) if report_app else None,
+            self.ie_fseid(),
             IE_NodeId(id_type=2, id="ergw")
-        ]), PFCPSessionEstablishmentResponse, seid=self.cur_seid)
+        ])), PFCPSessionEstablishmentResponse, seid=self.cur_seid)
         self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
-        self.assertEqual(resp[IE_FSEID].ipv4, self.if_cp.local_ip4)
+        self.verify_ie_fseid(resp[IE_FSEID])
         self.assertEqual(resp[IE_FSEID].seid, self.cur_seid)
 
     def delete_session(self):
-        cp_ip = self.if_cp.remote_ip4
         resp = self.chat(PFCPSessionDeletionRequest(IE_list=[
-            IE_FSEID(ipv4=cp_ip, v4=1, seid=self.cur_seid),
+            self.ie_fseid(),
             IE_NodeId(id_type=2, id="ergw")
         ]), PFCPSessionDeletionResponse, seid=self.cur_seid)
         self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
 
+    def send_from_access_to_sgi(self, payload=None, l4proto=UDP, ue_port=12345,
+                                remote_port=23456, remote_ip=None, **kwargs):
+        if remote_ip is None:
+            remote_ip = self.sgi_remote_ip
+        to_send = Ether(src=self.if_access.remote_mac,
+                        dst=self.if_access.local_mac) / \
+            self.IP(src=self.ue_ip, dst=remote_ip) / \
+            l4proto(sport=ue_port, dport=remote_port, **kwargs)
+        if payload is not None:
+            to_send /= Raw(payload)
+        self.if_access.add_stream(to_send)
+        self.pg_enable_capture(self.pg_interfaces)
+        self.pg_start()
+        return len(to_send[self.IP])
+
+    def assert_packet_sent_to_sgi(self, payload=None, l4proto=UDP,
+                                  ue_port=12345, remote_port=23456,
+                                  remote_ip=None):
+        if remote_ip is None:
+            remote_ip = self.sgi_remote_ip
+        pkt = self.if_sgi.get_capture(1)[0]
+        self.assertEqual(pkt[self.IP].src, self.ue_ip)
+        self.assertEqual(pkt[self.IP].dst, remote_ip)
+        self.assertEqual(pkt[l4proto].sport, ue_port)
+        self.assertEqual(pkt[l4proto].dport, remote_port)
+        if payload is not None:
+            self.assertEqual(pkt[Raw].load, payload)
+
+    def assert_packet_not_sent_to_sgi(self):
+        self.if_sgi.assert_nothing_captured()
+
+    def send_from_sgi_to_access(self, payload=None, l4proto=UDP, ue_port=12345,
+                                remote_port=23456, remote_ip=None, **kwargs):
+        if remote_ip is None:
+            remote_ip = self.sgi_remote_ip
+        to_send = Ether(src=self.if_sgi.remote_mac,
+                        dst=self.if_sgi.local_mac) / \
+            self.IP(src=remote_ip, dst=self.ue_ip) / \
+            l4proto(sport=remote_port, dport=ue_port, **kwargs)
+        if payload is not None:
+            if isinstance(payload, bytes):
+                payload = Raw(payload)
+            to_send /= payload
+        self.if_sgi.add_stream(to_send)
+        self.pg_enable_capture(self.pg_interfaces)
+        self.pg_start()
+        return len(to_send[self.IP])
+
+    def assert_packet_sent_to_access(self, payload=None, l4proto=UDP,
+                                     ue_port=12345, remote_port=23456,
+                                     remote_ip=None):
+        if remote_ip is None:
+            remote_ip = self.sgi_remote_ip
+        pkt = self.if_access.get_capture(1)[0]
+        self.assertEqual(pkt[self.IP].src, remote_ip)
+        self.assertEqual(pkt[self.IP].dst, self.ue_ip)
+        self.assertEqual(pkt[l4proto].sport, remote_port)
+        self.assertEqual(pkt[l4proto].dport, ue_port)
+        if payload is not None:
+            self.assertEqual(pkt[Raw].load, payload)
+
+    def assert_packet_not_sent_to_access(self):
+        self.if_access.assert_nothing_captured()
+
     def verify_no_forwarding(self):
         # Access -> SGi
-        self.if_access.add_stream(
-            Ether(src=self.if_access.remote_mac,
-                  dst=self.if_access.local_mac) /
-            IP(src=self.if_access.remote_ip4, dst=self.if_sgi.remote_ip4) /
-            UDP(sport=12345, dport=23456) /
-            Raw(b"42"))
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        self.if_sgi.assert_nothing_captured()
+        self.send_from_access_to_sgi(b"42")
+        self.assert_packet_not_sent_to_sgi()
         # SGi -> Access
-        self.if_sgi.add_stream(
-            Ether(src=self.if_access.local_mac,
-                  dst=self.if_access.remote_mac) /
-            IP(src=self.if_sgi.remote_ip4, dst=self.if_access.remote_ip4) /
-            UDP(sport=23456, dport=12345) /
-            Raw(b"4242"))
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        self.if_access.assert_nothing_captured()
+        self.send_from_sgi_to_access(b"42")
+        self.assert_packet_not_sent_to_access()
 
     def verify_forwarding(self):
         # Access -> SGi
-        self.if_access.add_stream(
-            Ether(src=self.if_access.remote_mac,
-                  dst=self.if_access.local_mac) /
-            IP(src=self.if_access.remote_ip4, dst=self.if_sgi.remote_ip4) /
-            UDP(sport=12345, dport=23456) /
-            Raw(b"42"))
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        pkt = self.if_sgi.get_capture(1)[0]
-        self.assertEqual(pkt[IP].src, self.if_access.remote_ip4)
-        self.assertEqual(pkt[IP].dst, self.if_sgi.remote_ip4)
-        self.assertEqual(pkt[UDP].sport, 12345)
-        self.assertEqual(pkt[UDP].dport, 23456)
-        self.assertEqual(pkt[Raw].load, b"42")
+        self.send_from_access_to_sgi(b"42")
+        self.assert_packet_sent_to_sgi(b"42")
         # SGi -> Access
-        self.if_sgi.add_stream(
-            Ether(src=self.if_access.local_mac,
-                  dst=self.if_access.remote_mac) /
-            IP(src=self.if_sgi.remote_ip4, dst=self.if_access.remote_ip4) /
-            UDP(sport=23456, dport=12345) /
-            Raw(b"4242"))
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        pkt = self.if_access.get_capture(1)[0]
-        self.assertEqual(pkt[IP].src, self.if_sgi.remote_ip4)
-        self.assertEqual(pkt[IP].dst, self.if_access.remote_ip4)
-        self.assertEqual(pkt[UDP].sport, 23456)
-        self.assertEqual(pkt[UDP].dport, 12345)
-        self.assertEqual(pkt[Raw].load, b"4242")
+        self.send_from_sgi_to_access(b"4242")
+        self.assert_packet_sent_to_access(b"4242")
 
     def verify_drop(self):
         # Access -> SGi
-        self.if_access.add_stream(
-            Ether(src=self.if_access.remote_mac,
-                  dst=self.if_access.local_mac) /
-            IP(src=self.if_access.remote_ip4, dst=DROP_IP) /
-            UDP(sport=12345, dport=23456) /
-            Raw(b"42"))
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        self.if_sgi.assert_nothing_captured()
+        self.send_from_access_to_sgi(b"42", remote_ip=self.drop_ip)
+        self.assert_packet_not_sent_to_sgi()
 
     def verify_redirect(self):
         # FIXME: the IP redirect is currently also handled by the proxy
-        self.if_access.add_stream(
-            Ether(src=self.if_access.remote_mac,
-                  dst=self.if_access.local_mac) /
-            IP(src=self.if_access.remote_ip4, dst=REDIR_IP) /
-            UDP(sport=12345, dport=23456) /
-            Raw(b"42"))
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        pkt = self.if_sgi.get_capture(1)[0]
-        self.assertEqual(pkt[IP].src, self.if_access.remote_ip4)
-        self.assertEqual(pkt[IP].dst, REDIR_TARGET_IP)
-        self.assertEqual(pkt[UDP].sport, 12345)
-        self.assertEqual(pkt[UDP].dport, 23456)
-        self.assertEqual(pkt[Raw].load, b"42")
+        self.send_from_access_to_sgi(b"42", remote_ip=self.redir_ip)
+        self.assert_packet_sent_to_sgi(b"42", remote_ip=self.redir_target_ip)
 
     def verify_reporting(self):
         # Access -> SGi
-        self.if_access.add_stream(
-            Ether(src=self.if_access.remote_mac,
-                  dst=self.if_access.local_mac) /
-            IP(src=self.if_access.remote_ip4, dst=self.if_sgi.remote_ip4) /
-            UDP(sport=12345, dport=23456) /
-            Raw(b"42"))
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        pkt = self.if_sgi.get_capture(1)[0]
-        self.assertEqual(pkt[IP].src, self.if_access.remote_ip4)
-        self.assertEqual(pkt[IP].dst, self.if_sgi.remote_ip4)
-        self.assertEqual(pkt[UDP].sport, 12345)
-        self.assertEqual(pkt[UDP].dport, 23456)
-        self.assertEqual(pkt[Raw].load, b"42")
+        self.send_from_access_to_sgi(b"42")
+        self.assert_packet_sent_to_sgi(b"42")
         sr = self.if_cp.get_capture(1)[0][PFCPSessionReportRequest]
         self.assertEqual(sr[IE_ReportType].UPIR, 0)
         self.assertEqual(sr[IE_ReportType].ERIR, 0)
@@ -441,24 +667,13 @@ class TestUPF(framework.VppTestCase):
         self.assertEqual(rt.LIUSA, 0)
         self.assertEqual(rt.TIMQU, 0)
         self.assertEqual(rt.VOLQU, 0)
-        self.assertEqual(sr[IE_UE_IP_Address].V4, 1)
-        self.assertEqual(sr[IE_UE_IP_Address].V6, 0)
-        self.assertEqual(sr[IE_UE_IP_Address].ipv4, self.if_access.remote_ip4)
+        self.verify_ie_ue_ip_address(sr[IE_UE_IP_Address])
 
     def verify_session_modification(self):
         send_len = 0
         for i in range(0, 3):
-            to_send = Ether(src=self.if_access.remote_mac,
-                            dst=self.if_access.local_mac) / \
-                IP(src=self.if_access.remote_ip4,
-                   dst=self.if_sgi.remote_ip4) / \
-                UDP(sport=12345, dport=23456) / \
-                Raw(b"42 foo bar baz")
-            send_len += len(to_send[IP])
-            self.if_access.add_stream(to_send)
-            self.pg_enable_capture(self.pg_interfaces)
-            self.pg_start()
-            self.if_sgi.get_capture(1)
+            send_len += self.send_from_access_to_sgi(b"42 foo bar baz")
+            self.assert_packet_sent_to_sgi(b"42 foo bar baz")
         resp = self.chat(PFCPSessionModificationRequest(IE_list=[
             IE_QueryURR(IE_list=[IE_URR_Id(id=1)])
         ]), PFCPSessionModificationResponse, seid=self.cur_seid)
@@ -493,6 +708,162 @@ class TestUPF(framework.VppTestCase):
         self.assertEqual(vm.uplink, send_len)
         self.assertEqual(vm.downlink, 0)
         # TODO: verify more packets in both directions
+
+    def verify_traffic_reporting(self, up_len, down_len):
+        resp = self.chat(PFCPSessionModificationRequest(IE_list=[
+            IE_QueryURR(IE_list=[IE_URR_Id(id=2)])
+        ]), PFCPSessionModificationResponse, seid=self.cur_seid)
+        vm = resp[IE_VolumeMeasurement]
+        self.assertTrue(vm.DLVOL)
+        self.assertTrue(vm.ULVOL)
+        self.assertTrue(vm.TOVOL)
+        self.assertEqual(vm.total, up_len + down_len)
+        self.assertEqual(vm.uplink, up_len)
+        self.assertEqual(vm.downlink, down_len)
+
+    def tcp_handshake(self, remote_ip, remote_port):
+        # 31 instead of 32 to make it a little bit easier to deal
+        # with integer overflows
+        s1, s2 = getrandbits(31), getrandbits(31)
+
+        self.send_from_access_to_sgi(
+            l4proto=TCP, flags="S",
+            remote_ip=remote_ip, remote_port=remote_port, seq=s1, ack=0)
+        # self.assert_packet_sent_to_sgi(
+        #     l4proto=TCP,
+        #     remote_ip=remote_ip, remote_port=remote_port)
+
+        # self.send_from_sgi_to_access(
+        #     l4proto=TCP,
+        #     flags="SA",
+        #     remote_ip=remote_ip, remote_port=remote_port,
+        #     seq=s2, ack=s1+1)
+        self.assert_packet_sent_to_access(
+            l4proto=TCP,
+            remote_ip=remote_ip, remote_port=remote_port)
+
+        self.send_from_access_to_sgi(
+            l4proto=TCP,
+            flags="A",
+            remote_ip=remote_ip, remote_port=remote_port,
+            seq=s1+1, ack=s2+1)
+        self.assert_packet_sent_to_sgi(
+            l4proto=TCP,
+            remote_ip=remote_ip, remote_port=remote_port)
+
+        return s1, s2
+
+    def verify_app_reporting_http(self):
+        s1, s2 = self.tcp_handshake(remote_ip=self.non_app_rule_ip,
+                                    remote_port=80)
+        http_get = b"GET / HTTP/1.1\r\nHost: example.com/\r\n\r\n"
+        up_len = self.send_from_access_to_sgi(
+            http_get, flags="P", l4proto=TCP,
+            remote_port=80, remote_ip=self.non_app_rule_ip,
+            seq=s1+1, ack=s2+1)
+        self.assert_packet_sent_to_sgi(
+            http_get, l4proto=TCP,
+            remote_port=80, remote_ip=self.non_app_rule_ip)
+
+        http_resp = b"HTTP/1.1 200 OK\nContent-Type: text/plain\r\n\r\nfoo"
+        down_len = self.send_from_sgi_to_access(
+            http_resp, l4proto=TCP, flags="A",
+            remote_port=80, remote_ip=self.non_app_rule_ip,
+            seq=s2+1, ack=s1+1+len(http_get))
+        self.assert_packet_sent_to_access(
+            http_resp, l4proto=TCP,
+            remote_port=80, remote_ip=self.non_app_rule_ip)
+
+        self.verify_traffic_reporting(up_len, down_len)
+
+    def verify_app_reporting_tls(self):
+        s1, s2 = self.tcp_handshake(
+            remote_ip=self.non_app_rule_ip_2, remote_port=443)
+        tls = TLS(msg=[
+            TLSClientHello(
+                version=771,
+                gmt_unix_time=2183047903,
+                random_bytes=b"\x9f\x98\x0b\x13\x05\xa5O\xd0?\x8d\xc8\xdc)" +
+                "\x86\xb0W\xd7\xc1\x7f'\x19sg\x84%\xa8\xc4\xc4",
+                ciphers=[
+                    49200, 49196, 49192, 49188, 49172, 49162, 159, 107,
+                    57, 52393, 52392, 52394, 65413, 196, 136, 129,
+                    157, 61, 53, 192, 132, 49199, 49195, 49191,
+                    49187, 49171, 49161, 158, 103, 51, 190, 69,
+                    156, 60, 47, 186, 65, 49169, 49159, 5,
+                    4, 49170, 49160, 22, 10, 255
+                ],
+                comp=[0],
+                ext=[
+                    TLS_Ext_ServerName(servernames=[
+                        ServerName(nametype=0, servername=b'example.com')
+                    ]),
+                    TLS_Ext_SupportedPointFormat(ecpl=[0]),
+                    TLS_Ext_SupportedGroups(groups=[29, 23, 24]),
+                    TLS_Ext_SignatureAlgorithms(sig_algs=[
+                        1537, 1539, 61423, 1281, 1283, 1025, 1027, 61166,
+                        60909, 769, 771, 513, 515
+                    ]),
+                    TLS_Ext_ALPN(protocols=[
+                        ProtocolName(protocol=b'h2'),
+                        ProtocolName(protocol=b'http/1.1')
+                    ])
+                ])
+        ], version=769)
+
+        up_len = self.send_from_access_to_sgi(
+            tls, flags="P", l4proto=TCP,
+            remote_port=443, remote_ip=self.non_app_rule_ip_2,
+            seq=s1+1, ack=s2+1)
+        self.assert_packet_sent_to_sgi(
+            l4proto=TCP, remote_port=443, remote_ip=self.non_app_rule_ip_2)
+
+        down_len = self.send_from_sgi_to_access(
+            l4proto=TCP, flags="A",
+            remote_port=443, remote_ip=self.non_app_rule_ip_2,
+            seq=s2+1, ack=s1+1+len(tls))
+        self.assert_packet_sent_to_access(
+            l4proto=TCP,
+            remote_port=443, remote_ip=self.non_app_rule_ip_2)
+
+        self.verify_traffic_reporting(up_len, down_len)
+
+    def verify_app_reporting_ip(self, ip):
+        # Access -> SGi (IP rule)
+        up_len = self.send_from_access_to_sgi(b"42", remote_ip=ip)
+        self.assert_packet_sent_to_sgi(b"42", remote_ip=ip)
+
+        # SGi -> Access (IP rule)
+        down_len = self.send_from_sgi_to_access(b"4242", remote_ip=ip)
+        self.assert_packet_sent_to_access(b"4242", remote_ip=ip)
+
+        # the following packets aren't counted
+        self.send_from_access_to_sgi(
+            b"1234567", remote_ip=self.non_app_rule_ip_3)
+        self.assert_packet_sent_to_sgi(
+            b"1234567", remote_ip=self.non_app_rule_ip_3)
+        self.send_from_sgi_to_access(
+            b"foobarbaz", remote_ip=self.non_app_rule_ip_3)
+        self.assert_packet_sent_to_access(
+            b"foobarbaz", remote_ip=self.non_app_rule_ip_3)
+
+        self.verify_traffic_reporting(up_len, down_len)
+
+    def verify_app_reporting(self):
+        self.verify_app_reporting_http()
+        self.verify_app_reporting_tls()
+        # TODO: enable this when IP rules are added
+        # self.verify_app_reporting_ip(ip=APP_RULE_IP_V4)
+        # self.verify_app_reporting_ip(ip=EXTRA_SDF_IP_V4)
+
+
+class TestUPFIPv4(IPv4Mixin, TestUPFBase, framework.VppTestCase):
+    """IPv4 UPF Test"""
+
+
+class TestUPFIPv6(IPv6Mixin, TestUPFBase, framework.VppTestCase):
+    """IPv6 UPF Test"""
+
 
 # TODO: send session report response
 # TODO: check for heartbeat requests from UPF
