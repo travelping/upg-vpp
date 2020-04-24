@@ -183,7 +183,7 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  goto done;
 	}
 
-      fib_idx = vnet_buffer (b)->sw_if_index[VLIB_TX];
+      fib_idx = vlib_buffer_get_ip_fib_index (b, is_ip4);
       upf_debug ("FIB: %u", fib_idx);
 
       /* Create child session and send SYN-ACK */

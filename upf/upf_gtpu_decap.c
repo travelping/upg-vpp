@@ -337,8 +337,6 @@ upf_gtpu_input (vlib_main_t * vm,
 	    next0 = (~0 == upf_buffer_opaque (b0)->gtpu.pdr_idx) ?
 	      UPF_GTPU_INPUT_NEXT_IP6_FLOW_PROCESS : UPF_GTPU_INPUT_NEXT_IP6_PROCESS;
 
-	  vnet_buffer (b0)->sw_if_index[VLIB_RX] = 0;
-
 	  pkts_decapsulated++;
 
 	trace0:
@@ -514,8 +512,6 @@ upf_gtpu_input (vlib_main_t * vm,
 	  else
 	    next1 = (~0 == upf_buffer_opaque (b1)->gtpu.pdr_idx) ?
 	      UPF_GTPU_INPUT_NEXT_IP6_FLOW_PROCESS : UPF_GTPU_INPUT_NEXT_IP6_PROCESS;
-
-	  vnet_buffer (b1)->sw_if_index[VLIB_RX] = 0;
 
 	  pkts_decapsulated++;
 
@@ -744,8 +740,6 @@ upf_gtpu_input (vlib_main_t * vm,
 	  else
 	    next0 = (~0 == upf_buffer_opaque (b0)->gtpu.pdr_idx) ?
 	      UPF_GTPU_INPUT_NEXT_IP6_FLOW_PROCESS : UPF_GTPU_INPUT_NEXT_IP6_PROCESS;
-
-	  vnet_buffer (b0)->sw_if_index[VLIB_RX] = 0;
 
 	  pkts_decapsulated++;
 
