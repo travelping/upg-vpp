@@ -1253,9 +1253,11 @@ pfcp_add_del_tdf (const void *tdf, void *si, int is_ip4, int is_add)
   upf_main_t *gtm = &upf_main;
   upf_acl_t *acl = (upf_acl_t *) tdf;
   upf_session_t *sx = si;
-  fib_prefix_t pfx = {
-    .fp_addr = acl->match.address[UPF_ACL_FIELD_SRC],
-  };
+  fib_prefix_t pfx =
+    {
+     .fp_proto = is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
+     .fp_addr = acl->match.address[UPF_ACL_FIELD_SRC],
+    };
   u32 fib_index;
 
   if (acl->fib_index >= vec_len (gtm->tdf_ul_table[pfx.fp_proto]))
@@ -1270,18 +1272,9 @@ pfcp_add_del_tdf (const void *tdf, void *si, int is_ip4, int is_add)
   if (~0 == fib_index)
     return;
 
-  if (is_ip4)
-    {
-      pfx.fp_proto = FIB_PROTOCOL_IP4;
-      pfx.fp_len =
-	ip4_mask_to_preflen (&acl->mask.address[UPF_ACL_FIELD_SRC].ip4);
-    }
-  else
-    {
-      pfx.fp_proto = FIB_PROTOCOL_IP6;
-      pfx.fp_len =
-	ip6_mask_to_preflen (&acl->mask.address[UPF_ACL_FIELD_SRC].ip6);
-    }
+  pfx.fp_len = is_ip4 ?
+    ip4_mask_to_preflen (&acl->mask.address[UPF_ACL_FIELD_SRC].ip4) :
+    ip6_mask_to_preflen (&acl->mask.address[UPF_ACL_FIELD_SRC].ip6);
 
   if (is_add)
     {
