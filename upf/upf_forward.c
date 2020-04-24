@@ -153,8 +153,13 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      far = pfcp_get_far_by_id (active, pdr->far_id);
 	    }
 
-	  upf_debug ("IP hdr: %U", format_ip4_header,
-		     vlib_buffer_get_current (b));
+	  if (is_ip4)
+	    upf_debug ("IP hdr: %U", format_ip4_header,
+		       vlib_buffer_get_current (b));
+	  else
+	    upf_debug ("IP hdr: %U", format_ip6_header,
+		       vlib_buffer_get_current (b));
+
 	  if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
 	    goto stats;
 
