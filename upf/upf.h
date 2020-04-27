@@ -482,6 +482,7 @@ typedef struct
   u8 status;
 #define URR_OVER_QUOTA                  BIT(0)
 #define URR_AFTER_MONITORING_TIME       BIT(1)
+#define URR_REPORTED                    BIT(2)
 
   u8 update_flags;
 #define PFCP_URR_UPDATE_VOLUME_QUOTA		BIT(0)

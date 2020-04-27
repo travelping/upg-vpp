@@ -2316,6 +2316,7 @@ static const char *urr_trigger_flags[] = {
 static const char *urr_status_flags[] = {
   "OVER QUOTA",
   "AFTER MONITORING TIME",
+  "REPORTED",
   NULL
 };
 

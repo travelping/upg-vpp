@@ -630,6 +630,9 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
     u32 trigger = 0;
 
     upf_debug ("URR: %p\n", urr);
+    if (urr->status & URR_REPORTED)
+      /* skip already reported URR */
+      continue;
 
 #define urr_check(V, D)					\
       urr_check_counter(				\
@@ -648,6 +651,7 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
       {
 	upf_usage_report_trigger (&report, urr - active->urr, trigger,
 				  urr->liusa_bitmap, now);
+	urr->status |= URR_REPORTED;
 	send = 1;
       }
   }
