@@ -5704,19 +5704,19 @@ static struct pfcp_group_ie_def pfcp_create_traffic_endpoint_group[] =
       .type = PFCP_IE_ETHERNET_PDU_SESSION_INFORMATION,
       .offset = offsetof(pfcp_create_traffic_endpoint_t, ethernet_pdu_session_information)
     },
-    [UPDATE_TRAFFIC_ENDPOINT_FRAMED_ROUTE] = {
+    [CREATE_TRAFFIC_ENDPOINT_FRAMED_ROUTE] = {
       .type = PFCP_IE_FRAMED_ROUTE,
       .is_array = true,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, framed_route)
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, framed_route)
     },
-    [UPDATE_TRAFFIC_ENDPOINT_FRAMED_ROUTING] = {
+    [CREATE_TRAFFIC_ENDPOINT_FRAMED_ROUTING] = {
       .type = PFCP_IE_FRAMED_ROUTING,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, framed_routing)
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, framed_routing)
     },
-    [UPDATE_TRAFFIC_ENDPOINT_FRAMED_IPV6_ROUTE] = {
+    [CREATE_TRAFFIC_ENDPOINT_FRAMED_IPV6_ROUTE] = {
       .type = PFCP_IE_FRAMED_IPV6_ROUTE,
       .is_array = true,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, framed_ipv6_route)
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, framed_ipv6_route)
     },
   };
 
