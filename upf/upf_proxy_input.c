@@ -223,13 +223,6 @@ load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction, flow_entry_t 
   flow_tsval_offs (flow, direction) = opts.tsval - tcp_time_now ();
 }
 
-static_always_inline void
-upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
-{
-  vnet_buffer (b)->l3_hdr_offset = b->current_data;
-  b->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
-}
-
 static uword
 upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 		 vlib_frame_t * from_frame, int is_ip4)

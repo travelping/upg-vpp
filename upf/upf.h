@@ -851,6 +851,13 @@ int vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto,
 void upf_session_dpo_add_or_lock (dpo_proto_t dproto, upf_session_t * sx,
 				  dpo_id_t * dpo);
 
+static_always_inline void
+upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
+{
+  vnet_buffer (b)->l3_hdr_offset = b->current_data;
+  b->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
+}
+
 #endif /* __included_upf_h__ */
 
 /*

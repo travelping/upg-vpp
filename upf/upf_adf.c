@@ -37,18 +37,6 @@
   do { } while (0)
 #endif
 
-always_inline int
-ip4_address_is_equal_masked (const ip4_address_t * a,
-			     const ip4_address_t * b,
-			     const ip4_address_t * mask)
-{
-  upf_debug ("IP: %U/%U, %U\n",
-	     format_ip4_address, a,
-	     format_ip4_address, b, format_ip4_address, mask);
-
-  return (a->as_u32 & mask->as_u32) == (b->as_u32 & mask->as_u32);
-}
-
 always_inline adr_result_t
 upf_adr_try_tls (u16 port, u8 * p, u8 ** uri)
 {

@@ -91,32 +91,6 @@ format_upf_classify_trace (u8 * s, va_list * args)
   return s;
 }
 
-always_inline int
-ip4_address_is_equal_masked (const ip4_address_t * a,
-			     const ip4_address_t * b,
-			     const ip4_address_t * mask)
-{
-  upf_debug ("IP: %U/%U, %U\n",
-	     format_ip4_address, a,
-	     format_ip4_address, b, format_ip4_address, mask);
-
-  return (a->as_u32 & mask->as_u32) == (b->as_u32 & mask->as_u32);
-}
-
-always_inline int
-acl_ip4_is_equal_masked (const ip4_address_t * ip, upf_acl_t * acl, int field)
-{
-  return ip4_address_is_equal_masked (ip, &acl->match.address[field].ip4,
-				      &acl->mask.address[field].ip4);
-}
-
-always_inline int
-acl_ip6_is_equal_masked (const ip6_address_t * ip, upf_acl_t * acl, int field)
-{
-  return ip6_address_is_equal_masked (ip, &acl->match.address[field].ip6,
-				      &acl->mask.address[field].ip6);
-}
-
 always_inline uword
 ip46_address_is_equal_masked (const ip46_address_t * a,
 			      const ip46_address_t * b,

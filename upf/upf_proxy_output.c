@@ -98,13 +98,6 @@ format_upf_proxy_output_trace (u8 * s, va_list * args)
   return s;
 }
 
-static_always_inline void
-upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
-{
-  vnet_buffer (b)->l3_hdr_offset = b->current_data;
-  b->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
-}
-
 static uword
 upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  vlib_frame_t * from_frame, flow_direction_t direction,
