@@ -3181,7 +3181,7 @@ encode_remote_gtp_u_peer (void *p, u8 ** vec)
   pfcp_remote_gtp_u_peer_t *v = p;
   u8 flags;
 
-  flags = (v->destination_interface != ~0 ? REMOTE_GTP_U_PEER_DI : 0) |
+  flags = (v->destination_interface != (u8)~0 ? REMOTE_GTP_U_PEER_DI : 0) |
     (vec_len (v->network_instance) > 0 ? REMOTE_GTP_U_PEER_NI : 0);
 
   if (ip46_address_is_ip4 (&v->ip))
@@ -3195,7 +3195,7 @@ encode_remote_gtp_u_peer (void *p, u8 ** vec)
       put_ip46_ip6 (*vec, v->ip);
     }
 
-  if (v->destination_interface != ~0)
+  if (v->destination_interface != (u8)~0)
     {
       put_u16 (*vec, 1);
       put_u8 (*vec, v->destination_interface);
