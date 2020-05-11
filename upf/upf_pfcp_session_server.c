@@ -66,56 +66,58 @@ pfcp_session_server_rx_callback (session_t * s)
   int len, rv;
 
   max_deq = svm_fifo_max_dequeue_cons (s->rx_fifo);
-  if (PREDICT_FALSE (max_deq < sizeof (session_dgram_hdr_t)))
-    return -1;
-
-  svm_fifo_peek (s->rx_fifo, 0, sizeof (ph), (u8 *) & ph);
-  ASSERT (ph.data_length >= ph.data_offset);
-
-  len = ph.data_length - ph.data_offset;
-  msg = clib_mem_alloc_aligned_no_fail (sizeof (*msg), CLIB_CACHE_LINE_BYTES);
-  memset (msg, 0, sizeof (*msg));
-
-  msg->session_handle = session_handle (s);
-
-  if (!ph.data_offset)
+  while (max_deq >= sizeof (session_dgram_hdr_t))
     {
-      app_session_transport_t at;
+      svm_fifo_peek (s->rx_fifo, 0, sizeof (ph), (u8 *) & ph);
+      ASSERT (ph.data_length >= ph.data_offset);
 
-      svm_fifo_peek (s->rx_fifo, sizeof (ph), sizeof (at), (u8 *) & at);
+      len = ph.data_length - ph.data_offset;
+      msg = clib_mem_alloc_aligned_no_fail (sizeof (*msg), CLIB_CACHE_LINE_BYTES);
+      memset (msg, 0, sizeof (*msg));
 
-      msg->lcl.address = at.lcl_ip;
-      msg->rmt.address = at.rmt_ip;
-      msg->lcl.port = at.lcl_port;
-      msg->rmt.port = at.rmt_port;
+      msg->session_handle = session_handle (s);
 
-      if (at.is_ip4)
+      if (!ph.data_offset)
 	{
-	  ip46_address_mask_ip4 (&msg->lcl.address);
-	  ip46_address_mask_ip4 (&msg->rmt.address);
+	  app_session_transport_t at;
+
+	  svm_fifo_peek (s->rx_fifo, sizeof (ph), sizeof (at), (u8 *) & at);
+
+	  msg->lcl.address = at.lcl_ip;
+	  msg->rmt.address = at.rmt_ip;
+	  msg->lcl.port = at.lcl_port;
+	  msg->rmt.port = at.rmt_port;
+
+	  if (at.is_ip4)
+	    {
+	      ip46_address_mask_ip4 (&msg->lcl.address);
+	      ip46_address_mask_ip4 (&msg->rmt.address);
+	    }
 	}
+
+      vec_validate (msg->data, len);
+      rv =
+	svm_fifo_peek (s->rx_fifo, ph.data_offset + SESSION_CONN_HDR_LEN, len,
+		       msg->data);
+
+      ph.data_offset += rv;
+      if (ph.data_offset == ph.data_length)
+	svm_fifo_dequeue_drop (s->rx_fifo, ph.data_length + SESSION_CONN_HDR_LEN);
+      else
+	svm_fifo_overwrite_head (s->rx_fifo, (u8 *) & ph, sizeof (ph));
+
+      upf_debug ("sending event %d, %p %U:%d - %U:%d, data %p",
+		 ph.data_offset, msg,
+		 format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+		 clib_net_to_host_u16 (msg->rmt.port),
+		 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+		 clib_net_to_host_u16 (msg->lcl.port), msg->data);
+
+      vlib_process_signal_event_mt (gtm->vlib_main, pfcp_api_process_node.index,
+				    EVENT_RX, (uword) msg);
+
+      max_deq = svm_fifo_max_dequeue_cons (s->rx_fifo);
     }
-
-  vec_validate (msg->data, len);
-  rv =
-    svm_fifo_peek (s->rx_fifo, ph.data_offset + SESSION_CONN_HDR_LEN, len,
-		   msg->data);
-
-  ph.data_offset += rv;
-  if (ph.data_offset == ph.data_length)
-    svm_fifo_dequeue_drop (s->rx_fifo, ph.data_length + SESSION_CONN_HDR_LEN);
-  else
-    svm_fifo_overwrite_head (s->rx_fifo, (u8 *) & ph, sizeof (ph));
-
-  upf_debug ("sending event %d, %p %U:%d - %U:%d, data %p",
-	     ph.data_offset, msg,
-	     format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
-	     clib_net_to_host_u16 (msg->rmt.port),
-	     format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
-	     clib_net_to_host_u16 (msg->lcl.port), msg->data);
-
-  vlib_process_signal_event_mt (gtm->vlib_main, pfcp_api_process_node.index,
-				EVENT_RX, (uword) msg);
 
   return 0;
 }
