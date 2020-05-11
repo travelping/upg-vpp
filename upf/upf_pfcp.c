@@ -1474,8 +1474,8 @@ compile_sdf (int is_ip4, const upf_pdr_t * pdr,
 			 pdr, rule, acl);
       ip_assign_address (UPF_ACL_FIELD_DST, IPFILTER_RULE_FIELD_DST, is_ip4,
 			 pdr, rule, acl);
-      ip_assign_port (UPF_ACL_FIELD_DST, IPFILTER_RULE_FIELD_SRC, rule, acl);
-      ip_assign_port (UPF_ACL_FIELD_SRC, IPFILTER_RULE_FIELD_DST, rule, acl);
+      ip_assign_port (UPF_ACL_FIELD_SRC, IPFILTER_RULE_FIELD_SRC, rule, acl);
+      ip_assign_port (UPF_ACL_FIELD_DST, IPFILTER_RULE_FIELD_DST, rule, acl);
       break;
     }
 }
