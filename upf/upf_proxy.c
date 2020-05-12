@@ -936,7 +936,7 @@ active_open_attach (void)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   vnet_app_attach_args_t _a, *a = &_a;
-  u64 options[16];
+  u64 options[APP_OPTIONS_N_OPTIONS];
   u8 *name;
   int r = 0;
 
