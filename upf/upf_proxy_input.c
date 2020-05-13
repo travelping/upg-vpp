@@ -257,12 +257,8 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
-	  upf_session_t *sess = NULL;
 	  flow_direction_t direction;
 	  flow_entry_t *flow = NULL;
-	  upf_pdr_t *pdr = NULL;
-	  upf_far_t *far = NULL;
-	  struct rules *active;
 	  flow_tc_t *ftc;
 
 	  bi = from[0];
@@ -362,37 +358,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      load_tstamp_offset (b, direction, flow);
 	      next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
 	    }
-	  else
-	    goto stats;
 
-	  /* Get next node index and adj index from tunnel next_dpo */
-	  sess = pool_elt_at_index (gtm->sessions, flow->session_index);
-	  active = pfcp_get_rules (sess, PFCP_ACTIVE);
-	  pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, direction));
-	  far = pdr ? pfcp_get_far_by_id (active, pdr->far_id) : NULL;
-
-	  if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
-	    {
-	      next = UPF_FORWARD_NEXT_DROP;
-	      goto stats;
-	    }
-
-
-#define IS_DL(_pdr, _far)						\
-	  ((_pdr)->pdi.src_intf == SRC_INTF_CORE || (_far)->forward.dst_intf == DST_INTF_ACCESS)
-#define IS_UL(_pdr, _far)						\
-	  ((_pdr)->pdi.src_intf == SRC_INTF_ACCESS || (_far)->forward.dst_intf == DST_INTF_CORE)
-
-	  upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
-	  next = process_qers (vm, sess, active, pdr, b,
-			       IS_DL (pdr, far), IS_UL (pdr, far), next);
-	  next = process_urrs (vm, sess, active, pdr, b,
-			       IS_DL (pdr, far), IS_UL (pdr, far), next);
-
-#undef IS_DL
-#undef IS_UL
-
-	stats:
 	  len = vlib_buffer_length_in_chain (vm, b);
 	  stats_n_packets += 1;
 	  stats_n_bytes += len;
