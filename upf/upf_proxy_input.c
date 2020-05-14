@@ -346,17 +346,27 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      /* transport connection already setup */
 	      next = splice_tcp_connection (flow, direction);
 	    }
-	  else if (direction == FT_ORIGIN)
+	  else
 	    {
-	      upf_debug ("PROXY_ACCEPT");
-	      load_tstamp_offset (b, direction, flow);
-	      next = UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT;
-	    }
-	  else if (direction == FT_REVERSE && ftc->conn_index == ~0)
-	    {
-	      upf_debug ("INPUT_LOOKUP");
-	      load_tstamp_offset (b, direction, flow);
-	      next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
+	      /* ftc->conn_index == ~0 */
+
+	      if (flow->tcp_state >= TCP_F_STATE_FIN)
+		{
+		  upf_debug ("LATE TCP FRAGMENT");
+		  next = UPF_FORWARD_NEXT_DROP;
+		}
+	      else if (direction == FT_ORIGIN)
+		{
+		  upf_debug ("PROXY_ACCEPT");
+		  load_tstamp_offset (b, direction, flow);
+		  next = UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT;
+		}
+	      else if (direction == FT_REVERSE)
+		{
+		  upf_debug ("INPUT_LOOKUP");
+		  load_tstamp_offset (b, direction, flow);
+		  next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
+		}
 	    }
 
 	  len = vlib_buffer_length_in_chain (vm, b);
