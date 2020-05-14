@@ -1120,7 +1120,7 @@ upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
 VLIB_CLI_COMMAND (upf_proxy_set_command, static) =
 {
   .path = "set upf proxy",
-  .short_help = "set upf server [mss <nn>] [fifo-size <nn>[k|m]]"
+  .short_help = "set upf proxy [mss <nn>] [fifo-size <nn>[k|m]]"
       "[max-fifo-size <nn>[k|m]][high-watermark <nn>]"
       "[low-watermark <nn>][prealloc-fifos <nn>]"
       "[private-segment-size <mem>][private-segment-count <nn>]",
