@@ -133,6 +133,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  uword is_reverse0, is_reverse1;
 	  u32 flow_idx0, flow_idx1;
 	  flow_entry_t *flow0, *flow1;
+	  u8 *p0, *p1;
 
 	  /* prefetch next iteration */
 	  {
@@ -188,6 +189,9 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      break;
 	    }
 
+	  p0 = vlib_buffer_get_current (b0) + upf_buffer_opaque (b0)->gtpu.data_offset;
+	  p1 = vlib_buffer_get_current (b1) + upf_buffer_opaque (b1)->gtpu.data_offset;
+
 	  sx0 =
 	    pool_elt_at_index (gtm->sessions,
 			       upf_buffer_opaque (b0)->gtpu.session_index);
@@ -198,12 +202,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
 	  active1 = pfcp_get_rules (sx1, PFCP_ACTIVE);
 
-	  flow_mk_key (sx0->cp_seid, b0,
-		       upf_buffer_opaque (b0)->gtpu.data_offset, is_ip4,
-		       &is_reverse0, &kv0);
-	  flow_mk_key (sx1->cp_seid, b1,
-		       upf_buffer_opaque (b1)->gtpu.data_offset, is_ip4,
-		       &is_reverse1, &kv1);
+	  flow_mk_key (sx0->cp_seid, p0, is_ip4, &is_reverse0, &kv0);
+	  flow_mk_key (sx1->cp_seid, p1, is_ip4, &is_reverse1, &kv1);
 
 	  /* lookup/create flow */
 	  flow_idx0 =
@@ -232,8 +232,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  FLOW_DEBUG (fm, flow1);
 
 	  /* timer management */
-	  flow_update_lifetime (flow0, b0, is_ip4);
-	  flow_update_lifetime (flow1, b1, is_ip4);
+	  flow_update_lifetime (flow0, p0, is_ip4);
+	  flow_update_lifetime (flow1, p1, is_ip4);
 
 	  flow_update_active (flow0, current_time);
 	  flow_update_active (flow1, current_time);
@@ -304,6 +304,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow_entry_t *flow = NULL;
 	  uword is_reverse = 0;
 	  BVT (clib_bihash_kv) kv;
+	  u8 *p;
 
 	  bi0 = to_next[0] = from[0];
 	  b0 = vlib_get_buffer (vm, bi0);
@@ -325,6 +326,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      goto stats1;
 	    }
 
+	  p = vlib_buffer_get_current (b0) + upf_buffer_opaque (b0)->gtpu.data_offset;
+
 	  sx0 =
 	    pool_elt_at_index (gtm->sessions,
 			       upf_buffer_opaque (b0)->gtpu.session_index);
@@ -332,9 +335,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
 
 	  /* lookup/create flow */
-	  flow_mk_key (sx0->cp_seid, b0,
-		       upf_buffer_opaque (b0)->gtpu.data_offset, is_ip4,
-		       &is_reverse, &kv);
+	  flow_mk_key (sx0->cp_seid, p, is_ip4, &is_reverse, &kv);
 	  flow_idx =
 	    flowtable_entry_lookup_create (fm, fmt, &kv, current_time,
 					   is_reverse, &created);
@@ -355,7 +356,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 		     flow->is_reverse, created);
 
 	  /* timer management */
-	  flow_update_lifetime (flow, b0, is_ip4);
+	  flow_update_lifetime (flow, p, is_ip4);
 	  flow_update_active (flow, current_time);
 
 	  /* flow statistics */

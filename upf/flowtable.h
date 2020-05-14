@@ -300,7 +300,7 @@ parse_ip6_packet (ip6_header_t * ip6, uword * is_reverse, flow_key_t * key)
 }
 
 static inline void
-flow_mk_key (u64 seid, vlib_buffer_t * buffer, u16 offset, u8 is_ip4,
+flow_mk_key (u64 seid, u8 * header, u8 is_ip4,
 	     uword * is_reverse, BVT (clib_bihash_kv) * kv)
 {
   flow_key_t *key = (flow_key_t *) & kv->key;
@@ -313,13 +313,11 @@ flow_mk_key (u64 seid, vlib_buffer_t * buffer, u16 offset, u8 is_ip4,
    * get into the same flow */
   if (is_ip4)
     {
-      parse_ip4_packet (vlib_buffer_get_current (buffer) + offset, is_reverse,
-			key);
+      parse_ip4_packet ((ip4_header_t *)header, is_reverse, key);
     }
   else
     {
-      parse_ip6_packet (vlib_buffer_get_current (buffer) + offset, is_reverse,
-			key);
+      parse_ip6_packet ((ip6_header_t *)header, is_reverse, key);
     }
 }
 
@@ -344,17 +342,16 @@ flow_tcp_update_lifetime (flow_entry_t * f, tcp_header_t * hdr)
 }
 
 always_inline int
-flow_update_lifetime (flow_entry_t * f, vlib_buffer_t * b, u8 is_ip4)
+flow_update_lifetime (flow_entry_t * f, u8 * iph, u8 is_ip4)
 {
   /*
    * CHECK-ME: assert we have enough wellformed data to read the tcp header.
    */
   if (f->key.proto == IP_PROTOCOL_TCP)
     {
-      tcp_header_t *hdr =
-	(tcp_header_t *) (vlib_buffer_get_current (b) +
-			  (is_ip4 ? sizeof (ip4_header_t) :
-			   sizeof (ip6_header_t)));
+      tcp_header_t *hdr = (tcp_header_t *)(is_ip4 ?
+					   ip4_next_header ((ip4_header_t *)iph) :
+					   ip6_next_header ((ip6_header_t *)iph));
 
       return flow_tcp_update_lifetime (f, hdr);
     }
