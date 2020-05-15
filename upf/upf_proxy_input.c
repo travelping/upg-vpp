@@ -350,8 +350,10 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    {
 	      /* ftc->conn_index == ~0 */
 
-	      if (flow->tcp_state >= TCP_F_STATE_FIN)
+	      if (ftc->thread_index != ~0)
 		{
+		  /* the flow already had a serving session, but that session was closed
+		     signaled by conn_index == ~0 && thread_index != ~0 */
 		  upf_debug ("LATE TCP FRAGMENT");
 		  next = UPF_FORWARD_NEXT_DROP;
 		}

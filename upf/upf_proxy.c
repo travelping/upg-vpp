@@ -430,7 +430,6 @@ delete_proxy_session (session_t * s, int is_active_open)
     {
       a->handle = session_handle (active_open_session);
       a->app_index = pm->active_open_app_index;
-      active_open_session_lookup_del (active_open_session);
       vnet_disconnect_session (a);
     }
 
@@ -438,10 +437,47 @@ delete_proxy_session (session_t * s, int is_active_open)
     {
       a->handle = session_handle (proxy_session);
       a->app_index = pm->server_app_index;
-      proxy_session_lookup_del (proxy_session);
       vnet_disconnect_session (a);
     }
 
+  proxy_server_sessions_writer_unlock ();
+}
+
+static void
+session_cleanup (session_t * s, session_cleanup_ntf_t ntf, int is_active_open)
+{
+  flowtable_main_t *fm = &flowtable_main;
+  upf_proxy_session_t *ps;
+  flow_entry_t *flow;
+  flow_tc_t *ftc;
+  u32 flow_index;
+
+  proxy_server_sessions_writer_lock ();
+
+  if (!is_active_open)
+    ps = proxy_session_lookup (s);
+  else
+    ps = active_open_session_lookup (s);
+  if (!ps)
+    goto out_unlock;
+
+  flow_index = ps->flow_index;
+
+  if (!is_active_open)
+    proxy_session_lookup_del (s);
+  else
+    active_open_session_lookup_del (s);
+
+  /* ps might be invalid after this point */
+
+  if (pool_is_free_index (fm->flows, flow_index))
+    goto out_unlock;
+  flow = pool_elt_at_index (fm->flows, flow_index);
+
+  ftc = &flow_tc (flow, is_active_open ? FT_REVERSE : FT_ORIGIN);
+  ftc->conn_index = ~0;
+
+ out_unlock:
   proxy_server_sessions_writer_unlock ();
 }
 
@@ -526,6 +562,12 @@ proxy_reset_callback (session_t * s)
 {
   upf_debug ("Reset session %U", format_session, s, 2);
   delete_proxy_session (s, 0 /* is_active_open */ );
+}
+
+static void
+proxy_session_cleanup_callback (session_t * s, session_cleanup_ntf_t ntf)
+{
+  session_cleanup (s, ntf, 0 /* is_active_open */ );
 }
 
 static int
@@ -738,6 +780,7 @@ static session_cb_vft_t proxy_session_cb_vft = {
   .builtin_app_rx_callback = proxy_rx_callback,
   .builtin_app_tx_callback = proxy_tx_callback,
   .session_reset_callback = proxy_reset_callback,
+  .session_cleanup_callback = proxy_session_cleanup_callback,
   .fifo_tuning_callback = common_fifo_tuning_callback
 };
 
@@ -834,6 +877,12 @@ active_open_reset_callback (session_t * s)
   delete_proxy_session (s, 1 /* is_active_open */ );
 }
 
+static void
+active_open_session_cleanup_callback (session_t * s, session_cleanup_ntf_t ntf)
+{
+  session_cleanup (s, ntf, 1 /* is_active_open */ );
+}
+
 static int
 active_open_create_callback (session_t * s)
 {
@@ -877,6 +926,7 @@ static session_cb_vft_t active_open_clients = {
   .add_segment_callback = active_open_add_segment_callback,
   .builtin_app_rx_callback = active_open_rx_callback,
   .builtin_app_tx_callback = active_open_tx_callback,
+  .session_cleanup_callback = active_open_session_cleanup_callback,
   .fifo_tuning_callback = common_fifo_tuning_callback
 };
 /* *INDENT-ON* */
