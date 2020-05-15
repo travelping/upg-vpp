@@ -64,6 +64,14 @@ typedef enum
   UPF_CLASSIFY_N_NEXT,
 } upf_classify_next_t;
 
+static upf_classify_next_t upf_classify_flow_next[] =
+  {
+   [FT_NEXT_DROP]     = UPF_CLASSIFY_NEXT_DROP,
+   [FT_NEXT_CLASSIFY] = UPF_CLASSIFY_NEXT_DROP,
+   [FT_NEXT_PROCESS]  = UPF_CLASSIFY_NEXT_PROCESS,
+   [FT_NEXT_PROXY]    = UPF_CLASSIFY_NEXT_PROXY,
+  };
+
 typedef struct
 {
   u32 session_index;
@@ -351,6 +359,14 @@ upf_acl_classify_return (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
   return next;
 }
 
+static_always_inline u32
+flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
+	      struct rules *r)
+{
+  upf_pdr_t *pdr = pfcp_get_pdr_by_id (r, flow_pdr_id (flow, direction));
+  return pdr - r->pdr;
+}
+
 always_inline uword
 upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		 vlib_frame_t * from_frame, int is_ip4)
@@ -382,7 +398,8 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
       u32 n_left_to_next;
       vlib_buffer_t *b;
       flow_entry_t *flow;
-      u8 is_forward, is_reverse;
+      u8 is_reverse;
+      flow_direction_t direction;
       u32 bi;
 
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
@@ -415,10 +432,23 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 			       upf_buffer_opaque (b)->gtpu.flow_id);
 
 	  is_reverse = upf_buffer_opaque (b)->gtpu.is_reverse;
-	  is_forward = (is_reverse == flow->is_reverse) ? 1 : 0;
+	  direction = (is_reverse == flow->is_reverse) ? FT_ORIGIN : FT_REVERSE;
 	  upf_debug ("is_rev %u, is_fwd %d\n", is_reverse, is_forward);
 
-	  if (is_forward)
+	  if (flow_next (flow, direction) != FT_NEXT_CLASSIFY)
+	    {
+	      /* we shouldn't be here, this can happend when multiple
+	       * packets from the same connection are in the pipeline,
+	       * the first packet changes the flow next state, but the
+	       * following packets have already been queue to us.
+	       * push then to their intended node
+	       */
+
+	      /* need to reload pdr_idx, as the flow entry was not ready at that time */
+	      upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, active);
+	      next = upf_classify_flow_next[flow_next (flow, direction)];
+	    }
+	  else if (direction == FT_ORIGIN)
 	    next =
 	      upf_acl_classify_forward (vm, upf_buffer_opaque (b)->gtpu.teid,
 					flow, active, is_ip4,
