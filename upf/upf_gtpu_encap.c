@@ -247,10 +247,10 @@ upf_encap_inline (vlib_main_t * vm,
 	  r3 = pfcp_get_rules (s3, PFCP_ACTIVE);
 
 	  /* TODO: this should be optimized */
-	  pdr0 = r0->pdr + upf_buffer_opaque (b0)->gtpu.pdr_idx;
-	  pdr1 = r1->pdr + upf_buffer_opaque (b1)->gtpu.pdr_idx;
-	  pdr2 = r2->pdr + upf_buffer_opaque (b2)->gtpu.pdr_idx;
-	  pdr3 = r3->pdr + upf_buffer_opaque (b3)->gtpu.pdr_idx;
+	  pdr0 = vec_elt_at_index (r0->pdr, upf_buffer_opaque (b0)->gtpu.pdr_idx);
+	  pdr1 = vec_elt_at_index (r1->pdr, upf_buffer_opaque (b1)->gtpu.pdr_idx);
+	  pdr2 = vec_elt_at_index (r2->pdr, upf_buffer_opaque (b2)->gtpu.pdr_idx);
+	  pdr3 = vec_elt_at_index (r3->pdr, upf_buffer_opaque (b3)->gtpu.pdr_idx);
 
 	  /* TODO: this should be optimized */
 	  far0 = pfcp_get_far_by_id (r0, pdr0->far_id);
@@ -621,7 +621,7 @@ upf_encap_inline (vlib_main_t * vm,
 	  r0 = pfcp_get_rules (s0, PFCP_ACTIVE);
 
 	  /* TODO: this should be optimized */
-	  pdr0 = r0->pdr + upf_buffer_opaque (b0)->gtpu.pdr_idx;
+	  pdr0 = vec_elt_at_index (r0->pdr, upf_buffer_opaque (b0)->gtpu.pdr_idx);
 	  far0 = pfcp_get_far_by_id (r0, pdr0->far_id);
 
 	  peer0 = pool_elt_at_index (gtm->peers, far0->forward.peer_idx);
