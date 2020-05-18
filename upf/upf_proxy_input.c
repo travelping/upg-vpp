@@ -92,6 +92,25 @@ format_upf_proxy_input_trace (u8 * s, va_list * args)
   return s;
 }
 
+static u8
+tcp_flow_is_valid (tcp_connection_t * tc, flow_entry_t *f, flow_direction_t direction)
+{
+  flow_direction_t origin = direction ^ f->is_reverse;
+  flow_direction_t reverse = direction ^ FT_REVERSE ^ f->is_reverse;
+
+  if (!tc)
+    return 1;
+
+  if (!ip46_address_is_equal (&f->key.ip[origin], &tc->connection.rmt_ip))
+    return 0;
+
+  if (!ip46_address_is_equal (&f->key.ip[reverse], &tc->connection.lcl_ip))
+    return 0;
+
+  return (f->key.port[origin] == tc->connection.rmt_port) &&
+    (f->key.port[reverse] == tc->connection.lcl_port);
+}
+
 static_always_inline u32
 splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
 {
@@ -127,6 +146,9 @@ splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
     (transport_get_connection (TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index));
   tcpTx = tcp_get_connection_from_transport
     (transport_get_connection (TRANSPORT_PROTO_TCP, rev->conn_index, rev->thread_index));
+
+  ASSERT (tcp_flow_is_valid(tcpRx, flow, direction));
+  ASSERT (tcp_flow_is_valid(tcpTx, flow, FT_REVERSE ^ direction));
 
   if (!tcpRx || !tcpTx)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
