@@ -128,6 +128,9 @@ splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
   tcpTx = tcp_get_connection_from_transport
     (transport_get_connection (TRANSPORT_PROTO_TCP, rev->conn_index, rev->thread_index));
 
+  if (!tcpRx || !tcpTx)
+    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+
   /* check TCP connection properties */
   if ((tcpRx->snd_mss > tcpTx->rcv_opts.mss) ||
       (tcpTx->snd_mss > tcpRx->rcv_opts.mss))
