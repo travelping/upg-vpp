@@ -24,6 +24,8 @@
 extern vlib_node_registration_t upf_ip4_proxy_server_output_node;
 extern vlib_node_registration_t upf_ip6_proxy_server_output_node;
 
+u8 * format_upf_proxy_session (u8 * s, va_list * args);
+
 typedef struct
 {
   svm_fifo_t *rx_fifo;

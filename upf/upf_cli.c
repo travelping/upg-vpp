@@ -1175,6 +1175,49 @@ VLIB_CLI_COMMAND (upf_show_proxy_command, static) =
   .short_help = "show upf proxy",
   .function = upf_show_proxy_command_fn,
 };
+
+/* *INDENT-ON* */
+static clib_error_t *
+upf_show_proxy_session_command_fn (vlib_main_t * vm,
+				   unformat_input_t * main_input,
+				   vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  upf_proxy_main_t *pm = &upf_proxy_main;
+  clib_error_t *error = NULL;
+  upf_proxy_session_t *ps;
+
+  if (unformat_user (main_input, unformat_line_input, line_input))
+    {
+      while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+	{
+	  error = unformat_parse_error (line_input);
+	  unformat_free (line_input);
+	  goto done;
+	}
+
+      unformat_free (line_input);
+    }
+
+  /* *INDENT-OFF* */
+  pool_foreach (ps, pm->sessions,
+  ({
+    vlib_cli_output (vm, "%U\n", format_upf_proxy_session, ps);
+  }));
+  /* *INDENT-ON* */
+
+done:
+  return error;
+}
+
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_show_proxy_session_command, static) =
+{
+  .path = "show upf proxy sessions",
+  .short_help = "show upf proxy sessions",
+  .function = upf_show_proxy_session_command_fn,
+};
 /* *INDENT-ON* */
 
 /*

@@ -44,6 +44,31 @@ typedef enum
 upf_proxy_main_t upf_proxy_main;
 
 static void delete_proxy_session (session_t * s, int is_active_open);
+static session_t *
+session_from_proxy_session_get (upf_proxy_session_t * ps, int is_active_open);
+
+u8 *
+format_upf_proxy_session (u8 * s, va_list * args)
+{
+  upf_proxy_session_t * ps = va_arg (*args, upf_proxy_session_t *);
+  session_t * ao, * p;
+
+  if (!ps)
+    return format (s, "(NULL)");
+
+  p = session_from_proxy_session_get (ps, 0);
+  ao = session_from_proxy_session_get (ps, 1);
+
+  s = format (s, "Idx %u @ %p, Clnt: [%u:%u], Srv: [%u:%u], Flow Idx: %u\n",
+	      ps->session_index, ps, ps->proxy_thread_index, ps->proxy_session_index,
+	      ps->active_open_thread_index, ps->active_open_session_index, ps->flow_index);
+  if (p)
+    s = format (s, "Clnt: %U\n", format_session, p, 0);
+  if (ao)
+    s = format (s, "Srv:  %U\n", format_session, ao, 0);
+
+  return s;
+}
 
 static upf_proxy_session_t *
 proxy_session_alloc (u32 thread_index)
