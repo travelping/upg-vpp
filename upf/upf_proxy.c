@@ -96,6 +96,15 @@ proxy_session_free (upf_proxy_session_t * ps)
 }
 
 static void
+proxy_session_put (upf_proxy_session_t * ps)
+{
+  ASSERT (ps);
+
+  if (--ps->refcnt == 0)
+    proxy_session_free (ps);
+}
+
+static void
 proxy_session_lookup_add (session_t * s, upf_proxy_session_t * ps)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
@@ -104,14 +113,25 @@ proxy_session_lookup_add (session_t * s, upf_proxy_session_t * ps)
 		s->session_index);
   pm->session_to_proxy_session[s->thread_index][s->session_index] =
     ps->session_index;
+  ps->refcnt++;
 }
 
 static void
 proxy_session_lookup_del (session_t * s)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
+  upf_proxy_session_t * ps;
+  u32 ps_index;
 
-  pm->session_to_proxy_session[s->thread_index][s->session_index] = ~0;
+  ASSERT (s->session_index < vec_len (pm->session_to_proxy_session[s->thread_index]));
+
+  ps_index = pm->session_to_proxy_session[s->thread_index][s->session_index];
+  ps = proxy_session_get (ps_index);
+  if (ps)
+    {
+      pm->session_to_proxy_session[s->thread_index][s->session_index] = ~0;
+      proxy_session_put (ps);
+    }
 }
 
 static upf_proxy_session_t *
@@ -139,14 +159,25 @@ active_open_session_lookup_add (session_t * s, upf_proxy_session_t * ps)
 		s->session_index);
   pm->session_to_active_open_session[s->thread_index][s->session_index] =
     ps->session_index;
+  ps->refcnt++;
 }
 
 static void
 active_open_session_lookup_del (session_t * s)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
+  upf_proxy_session_t * ps;
+  u32 ps_index;
 
-  pm->session_to_active_open_session[s->thread_index][s->session_index] = ~0;
+  ASSERT (s->session_index < vec_len (pm->session_to_active_open_session[s->thread_index]));
+
+  ps_index = pm->session_to_active_open_session[s->thread_index][s->session_index];
+  ps = proxy_session_get (ps_index);
+  if (ps)
+    {
+      pm->session_to_active_open_session[s->thread_index][s->session_index] = ~0;
+      proxy_session_put (ps);
+    }
 }
 
 static upf_proxy_session_t *
@@ -447,9 +478,6 @@ delete_proxy_session (session_t * s, int is_active_open)
 	  active_open_session = session_from_proxy_session_get (ps, 1);
 	}
     }
-
-  if (ps)
-    proxy_session_free (ps);
 
   if (active_open_session)
     {

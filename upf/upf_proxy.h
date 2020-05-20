@@ -40,6 +40,7 @@ typedef struct
 
   u32 flow_index;
 
+  int refcnt;
   u8 *rx_buf;				/**< intermediate rx buffers */
 } upf_proxy_session_t;
 
