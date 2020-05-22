@@ -298,7 +298,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  error = 0;
 	  next = UPF_FORWARD_NEXT_DROP;
 
-	  ASSERT (upf_buffer_opaque (b)->gtpu.flow_id);
+	  ASSERT (upf_buffer_opaque (b)->gtpu.flow_id != ~0);
 
 	  /* Outer Header Removal */
 	  switch (upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK)
