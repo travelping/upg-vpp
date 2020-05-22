@@ -109,8 +109,8 @@ proxy_session_lookup_add (session_t * s, upf_proxy_session_t * ps)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
 
-  vec_validate (pm->session_to_proxy_session[s->thread_index],
-		s->session_index);
+  vec_validate_init_empty (pm->session_to_proxy_session[s->thread_index],
+			   s->session_index, ~0);
   pm->session_to_proxy_session[s->thread_index][s->session_index] =
     ps->session_index;
   ps->refcnt++;
@@ -155,8 +155,8 @@ active_open_session_lookup_add (session_t * s, upf_proxy_session_t * ps)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
 
-  vec_validate (pm->session_to_active_open_session[s->thread_index],
-		s->session_index);
+  vec_validate_init_empty (pm->session_to_active_open_session[s->thread_index],
+			   s->session_index, ~0);
   pm->session_to_active_open_session[s->thread_index][s->session_index] =
     ps->session_index;
   ps->refcnt++;
