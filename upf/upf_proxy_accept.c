@@ -97,8 +97,7 @@ format_upf_proxy_accept_trace (u8 * s, va_list * args)
  * Accept a stream session. Optionally ping the server by callback.
  */
 static int
-proxy_session_stream_accept (transport_connection_t * tc, u32 flow_id,
-			     u8 notify)
+proxy_session_stream_accept_notify (transport_connection_t * tc, u32 flow_id)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   app_worker_t *app_wrk;
@@ -125,10 +124,13 @@ proxy_session_stream_accept (transport_connection_t * tc, u32 flow_id,
 
   session_lookup_add_connection (tc, session_handle (s));
 
-  /* Shoulder-tap the server */
-  if (notify)
+  s->session_state = SESSION_STATE_ACCEPTING;
+  if (app_worker_accept_notify (app_wrk, s))
     {
-      return app_worker_accept_notify (app_wrk, s);
+      /* On transport delete, no notifications should be sent. Unless, the
+       * accept is retried and successful. */
+      s->session_state = SESSION_STATE_CREATED;
+      return -1;
     }
 
   upf_debug ("proxy session flow: 0x%08x", s->opaque);
@@ -212,8 +214,7 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
       upf_debug ("Next Node: %u, Opaque: 0x%08x",
 		 child->next_node_index, child->next_node_opaque);
 
-      if (proxy_session_stream_accept
-	  (&child->connection, flow_id, 0 /* notify */ ))
+      if (proxy_session_stream_accept_notify (&child->connection, flow_id))
 	{
 	  tcp_connection_cleanup (child);
 	  error = UPF_PROXY_ERROR_CREATE_SESSION_FAIL;
