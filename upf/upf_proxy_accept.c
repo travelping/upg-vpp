@@ -216,6 +216,7 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 
       if (proxy_session_stream_accept_notify (&child->connection, flow_id))
 	{
+          session_transport_delete_notify (&child->connection);
 	  tcp_connection_cleanup (child);
 	  error = UPF_PROXY_ERROR_CREATE_SESSION_FAIL;
 	  goto done;

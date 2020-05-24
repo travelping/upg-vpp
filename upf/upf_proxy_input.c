@@ -185,8 +185,10 @@ splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
 
   /* kill the TCP connections, session and proxy session */
   tcp_connection_set_state (tcpRx, TCP_STATE_CLOSED);
+  session_transport_delete_notify (&tcpRx->connection);
   tcp_connection_cleanup (tcpRx);
   tcp_connection_set_state (tcpTx, TCP_STATE_CLOSED);
+  session_transport_delete_notify (&tcpTx->connection);
   tcp_connection_cleanup (tcpTx);
 
   /* switch to direct spliceing */
