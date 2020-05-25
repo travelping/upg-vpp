@@ -585,6 +585,8 @@ proxy_accept_callback (session_t * s)
 
   proxy_server_sessions_writer_lock ();
 
+  ASSERT (!proxy_session_lookup (s));
+
   ps = proxy_session_alloc (s->thread_index);
   proxy_session_lookup_add (s, ps);
 
@@ -853,6 +855,8 @@ active_open_connected_callback (u32 app_index, u32 opaque,
       upf_debug ("connection %d failed!", opaque);
       return 0;
     }
+
+  ASSERT (!active_open_session_lookup (s));
 
   /*
    * Setup proxy session handle.
