@@ -1069,7 +1069,6 @@ upf_##t##_t *pfcp_get_##t(upf_session_t *sx, int rule,		\
     if (pfcp_make_pending_##t(sx) != 0)					\
       return NULL;							\
 									\
-  printf("LOOKUP t##: %u\n", t##_id);					\
   return vec_bsearch(&r, rules->t, pfcp_##t##_id_compare);		\
 }									\
 									\

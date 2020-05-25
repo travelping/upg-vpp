@@ -2318,8 +2318,8 @@ upf_usage_report_build (upf_session_t * sx,
 {
   u32 idx;
 
-  clib_warning ("Usage Report:\n  LIUSA %U\n",
-		format_bitmap_hex, report->liusa_bitmap);
+  upf_debug ("Usage Report:\n  LIUSA %U\n",
+	     format_bitmap_hex, report->liusa_bitmap);
 
   vec_foreach_index (idx, report->events)
   {
