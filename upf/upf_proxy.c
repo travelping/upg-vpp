@@ -585,7 +585,11 @@ proxy_accept_callback (session_t * s)
 
   proxy_server_sessions_writer_lock ();
 
-  ASSERT (!proxy_session_lookup (s));
+  if ((ps = proxy_session_lookup (s)))
+    {
+      ASSERT (ps->flow_index == s->opaque);
+      goto out_unlock;
+    }
 
   ps = proxy_session_alloc (s->thread_index);
   proxy_session_lookup_add (s, ps);
@@ -600,6 +604,7 @@ proxy_accept_callback (session_t * s)
   //TBDps->session_state = PROXY_STATE_ESTABLISHED;
   //TBD proxy_server_session_timer_start (ps);
 
+ out_unlock:
   proxy_server_sessions_writer_unlock ();
 
   s->session_state = SESSION_STATE_READY;

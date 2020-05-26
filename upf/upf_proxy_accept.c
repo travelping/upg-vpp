@@ -120,17 +120,20 @@ proxy_session_stream_accept_notify (transport_connection_t * tc, u32 flow_id)
 	     s, app, app_wrk, app_wrk->wrk_index, flow_id);
 
   if ((rv = app_worker_init_connected (app_wrk, s)))
-    return rv;
+    {
+      session_free (s);
+      return rv;
+    }
 
   session_lookup_add_connection (tc, session_handle (s));
 
   s->session_state = SESSION_STATE_ACCEPTING;
-  if (app_worker_accept_notify (app_wrk, s))
+  if ((rv = app_worker_accept_notify (app_wrk, s)))
     {
-      /* On transport delete, no notifications should be sent. Unless, the
-       * accept is retried and successful. */
-      s->session_state = SESSION_STATE_CREATED;
-      return -1;
+      session_lookup_del_session (s);
+      segment_manager_dealloc_fifos (s->rx_fifo, s->tx_fifo);
+      session_free (s);
+      return rv;
     }
 
   upf_debug ("proxy session flow: 0x%08x", s->opaque);
@@ -216,7 +219,6 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 
       if (proxy_session_stream_accept_notify (&child->connection, flow_id))
 	{
-          session_transport_delete_notify (&child->connection);
 	  tcp_connection_cleanup (child);
 	  error = UPF_PROXY_ERROR_CREATE_SESSION_FAIL;
 	  goto done;
