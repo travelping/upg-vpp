@@ -45,7 +45,7 @@ upf_proxy_main_t upf_proxy_main;
 
 static void delete_proxy_session (session_t * s, int is_active_open);
 static session_t *
-session_from_proxy_session_get (upf_proxy_session_t * ps, int is_active_open);
+session_from_proxy_session_get_if_valid (upf_proxy_session_t * ps, int is_active_open);
 
 u8 *
 format_upf_proxy_session (u8 * s, va_list * args)
@@ -56,8 +56,8 @@ format_upf_proxy_session (u8 * s, va_list * args)
   if (!ps)
     return format (s, "(NULL)");
 
-  p = session_from_proxy_session_get (ps, 0);
-  ao = session_from_proxy_session_get (ps, 1);
+  p = session_from_proxy_session_get_if_valid (ps, 0);
+  ao = session_from_proxy_session_get_if_valid (ps, 1);
 
   s = format (s, "Idx %u @ %p, Clnt: [%u:%u], Srv: [%u:%u], Flow Idx: %u\n",
 	      ps->session_index, ps, ps->proxy_thread_index, ps->proxy_session_index,
@@ -196,9 +196,30 @@ active_open_session_lookup (session_t * s)
   return 0;
 }
 
-static session_t *
-session_from_proxy_session_get (upf_proxy_session_t * ps, int is_active_open)
+static upf_proxy_session_t *
+ps_session_lookup (session_t * s, int is_active_open)
 {
+  if (!is_active_open)
+    return proxy_session_lookup (s);
+  else
+    return active_open_session_lookup (s);
+}
+
+static void
+ps_session_lookup_del (session_t * s, int is_active_open)
+{
+  if (!is_active_open)
+    proxy_session_lookup_del (s);
+  else
+    active_open_session_lookup_del (s);
+}
+
+static session_t *
+session_from_proxy_session_get_if_valid (upf_proxy_session_t * ps, int is_active_open)
+{
+  if (!ps)
+    return 0;
+
   if (!is_active_open)
     return session_get_if_valid (ps->proxy_session_index,
 				 ps->proxy_thread_index);
@@ -244,14 +265,11 @@ tx_callback_inline (session_t * s, int is_active_open)
 
   proxy_server_sessions_reader_lock ();
 
-  if (!is_active_open)
-    ps = proxy_session_lookup (s);
-  else
-    ps = active_open_session_lookup (s);
+  ps = ps_session_lookup (s, is_active_open);
   if (!ps)
     goto out_unlock;
 
-  tx = session_from_proxy_session_get (ps, !is_active_open);
+  tx = session_from_proxy_session_get_if_valid (ps, !is_active_open);
   if (!tx)
     goto out_unlock;
 
@@ -448,46 +466,15 @@ delete_proxy_session (session_t * s, int is_active_open)
   upf_proxy_main_t *pm = &upf_proxy_main;
   upf_proxy_session_t *ps = 0;
   vnet_disconnect_args_t _a, *a = &_a;
-  session_t *active_open_session = 0;
-  session_t *proxy_session = 0;
+  session_t * s2;
 
   proxy_server_sessions_writer_lock ();
 
-  if (is_active_open)
+  ps = ps_session_lookup (s, is_active_open);
+  if ((s2 = session_from_proxy_session_get_if_valid (ps, !is_active_open)))
     {
-      ps = active_open_session_lookup (s);
-      if (ps)
-	{
-	  proxy_session = session_from_proxy_session_get (ps, 0);
-	}
-    }
-  else
-    {
-      ps = proxy_session_lookup (s);
-      if (!ps)
-	{
-	  u64 handle = session_handle (s);
-	  clib_warning ("proxy session for %s handle %lld (%llx) AWOL",
-			is_active_open ? "active open" : "server",
-			handle, handle);
-	}
-      else
-	{
-	  active_open_session = session_from_proxy_session_get (ps, 1);
-	}
-    }
-
-  if (active_open_session)
-    {
-      a->handle = session_handle (active_open_session);
-      a->app_index = pm->active_open_app_index;
-      vnet_disconnect_session (a);
-    }
-
-  if (proxy_session)
-    {
-      a->handle = session_handle (proxy_session);
-      a->app_index = pm->server_app_index;
+      a->handle = session_handle (s2);
+      a->app_index = !is_active_open ? pm->server_app_index : pm->active_open_app_index;
       vnet_disconnect_session (a);
     }
 
@@ -505,19 +492,12 @@ session_cleanup (session_t * s, session_cleanup_ntf_t ntf, int is_active_open)
 
   proxy_server_sessions_writer_lock ();
 
-  if (!is_active_open)
-    ps = proxy_session_lookup (s);
-  else
-    ps = active_open_session_lookup (s);
+  ps = ps_session_lookup (s, is_active_open);
   if (!ps)
     goto out_unlock;
 
   flow_index = ps->flow_index;
-
-  if (!is_active_open)
-    proxy_session_lookup_del (s);
-  else
-    active_open_session_lookup_del (s);
+  ps_session_lookup_del (s, is_active_open);
 
   /* ps might be invalid after this point */
 
