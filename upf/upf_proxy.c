@@ -458,7 +458,6 @@ delete_proxy_session (session_t * s, int is_active_open)
       ps = active_open_session_lookup (s);
       if (ps)
 	{
-	  active_open_session = s;
 	  proxy_session = session_from_proxy_session_get (ps, 0);
 	}
     }
@@ -474,7 +473,6 @@ delete_proxy_session (session_t * s, int is_active_open)
 	}
       else
 	{
-	  proxy_session = s;
 	  active_open_session = session_from_proxy_session_get (ps, 1);
 	}
     }
