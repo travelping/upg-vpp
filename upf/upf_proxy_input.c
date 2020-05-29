@@ -111,6 +111,15 @@ tcp_flow_is_valid (tcp_connection_t * tc, flow_entry_t *f, flow_direction_t dire
     (f->key.port[reverse] == tc->connection.lcl_port);
 }
 
+static void
+kill_connection_hard (tcp_connection_t *tc)
+{
+  session_lookup_del_connection (&tc->connection);
+
+  tcp_connection_set_state (tc, TCP_STATE_CLOSED);
+  tcp_connection_del (tc);
+}
+
 static_always_inline u32
 splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
 {
@@ -184,12 +193,8 @@ splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
     flow_seq_offs(flow, reverse) = tcpRx->snd_nxt - tcpTx->rcv_nxt;
 
   /* kill the TCP connections, session and proxy session */
-  tcp_connection_set_state (tcpRx, TCP_STATE_CLOSED);
-  session_transport_delete_notify (&tcpRx->connection);
-  tcp_connection_cleanup (tcpRx);
-  tcp_connection_set_state (tcpTx, TCP_STATE_CLOSED);
-  session_transport_delete_notify (&tcpTx->connection);
-  tcp_connection_cleanup (tcpTx);
+  kill_connection_hard (tcpRx);
+  kill_connection_hard (tcpTx);
 
   /* switch to direct spliceing */
   flow->is_spliced = 1;
