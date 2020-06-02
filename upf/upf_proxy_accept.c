@@ -203,7 +203,6 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 
       tcp_init_w_buffer (child, b, is_ip4);
 
-      child->connection.flags |= TRANSPORT_CONNECTION_F_NO_LOOKUP;
       child->state = TCP_STATE_SYN_RCVD;
       child->c_fib_index = fib_idx;
       child->mss = pm->mss;
