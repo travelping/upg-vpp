@@ -346,6 +346,7 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 	  sidx = vnet_buffer (b)->ip.adj_index[VLIB_TX];
 	  upf_debug ("Session %d (0x%08x)", sidx, sidx);
 	  ASSERT (~0 != sidx);
+          ASSERT (! pool_is_free (gtm->sessions, gtm->sessions + sidx));
 
 	  ip0 = vlib_buffer_get_current (b);
 	  error0 = IP4_ERROR_NONE;

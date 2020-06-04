@@ -172,6 +172,14 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 		     flow_next (flow, FT_ORIGIN), flow_next (flow,
 							     FT_REVERSE));
 
+	  if (pool_is_free (gtm->sessions, gtm->sessions + flow->session_index))
+	    {
+              clib_warning("The flow has sidx %d that refers to a dead session", flow->session_index);
+	      next = UPF_PROXY_OUTPUT_NEXT_DROP;
+	      error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
+	      goto stats;
+	    }
+
 	  upf_buffer_opaque (b)->gtpu.session_index = flow->session_index;
 	  upf_buffer_opaque (b)->gtpu.flow_id = flow_id;
 	  upf_buffer_opaque (b)->gtpu.is_reverse =
