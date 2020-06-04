@@ -433,7 +433,7 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  is_reverse = upf_buffer_opaque (b)->gtpu.is_reverse;
 	  direction = (is_reverse == flow->is_reverse) ? FT_ORIGIN : FT_REVERSE;
-	  upf_debug ("is_rev %u, is_fwd %d\n", is_reverse, is_forward);
+	  upf_debug ("is_rev %u, dir %s\n", is_reverse, direction == FT_ORIGIN ? "FT_ORIGIN" : "FT_REVERSE");
 
 	  if (flow_next (flow, direction) != FT_NEXT_CLASSIFY)
 	    {
