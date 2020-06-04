@@ -757,7 +757,7 @@ upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t, u8 start_it)
 	 "now is %.4f, base is %.4f, expire in %lu ticks "
 	 " @ %.4f (%U), clib_now %.4f, current tick: %u",
 	 si, t->handle, now, t->base, interval,
-	 t->expected, format_time_float, 0, t->expected,
+	 t->expected, format_time_float, NULL, t->expected,
 	 unix_time_now (), psm->timer.current_tick);
     }
 }
@@ -826,10 +826,10 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 #define URR_DEUBG_ABS_LINE "%-10s | %U | %12.4f | %U | %12.4f\n"
 #define URR_DEBUG_VALUES(Label, t)					\
     (Label),								\
-      format_time_float, 0, (t).base,					\
+      format_time_float, NULL, (t).base,				\
       URR_COND_TIME(t, ((t).base - now)),				\
       (t).period,							\
-      format_time_float, 0, (t).base + (f64)(t).period,			\
+      format_time_float, NULL, (t).base + (f64)(t).period,		\
       URR_COND_TIME(t, (((t).base + (f64)(t).period) - now)),		\
       URR_COND_TIME(t, ((t).expected - now)),				\
       URR_COND_TIME(t, ((t).expected - now) * TW_CLOCKS_PER_SECOND),	\
@@ -837,7 +837,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 
 #define URR_DEBUG_ABS_VALUES(Label, t)					\
     (Label),								\
-      format_time_float, 0, (t).unix_time,				\
+      format_time_float, NULL, (t).unix_time,				\
       (t).unix_time - now,						\
       format_vlib_time, gtm->vlib_main, (t).vlib_time,			\
       (t).vlib_time - vnow

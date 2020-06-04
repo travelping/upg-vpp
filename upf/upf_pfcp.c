@@ -2070,8 +2070,8 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
     upf_debug
       ("Monitoring Time: %12.4f - %12.4f : %12.4f Unix: %U - %U : %12.4f",
        urr->monitoring_time.vlib_time, now,
-       urr->monitoring_time.vlib_time - now, format_time_float, 0,
-       urr->monitoring_time.unix_time, format_time_float, 0, unow,
+       urr->monitoring_time.vlib_time - now, format_time_float, NULL,
+       urr->monitoring_time.unix_time, format_time_float, NULL, unow,
        urr->monitoring_time.unix_time - unow);
 #endif
 
@@ -2380,7 +2380,7 @@ format_urr_time (u8 * s, va_list * args)
 
   return format (s, "%20" PRIu64 " secs @ %U, in %9.3f secs, handle 0x%08x",
 		 t->period,
-		 format_time_float, 0, t->expected,
+		 format_time_float, NULL, t->expected,
 		 t->expected - now, t->handle);
 }
 
@@ -2597,7 +2597,7 @@ format_pfcp_session (u8 * s, va_list * args)
       s = format (s, "  LIUSA: %U\n", format_bitmap_hex, urr->liusa_bitmap);
 
     s =
-      format (s, "  Start Time: %U\n", format_time_float, 0, urr->start_time);
+      format (s, "  Start Time: %U\n", format_time_float, NULL, urr->start_time);
     s = format (s, "  vTime of First Usage: %U \n"
 		"  vTime of Last Usage:  %U \n",
 		format_vlib_time, gtm->vlib_main,
@@ -2639,7 +2639,7 @@ format_pfcp_session (u8 * s, va_list * args)
 
 	s = format (s, "  Monitoring Time: %U, in %9.3f secs\n",
 		    /* VPP does not support ISO dates... */
-		    format_time_float, 0, urr->monitoring_time.unix_time,
+		    format_time_float, NULL, urr->monitoring_time.unix_time,
 		    urr->monitoring_time.unix_time - now,
 		    urr->monitoring_time.vlib_time -
 		    vlib_time_now (gtm->vlib_main));
@@ -2670,9 +2670,9 @@ format_pfcp_session (u8 * s, va_list * args)
 	    if (urr->methods & PFCP_URR_TIME)
 	      {
 		s = format (s, "    Start Time %U, End Time %U, %9.3f secs\n",
-			    format_time_float, 0,
+			    format_time_float, NULL,
 			    urr->usage_before_monitoring_time.start_time,
-			    format_time_float, 0, urr->start_time,
+			    format_time_float, NULL, urr->start_time,
 			    urr->start_time -
 			    urr->usage_before_monitoring_time.start_time);
 	      }
@@ -2724,7 +2724,7 @@ format_time_stamp (u8 * s, va_list * args)
   u32 *v = va_arg (*args, u32 *);
   struct timeval tv = {.tv_sec = *v,.tv_usec = 0 };
 
-  return format (s, "%U", format_timeval, 0, &tv);
+  return format (s, "%U", format_timeval, NULL, &tv);
 }
 
 u8 *

@@ -648,7 +648,7 @@ format_f64_time_stamp (u8 * s, va_list * args)
 {
   f64 *v = va_arg (*args, f64 *);
 
-  return format (s, "%U", format_time_float, 0, *v);
+  return format (s, "%U", format_time_float, NULL, *v);
 }
 
 static int
@@ -681,7 +681,7 @@ format_sntp_time_stamp (u8 * s, va_list * args)
 {
   f64 *v = va_arg (*args, f64 *);
 
-  return format (s, "%U", format_time_float, 0, *v);
+  return format (s, "%U", format_time_float, NULL, *v);
 }
 
 static int
