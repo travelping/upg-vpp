@@ -46,7 +46,8 @@
   _(PROCESS, "good packets process")				\
   _(OPTIONS, "Could not parse options")				\
   _(CREATE_SESSION_FAIL, "Sessions couldn't be allocated")      \
-  _(INVALID_FLOW, "flow entry not found")
+  _(INVALID_FLOW, "flow entry not found")                       \
+  _(CONNECTION_EXISTS, "connection already exists")
 
 static char *upf_proxy_error_strings[] = {
 #define _(sym,string) string,
@@ -141,10 +142,85 @@ proxy_session_stream_accept_notify (transport_connection_t * tc, u32 flow_id)
   return 0;
 }
 
+/**
+ * Lookup transport connection
+ */
+static tcp_connection_t *
+upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
+		       u8 is_ip4)
+{
+  tcp_header_t *tcp;
+  transport_connection_t *tconn;
+  tcp_connection_t *tc;
+  u8 is_filtered = 0;
+  if (is_ip4)
+    {
+      ip4_header_t *ip4;
+      ip4 = vlib_buffer_get_current (b);
+      tcp = ip4_next_header (ip4);
+      tconn = session_lookup_connection_wt4 (fib_index,
+					     &ip4->dst_address,
+					     &ip4->src_address,
+					     tcp->dst_port,
+					     tcp->src_port,
+					     TRANSPORT_PROTO_TCP,
+					     thread_index, &is_filtered);
+      tc = tcp_get_connection_from_transport (tconn);
+      /* ASSERT (tcp_lookup_is_valid (tc, b, tcp)); */
+    }
+  else
+    {
+      ip6_header_t *ip6;
+      ip6 = vlib_buffer_get_current (b);
+      tcp = ip6_next_header (ip6);
+      tconn = session_lookup_connection_wt6 (fib_index,
+					     &ip6->dst_address,
+					     &ip6->src_address,
+					     tcp->dst_port,
+					     tcp->src_port,
+					     TRANSPORT_PROTO_TCP,
+					     thread_index, &is_filtered);
+      tc = tcp_get_connection_from_transport (tconn);
+      /* ASSERT (tcp_lookup_is_valid (tc, b, tcp)); */
+    }
+  return tc;
+}
+
+static tcp_connection_t *
+upf_tcp_lookup_listener (vlib_buffer_t * b, u32 fib_index, int is_ip4)
+{
+  session_t *s;
+
+  if (is_ip4)
+    {
+      ip4_header_t *ip4 = vlib_buffer_get_current (b);
+      tcp_header_t *tcp = tcp_buffer_hdr (b);
+      s = session_lookup_listener4 (fib_index,
+				    &ip4->dst_address,
+				    tcp->dst_port, TRANSPORT_PROTO_TCP, 1);
+    }
+  else
+    {
+      ip6_header_t *ip6 = vlib_buffer_get_current (b);
+      tcp_header_t *tcp = tcp_buffer_hdr (b);
+      s = session_lookup_listener6 (fib_index,
+				    &ip6->dst_address,
+				    tcp->dst_port, TRANSPORT_PROTO_TCP, 1);
+
+    }
+  if (PREDICT_TRUE (s != 0))
+    return tcp_get_connection_from_transport (transport_get_listener
+					      (TRANSPORT_PROTO_TCP,
+					       s->connection_index));
+  else
+    return 0;
+}
+
 static_always_inline uword
 upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 			 vlib_frame_t * from_frame, int is_ip4)
 {
+  upf_main_t *gtm = &upf_main;
   flowtable_main_t *fm = &flowtable_main;
   upf_proxy_main_t *pm = &upf_proxy_main;
   u32 thread_index = vm->thread_index;
@@ -155,7 +231,7 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 
   while (n_left_from > 0)
     {
-      tcp_connection_t *child;
+      tcp_connection_t *lc, *child;
       flow_entry_t *flow;
       tcp_header_t *tcp;
       vlib_buffer_t *b;
@@ -199,6 +275,34 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 
       fib_idx = vlib_buffer_get_ip_fib_index (b, is_ip4);
       upf_debug ("FIB: %u", fib_idx);
+
+      lc = tcp_listener_get (vnet_buffer (b)->tcp.connection_index);
+      if (PREDICT_FALSE (lc == 0))
+	{
+	  tcp_connection_t *tc;
+	  tc = tcp_connection_get (vnet_buffer (b)->tcp.connection_index,
+				   thread_index);
+          if (tc != NULL)
+            {
+              if (tc->state != TCP_STATE_TIME_WAIT)
+                {
+                  error = UPF_PROXY_ERROR_CONNECTION_EXISTS;
+                  goto done;
+                }
+              lc = upf_tcp_lookup_listener (b, tc->c_fib_index, is_ip4);
+              /* clean up the old session */
+              tcp_connection_del (tc);
+            }
+	}
+
+      /* Make sure connection wasn't just created */
+      child = upf_tcp_lookup_connection (fib_idx, b, thread_index,
+                                         is_ip4);
+      if (PREDICT_FALSE (child != NULL && child->state != TCP_STATE_LISTEN))
+	{
+	  error = UPF_PROXY_ERROR_CONNECTION_EXISTS;
+	  goto done;
+	}
 
       /* Create child session and send SYN-ACK */
       child = tcp_connection_alloc (thread_index);
