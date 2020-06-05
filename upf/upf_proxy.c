@@ -277,7 +277,14 @@ tx_callback_inline (session_t * s, int is_active_open)
 
   /* Force ack on other side to update rcv wnd */
   tc = session_get_transport (tx);
-  tcp_send_ack ((tcp_connection_t *) tc);
+  /*
+     FIXME: band-aid: this should not happen but it does.
+     Possibly bad session cleanup somewhere
+  */
+  if (!tc)
+    clib_warning("session_get_transport (tx) == NULL");
+  else
+    tcp_send_ack ((tcp_connection_t *) tc);
 
 out_unlock:
   proxy_server_sessions_reader_unlock ();
