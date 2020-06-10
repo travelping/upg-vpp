@@ -772,7 +772,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
   struct rules *active;
   u32 idx;
 
-#if CLIB_DEBUG > 2
+#if CLIB_DEBUG > 1
   f64 vnow = vlib_time_now (gtm->vlib_main);
 #endif
 
