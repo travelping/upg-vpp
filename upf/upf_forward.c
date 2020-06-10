@@ -308,8 +308,7 @@ VLIB_REGISTER_NODE (upf_ip4_forward_node) = {
     [UPF_FORWARD_NEXT_DROP]          = "error-drop",
     [UPF_FORWARD_NEXT_GTP_IP4_ENCAP] = "upf4-encap",
     [UPF_FORWARD_NEXT_GTP_IP6_ENCAP] = "upf6-encap",
-    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip4-input",
-    [UPF_FORWARD_NEXT_PROXY_ACCEPT]  = "upf-ip4-proxy-accept",
+    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip4-input"
   },
 };
 /* *INDENT-ON* */
@@ -327,8 +326,7 @@ VLIB_REGISTER_NODE (upf_ip6_forward_node) = {
     [UPF_FORWARD_NEXT_DROP]          = "error-drop",
     [UPF_FORWARD_NEXT_GTP_IP4_ENCAP] = "upf4-encap",
     [UPF_FORWARD_NEXT_GTP_IP6_ENCAP] = "upf6-encap",
-    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip6-input",
-    [UPF_FORWARD_NEXT_PROXY_ACCEPT]  = "upf-ip6-proxy-accept",
+    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip6-input"
   },
 };
 /* *INDENT-ON* */
