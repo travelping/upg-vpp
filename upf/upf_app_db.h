@@ -128,7 +128,7 @@ is_http_request (u8 ** payload, word * len)
 	    c0 == char_to_u32 ('P', 'O', 'S', 'T') ||
 	    c0 == char_to_u32 ('C', 'O', 'P', 'Y') ||
 	    c0 == char_to_u32 ('M', 'O', 'V', 'E') ||
-	    c0 == char_to_u32 ('L', 'O', 'C', 'K')) && *payload[4] == ' ')
+	    c0 == char_to_u32 ('L', 'O', 'C', 'K')) && (*payload)[4] == ' ')
     {
       *payload += 5;
       *len -= 5;
