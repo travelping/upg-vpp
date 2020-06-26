@@ -147,11 +147,15 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    }
 
 	  if (is_ip4)
-	    upf_debug ("IP hdr: %U", format_ip4_header,
-		       vlib_buffer_get_current (b));
-	  else
-	    upf_debug ("IP hdr: %U", format_ip6_header,
-		       vlib_buffer_get_current (b));
+            {
+              upf_debug ("IP hdr: %U", format_ip4_header,
+                         vlib_buffer_get_current (b), b->current_length);
+            }
+          else
+            {
+              upf_debug ("IP hdr: %U", format_ip6_header,
+                         vlib_buffer_get_current (b), b->current_length);
+            }
 
 	  if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
 	    goto stats;

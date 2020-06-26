@@ -165,7 +165,7 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  upf_debug ("flow: %U\n", format_flow, flow);
 
 	  upf_debug ("IP hdr: %U", format_ip4_header,
-		     vlib_buffer_get_current (b));
+		     vlib_buffer_get_current (b), b->current_length);
 	  upf_debug ("Flow ORIGIN/REVERSE Pdr Id: %u/%u, FT Next %u/%u",
 		     flow_pdr_id (flow, FT_ORIGIN), flow_pdr_id (flow,
 								 FT_REVERSE),

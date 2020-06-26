@@ -154,7 +154,7 @@ upf_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    }
 
 	  upf_debug ("IP hdr: %U", format_ip4_header,
-		     vlib_buffer_get_current (b));
+		     vlib_buffer_get_current (b), b->current_length);
 	  upf_debug ("PDR Idx: %u, PDR: %p, FAR: %p",
 		     upf_buffer_opaque (b)->gtpu.pdr_idx, pdr, far);
 	  if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))

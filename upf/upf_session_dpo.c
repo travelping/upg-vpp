@@ -351,7 +351,7 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 	  ip0 = vlib_buffer_get_current (b);
 	  error0 = IP4_ERROR_NONE;
 	  next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
-	  upf_debug ("IP hdr: %U", format_ip4_header, ip0);
+	  upf_debug ("IP hdr: %U", format_ip4_header, ip0, b->current_length);
 
 	  ip4_ttl_and_checksum_check (b, ip0, &next, &error0);
 
