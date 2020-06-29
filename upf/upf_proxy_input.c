@@ -257,6 +257,7 @@ load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction, flow_entry_t 
 
 static uword
 upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
+                 const char * node_name,
 		 vlib_frame_t * from_frame, int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
@@ -289,8 +290,12 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
+	  upf_session_t *sess = NULL;
 	  flow_direction_t direction;
 	  flow_entry_t *flow = NULL;
+	  upf_pdr_t *pdr = NULL;
+	  upf_far_t *far = NULL;
+	  struct rules *active;
 	  flow_tc_t *ftc;
 
 	  bi = from[0];
@@ -401,8 +406,43 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  load_tstamp_offset (b, direction, flow);
 		  next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
 		}
+              else
+                goto stats;
 	    }
 
+          // FT_REVERSE direction (DL) and stitched traffic (upf-ip[46]-tcp-forward)
+          // is accounted for on the upf-ip[46]-forward node
+          if (direction == FT_ORIGIN && next != UPF_PROXY_INPUT_NEXT_TCP_FORWARD)
+            {
+              /* Get next node index and adj index from tunnel next_dpo */
+              sess = pool_elt_at_index (gtm->sessions, flow->session_index);
+              active = pfcp_get_rules (sess, PFCP_ACTIVE);
+              pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, direction));
+              far = pdr ? pfcp_get_far_by_id (active, pdr->far_id) : NULL;
+
+              if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
+                {
+                  next = UPF_FORWARD_NEXT_DROP;
+                  goto stats;
+                }
+
+
+#define IS_DL(_pdr, _far)						\
+              ((_pdr)->pdi.src_intf == SRC_INTF_CORE || (_far)->forward.dst_intf == DST_INTF_ACCESS)
+#define IS_UL(_pdr, _far)						\
+              ((_pdr)->pdi.src_intf == SRC_INTF_ACCESS || (_far)->forward.dst_intf == DST_INTF_CORE)
+
+              upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
+              next = process_qers (vm, sess, active, pdr, b,
+                                   IS_DL (pdr, far), IS_UL (pdr, far), next);
+              next = process_urrs (vm, sess, node_name, active, pdr, b,
+                                   IS_DL (pdr, far), IS_UL (pdr, far), next);
+
+#undef IS_DL
+#undef IS_UL
+            }
+
+	stats:
 	  len = vlib_buffer_length_in_chain (vm, b);
 	  stats_n_packets += 1;
 	  stats_n_bytes += len;
@@ -457,14 +497,14 @@ VLIB_NODE_FN (upf_ip4_proxy_input_node) (vlib_main_t * vm,
 					 vlib_node_runtime_t * node,
 					 vlib_frame_t * from_frame)
 {
-  return upf_proxy_input (vm, node, from_frame, /* is_ip4 */ 1);
+  return upf_proxy_input (vm, node, "upf-ip4-proxy-input", from_frame, /* is_ip4 */ 1);
 }
 
 VLIB_NODE_FN (upf_ip6_proxy_input_node) (vlib_main_t * vm,
 					 vlib_node_runtime_t * node,
 					 vlib_frame_t * from_frame)
 {
-  return upf_proxy_input (vm, node, from_frame, /* is_ip4 */ 0);
+  return upf_proxy_input (vm, node, "upf-ip6-proxy-input", from_frame, /* is_ip4 */ 0);
 }
 
 /* *INDENT-OFF* */

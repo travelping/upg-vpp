@@ -86,6 +86,7 @@ format_upf_forward_trace (u8 * s, va_list * args)
 
 static uword
 upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
+             const char * node_name,
 	     vlib_frame_t * from_frame, int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
@@ -231,7 +232,7 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
 	  next = process_qers (vm, sess, active, pdr, b,
 			       IS_DL (pdr, far), IS_UL (pdr, far), next);
-	  next = process_urrs (vm, sess, active, pdr, b,
+	  next = process_urrs (vm, sess, node_name, active, pdr, b,
 			       IS_DL (pdr, far), IS_UL (pdr, far), next);
 
 #undef IS_DL
@@ -289,14 +290,14 @@ VLIB_NODE_FN (upf_ip4_forward_node) (vlib_main_t * vm,
 				     vlib_node_runtime_t * node,
 				     vlib_frame_t * from_frame)
 {
-  return upf_forward (vm, node, from_frame, /* is_ip4 */ 1);
+  return upf_forward (vm, node, "upf-ip4-forward", from_frame, /* is_ip4 */ 1);
 }
 
 VLIB_NODE_FN (upf_ip6_forward_node) (vlib_main_t * vm,
 				     vlib_node_runtime_t * node,
 				     vlib_frame_t * from_frame)
 {
-  return upf_forward (vm, node, from_frame, /* is_ip4 */ 0);
+  return upf_forward (vm, node, "upf-ip6-forward", from_frame, /* is_ip4 */ 0);
 }
 
 /* *INDENT-OFF* */

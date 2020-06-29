@@ -30,6 +30,8 @@
 #include <vnet/fib/fib_entry_track.h>
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/fib/ip6_fib.h>
+#include <vnet/tcp/tcp_packet.h>
+#include <vnet/udp/udp_packet.h>
 #include <search.h>
 #include <netinet/ip.h>
 
@@ -2036,8 +2038,97 @@ urr_increment_and_check_counter (u64 * packets, u64 * bytes, u64 * consumed,
   return r;
 }
 
+#if CLIB_DEBUG > 2
+static u8 *
+format_tcp_flags_brief (u8 * s, va_list * args)
+{
+  int flags = va_arg (*args, int);
+
+  if (flags & TCP_FLAG_FIN) s = format(s, "F");
+  if (flags & TCP_FLAG_SYN) s = format(s, "S");
+  if (flags & TCP_FLAG_RST) s = format(s, "R");
+  if (flags & TCP_FLAG_PSH) s = format(s, "P");
+  if (flags & TCP_FLAG_ACK) s = format(s, "A");
+  if (flags & TCP_FLAG_URG) s = format(s, "U");
+  if (flags & TCP_FLAG_ECE) s = format(s, "E");
+  if (flags & TCP_FLAG_CWR) s = format(s, "C");
+
+  return s;
+}
+
+static void display_packet_for_urr(vlib_main_t * vm, vlib_buffer_t * b,
+                                   const char *node_name,
+                                   u16 urr_id, u8 is_ul, u8 is_dl,
+                                   u64 up, u64 down, u64 tot, uword len)
+{
+  if (b->current_length < sizeof(ip4_header_t))
+    {
+      clib_warning("URR LOG: IP header truncated");
+      return;
+    }
+
+  ip4_header_t *ip = (ip4_header_t *) vlib_buffer_get_current (b);
+  u32 header_bytes = (ip->ip_version_and_header_length & 0xf) * sizeof (u32);
+  u32 bytes_left = b->current_length - header_bytes;
+
+  if (b->current_length < sizeof(header_bytes))
+    {
+      clib_warning("URR LOG: IP header truncated");
+      return;
+    }
+
+  u8 *next_header = (u8 *) vlib_buffer_get_current (b) + header_bytes;
+  u8 *s = format (0, "URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
+                  urr_id, is_ul, is_dl, up, down, tot,
+                  format_ip4_address, ip->src_address.data,
+                  format_ip4_address, ip->dst_address.data,
+                  len, format_ip_protocol, ip->protocol);
+  switch (ip->protocol)
+    {
+    case IP_PROTOCOL_TCP:
+      if (bytes_left < sizeof(tcp_header_t))
+        {
+          s = format(s, " <truncated>");
+        }
+      else
+        {
+          tcp_header_t *tcp = (tcp_header_t*) next_header;
+          s = format (s, " %u -> %u flags %U seq %u ack %u",
+                      clib_net_to_host_u16(tcp->src_port),
+                      clib_net_to_host_u16(tcp->dst_port),
+                      format_tcp_flags_brief, tcp->flags,
+                      clib_net_to_host_u32(tcp->seq_number),
+                      clib_net_to_host_u32(tcp->ack_number));
+        }
+      break;
+    case IP_PROTOCOL_UDP:
+      if (bytes_left < sizeof(udp_header_t))
+        {
+          s = format(s, " <truncated>");
+        }
+      else
+        {
+          udp_header_t *udp = (udp_header_t*) next_header;
+          s = format (s, " %u -> %u",
+                      clib_net_to_host_u16(udp->src_port),
+                      clib_net_to_host_u16(udp->dst_port));
+        }
+      break;
+    case IP_PROTOCOL_ICMP:
+      /* s = format (s, "%U", format_ip4_icmp_header, next_header, bytes_left); */
+      s = format (s, "icmp");
+      break;
+    }
+
+  upf_debug ("node %s: TRAFFIC LOG: %v", node_name, s);
+  vec_free(s);
+}
+
+#endif
+
 u32
 process_urrs (vlib_main_t * vm, upf_session_t * sess,
+              const char * node_name,
 	      struct rules *active,
 	      upf_pdr_t * pdr, vlib_buffer_t * b,
 	      u8 is_dl, u8 is_ul, u32 next)
@@ -2117,6 +2208,15 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 	  r |= urr_incr_and_check (urr->volume, dl, len);
 
 	r |= urr_incr_and_check (urr->volume, total, len);
+
+#if CLIB_DEBUG > 2
+        display_packet_for_urr (vm, b, node_name, *urr_id,
+                                is_ul, is_dl,
+                                urr->volume.measure.bytes.ul,
+                                urr->volume.measure.bytes.dl,
+                                urr->volume.measure.bytes.total,
+                                len);
+#endif
 
 	if (PREDICT_FALSE (r & URR_QUOTA_EXHAUSTED))
 	  urr->status |= URR_OVER_QUOTA;
