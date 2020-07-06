@@ -1329,7 +1329,8 @@ free_redirect_information (void *p)
 {
   pfcp_redirect_information_t *v = p;
 
-  vec_free (v->uri);
+  if (v->type == REDIRECT_INFORMATION_HTTP || v->type == REDIRECT_INFORMATION_SIP)
+    vec_free (v->uri);
 }
 
 static u8 *
