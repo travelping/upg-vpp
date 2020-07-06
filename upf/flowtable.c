@@ -427,6 +427,8 @@ format_flow (u8 * s, va_list * args)
 #if CLIB_DEBUG > 1
   s = format (s, ", cpu %u", flow->cpu_index);
 #endif
+
+  vec_free(app_name);
   return s;
 }
 

@@ -902,17 +902,20 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	  unformat_input_t input;
 	  acl_rule_t *acl;
 
-	  unformat_init_vector (&input, sdf->flow);
+	  unformat_init_string (&input, (char *) sdf->flow, vec_len(sdf->flow));
 	  vec_add2 (create->pdi.acl, acl, 1);
 
 	  if (!unformat_ipfilter (&input, acl))
 	    {
+	      unformat_free (&input);
 	      failed_rule_id->id = pdr->pdr_id;
 	      vec_pop (rules->pdr);
 	      upf_debug ("failed to parse SDF '%s'", sdf->flow);
 	      r = -1;
 	      break;
 	    }
+
+	  unformat_free (&input);
 	}
       }
 
@@ -1074,16 +1077,19 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	  unformat_input_t input;
 	  acl_rule_t *acl;
 
-	  unformat_init_vector (&input, sdf->flow);
+	  unformat_init_string (&input, (char *) sdf->flow, vec_len(sdf->flow));
 	  vec_add2 (update->pdi.acl, acl, 1);
 
 	  if (!unformat_ipfilter (&input, acl))
 	    {
+	      unformat_free (&input);
 	      failed_rule_id->id = pdr->pdr_id;
 	      upf_debug ("failed to parse SDF '%s'", sdf->flow);
 	      r = -1;
 	      break;
 	    }
+
+	  unformat_free (&input);
 	}
       }
 
