@@ -1713,6 +1713,17 @@ build_urr_link_map (upf_session_t * sx)
   }
 }
 
+static void upf_ip_lookup_tx (u32 bi, int is_ip4)
+{
+  vlib_main_t *vm = vlib_get_main ();
+  u32 node_index = is_ip4 ? ip4_lookup_node.index : ip6_lookup_node.index;
+  vlib_frame_t *f = vlib_get_frame_to_node (vm, node_index);
+  u32 *to_next = vlib_frame_vector_args (f);
+  to_next[0] = bi;
+  f->n_vectors = 1;
+  vlib_put_frame_to_node (vm, node_index, f);
+}
+
 int
 pfcp_update_apply (upf_session_t * sx)
 {
