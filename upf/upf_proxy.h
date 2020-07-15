@@ -42,6 +42,10 @@ typedef struct
 
   int refcnt;
   u8 *rx_buf;				/**< intermediate rx buffers */
+
+  volatile u8 active_open_establishing;
+  volatile u8 po_disconnected;
+  volatile u8 ao_disconnected;
 } upf_proxy_session_t;
 
 #define foreach_upf_proxy_config_fields						\
