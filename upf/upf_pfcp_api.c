@@ -2132,11 +2132,9 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
       urr->monitoring_time.vlib_time != INFINITY &&
       urr->monitoring_time.unix_time < now)
     {
-      urr->usage_before_monitoring_time.volume = urr->volume.measure;
-      memset (&urr->volume.measure.packets, 0,
-	      sizeof (urr->volume.measure.packets));
-      memset (&urr->volume.measure.bytes, 0,
-	      sizeof (urr->volume.measure.bytes));
+      urr->usage_before_monitoring_time.volume = volume.measure;
+      memset (&volume.measure.packets, 0, sizeof (volume.measure.packets));
+      memset (&volume.measure.bytes, 0, sizeof (volume.measure.bytes));
 
       urr->usage_before_monitoring_time.start_time = urr->start_time;
       urr->usage_before_monitoring_time.time_of_first_packet =
