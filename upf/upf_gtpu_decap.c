@@ -297,8 +297,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		  while ((u8 *)ext < end && ext->type != 0)
 		    {
 		      /* gtpu_ext_header_t is 4 bytes and the len is in units of 4 */
-		      ext += ext->len * 4 / sizeof (*ext);
 		      gtpu_hdr_len0 += ext->len * 4;
+		      ext += ext->len * 4 / sizeof (*ext);
 		    }
 		}
 	    }
@@ -473,8 +473,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		  while ((u8 *)ext < end && ext->type != 0)
 		    {
 		      /* gtpu_ext_header_t is 4 bytes and the len is in units of 4 */
-		      ext += ext->len * 4 / sizeof (*ext);
 		      gtpu_hdr_len1 += ext->len * 4;
+		      ext += ext->len * 4 / sizeof (*ext);
 		    }
 		}
 	    }
@@ -701,8 +701,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		  while ((u8 *)ext < end && ext->type != 0)
 		    {
 		      /* gtpu_ext_header_t is 4 bytes and the len is in units of 4 */
-		      ext += ext->len * 4 / sizeof (*ext);
 		      gtpu_hdr_len0 += ext->len * 4;
+		      ext += ext->len * 4 / sizeof (*ext);
 		    }
 		}
 	    }
