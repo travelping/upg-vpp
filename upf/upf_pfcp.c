@@ -2049,7 +2049,7 @@ urr_increment_and_check_counter (u64 * packets, u64 * bytes, u64 * consumed,
   return r;
 }
 
-#if CLIB_DEBUG > 2
+#ifdef UPF_TRAFFIC_LOG
 static u8 *
 format_tcp_flags_brief (u8 * s, va_list * args)
 {
@@ -2070,7 +2070,8 @@ format_tcp_flags_brief (u8 * s, va_list * args)
 static void display_packet_for_urr(vlib_main_t * vm, vlib_buffer_t * b,
                                    const char *node_name,
                                    u16 urr_id, u8 is_ul, u8 is_dl,
-                                   u64 up, u64 down, u64 tot, uword len)
+                                   u64 up, u64 down, u64 tot, uword len,
+                                   u8 is_ip4)
 {
   if (b->current_length < sizeof(ip4_header_t))
     {
@@ -2078,23 +2079,44 @@ static void display_packet_for_urr(vlib_main_t * vm, vlib_buffer_t * b,
       return;
     }
 
-  ip4_header_t *ip = (ip4_header_t *) vlib_buffer_get_current (b);
-  u32 header_bytes = (ip->ip_version_and_header_length & 0xf) * sizeof (u32);
-  u32 bytes_left = b->current_length - header_bytes;
+  u8 protocol;
+  u8 *next_header;
+  u8 *s;
+  u32 bytes_left;
 
-  if (b->current_length < sizeof(header_bytes))
+  if (is_ip4)
     {
-      clib_warning("URR LOG: IP header truncated");
-      return;
-    }
+      ip4_header_t *ip = (ip4_header_t *) vlib_buffer_get_current (b);
+      u32 header_bytes = (ip->ip_version_and_header_length & 0xf) * sizeof (u32);
+      bytes_left = b->current_length - header_bytes;
 
-  u8 *next_header = (u8 *) vlib_buffer_get_current (b) + header_bytes;
-  u8 *s = format (0, "URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
+      if (b->current_length < sizeof(header_bytes))
+        {
+          clib_warning("URR LOG: IP header truncated");
+          return;
+        }
+
+      next_header = (u8 *) vlib_buffer_get_current (b) + header_bytes;
+      s = format (0, "URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
+                      urr_id, is_ul, is_dl, up, down, tot,
+                      format_ip4_address, ip->src_address.data,
+                      format_ip4_address, ip->dst_address.data,
+                      len, format_ip_protocol, ip->protocol);
+      protocol = ip->protocol;
+    }
+  else
+    {
+      ip6_header_t *ip = (ip6_header_t *) vlib_buffer_get_current (b);
+      next_header = (u8 *) ip6_next_header(ip);
+      bytes_left = b->current_length - sizeof(ip6_header_t);
+      s = format (0, "URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
                   urr_id, is_ul, is_dl, up, down, tot,
-                  format_ip4_address, ip->src_address.data,
-                  format_ip4_address, ip->dst_address.data,
+                  format_ip6_address, &ip->src_address,
+                  format_ip6_address, &ip->dst_address,
                   len, format_ip_protocol, ip->protocol);
-  switch (ip->protocol)
+      protocol = ip->protocol;
+    }
+  switch (protocol)
     {
     case IP_PROTOCOL_TCP:
       if (bytes_left < sizeof(tcp_header_t))
@@ -2131,7 +2153,7 @@ static void display_packet_for_urr(vlib_main_t * vm, vlib_buffer_t * b,
       break;
     }
 
-  upf_debug ("node %s: TRAFFIC LOG: %v", node_name, s);
+  clib_warning ("node %s: TRAFFIC LOG: %v", node_name, s);
   vec_free(s);
 }
 
@@ -2220,13 +2242,16 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 
 	r |= urr_incr_and_check (urr->volume, total, len);
 
-#if CLIB_DEBUG > 2
+#ifdef UPF_TRAFFIC_LOG
+	ip4_header_t *iph =
+	  (ip4_header_t *) (b->data + vnet_buffer (b)->l3_hdr_offset);
         display_packet_for_urr (vm, b, node_name, *urr_id,
                                 is_ul, is_dl,
                                 urr->volume.measure.bytes.ul,
                                 urr->volume.measure.bytes.dl,
                                 urr->volume.measure.bytes.total,
-                                len);
+                                len,
+                                (iph->ip_version_and_header_length & 0xF0) == 0x40);
 #endif
 
 	if (PREDICT_FALSE (r & URR_QUOTA_EXHAUSTED))
