@@ -1296,6 +1296,7 @@ clib_error_t *
 upf_proxy_main_init (vlib_main_t * vm)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
+  tcp_main_t *tm = vnet_get_tcp_main ();
 
   pm->mss = 1350;
   pm->fifo_size = 64 << 10;
@@ -1308,6 +1309,13 @@ upf_proxy_main_init (vlib_main_t * vm)
 
   pm->server_client_index = ~0;
   pm->active_open_client_index = ~0;
+
+  /*
+   * FIXME: this disables a TIME_WAIT -> LISTEN transition in the TCP stack.
+   * We have to do that because UPF proxy doesn't use listeners.
+   */
+  tm->dispatch_table[TCP_STATE_TIME_WAIT][TCP_FLAG_SYN].next = 0 /* TCP_INPUT_NEXT_DROP */;
+  tm->dispatch_table[TCP_STATE_TIME_WAIT][TCP_FLAG_SYN].error = TCP_ERROR_DISPATCH;
 
   upf_debug ("TCP4 Output Node Index %u, IP4 Proxy Output Node Index %u",
 	     tcp4_output_node.index, upf_ip4_proxy_server_output_node.index);
