@@ -11,12 +11,16 @@ from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     IE_QueryURR, IE_RecoveryTimeStamp, IE_RedirectInformation, IE_ReportType, \
     IE_ReportingTriggers, IE_SDF_Filter, IE_SourceInterface, IE_StartTime, \
     IE_TimeQuota, IE_UE_IP_Address, IE_URR_Id, IE_UR_SEQN, \
+    IE_FTEID, IE_OuterHeaderCreation, IE_OuterHeaderRemoval, \
     IE_UsageReportTrigger, IE_VolumeMeasurement, IE_ApplicationId, PFCP, \
     PFCPAssociationSetupRequest, PFCPAssociationSetupResponse, \
     PFCPHeartbeatRequest, PFCPHeartbeatResponse, PFCPSessionDeletionRequest, \
     PFCPSessionDeletionResponse, PFCPSessionEstablishmentRequest, \
     PFCPSessionEstablishmentResponse, PFCPSessionModificationRequest, \
     PFCPSessionModificationResponse, PFCPSessionReportRequest
+from scapy.contrib.gtp import GTP_U_Header, GTPEchoRequest, GTPEchoResponse, \
+    GTP_UDPPort_ExtensionHeader, GTP_PDCP_PDU_ExtensionHeader, \
+    IE_Recovery, IE_SelectionMode
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP, TCP
 from scapy.layers.inet6 import IPv6
@@ -74,7 +78,7 @@ class IPv4Mixin(object):
         iface.resolve_arp()
 
     @classmethod
-    def upf_setup_cmds(cls):
+    def tdf_setup_cmds(cls):
         return [
             "upf nwi name cp vrf 0",
             "upf nwi name access vrf 100",
@@ -90,6 +94,19 @@ class IPv4Mixin(object):
             # TODO: uncomment when IP rules are implemented
             # "upf application TST rule 3001 add ipfilter " +
             # "permit out ip from %s to assigned" % APP_RULE_IP_V4,
+        ]
+
+    @classmethod
+    def pgw_setup_cmds(cls):
+        return [
+            "upf nwi name cp vrf 0",
+            "upf nwi name epc vrf 100",
+            "upf nwi name sgi vrf 200",
+            "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip4,
+            "ip route add 0.0.0.0/0 table 200 via %s %s" %
+            (cls.if_sgi.remote_ip4, cls.if_sgi.name),
+            "upf gtpu endpoint ip %s nwi cp teid 0x80000000/2" % cls.if_cp.local_ip4,
+            "upf gtpu endpoint ip %s nwi epc teid 0x80000000/2" % cls.if_grx.local_ip4,
         ]
 
     @property
@@ -108,6 +125,21 @@ class IPv4Mixin(object):
     def sgi_remote_ip(self):
         return self.if_sgi.remote_ip4
 
+    @property
+    def grx_local_ip(self):
+        return self.if_grx.local_ip4
+
+    @property
+    def grx_remote_ip(self):
+        return self.if_grx.remote_ip4
+
+    def outer_header_creation(self):
+        return IE_OuterHeaderCreation(
+            GTPUUDPIPV4=1, TEID=self.CLIENT_TEID, ipv4=self.if_grx.remote_ip4)
+
+    def ie_fteid(self):
+        return IE_FTEID(V4=1, TEID=self.UNODE_TEID, ipv4=self.if_grx.local_ip4)
+
     def ie_ue_ip_address(self, SD=0):
         return IE_UE_IP_Address(ipv4=self.ue_ip, V4=1, SD=SD)
 
@@ -121,7 +153,7 @@ class IPv4Mixin(object):
             FD=1,
             flow_description="permit out ip from %s to assigned" %
             REDIR_IP_V4)
-
+    
     def ie_sdf_filter_extra_for_app_pdi(self):
         return IE_SDF_Filter(
             FD=1,
@@ -130,6 +162,9 @@ class IPv4Mixin(object):
 
     def ie_fseid(self):
         return IE_FSEID(ipv4=self.pfcp_cp_ip, v4=1, seid=self.cur_seid)
+
+    def ie_outer_header_removal(self):
+        return IE_OuterHeaderRemoval(header="GTP-U/UDP/IPv4")
 
     def verify_ie_fseid(self, ie_fseid):
         self.assertTrue(ie_fseid.v4)
@@ -168,7 +203,7 @@ class IPv6Mixin(object):
         iface.resolve_ndp()
 
     @classmethod
-    def upf_setup_cmds(cls):
+    def tdf_setup_cmds(cls):
         return [
             "upf nwi name cp vrf 0",
             "upf nwi name access vrf 100",
@@ -186,6 +221,19 @@ class IPv6Mixin(object):
             # "permit out ip from %s to assigned" % APP_RULE_IP_V6,
         ]
 
+    @classmethod
+    def pgw_setup_cmds(cls):
+        return [
+            "upf nwi name cp vrf 0",
+            "upf nwi name epc vrf 100",
+            "upf nwi name sgi vrf 200",
+            "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip6,
+            "ip route add ::/0 table 200 via %s %s" %
+            (cls.if_sgi.remote_ip6, cls.if_sgi.name),
+            "upf gtpu endpoint ip6 %s nwi cp teid 0x80000000/2" % cls.if_cp.local_ip6,
+            "upf gtpu endpoint ip6 %s nwi epc teid 0x80000000/2" % cls.if_grx.local_ip6,
+        ]
+
     @property
     def pfcp_cp_ip(self):
         return self.if_cp.remote_ip6
@@ -201,6 +249,21 @@ class IPv6Mixin(object):
     @property
     def sgi_remote_ip(self):
         return self.if_sgi.remote_ip6
+
+    @property
+    def grx_local_ip(self):
+        return self.if_grx.local_ip6
+
+    @property
+    def grx_remote_ip(self):
+        return self.if_grx.remote_ip6
+
+    def outer_header_creation(self):
+        return IE_OuterHeaderCreation(
+            GTPUUDPIPV6=1, TEID=self.CLIENT_TEID, ipv6=self.if_grx.remote_ip6)
+
+    def ie_fteid(self):
+        return IE_FTEID(V6=1, TEID=self.UNODE_TEID, ipv6=self.if_grx.local_ip6)
 
     def ie_ue_ip_address(self, SD=0):
         return IE_UE_IP_Address(ipv6=self.ue_ip, V6=1, SD=SD)
@@ -225,6 +288,9 @@ class IPv6Mixin(object):
     def ie_fseid(self):
         return IE_FSEID(ipv6=self.pfcp_cp_ip, v6=1, seid=self.cur_seid)
 
+    def ie_outer_header_removal(self):
+        return IE_OuterHeaderRemoval(header="GTP-U/UDP/IPv6")
+
     def verify_ie_fseid(self, ie_fseid):
         self.assertFalse(ie_fseid.v4)
         self.assertTrue(ie_fseid.v6)
@@ -240,13 +306,140 @@ class IPv6Mixin(object):
         return IPv6
 
 
-class TestUPFBase(object):
-    """Base UPF Test"""
+class PFCPHelper(object):
+    """PFCP Helper class"""
 
     @classmethod
     def setUpClass(cls):
+        super(PFCPHelper, cls).setUpClass()
         cls.ts = int((datetime.now() - datetime(1900, 1, 1)).total_seconds())
-        super(TestUPFBase, cls).setUpClass()
+
+    def setUp(self):
+        super(PFCPHelper, self).setUp()
+        self.seq = 1
+
+    def chat(self, pkt, expectedResponse, seid=None):
+        self.logger.info("REQ: %r" % pkt)
+        self.if_cp.add_stream(
+            Ether(src=self.if_cp.remote_mac, dst=self.if_cp.local_mac) /
+            self.IP(src=self.pfcp_cp_ip, dst=self.pfcp_up_ip) /
+            UDP(sport=8805, dport=8805) /
+            PFCP(
+                version=1, seq=self.seq,
+                S=0 if seid is None else 1,
+                seid=0 if seid is None else seid) /
+            pkt)
+        self.pg_enable_capture(self.pg_interfaces)
+        self.pg_start()
+        resp = self.if_cp.get_capture(1)[0][PFCP]
+        self.logger.info("RESP: %r" % resp)
+        self.assertEqual(resp.seq, self.seq)
+        self.seq += 1
+        return resp[expectedResponse]
+
+    def associate(self):
+        resp = self.chat(PFCPAssociationSetupRequest(IE_list=[
+            IE_RecoveryTimeStamp(timestamp=self.ts),
+            IE_NodeId(id_type="FQDN", id="ergw")
+        ]), PFCPAssociationSetupResponse)
+        self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
+        self.assertIn(b"vpp", resp[IE_EnterpriseSpecific].data)
+
+    def heartbeat(self):
+        resp = self.chat(PFCPHeartbeatRequest(IE_list=[
+            IE_RecoveryTimeStamp(timestamp=self.ts)
+        ]), PFCPHeartbeatResponse)
+        self.assertIn(IE_RecoveryTimeStamp, resp)
+
+    def reverse_far(self): 
+        return IE_CreateFAR(IE_list=[
+            IE_ApplyAction(FORW=1),
+            IE_FAR_Id(id=2),
+            IE_ForwardingParameters(IE_list=[
+                IE_DestinationInterface(interface="Access"),
+                IE_NetworkInstance(instance="access")
+            ])
+        ])
+
+    def forward_pdr(self):
+        return IE_CreatePDR(IE_list=[
+            IE_FAR_Id(id=1),
+            IE_PDI(IE_list=[
+                IE_NetworkInstance(instance="access"),
+                IE_SDF_Filter(
+                    FD=1,
+                    flow_description="permit out ip from any to assigned"),
+                IE_SourceInterface(interface="Access"),
+                self.ie_ue_ip_address(),
+            ]),
+            IE_PDR_Id(id=1),
+            IE_Precedence(precedence=200),
+        ])
+
+    def establish_session(self):
+        self.cur_seid = seid()
+        resp = self.chat(PFCPSessionEstablishmentRequest(IE_list=[
+            IE_CreateFAR(IE_list=[
+                IE_ApplyAction(FORW=1),
+                IE_FAR_Id(id=1),
+                IE_ForwardingParameters(IE_list=[
+                    IE_DestinationInterface(interface="SGi-LAN/N6-LAN"),
+                    IE_NetworkInstance(instance="sgi")
+                ])
+            ]),
+            self.reverse_far(),
+            # FIXME: this is not handled properly :(
+            IE_CreateFAR(IE_list=[
+                IE_ApplyAction(FORW=1),
+                IE_FAR_Id(id=3),
+                IE_ForwardingParameters(IE_list=[
+                    IE_DestinationInterface(interface="SGi-LAN/N6-LAN"),
+                    IE_NetworkInstance(instance="sgi"),
+                    self.ie_redirect_information(),
+                ])
+            ]),
+            IE_CreateFAR(IE_list=[
+                IE_ApplyAction(DROP=1),
+                IE_FAR_Id(id=4),
+            ]),
+            self.forward_pdr(),
+            IE_CreatePDR(IE_list=[
+                IE_FAR_Id(id=2),
+                IE_PDI(IE_list=[
+                    IE_NetworkInstance(instance="sgi"),
+                    IE_SDF_Filter(
+                        FD=1,
+                        flow_description="permit out ip from any to assigned"),
+                    IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
+                    self.ie_ue_ip_address(SD=1)
+                ]),
+                IE_PDR_Id(id=2),
+                IE_Precedence(precedence=200),
+            ])
+        ] + self.extra_pdrs() + [
+            self.ie_fseid(),
+            IE_NodeId(id_type=2, id="ergw")
+        ]), PFCPSessionEstablishmentResponse, seid=self.cur_seid)
+        self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
+        self.verify_ie_fseid(resp[IE_FSEID])
+        self.assertEqual(resp[IE_FSEID].seid, self.cur_seid)
+
+    def extra_pdrs(self):
+        return []
+
+    def delete_session(self):
+        resp = self.chat(PFCPSessionDeletionRequest(IE_list=[
+            self.ie_fseid(),
+            IE_NodeId(id_type=2, id="ergw")
+        ]), PFCPSessionDeletionResponse, seid=self.cur_seid)
+        self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
+
+class TestTDFBase(PFCPHelper):
+    """Base TDF Test"""
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestTDFBase, cls).setUpClass()
         try:
             cls.create_pg_interfaces(range(3))
             cls.interfaces = list(cls.pg_interfaces)
@@ -264,19 +457,41 @@ class TestUPFBase(object):
             for cmd in cls.upf_setup_cmds():
                 cls.vapi.cli(cmd)
         except Exception:
-            super(TestUPFBase, cls).tearDownClass()
+            super(TestTDFBase, cls).tearDownClass()
             raise
 
     @classmethod
-    def tearDownClass(cls):
-        super(TestUPFBase, cls).tearDownClass()
+    def upf_setup_cmds(cls):
+        return cls.tdf_setup_cmds()
 
-    def setUp(self):
-        super(TestUPFBase, self).setUp()
-        self.seq = 1
-
-    def tearDown(self):
-        super(TestUPFBase, self).tearDown()
+    def extra_pdrs(self):
+        return [
+            IE_CreatePDR(IE_list=[
+                IE_FAR_Id(id=3),
+                IE_PDI(IE_list=[
+                    IE_NetworkInstance(instance="access"),
+                    self.ie_sdf_filter_for_redirect(),
+                    IE_SourceInterface(interface="Access"),
+                    self.ie_ue_ip_address(),
+                ]),
+                IE_PDR_Id(id=3),
+                IE_Precedence(precedence=100),
+            ]),
+            IE_CreatePDR(IE_list=[
+                IE_FAR_Id(id=4),
+                IE_PDI(IE_list=[
+                    IE_NetworkInstance(instance="access"),
+                    IE_SDF_Filter(
+                        FD=1,
+                        flow_description="permit out ip from %s to assigned" %
+                        self.drop_ip),
+                    IE_SourceInterface(interface="Access"),
+                    self.ie_ue_ip_address(),
+                ]),
+                IE_PDR_Id(id=4),
+                IE_Precedence(precedence=100),
+            ]),
+        ]
 
     def test_upf(self):
         try:
@@ -319,130 +534,6 @@ class TestUPFBase(object):
     def show_commands_at_teardown(self):
         self.logger.info(self.vapi.cli("show upf flows"))
         self.logger.info(self.vapi.cli("show hardware"))
-
-    def chat(self, pkt, expectedResponse, seid=None):
-        self.logger.info("REQ: %r" % pkt)
-        self.if_cp.add_stream(
-            Ether(src=self.if_cp.remote_mac, dst=self.if_cp.local_mac) /
-            self.IP(src=self.pfcp_cp_ip, dst=self.pfcp_up_ip) /
-            UDP(sport=8805, dport=8805) /
-            PFCP(
-                version=1, seq=self.seq,
-                S=0 if seid is None else 1,
-                seid=0 if seid is None else seid) /
-            pkt)
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        resp = self.if_cp.get_capture(1)[0][PFCP]
-        self.logger.info("RESP: %r" % resp)
-        self.assertEqual(resp.seq, self.seq)
-        self.seq += 1
-        return resp[expectedResponse]
-
-    def associate(self):
-        resp = self.chat(PFCPAssociationSetupRequest(IE_list=[
-            IE_RecoveryTimeStamp(timestamp=self.ts),
-            IE_NodeId(id_type="FQDN", id="ergw")
-            ]), PFCPAssociationSetupResponse)
-        self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
-        self.assertIn(b"vpp", resp[IE_EnterpriseSpecific].data)
-
-    def heartbeat(self):
-        resp = self.chat(PFCPHeartbeatRequest(IE_list=[
-            IE_RecoveryTimeStamp(timestamp=self.ts)
-            ]), PFCPHeartbeatResponse)
-        self.assertIn(IE_RecoveryTimeStamp, resp)
-
-    def establish_session(self):
-        self.cur_seid = seid()
-        resp = self.chat(PFCPSessionEstablishmentRequest(IE_list=[
-            IE_CreateFAR(IE_list=[
-                IE_ApplyAction(FORW=1),
-                IE_FAR_Id(id=1),
-                IE_ForwardingParameters(IE_list=[
-                    IE_DestinationInterface(interface="SGi-LAN/N6-LAN"),
-                    IE_NetworkInstance(instance="sgi")
-                ])
-            ]),
-            IE_CreateFAR(IE_list=[
-                IE_ApplyAction(FORW=1),
-                IE_FAR_Id(id=2),
-                IE_ForwardingParameters(IE_list=[
-                    IE_DestinationInterface(interface="Access"),
-                    IE_NetworkInstance(instance="access")
-                ])
-            ]),
-            # FIXME: this is not handled properly :(
-            IE_CreateFAR(IE_list=[
-                IE_ApplyAction(FORW=1),
-                IE_FAR_Id(id=3),
-                IE_ForwardingParameters(IE_list=[
-                    IE_DestinationInterface(interface="SGi-LAN/N6-LAN"),
-                    IE_NetworkInstance(instance="sgi"),
-                    self.ie_redirect_information(),
-                ])
-            ]),
-            IE_CreateFAR(IE_list=[
-                IE_ApplyAction(DROP=1),
-                IE_FAR_Id(id=4),
-            ]),
-            IE_CreatePDR(IE_list=[
-                IE_FAR_Id(id=1),
-                IE_PDI(IE_list=[
-                    IE_NetworkInstance(instance="access"),
-                    IE_SDF_Filter(
-                        FD=1,
-                        flow_description="permit out ip from any to assigned"),
-                    IE_SourceInterface(interface="Access"),
-                    self.ie_ue_ip_address(),
-                ]),
-                IE_PDR_Id(id=1),
-                IE_Precedence(precedence=200),
-            ]),
-            IE_CreatePDR(IE_list=[
-                IE_FAR_Id(id=2),
-                IE_PDI(IE_list=[
-                    IE_NetworkInstance(instance="sgi"),
-                    IE_SDF_Filter(
-                        FD=1,
-                        flow_description="permit out ip from any to assigned"),
-                    IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
-                    self.ie_ue_ip_address(SD=1)
-                ]),
-                IE_PDR_Id(id=2),
-                IE_Precedence(precedence=200),
-            ]),
-            IE_CreatePDR(IE_list=[
-                IE_FAR_Id(id=3),
-                IE_PDI(IE_list=[
-                    IE_NetworkInstance(instance="access"),
-                    self.ie_sdf_filter_for_redirect(),
-                    IE_SourceInterface(interface="Access"),
-                    self.ie_ue_ip_address(),
-                ]),
-                IE_PDR_Id(id=3),
-                IE_Precedence(precedence=100),
-            ]),
-            IE_CreatePDR(IE_list=[
-                IE_FAR_Id(id=4),
-                IE_PDI(IE_list=[
-                    IE_NetworkInstance(instance="access"),
-                    IE_SDF_Filter(
-                        FD=1,
-                        flow_description="permit out ip from %s to assigned" %
-                        self.drop_ip),
-                    IE_SourceInterface(interface="Access"),
-                    self.ie_ue_ip_address(),
-                ]),
-                IE_PDR_Id(id=4),
-                IE_Precedence(precedence=100),
-            ]),
-            self.ie_fseid(),
-            IE_NodeId(id_type=2, id="ergw")
-        ]), PFCPSessionEstablishmentResponse, seid=self.cur_seid)
-        self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
-        self.verify_ie_fseid(resp[IE_FSEID])
-        self.assertEqual(resp[IE_FSEID].seid, self.cur_seid)
 
     def establish_reporting_session(self, report_app=False):
         self.cur_seid = seid()
@@ -541,13 +632,6 @@ class TestUPFBase(object):
         self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
         self.verify_ie_fseid(resp[IE_FSEID])
         self.assertEqual(resp[IE_FSEID].seid, self.cur_seid)
-
-    def delete_session(self):
-        resp = self.chat(PFCPSessionDeletionRequest(IE_list=[
-            self.ie_fseid(),
-            IE_NodeId(id_type=2, id="ergw")
-        ]), PFCPSessionDeletionResponse, seid=self.cur_seid)
-        self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
 
     def send_from_access_to_sgi(self, payload=None, l4proto=UDP, ue_port=12345,
                                 remote_port=23456, remote_ip=None, **kwargs):
@@ -857,13 +941,165 @@ class TestUPFBase(object):
         # self.verify_app_reporting_ip(ip=EXTRA_SDF_IP_V4)
 
 
-class TestUPFIPv4(IPv4Mixin, TestUPFBase, framework.VppTestCase):
+class TestPGWBase(PFCPHelper):
+    """UPF GTP-U test"""
+
+    CLIENT_TEID = 1
+    UNODE_TEID = 1127415596
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestPGWBase, cls).setUpClass()
+        try:
+            cls.create_pg_interfaces(range(3))
+            cls.interfaces = list(cls.pg_interfaces)
+
+            cls.setup_tables()
+            # separate assignments are easier to understand for some
+            # tools like elpy than this:
+            # cls.if_cp, cls.if_grx, cls.if_sgi = cls.interfaces
+            cls.if_cp = cls.interfaces[0]
+            cls.if_grx = cls.interfaces[1]
+            cls.if_sgi = cls.interfaces[2]
+            for n, iface in enumerate(cls.interfaces):
+                iface.admin_up()
+                cls.config_interface(cls, iface, n)
+            for cmd in cls.upf_setup_cmds():
+                cls.vapi.cli(cmd)
+        except Exception:
+            super(TestPGWBase, cls).tearDownClass()
+            raise
+
+    @classmethod
+    def upf_setup_cmds(cls):
+        return cls.pgw_setup_cmds()
+
+    def reverse_far(self):
+        return IE_CreateFAR(IE_list=[
+            IE_ApplyAction(FORW=1),
+            IE_FAR_Id(id=2),
+            IE_ForwardingParameters(IE_list=[
+                IE_DestinationInterface(interface="Access"),
+                IE_NetworkInstance(instance="epc"),
+                self.outer_header_creation(),
+            ])
+        ])
+
+    def forward_pdr(self):
+        return IE_CreatePDR(IE_list=[
+            IE_FAR_Id(id=1),
+            self.ie_outer_header_removal(),
+            IE_PDI(IE_list=[
+                self.ie_fteid(),
+                IE_NetworkInstance(instance="epc"),
+                IE_SDF_Filter(
+                    FD=1,
+                    flow_description="permit out ip from " +
+                    "any to assigned"),
+                IE_SourceInterface(interface="Access"),
+                self.ie_ue_ip_address(),
+            ]),
+            IE_PDR_Id(id=1),
+            IE_Precedence(precedence=200),
+            IE_URR_Id(id=1)
+        ])
+
+    def send_from_grx(self, pkt):
+        to_send = Ether(src=self.if_grx.remote_mac,
+                        dst=self.if_grx.local_mac) / \
+                        self.IP(src=self.grx_remote_ip,
+                                dst=self.grx_local_ip) / \
+                        UDP(sport=2152, dport=2152) / \
+                        pkt
+        self.if_grx.add_stream(to_send)
+        self.pg_enable_capture(self.pg_interfaces)
+        self.pg_start()
+
+    def verify_gtp(self, to_send, expected_seq=42):
+        self.send_from_grx(to_send)
+        pkt = self.if_grx.get_capture(1)[0]
+        self.assertTrue(GTP_U_Header in pkt)
+        # Expected response:
+        # GTP_U_Header(version=1, PT=1, reserved=0, E=0, S=1,
+        #              PN=0, gtp_type=2, length=6, teid=0, seq=42,
+        #              npdu=0, next_ex=0) /
+        # GTPEchoResponse(IE_list=[IE_Recovery(ietype=14, restart_counter=0)])
+        hdr = pkt[GTP_U_Header]
+        # GTPv1
+        self.assertEqual(hdr.version, 1)
+        # TS 29.281 5.1: PT == 1 means GTP (not GTP')
+        self.assertTrue(hdr.PT)
+        self.assertEqual(hdr.length, 6)
+        self.assertFalse(hdr.E)
+        # sequence number is present
+        self.assertTrue(hdr.S)
+        # PN must be set to 0 in the echo response
+        self.assertFalse(hdr.PN)
+        self.assertEqual(hdr.gtp_type, 2) # echo_response
+        # TS 29.281 5.1: for Echo Request/Response, 0 is always used
+        self.assertEqual(hdr.teid, 0)
+        # seq matches the value from request
+        self.assertEqual(hdr.seq, expected_seq)
+        self.assertEqual(hdr.next_ex, 0) # "No more extension headers"
+        self.assertTrue(IE_Recovery in hdr)
+        self.assertEqual(hdr[IE_Recovery].restart_counter, 0)
+
+    def test_gtp_echo(self):
+        try:
+            self.associate()
+            self.heartbeat()
+            self.establish_session()
+            self.verify_gtp(GTP_U_Header(seq=42) / GTPEchoRequest())
+            self.verify_gtp(GTP_U_Header() / GTPEchoRequest(), expected_seq=0)
+            self.verify_gtp(GTP_U_Header() / GTPEchoRequest(), expected_seq=0)
+            self.verify_gtp(
+                GTP_U_Header(teid=self.UNODE_TEID) / GTPEchoRequest(),
+                expected_seq=0)
+            # Verify stripping extensions (these extensions are
+            # used here just b/c they're available in Scapy GTP module)
+            self.verify_gtp(
+                GTP_U_Header(seq=42, PN=1, npdu=123) /
+                GTPEchoRequest() /
+                GTP_UDPPort_ExtensionHeader(udp_port=1234) /
+                GTP_PDCP_PDU_ExtensionHeader(pdcp_pdu=123))
+            # Verify stripping IE (the IE is not relevant here)
+            self.verify_gtp(GTP_U_Header(seq=42) / GTPEchoRequest() /
+                            IE_SelectionMode())
+            self.delete_session()
+        finally:
+            self.vapi.cli("show error")
+
+
+class TestUPFIPv4(IPv4Mixin, TestTDFBase, framework.VppTestCase):
     """IPv4 UPF Test"""
 
 
-class TestUPFIPv6(IPv6Mixin, TestUPFBase, framework.VppTestCase):
+class TestUPFIPv6(IPv6Mixin, TestTDFBase, framework.VppTestCase):
     """IPv6 UPF Test"""
 
+
+class TestPGWIPv4(IPv4Mixin, TestPGWBase, framework.VppTestCase):
+    """IPv4 PGW Test"""
+
+    @property
+    def ue_ip(self):
+        return self.UE_IP
+
+class TestPGWIPv4(IPv4Mixin, TestPGWBase, framework.VppTestCase):
+    """IPv4 PGW Test"""
+    UE_IP = "198.20.0.2"
+
+    @property
+    def ue_ip(self):
+        return self.UE_IP
+
+class TestPGWIPv6(IPv6Mixin, TestPGWBase, framework.VppTestCase):
+    """IPv6 PGW Test"""
+    UE_IP = "2001:db8:13::2"
+
+    @property
+    def ue_ip(self):
+        return self.UE_IP
 
 # TODO: send session report response
 # TODO: check for heartbeat requests from UPF

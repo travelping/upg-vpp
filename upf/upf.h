@@ -125,6 +125,14 @@ typedef CLIB_PACKED (struct
 }) gtpu_ext_header_t;
 /* *INDENT-ON* */
 
+/* *INDENT-OFF* */
+typedef CLIB_PACKED (struct
+{
+  u8 ie_type;
+  u8 restart_counter;
+}) gtpu_ie_recovery_t;
+/* *INDENT-ON* */
+
 #define GTPU_V1_HDR_LEN   8
 
 #define GTPU_VER_MASK (7<<5)
@@ -142,6 +150,8 @@ typedef CLIB_PACKED (struct
 #define GTPU_TYPE_ERROR_IND    26
 #define GTPU_TYPE_END_MARKER  254
 #define GTPU_TYPE_GTPU  255
+
+#define GTPU_IE_RECOVERY 14
 
 /* *INDENT-OFF* */
 typedef CLIB_PACKED(struct

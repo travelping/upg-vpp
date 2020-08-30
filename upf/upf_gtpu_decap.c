@@ -1159,6 +1159,8 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 	  ip4_address_t tmp0;
 	  u16 port0;
 	  ip_csum_t sum0;
+	  gtpu_ie_recovery_t *gtpu_recovery0;
+	  u16 new_len0, new_ip_len0;
 
 	  bi0 = to_next[0] = from[0];
 
@@ -1172,7 +1174,24 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 	  udp0 = ip4_next_header (ip0);
 
 	  gtpu0 = (gtpu_header_t *) (udp0 + 1);
+	  gtpu0->ver_flags &= ~(GTPU_E_BIT | GTPU_PN_BIT);
+	  if (!(gtpu0->ver_flags & GTPU_S_BIT))
+	    {
+	      gtpu0->ver_flags |= GTPU_S_BIT;
+	      gtpu0->sequence = 0;
+	    }
 	  gtpu0->type = GTPU_TYPE_ECHO_RESPONSE;
+	  gtpu0->length = clib_net_to_host_u16(sizeof (gtpu_ie_recovery_t) + 4);
+	  /*
+           * TS 29.281 5.1: for Echo Request/Response, 0 is always used
+           * for the response TEID
+           */
+	  gtpu0->teid = 0;
+	  gtpu0->pdu_number = 0;
+	  gtpu0->next_ext_type = 0;
+	  gtpu_recovery0 = (gtpu_ie_recovery_t *) ((u8*)(udp0 + 1) + sizeof (gtpu_header_t));
+	  gtpu_recovery0->ie_type = GTPU_IE_RECOVERY;
+	  gtpu_recovery0->restart_counter = 0;
 
 	  vnet_buffer (p0)->sw_if_index[VLIB_RX] =
 	    vnet_main.local_interface_sw_if_index;
@@ -1182,7 +1201,12 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 	  ip0->src_address = ip0->dst_address;
 	  ip0->dst_address = tmp0;
 
-	  /* Update IP checksum. */
+	  /* Calculate new IP length. */
+	  new_len0 = ip4_header_bytes (ip0) +
+	    sizeof (udp_header_t) + sizeof (gtpu_header_t) + sizeof (gtpu_ie_recovery_t);
+	  p0->current_length = new_len0;
+
+	  /* Update IP header fields and checksum. */
 	  sum0 = ip0->checksum;
 
 	  sum0 = ip_csum_update (sum0, ip0->ttl, host_config_ttl,
@@ -1194,6 +1218,11 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 	  ip0->fragment_id = fid[0];
 	  fid += 1;
 
+	  new_ip_len0 = clib_host_to_net_u16(new_len0);
+	  sum0 = ip_csum_update(sum0, ip0->length, new_ip_len0,
+				ip4_header_t, length);
+	  ip0->length = new_ip_len0;
+
 	  ip0->checksum = ip_csum_fold (sum0);
 
 	  ASSERT (ip0->checksum == ip4_header_checksum (ip0));
@@ -1203,6 +1232,10 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 	  udp0->src_port = udp0->dst_port;
 	  udp0->dst_port = port0;
 
+	  /* UDP length. */
+	  udp0->length = clib_host_to_net_u16(sizeof (udp_header_t) +
+					      sizeof (gtpu_header_t) +
+					      sizeof (gtpu_ie_recovery_t));
 	  /* UDP checksum. */
 	  udp0->checksum = 0;
 	  udp0->checksum = ip4_tcp_udp_compute_checksum (vm, p0, ip0);
@@ -1271,6 +1304,8 @@ VLIB_NODE_FN (upf_gtp_ip6_echo_req_node) (vlib_main_t * vm,
 	  ip6_address_t tmp0;
 	  u16 port0;
 	  int bogus0;
+	  gtpu_ie_recovery_t *gtpu_recovery0;
+	  u16 new_len0;
 
 	  bi0 = to_next[0] = from[0];
 
@@ -1284,7 +1319,24 @@ VLIB_NODE_FN (upf_gtp_ip6_echo_req_node) (vlib_main_t * vm,
 	  udp0 = ip6_next_header (ip0);
 
 	  gtpu0 = (gtpu_header_t *) (udp0 + 1);
+	  gtpu0->ver_flags &= ~(GTPU_E_BIT | GTPU_PN_BIT);
+	  if (!(gtpu0->ver_flags & GTPU_S_BIT))
+	    {
+	      gtpu0->ver_flags |= GTPU_S_BIT;
+	      gtpu0->sequence = 0;
+	    }
 	  gtpu0->type = GTPU_TYPE_ECHO_RESPONSE;
+	  gtpu0->length = clib_net_to_host_u16(sizeof (gtpu_ie_recovery_t) + 4);
+	  /*
+           * TS 29.281 5.1: for Echo Request/Response, 0 is always used
+           * for the response TEID
+           */
+	  gtpu0->teid = 0;
+	  gtpu0->pdu_number = 0;
+	  gtpu0->next_ext_type = 0;
+	  gtpu_recovery0 = (gtpu_ie_recovery_t *) ((u8*)(udp0 + 1) + sizeof (gtpu_header_t));
+	  gtpu_recovery0->ie_type = GTPU_IE_RECOVERY;
+	  gtpu_recovery0->restart_counter = 0;
 
 	  /* if the packet is link local, we'll bounce through the link-local
 	   * table with the RX interface correctly set */
@@ -1299,10 +1351,18 @@ VLIB_NODE_FN (upf_gtp_ip6_echo_req_node) (vlib_main_t * vm,
 
 	  ip0->hop_limit = i6m->host_config.ttl;
 
+	  /* Calculate new IP length. */
+	  new_len0 = sizeof (udp_header_t) + sizeof (gtpu_header_t) + sizeof (gtpu_ie_recovery_t);
+	  p0->current_length = sizeof (ip6_header_t) + new_len0;
+	  ip0->payload_length = clib_host_to_net_u16 (new_len0);
+
 	  /* Swap source and destination port. */
 	  port0 = udp0->src_port;
 	  udp0->src_port = udp0->dst_port;
 	  udp0->dst_port = port0;
+
+	  /* UDP length. */
+	  udp0->length = ip0->payload_length;
 
 	  /* UDP checksum. */
 	  udp0->checksum = 0;
