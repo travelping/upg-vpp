@@ -72,6 +72,29 @@ format_gtpu_rx_trace (u8 * s, va_list * args)
 }
 
 always_inline uword
+upf_gtpu_signalling_msg (gtpu_header_t *gtpu, u32 *error)
+{
+  if (PREDICT_FALSE ((gtpu->ver_flags & GTPU_S_BIT) == 0))
+    {
+      *error = UPF_GTPU_ERROR_NO_ECHO_REQUEST_SEQ;
+      return UPF_GTPU_INPUT_NEXT_DROP;
+    }
+
+  switch (gtpu->type)
+    {
+    case GTPU_TYPE_ECHO_REQUEST:
+      return UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
+
+    case GTPU_TYPE_ECHO_RESPONSE:
+      // TODO next0 = UPF_GTPU_INPUT_NEXT_ECHO_RESPONSE;
+      return UPF_GTPU_INPUT_NEXT_DROP;
+
+    default:
+      return UPF_GTPU_INPUT_NEXT_DROP;
+    }
+}
+
+always_inline uword
 upf_gtpu_input (vlib_main_t * vm,
 		vlib_node_runtime_t * node, vlib_frame_t * from_frame, u8 is_ip4)
 {
@@ -193,18 +216,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		  break;
 
 		case GTPU_TYPE_ECHO_REQUEST:
-		  if (PREDICT_FALSE ((gtpu0->ver_flags & GTPU_S_BIT) == 0))
-		    {
-		      error0 = UPF_GTPU_ERROR_NO_ECHO_REQUEST_SEQ;
-		      next0 = UPF_GTPU_INPUT_NEXT_DROP;
-		    }
-		  else
-		    next0 = UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
-		  break;
-
 		case GTPU_TYPE_ECHO_RESPONSE:
-		  // TODO next0 = UPF_GTPU_INPUT_NEXT_ECHO_RESPONSE;
-		  next0 = UPF_GTPU_INPUT_NEXT_DROP;
+		  next0 = upf_gtpu_signalling_msg (gtpu0, &error0);
 		  break;
 
 		default:
@@ -375,18 +388,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		  break;
 
 		case GTPU_TYPE_ECHO_REQUEST:
-		  if (PREDICT_FALSE ((gtpu1->ver_flags & GTPU_S_BIT) == 0))
-		    {
-		      error1 = UPF_GTPU_ERROR_NO_ECHO_REQUEST_SEQ;
-		      next1 = UPF_GTPU_INPUT_NEXT_DROP;
-		    }
-		  else
-		    next1 = UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
-		  break;
-
 		case GTPU_TYPE_ECHO_RESPONSE:
-		  // TODO next0 = UPF_GTPU_INPUT_NEXT_ECHO_RESPONSE;
-		  next1 = UPF_GTPU_INPUT_NEXT_DROP;
+		  next1 = upf_gtpu_signalling_msg (gtpu1, &error1);
 		  break;
 
 		default:
@@ -610,18 +613,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		  break;
 
 		case GTPU_TYPE_ECHO_REQUEST:
-		  if (PREDICT_FALSE ((gtpu0->ver_flags & GTPU_S_BIT) == 0))
-		    {
-		      error0 = UPF_GTPU_ERROR_NO_ECHO_REQUEST_SEQ;
-		      next0 = UPF_GTPU_INPUT_NEXT_DROP;
-		    }
-		  else
-		    next0 = UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
-		  break;
-
 		case GTPU_TYPE_ECHO_RESPONSE:
-		  // TODO next0 = UPF_GTPU_INPUT_NEXT_ECHO_RESPONSE;
-		  next0 = UPF_GTPU_INPUT_NEXT_DROP;
+		  next0 = upf_gtpu_signalling_msg (gtpu0, &error0);
 		  break;
 
 		default:
