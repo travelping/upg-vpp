@@ -193,7 +193,13 @@ upf_gtpu_input (vlib_main_t * vm,
 		  break;
 
 		case GTPU_TYPE_ECHO_REQUEST:
-		  next0 = UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
+		  if (PREDICT_FALSE ((gtpu0->ver_flags & GTPU_S_BIT) == 0))
+		    {
+		      error0 = UPF_GTPU_ERROR_NO_ECHO_REQUEST_SEQ;
+		      next0 = UPF_GTPU_INPUT_NEXT_DROP;
+		    }
+		  else
+		    next0 = UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
 		  break;
 
 		case GTPU_TYPE_ECHO_RESPONSE:
@@ -369,7 +375,13 @@ upf_gtpu_input (vlib_main_t * vm,
 		  break;
 
 		case GTPU_TYPE_ECHO_REQUEST:
-		  next1 = UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
+		  if (PREDICT_FALSE ((gtpu1->ver_flags & GTPU_S_BIT) == 0))
+		    {
+		      error1 = UPF_GTPU_ERROR_NO_ECHO_REQUEST_SEQ;
+		      next1 = UPF_GTPU_INPUT_NEXT_DROP;
+		    }
+		  else
+		    next1 = UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
 		  break;
 
 		case GTPU_TYPE_ECHO_RESPONSE:
@@ -598,7 +610,13 @@ upf_gtpu_input (vlib_main_t * vm,
 		  break;
 
 		case GTPU_TYPE_ECHO_REQUEST:
-		  next0 = UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
+		  if (PREDICT_FALSE ((gtpu0->ver_flags & GTPU_S_BIT) == 0))
+		    {
+		      error0 = UPF_GTPU_ERROR_NO_ECHO_REQUEST_SEQ;
+		      next0 = UPF_GTPU_INPUT_NEXT_DROP;
+		    }
+		  else
+		    next0 = UPF_GTPU_INPUT_NEXT_ECHO_REQUEST;
 		  break;
 
 		case GTPU_TYPE_ECHO_RESPONSE:

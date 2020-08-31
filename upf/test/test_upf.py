@@ -153,7 +153,7 @@ class IPv4Mixin(object):
             FD=1,
             flow_description="permit out ip from %s to assigned" %
             REDIR_IP_V4)
-    
+
     def ie_sdf_filter_extra_for_app_pdi(self):
         return IE_SDF_Filter(
             FD=1,
@@ -351,7 +351,7 @@ class PFCPHelper(object):
         ]), PFCPHeartbeatResponse)
         self.assertIn(IE_RecoveryTimeStamp, resp)
 
-    def reverse_far(self): 
+    def reverse_far(self):
         return IE_CreateFAR(IE_list=[
             IE_ApplyAction(FORW=1),
             IE_FAR_Id(id=2),
@@ -1015,7 +1015,7 @@ class TestPGWBase(PFCPHelper):
         self.pg_enable_capture(self.pg_interfaces)
         self.pg_start()
 
-    def verify_gtp(self, to_send, expected_seq=42):
+    def verify_gtp_echo(self, to_send, expected_seq=42):
         self.send_from_grx(to_send)
         pkt = self.if_grx.get_capture(1)[0]
         self.assertTrue(GTP_U_Header in pkt)
@@ -1044,27 +1044,31 @@ class TestPGWBase(PFCPHelper):
         self.assertTrue(IE_Recovery in hdr)
         self.assertEqual(hdr[IE_Recovery].restart_counter, 0)
 
+    def verify_gtp_no_echo(self, to_send):
+        self.send_from_grx(to_send)
+        self.if_grx.assert_nothing_captured()
+
     def test_gtp_echo(self):
         try:
             self.associate()
             self.heartbeat()
             self.establish_session()
-            self.verify_gtp(GTP_U_Header(seq=42) / GTPEchoRequest())
-            self.verify_gtp(GTP_U_Header() / GTPEchoRequest(), expected_seq=0)
-            self.verify_gtp(GTP_U_Header() / GTPEchoRequest(), expected_seq=0)
-            self.verify_gtp(
-                GTP_U_Header(teid=self.UNODE_TEID) / GTPEchoRequest(),
-                expected_seq=0)
+            self.verify_gtp_echo(GTP_U_Header(seq=42) / GTPEchoRequest())
+            # no sequence number => drop
+            self.verify_gtp_no_echo(GTP_U_Header(S=0) / GTPEchoRequest())
+            self.verify_gtp_echo(GTP_U_Header(seq=42) / GTPEchoRequest())
+            self.verify_gtp_echo(
+                GTP_U_Header(seq=42, teid=self.UNODE_TEID) / GTPEchoRequest())
             # Verify stripping extensions (these extensions are
             # used here just b/c they're available in Scapy GTP module)
-            self.verify_gtp(
+            self.verify_gtp_echo(
                 GTP_U_Header(seq=42, PN=1, npdu=123) /
                 GTPEchoRequest() /
                 GTP_UDPPort_ExtensionHeader(udp_port=1234) /
                 GTP_PDCP_PDU_ExtensionHeader(pdcp_pdu=123))
             # Verify stripping IE (the IE is not relevant here)
-            self.verify_gtp(GTP_U_Header(seq=42) / GTPEchoRequest() /
-                            IE_SelectionMode())
+            self.verify_gtp_echo(GTP_U_Header(seq=42) / GTPEchoRequest() /
+                                 IE_SelectionMode())
             self.delete_session()
         finally:
             self.vapi.cli("show error")
