@@ -50,6 +50,7 @@
 #endif
 
 #define API_VERSION      1
+#define TRAFFIC_TIMER_PERIOD 60
 
 extern char *vpe_version_string;
 
@@ -1684,6 +1685,8 @@ handle_create_urr (upf_session_t * sx, pfcp_create_urr_t * create_urr,
     create->monitoring_time.vlib_time = INFINITY;
     create->time_of_first_packet = INFINITY;
     create->time_of_last_packet = INFINITY;
+    create->traffic_timer.period = TRAFFIC_TIMER_PERIOD;
+    create->traffic_timer.base = now;
 
     create->id = urr->urr_id;
     create->methods = urr->measurement_method;

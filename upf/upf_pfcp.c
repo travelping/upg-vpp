@@ -2325,11 +2325,11 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 	    vec_add1_ha (uev, ev, sizeof (upf_event_urr_hdr_t), 0);
 	    status |= URR_START_OF_TRAFFIC;
 	  }
-	else if (t && t->first_seen + 60 < now)
+	else if (t && t->first_seen + 10 < now)
 	  {
 	    upf_event_urr_data_t *ev;
 
-	    /* crude 60 second timeout */
+	    /* crude 10 second timeout */
 
 	    t->first_seen = now;
 	    vec_add2_ha (uev, ev, 1, sizeof (upf_event_urr_hdr_t), 0);
