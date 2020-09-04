@@ -7667,6 +7667,8 @@ static void
 free_vector_ie (const struct pfcp_group_ie_def *item,
 		const struct pfcp_ie_def *def, u8 * v)
 {
+  if (*(u8 **)v == NULL)
+    return;
   u8 *end = *(u8 **) v + _vec_len (*(u8 **) v) * def->length;
   for (u8 * i = *(u8 **) v; i < end; i += def->length)
     free_ie (item, def, i);
