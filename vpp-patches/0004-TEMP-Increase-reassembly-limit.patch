@@ -1,0 +1,26 @@
+From 03aa160f4e60bcf6e08fa2e00ed828d1a3ec5806 Mon Sep 17 00:00:00 2001
+From: Ivan Shvedunov <ivan4th@gmail.com>
+Date: Wed, 5 Aug 2020 16:44:28 +0300
+Subject: [PATCH 4/6] [TEMP] Increase reassembly limit
+
+This is an interim solution till we implement a proper CLI command
+---
+ src/vnet/ip/reass/ip4_full_reass.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/vnet/ip/reass/ip4_full_reass.c b/src/vnet/ip/reass/ip4_full_reass.c
+index 4d578c5ce..713e95629 100644
+--- a/src/vnet/ip/reass/ip4_full_reass.c
++++ b/src/vnet/ip/reass/ip4_full_reass.c
+@@ -32,7 +32,7 @@
+ #define IP4_REASS_TIMEOUT_DEFAULT_MS 100
+ #define IP4_REASS_EXPIRE_WALK_INTERVAL_DEFAULT_MS 10000	// 10 seconds default
+ #define IP4_REASS_MAX_REASSEMBLIES_DEFAULT 1024
+-#define IP4_REASS_MAX_REASSEMBLY_LENGTH_DEFAULT 3
++#define IP4_REASS_MAX_REASSEMBLY_LENGTH_DEFAULT 8
+ #define IP4_REASS_HT_LOAD_FACTOR (0.75)
+ 
+ #define IP4_REASS_DEBUG_BUFFERS 0
+-- 
+2.28.0
+

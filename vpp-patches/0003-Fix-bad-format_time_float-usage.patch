@@ -1,0 +1,35 @@
+From 24692e761d7ac74b4ef7d370b374b982740ad072 Mon Sep 17 00:00:00 2001
+From: Ivan Shvedunov <ivan4th@gmail.com>
+Date: Fri, 5 Jun 2020 01:41:55 +0300
+Subject: [PATCH 3/6] Fix bad format_time_float usage
+
+Was causing crashes with CLIB_DEBUG > 1
+---
+ src/vlib/log.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/vlib/log.c b/src/vlib/log.c
+index 342c0d25c..0cfdd2020 100644
+--- a/src/vlib/log.c
++++ b/src/vlib/log.c
+@@ -252,7 +252,7 @@ vlib_log_init (vlib_main_t * vm)
+ 
+   vec_validate (lm->entries, lm->size);
+   lm->log_class = vlib_log_register_class ("log", 0);
+-  u8 *tmp = format (NULL, "%U %-10U %-10U ", format_time_float, 0, (f64) 0,
++  u8 *tmp = format (NULL, "%U %-10U %-10U ", format_time_float, NULL, (f64) 0,
+ 		    format_white_space, 255, format_white_space, 255);
+   log_main.indent = vec_len (tmp);
+   vec_free (tmp);
+@@ -280,7 +280,7 @@ show_log (vlib_main_t * vm,
+     {
+       e = vec_elt_at_index (lm->entries, i);
+       vlib_cli_output (vm, "%U %-10U %-14U %v",
+-		       format_time_float, 0, e->timestamp + time_offset,
++		       format_time_float, NULL, e->timestamp + time_offset,
+ 		       format_vlib_log_level, e->level,
+ 		       format_vlib_log_class, e->class, e->string);
+       i = (i + 1) % lm->size;
+-- 
+2.28.0
+
