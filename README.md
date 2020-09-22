@@ -109,6 +109,15 @@ sources mounted into the container:
 $ hack/buildenv.sh
 ```
 
+If docker is not used, it’s possible to run commands such as
+
+```console
+$ make -C vpp test TEST=test-upf
+```
+
+using VPP’s usual Makefile. [upf/](upf/) subdirectory is symlinked to
+`vpp/src/plugins/upf`.
+
 [VPP]: https://fd.io
 [erGW]: https://github.com/travelping/ergw
 [TS23214]: http://www.3gpp.org/ftp/Specs/html-info/23214.htm
