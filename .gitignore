@@ -1,2 +1,4 @@
 /vpp
 /vpp-out
+__pycache__
+*.pyc

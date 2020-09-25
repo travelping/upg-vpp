@@ -31,13 +31,20 @@ image-release: vpp
 	  -f Dockerfile .
 
 test-debug:
-	hack/buildenv.sh make test-debug TEST=test-upf V=$(TEST_VERBOSITY)
+	hack/buildenv.sh make test-debug TEST=test_upf V=$(TEST_VERBOSITY) \
+	  EXTERN_TESTS=../../upf/test
 
 test-release:
-	hack/buildenv.sh make test TEST=test-upf V=$(TEST_VERBOSITY)
+	hack/buildenv.sh make test TEST=test_upf V=$(TEST_VERBOSITY) \
+	  EXTERN_TESTS=../../upf/test
 
 retest-debug:
-	hack/buildenv.sh make retest-debug TEST=test-upf V=$(TEST_VERBOSITY)
+	hack/buildenv.sh make retest-debug TEST=test_upf V=$(TEST_VERBOSITY) \
+	  EXTERN_TESTS=../../upf/test
 
 retest-release:
-	hack/buildenv.sh make retest TEST=test-upf V=$(TEST_VERBOSITY)
+	hack/buildenv.sh make retest TEST=test_upf V=$(TEST_VERBOSITY) \
+	  EXTERN_TESTS=../../upf/test
+
+buildenv:
+	hack/buildenv.sh

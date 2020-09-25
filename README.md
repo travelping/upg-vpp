@@ -100,23 +100,27 @@ The following `make` commands are supported:
   the user from making commits that contain `ZZZZZ:` substring. This
   is handy for debug print like `clib_warning("ZZZZZ: i %d", i);`
 * `make update-vpp` re-clones VPP into `vpp/` directory
+* `make buildenv` runs an interactive shell inside the build
+  environment with UPF and VPP sources mounted into the container
 
-In addition to the above, the following command can be used to run
-interactive shell inside the build environment with UPF and VPP
-sources mounted into the container:
+If docker is not used, one should set the following environment
+variable to disable wrapping the internally run commands in a docker
+container:
 
-```console
-$ hack/buildenv.sh
+```
+export UPF_NO_DOCKER_BUILDENV=1
 ```
 
-If docker is not used, it’s possible to run commands such as
+As an alternative, it’s possible to run commands such as
 
 ```console
-$ make -C vpp test TEST=test-upf
+$ make -C vpp test TEST=test_upf V=2 EXTERN_TESTS=../../upf/test
 ```
 
 using VPP’s usual Makefile. [upf/](upf/) subdirectory is symlinked to
-`vpp/src/plugins/upf`.
+`vpp/src/plugins/upf` (note though that there's an issue with VPP's
+test discovery mechanism, thus `EXTERN_TEST=...` variable is required
+to run the tests).
 
 [VPP]: https://fd.io
 [erGW]: https://github.com/travelping/ergw
