@@ -1,0 +1,17 @@
+# FROM quay.io/travelping/upf:feature-2009-upf_v20.09-upfbase2_release
+FROM upf:debug
+
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository ppa:longsleep/golang-backports && \
+    apt-get update && \
+    apt-get install -y golang-go iproute2 gdb curl tcpdump
+
+ADD . /exttest
+RUN cd /exttest && go build
+
+WORKDIR /exttest
+
+ENTRYPOINT ["/bin/bash"]
