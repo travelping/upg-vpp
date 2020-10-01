@@ -17,6 +17,7 @@ const (
 
 type NetNS struct {
 	ns.NetNS
+	IPNet *net.IPNet
 }
 
 func NewNS() (*NetNS, error) {
@@ -36,9 +37,16 @@ func (netns *NetNS) AddAddress(linkName, address string) error {
 			return errors.Wrap(err, "locating client link in the client netns")
 		}
 
-		if err := netlink.AddrAdd(veth, mustParseAddr(address)); err != nil {
+		addr, err := netlink.ParseAddr(address)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse address %q", address)
+		}
+
+		if err := netlink.AddrAdd(veth, addr); err != nil {
 			return errors.Errorf("failed to set address for the bridge: %v", err)
 		}
+
+		netns.IPNet = addr.IPNet
 
 		return nil
 	})
@@ -81,9 +89,8 @@ func (netns *NetNS) DialContext(ctx context.Context, network, address string) (n
 	// check if the correct network namespace is being used, and
 	// if it isn't the case, call runtime.LockOSThread() and
 	// switch to the right one.
-	var err error
 	var conn net.Conn
-	err = netns.Do(func(_ ns.NetNS) error {
+	err := netns.Do(func(_ ns.NetNS) error {
 		var innerErr error
 		conn, innerErr = (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -92,4 +99,14 @@ func (netns *NetNS) DialContext(ctx context.Context, network, address string) (n
 		return innerErr
 	})
 	return conn, err
+}
+
+func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
+	var l net.Listener
+	err := netns.Do(func(_ ns.NetNS) error {
+		var innerErr error
+		l, innerErr = net.Listen("tcp", address)
+		return innerErr
+	})
+	return l, err
 }
