@@ -1,35 +1,95 @@
 package framework
 
-// import (
-// 	"github.com/containernetworking/plugins/pkg/ns"
-// 	"github.com/containernetworking/plugins/pkg/testutils"
-// 	"github.com/pkg/errors"
-// 	"github.com/vishvananda/netlink"
-// )
+import (
+	"context"
+	"net"
+	"time"
 
-// type NetNS struct {
-// 	ns.NetNS
-// }
+	"github.com/pkg/errors"
+	"github.com/vishvananda/netlink"
+	"github.com/travelping/upg-vpp/test/e2e/ns"
+)
 
-// func (netns *NetNS) Close() error {
-// 	if err := netns.Close(); err != nil {
-// 		return err
-// 	}
+const (
+	MTU        = 9000
+	NO_ADDRESS = ""
+)
 
-// 	return testutils.UnmountNS(netns)
-// }
+type NetNS struct {
+	ns.NetNS
+}
 
-// func (netns *NetNS) AddAddress(linkName, address string) error {
-// 	return netns.Do(func(_ ns.NetNS) error {
-// 		veth, err := netlink.LinkByName(linkName)
-// 		if err != nil {
-// 			return errors.Wrap(err, "locating client link in the client netns")
-// 		}
+func NewNS() (*NetNS, error) {
+	innerNS, err := ns.NewNS()
+	if err != nil {
+		return nil, err
+	}
+	return &NetNS{
+		NetNS: innerNS,
+	}, nil
+}
 
-// 		if err := netlink.AddrAdd(veth, mustParseAddr(address)); err != nil {
-// 			return errors.Errorf("failed to set address for the bridge: %v", err)
-// 		}
+func (netns *NetNS) AddAddress(linkName, address string) error {
+	return netns.Do(func(_ ns.NetNS) error {
+		veth, err := netlink.LinkByName(linkName)
+		if err != nil {
+			return errors.Wrap(err, "locating client link in the client netns")
+		}
 
-// 		return nil
-// 	})
-// }
+		if err := netlink.AddrAdd(veth, mustParseAddr(address)); err != nil {
+			return errors.Errorf("failed to set address for the bridge: %v", err)
+		}
+
+		return nil
+	})
+}
+
+func (netns *NetNS) SetupVethPair(thisLinkName, thisAddress string, other *NetNS, otherLinkName, otherAddress string) error {
+	if err := netns.Do(func(_ ns.NetNS) error {
+		if _, _, err := SetupVethWithName(thisLinkName, otherLinkName, MTU, other); err != nil {
+			return errors.Wrap(err, "creating veth pair")
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if thisAddress != NO_ADDRESS {
+		if err := netns.AddAddress(thisLinkName, thisAddress); err != nil {
+			return errors.Wrapf(err, "error adding address to link %s", thisLinkName)
+		}
+	}
+
+	if otherAddress != NO_ADDRESS {
+		if err := other.AddAddress(otherLinkName, otherAddress); err != nil {
+			return errors.Wrapf(err, "error adding address to link %s", otherLinkName)
+		}
+	}
+
+	return nil
+}
+
+func (netns *NetNS) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	// TODO: Right now, it's important to pass a single IPv4 /
+	// IPv6 address here, otherwise DialContext will try multiple
+	// connections in parallel, spawning goroutines which can get
+	// other network namespace.
+	//
+	// As it can easily be seen, this approach is rather fragile,
+	// and chances are we could improve the situation by using
+	// Control hook in the net.Dialer. The Control function could
+	// check if the correct network namespace is being used, and
+	// if it isn't the case, call runtime.LockOSThread() and
+	// switch to the right one.
+	var err error
+	var conn net.Conn
+	err = netns.Do(func(_ ns.NetNS) error {
+		var innerErr error
+		conn, innerErr = (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext(ctx, network, address)
+		return innerErr
+	})
+	return conn, err
+}

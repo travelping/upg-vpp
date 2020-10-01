@@ -1,11 +1,9 @@
 package framework
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -24,13 +22,15 @@ import (
 )
 
 const (
-	MTU           = 9000
-	VPP_BINARY    = "/usr/bin/vpp"
-	VPP_IP        = "10.0.0.2"
-	VPP_IP_NET    = VPP_IP + "/24"
-	CLIENT_IP_NET = "10.0.0.3/24"
-	FILE_SIZE     = 60000000
-	FIFO_SIZE_KiB = 60000
+	VPP_BINARY        = "/usr/bin/vpp"
+	VPP_CLIENT_IP     = "10.0.0.2"
+	VPP_CLIENT_IP_NET = VPP_CLIENT_IP + "/24"
+	CLIENT_IP_NET     = "10.0.0.3/24"
+	FILE_SIZE         = 60000000
+	FIFO_SIZE_KiB     = 60000
+	CLIENT_VETH       = "client-veth"
+	VPP_CLIENT_VETH   = "vpp-client-veth"
+	VPP_SERVER_VETH   = "vpp-server-veth"
 )
 
 // exec /etc/vpp/init.conf
@@ -91,12 +91,11 @@ func mustParseAddr(addr string) *netlink.Addr {
 }
 
 type VPPInstance struct {
-	conn                                    *core.Connection
-	apiChannel                              api.Channel
-	cmd                                     *exec.Cmd
-	clientNS, vppNS                         ns.NetNS
-	vppSideClientLink, clientSideClientLink net.Interface
-	webServerDir                            string
+	conn            *core.Connection
+	apiChannel      api.Channel
+	cmd             *exec.Cmd
+	clientNS, vppNS *NetNS
+	webServerDir    string
 }
 
 func (vi *VPPInstance) StartVPP() error {
@@ -184,13 +183,14 @@ func (vi *VPPInstance) stopVPP() {
 	if vi.cmd == nil {
 		return
 	}
+
 	vi.cmd.Process.Kill()
 	vi.cmd.Wait()
 	vi.cmd = nil
 }
 
 func (vi *VPPInstance) closeNamespaces() {
-	for _, netns := range []ns.NetNS{vi.clientNS, vi.vppNS} {
+	for _, netns := range []*NetNS{vi.clientNS, vi.vppNS} {
 		if netns != nil {
 			netns.Close()
 		}
@@ -222,43 +222,19 @@ func (vi *VPPInstance) Ctl(format string, args ...interface{}) error {
 func (vi *VPPInstance) SetupNamespaces() error {
 	var err error
 
-	vi.clientNS, err = ns.NewNS()
+	vi.clientNS, err = NewNS()
 	if err != nil {
 		return errors.Wrap(err, "NewNS")
 	}
 
-	vi.vppNS, err = ns.NewNS()
+	vi.vppNS, err = NewNS()
 	if err != nil {
 		vi.closeNamespaces()
 		return errors.Wrap(err, "vppNS")
 	}
 
-	if err := vi.vppNS.Do(func(_ ns.NetNS) error {
-		// VPP netns is the "container namespace" here
-		// Client netns is the "host namespace" here
-		vi.clientSideClientLink, vi.vppSideClientLink, err = SetupVethWithName("vpp-eth", "client-veth", MTU, vi.clientNS)
-		if err != nil {
-			return errors.Wrap(err, "creating veth pair")
-		}
-
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	if err := vi.clientNS.Do(func(_ ns.NetNS) error {
-		veth, err := netlink.LinkByName(vi.clientSideClientLink.Name)
-		if err != nil {
-			return errors.Wrap(err, "locating client link in the client netns")
-		}
-
-		if err := netlink.AddrAdd(veth, mustParseAddr(CLIENT_IP_NET)); err != nil {
-			return errors.Errorf("failed to set address for the bridge: %v", err)
-		}
-
-		return nil
-	}); err != nil {
-		return err
+	if err := vi.vppNS.SetupVethPair(VPP_CLIENT_VETH, NO_ADDRESS, vi.clientNS, CLIENT_VETH, CLIENT_IP_NET); err != nil {
+		return errors.Wrap(err, "SetupVethPair")
 	}
 
 	fmt.Printf("VPP ns: %s\n", vi.vppNS.Path())
@@ -272,9 +248,9 @@ func (vi *VPPInstance) SetupWebserver() error {
 	}
 
 	cmds := []string{
-		fmt.Sprintf("create host-interface name %s", vi.vppSideClientLink.Name),
-		fmt.Sprintf("set interface state host-%s up", vi.vppSideClientLink.Name),
-		fmt.Sprintf("set interface ip address host-%s %s", vi.vppSideClientLink.Name, VPP_IP_NET),
+		fmt.Sprintf("create host-interface name %s", VPP_CLIENT_VETH),
+		fmt.Sprintf("set interface state host-%s up", VPP_CLIENT_VETH),
+		fmt.Sprintf("set interface ip address host-%s %s", VPP_CLIENT_VETH, VPP_CLIENT_IP_NET),
 		// FIXME: fifo-size <nbytes> in 'http static server' is
 		// actually in KiB
 		// FIXME: prealloc-fios in 'http static server' command help
@@ -291,34 +267,8 @@ func (vi *VPPInstance) SetupWebserver() error {
 	return nil
 }
 
-func (vi *VPPInstance) dialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	// TODO: Right now, it's important to pass a single IPv4 /
-	// IPv6 address here, otherwise DialContext will try multiple
-	// connections in parallel, spawning goroutines which can get
-	// other network namespace.
-	//
-	// As it can easily be seen, this approach is rather fragile,
-	// and chances are we could improve the situation by using
-	// Control hook in the net.Dialer. The Control function could
-	// check if the correct network namespace is being used, and
-	// if it isn't the case, call runtime.LockOSThread() and
-	// switch to the right one.
-	var err error
-	var conn net.Conn
-	fmt.Println("ZZZZZ: dial")
-	err = vi.clientNS.Do(func(_ ns.NetNS) error {
-		var innerErr error
-		conn, innerErr = (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext(ctx, network, address)
-		return innerErr
-	})
-	return conn, err
-}
-
 func (vi *VPPInstance) downloadURL() string {
-	return fmt.Sprintf("http://%s/dummy", VPP_IP)
+	return fmt.Sprintf("http://%s/dummy", VPP_CLIENT_IP)
 }
 
 func (vi *VPPInstance) SimulateDownload() error {
@@ -329,7 +279,7 @@ func (vi *VPPInstance) SimulateDownload() error {
 		c := http.Client{
 			Transport: &http.Transport{
 				Proxy:                 http.ProxyFromEnvironment,
-				DialContext:           vi.dialContext,
+				DialContext:           vi.clientNS.DialContext,
 				MaxIdleConns:          100,
 				IdleConnTimeout:       90 * time.Second,
 				TLSHandshakeTimeout:   10 * time.Second,
