@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -293,58 +294,69 @@ func (vi *VPPInstance) setupWebserver() error {
 	return nil
 }
 
+func (vi *VPPInstance) dialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	// TODO: Right now, it's important to pass a single IPv4 /
+	// IPv6 address here, otherwise DialContext will try multiple
+	// connections in parallel, spawning goroutines which can get
+	// other network namespace.
+	//
+	// As it can easily be seen, this approach is rather fragile,
+	// and chances are we could improve the situation by using
+	// Control hook in the net.Dialer. The Control function could
+	// check if the correct network namespace is being used, and
+	// if it isn't the case, call runtime.LockOSThread() and
+	// switch to the right one.
+	var err error
+	var conn net.Conn
+	fmt.Println("ZZZZZ: dial\n")
+	err = vi.clientNS.Do(func(_ ns.NetNS) error {
+		var innerErr error
+		conn, innerErr = (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext(ctx, network, address)
+		return innerErr
+	})
+	return conn, err
+}
+
+func (vi *VPPInstance) downloadURL() string {
+	return fmt.Sprintf("http://%s/dummy", VPP_IP)
+}
+
 func (vi *VPPInstance) simulateDownload() error {
 	return vi.clientNS.Do(func(_ ns.NetNS) error {
 		ts := time.Now()
-		fmt.Printf("*** downloading from %s\n", VPP_IP)
+		fmt.Printf("*** downloading from %s\n", vi.downloadURL())
 
-		// use net.Dial to stick to the netns
-		// TODO: https://gist.github.com/davrodpin/6d0e7cbd8aea477a7990f9ba3e5d3692#file-client_custom_dialer-go-L45
-		conn, err := net.Dial("tcp", fmt.Sprintf("%s:80", VPP_IP))
+		c := http.Client{
+			Transport: &http.Transport{
+				Proxy:                 http.ProxyFromEnvironment,
+				DialContext:           vi.dialContext,
+				MaxIdleConns:          100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
+		}
+
+		resp, err := c.Get(vi.downloadURL())
 		if err != nil {
-			return errors.Wrap(err, "Dial")
+			return errors.Wrap(err, "HTTP GET")
 		}
-		defer conn.Close()
+		defer resp.Body.Close()
 
-		if _, err = conn.Write([]byte("GET /dummy HTTP/1.1\r\nConnection: close\r\n\r\n")); err != nil {
-			return errors.Wrap(err, "sending GET request")
+		content, err := ioutil.ReadAll(resp.Body)
+
+		if len(content) != FILE_SIZE {
+			return errors.Errorf("bad file size. Expected %d, got %d bytes",
+				FILE_SIZE, len(content))
 		}
-		// resp, err := http.Get(vi.downloadURL())
-		// if err != nil {
-		// 	return errors.Wrap(err, "HTTP GET")
-		// }
-		// defer resp.Body.Close()
-
-		// content, err := ioutil.ReadAll(resp.Body)
-		// content, err := ioutil.ReadAll(conn)
-		total := 0
-		bs := make([]byte, 1000)
-		for {
-			n, err := conn.Read(bs)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return errors.Wrap(err, "Read()")
-			}
-			// fmt.Printf("read %d total %d\n", n, total)
-			total += n
-			// FIXME: the server always leaves the connection open
-			// so need to parse the response headers
-			if total >= FILE_SIZE {
-				break
-			}
-		}
-
-		// if len(content) != FILE_SIZE {
-		// 	return errors.Errorf("bad file size. Expected %d, got %d bytes",
-		// 		FILE_SIZE, len(content))
-		// }
 
 		elapsed := time.Since(ts)
 		fmt.Printf("*** downloaded %d bytes in %s (~%g Mbps)\n",
-			total, elapsed,
-			float64(total)*8.0*float64(time.Second)/(1000000.*float64(elapsed)))
+			len(content), elapsed,
+			float64(len(content))*8.0*float64(time.Second)/(1000000.*float64(elapsed)))
 
 		return nil
 	})
