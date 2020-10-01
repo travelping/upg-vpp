@@ -19,10 +19,8 @@ import (
 	"git.fd.io/govpp.git/api"
 	"git.fd.io/govpp.git/core"
 	"git.fd.io/govpp.git/examples/binapi/vpe"
-	iptools "github.com/containernetworking/plugins/pkg/ip"
-	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/containernetworking/plugins/pkg/testutils"
 	"github.com/vishvananda/netlink"
+	"github.com/travelping/upg-vpp/test/e2e/ns"
 )
 
 const (
@@ -195,7 +193,6 @@ func (vi *VPPInstance) closeNamespaces() {
 	for _, netns := range []ns.NetNS{vi.clientNS, vi.vppNS} {
 		if netns != nil {
 			netns.Close()
-			testutils.UnmountNS(netns)
 		}
 	}
 }
@@ -225,12 +222,12 @@ func (vi *VPPInstance) Ctl(format string, args ...interface{}) error {
 func (vi *VPPInstance) SetupNamespaces() error {
 	var err error
 
-	vi.clientNS, err = testutils.NewNS()
+	vi.clientNS, err = ns.NewNS()
 	if err != nil {
 		return errors.Wrap(err, "NewNS")
 	}
 
-	vi.vppNS, err = testutils.NewNS()
+	vi.vppNS, err = ns.NewNS()
 	if err != nil {
 		vi.closeNamespaces()
 		return errors.Wrap(err, "vppNS")
@@ -239,7 +236,7 @@ func (vi *VPPInstance) SetupNamespaces() error {
 	if err := vi.vppNS.Do(func(_ ns.NetNS) error {
 		// VPP netns is the "container namespace" here
 		// Client netns is the "host namespace" here
-		vi.clientSideClientLink, vi.vppSideClientLink, err = iptools.SetupVethWithName("vpp-eth", "client-veth", MTU, vi.clientNS)
+		vi.clientSideClientLink, vi.vppSideClientLink, err = SetupVethWithName("vpp-eth", "client-veth", MTU, vi.clientNS)
 		if err != nil {
 			return errors.Wrap(err, "creating veth pair")
 		}
@@ -308,7 +305,7 @@ func (vi *VPPInstance) dialContext(ctx context.Context, network, address string)
 	// switch to the right one.
 	var err error
 	var conn net.Conn
-	fmt.Println("ZZZZZ: dial\n")
+	fmt.Println("ZZZZZ: dial")
 	err = vi.clientNS.Do(func(_ ns.NetNS) error {
 		var innerErr error
 		conn, innerErr = (&net.Dialer{
