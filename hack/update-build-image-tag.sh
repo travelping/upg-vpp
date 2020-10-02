@@ -6,7 +6,7 @@ set -o errtrace
 
 cd "$(dirname "${BASH_SOURCE}")/.."
 
-: "${BUILD_IMAGE_NAME:=quay.io/travelping/upf-build}"
+: "${BUILD_IMAGE_NAME:=quay.io/travelping/upg-build}"
 
 . hack/build-image-name.sh
 files=(.gitlab-ci.yml Dockerfile Dockerfile.devel)

@@ -5,7 +5,7 @@ stages:
 
 variables:
   REGISTRY: "quay.io"
-  CONTAINER_IMAGE: travelping/upf
+  CONTAINER_IMAGE: travelping/upg
   # this points to buildkitd k8s service
   BUILDKITD_ADDR: tcp://buildkitd:1234
   # This is needed to disable TLS in recent docker:...dind images.
@@ -55,7 +55,7 @@ prepare:
 # build container image
 .build:
   stage: build
-  image: quay.io/travelping/upf-build:90cf570f931007523db7085e7d867659 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: quay.io/travelping/upg-build:90cf570f931007523db7085e7d867659 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
   - |
     export REGISTRY_LOGIN=${QUAY_USER_ID}
@@ -91,7 +91,7 @@ build:debug:
 .test:
   stage: test
   # the following is updated automatically by make update-build-image-tag
-  image: quay.io/travelping/upf-build:90cf570f931007523db7085e7d867659 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: quay.io/travelping/upg-build:90cf570f931007523db7085e7d867659 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
   - make update-vpp
   - tar -C vpp -xvzf ${TEST_ARCHIVE}

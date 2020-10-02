@@ -1,4 +1,4 @@
-IMAGE_BASE ?= upf
+IMAGE_BASE ?= upg
 TEST_VERBOSITY ?= 2
 
 install-hooks:
