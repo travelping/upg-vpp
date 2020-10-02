@@ -5,6 +5,6 @@ function get_build_hash {
   ) | md5sum | awk '{print $1}'
 }
 
-: ${BUILD_IMAGE_NAME:=quay.io/travelping/upf-build}
+: ${BUILD_IMAGE_NAME:=quay.io/travelping/upg-build}
 build_hash="$(get_build_hash)"
 build_image="${BUILD_IMAGE_NAME}:${build_hash}"
