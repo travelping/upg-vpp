@@ -103,12 +103,11 @@ The following `make` commands are supported:
 * `make buildenv` runs an interactive shell inside the build
   environment with UPF and VPP sources mounted into the container
 
-If docker is not used, one should set the following environment
-variable to disable wrapping the internally run commands in a docker
-container:
+If docker is used, one should set the following environment variable
+to enable wrapping the internally run commands in a docker container:
 
 ```
-export UPF_NO_DOCKER_BUILDENV=1
+export UPG_DOCKER_BUILDENV=1
 ```
 
 As an alternative, it’s possible to run commands such as
