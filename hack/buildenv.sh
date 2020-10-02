@@ -11,7 +11,7 @@ if [[ ! -e vpp/Makefile ]]; then
   exit 1
 fi
 
-if [[ ${UPF_NO_DOCKER_BUILDENV:-} ]]; then
+if [[ ! ${UPG_DOCKER_BUILDENV:-} ]]; then
   cd vpp
   exec "$@"
 else
@@ -20,7 +20,6 @@ else
          -v $PWD:/src:delegated \
          -v $PWD/vpp-out:/vpp-out \
          -e LC_ALL=C.UTF-8 -e LANG=C.UTF-8 \
-         -e UPF_NO_DOCKER_BUILDENV=1 \
          -w /src/vpp \
          "${build_image}" \
          "$@"
