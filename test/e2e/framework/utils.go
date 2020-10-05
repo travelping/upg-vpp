@@ -18,6 +18,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 
@@ -221,4 +222,29 @@ func DelLinkByNameAddr(ifName string) ([]*net.IPNet, error) {
 	}
 
 	return out, nil
+}
+
+func MustParseIP(s string) net.IP {
+	ip := net.ParseIP(s)
+	if ip == nil {
+		log.Panicf("failed to parse IP %q", s)
+	}
+	return ip
+}
+
+func MustParseIPNet(s string) *net.IPNet {
+	ip, ipNet, err := net.ParseCIDR(s)
+	if err != nil {
+		log.Panicf("failed to parse CIDR %q: %v", s, err)
+	}
+	ipNet.IP = ip
+	return ipNet
+}
+
+func MustParseMAC(s string) net.HardwareAddr {
+	hw, err := net.ParseMAC(s)
+	if err != nil {
+		log.Panicf("failed to parse MAC address %q: %v", s, err)
+	}
+	return hw
 }

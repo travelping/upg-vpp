@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -20,13 +21,15 @@ const (
 
 type TrafficGen struct {
 	clientNS, serverNS *NetNS
+	vppIP              net.IP
 	s                  *http.Server
 }
 
-func NewTrafficGen(clientNS, serverNS *NetNS) *TrafficGen {
+func NewTrafficGen(clientNS, serverNS *NetNS, vppIP net.IP) *TrafficGen {
 	return &TrafficGen{
 		clientNS: clientNS,
 		serverNS: serverNS,
+		vppIP:    vppIP,
 	}
 }
 
@@ -122,7 +125,7 @@ func (tg *TrafficGen) SimulateDownloadThroughProxy() error {
 		return err
 	}
 
-	if err := tg.simulateDownload(fmt.Sprintf("http://%s:555/dummy", VPP_CLIENT_IP), GO_WS_FILE_SIZE); err != nil {
+	if err := tg.simulateDownload(fmt.Sprintf("http://%s:555/dummy", tg.vppIP), GO_WS_FILE_SIZE); err != nil {
 		return err
 	}
 
@@ -130,5 +133,5 @@ func (tg *TrafficGen) SimulateDownloadThroughProxy() error {
 }
 
 func (tg *TrafficGen) SimulateDownloadFromVPPWebServer() error {
-	return tg.simulateDownload(fmt.Sprintf("http://%s/dummy", VPP_CLIENT_IP), VPP_WS_FILE_SIZE)
+	return tg.simulateDownload(fmt.Sprintf("http://%s/dummy", tg.vppIP), VPP_WS_FILE_SIZE)
 }

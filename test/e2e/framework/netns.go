@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	MTU        = 9000
-	NO_ADDRESS = ""
+	MTU = 9000
 )
 
 type NetNS struct {
@@ -30,29 +29,23 @@ func NewNS() (*NetNS, error) {
 	}, nil
 }
 
-func (netns *NetNS) AddAddress(linkName, address string) error {
+func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
 	return netns.Do(func(_ ns.NetNS) error {
 		veth, err := netlink.LinkByName(linkName)
 		if err != nil {
 			return errors.Wrap(err, "locating client link in the client netns")
 		}
 
-		addr, err := netlink.ParseAddr(address)
-		if err != nil {
-			return errors.Wrapf(err, "failed to parse address %q", address)
-		}
-
-		if err := netlink.AddrAdd(veth, addr); err != nil {
+		if err := netlink.AddrAdd(veth, &netlink.Addr{IPNet: address}); err != nil {
 			return errors.Errorf("failed to set address for the bridge: %v", err)
 		}
 
-		netns.IPNet = addr.IPNet
-
+		netns.IPNet = address
 		return nil
 	})
 }
 
-func (netns *NetNS) SetupVethPair(thisLinkName, thisAddress string, other *NetNS, otherLinkName, otherAddress string) error {
+func (netns *NetNS) SetupVethPair(thisLinkName string, thisAddress *net.IPNet, other *NetNS, otherLinkName string, otherAddress *net.IPNet) error {
 	if err := netns.Do(func(_ ns.NetNS) error {
 		if _, _, err := SetupVethWithName(thisLinkName, otherLinkName, MTU, other); err != nil {
 			return errors.Wrap(err, "creating veth pair")
@@ -62,13 +55,13 @@ func (netns *NetNS) SetupVethPair(thisLinkName, thisAddress string, other *NetNS
 		return err
 	}
 
-	if thisAddress != NO_ADDRESS {
+	if thisAddress != nil {
 		if err := netns.AddAddress(thisLinkName, thisAddress); err != nil {
 			return errors.Wrapf(err, "error adding address to link %s", thisLinkName)
 		}
 	}
 
-	if otherAddress != NO_ADDRESS {
+	if otherAddress != nil {
 		if err := other.AddAddress(otherLinkName, otherAddress); err != nil {
 			return errors.Wrapf(err, "error adding address to link %s", otherLinkName)
 		}
