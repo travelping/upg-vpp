@@ -241,3 +241,4 @@ func (vi *VPPInstance) Configure() error {
 
 // TODO: offload off
 // TODO: pcaps
+// TODO: !!! separate log and socket paths for VPPs !!!

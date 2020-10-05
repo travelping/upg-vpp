@@ -94,6 +94,16 @@ func (netns *NetNS) DialContext(ctx context.Context, network, address string) (n
 	return conn, err
 }
 
+func (netns *NetNS) DialUDP(laddr, raddr *net.UDPAddr) (*net.UDPConn, error) {
+	var conn *net.UDPConn
+	err := netns.Do(func(_ ns.NetNS) error {
+		var innerErr error
+		conn, innerErr = net.DialUDP("udp", laddr, raddr)
+		return innerErr
+	})
+	return conn, err
+}
+
 func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
 	var l net.Listener
 	err := netns.Do(func(_ ns.NetNS) error {
