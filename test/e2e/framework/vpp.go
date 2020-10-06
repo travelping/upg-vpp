@@ -259,6 +259,4 @@ func (vi *VPPInstance) Configure() error {
 	return vi.runCmds(allCmds...)
 }
 
-// TODO: offload off
-// TODO: pcaps
 // TODO: !!! separate log and socket paths for VPPs !!!

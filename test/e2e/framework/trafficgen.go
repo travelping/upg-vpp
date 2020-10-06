@@ -15,7 +15,7 @@ import (
 const (
 	VPP_WS_FILE_SIZE  = 60000000
 	GO_WS_CHUNK_SIZE  = 1000000
-	GO_WS_CHUNK_COUNT = 40
+	GO_WS_CHUNK_COUNT = 400
 	GO_WS_FILE_SIZE   = GO_WS_CHUNK_COUNT * GO_WS_CHUNK_SIZE
 )
 
@@ -39,10 +39,6 @@ func NewTrafficGen(cfg TrafficGenConfig) *TrafficGen {
 }
 
 // TODO: pre-generate random chunk
-
-// func (tg *TrafficGenerator) downloadURL() string {
-// 	return fmt.Sprintf("http://%s/dummy", VPP_CLIENT_IP)
-// }
 
 func (tg *TrafficGen) TearDown() {
 	if tg.s != nil {

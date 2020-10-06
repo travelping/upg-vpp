@@ -6,15 +6,21 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"regexp"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/safchain/ethtool"
 	"github.com/vishvananda/netlink"
 	"github.com/travelping/upg-vpp/test/e2e/ns"
 )
 
 const (
 	MTU = 9000
+)
+
+var (
+	ethFeatureRx = regexp.MustCompile("^[rt]x-(checksum.*|.*segmentation|.*fragmentation|scatter-gather.*|gro)$")
 )
 
 type NetNS struct {
@@ -43,6 +49,32 @@ func (netns *NetNS) Close() error {
 	return netns.NetNS.Close()
 }
 
+func (netns *NetNS) disableOffloading(linkName string) error {
+	return netns.Do(func(_ ns.NetNS) error {
+		et, err := ethtool.NewEthtool()
+		if err != nil {
+			return errors.Wrap(err, "NewEthtool")
+		}
+		features, err := et.Features(linkName)
+		if err != nil {
+			return errors.Wrap(err, "Features")
+		}
+		updateFeatures := make(map[string]bool)
+		for name, value := range features {
+			if ethFeatureRx.MatchString(name) && value {
+				fmt.Printf("ethtool %s: %s off\n", linkName, name)
+				updateFeatures[name] = false
+			}
+		}
+		if len(updateFeatures) > 0 {
+			if err := et.Change(linkName, updateFeatures); err != nil {
+				return errors.Wrapf(err, "change eth features: %#v", updateFeatures)
+			}
+		}
+		return nil
+	})
+}
+
 func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
 	return netns.Do(func(_ ns.NetNS) error {
 		veth, err := netlink.LinkByName(linkName)
@@ -67,6 +99,14 @@ func (netns *NetNS) SetupVethPair(thisLinkName string, thisAddress *net.IPNet, o
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	if err := netns.disableOffloading(thisLinkName); err != nil {
+		return errors.Wrapf(err, "disable offloading for %s", thisLinkName)
+	}
+
+	if err := other.disableOffloading(otherLinkName); err != nil {
+		return errors.Wrapf(err, "disable offloading for %s", otherLinkName)
 	}
 
 	if thisAddress != nil {
@@ -166,3 +206,5 @@ func (netns *NetNS) AddRoute(dst *net.IPNet, gw net.IP) error {
 		return nil
 	})
 }
+
+// https://github.com/safchain/ethtool/blob/8f958a28363a963779d180bc3d3715ab1333e1de/ethtool.go#L513
