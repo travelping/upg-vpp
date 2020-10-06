@@ -14,6 +14,11 @@ import (
 const (
 	PFCP_BUF_SIZE = 100000
 	PFCP_PORT     = 8805
+
+	ApplyAction_FORW = 2
+	UEIPAddress_SD   = 4
+	UEIPAddress_V4   = 2
+	UEIPAddress_V6   = 1
 )
 
 var (
@@ -34,15 +39,17 @@ type pfcpState interface {
 }
 
 type PFCPConfig struct {
-	Namespace          *NetNS
-	UNodeIP            net.IP
-	NodeID             string
-	AssociationTimeout time.Duration
+	Namespace *NetNS
+	UNodeIP   net.IP
+	// TODO: UEIP should be per-session
+	UEIP           net.IP
+	NodeID         string
+	RequestTimeout time.Duration
 }
 
 func (cfg *PFCPConfig) setDefaults() {
-	if cfg.AssociationTimeout == 0 {
-		cfg.AssociationTimeout = 3 * time.Second
+	if cfg.RequestTimeout == 0 {
+		cfg.RequestTimeout = 3 * time.Second
 	}
 }
 
@@ -238,26 +245,77 @@ func (pc *PFCPConnection) Send(m message.Message) error {
 	return nil
 }
 
+func (pc *PFCPConnection) verifySequence(m message.Message) bool {
+	if m.Sequence() != pc.seq {
+		fmt.Printf("* WARNING: skipping %s with wrong seq (%d instead of %d)\n",
+			m.MessageTypeName(), m.Sequence(), pc.seq)
+		return false
+	}
+	return true
+}
+
+var causes = map[uint8]string{
+	ie.CauseRequestAccepted:                 "RequestAccepted",
+	ie.CauseRequestRejected:                 "RequestRejected",
+	ie.CauseSessionContextNotFound:          "SessionContextNotFound",
+	ie.CauseMandatoryIEMissing:              "MandatoryIEMissing",
+	ie.CauseConditionalIEMissing:            "ConditionalIEMissing",
+	ie.CauseInvalidLength:                   "InvalidLength",
+	ie.CauseMandatoryIEIncorrect:            "MandatoryIEIncorrect",
+	ie.CauseInvalidForwardingPolicy:         "InvalidForwardingPolicy",
+	ie.CauseInvalidFTEIDAllocationOption:    "InvalidFTEIDAllocationOption",
+	ie.CauseNoEstablishedPFCPAssociation:    "NoEstablishedPFCPAssociation",
+	ie.CauseRuleCreationModificationFailure: "RuleCreationModificationFailure",
+	ie.CausePFCPEntityInCongestion:          "PFCPEntityInCongestion",
+	ie.CauseNoResourcesAvailable:            "NoResourcesAvailable",
+	ie.CauseServiceNotSupported:             "ServiceNotSupported",
+	ie.CauseSystemFailure:                   "SystemFailure",
+	ie.CauseRedirectionRequested:            "RedirectionRequested",
+}
+
+func verifyCause(causeIE *ie.IE) error {
+	if causeIE == nil {
+		return errors.New("no cause")
+	}
+
+	cause, err := causeIE.Cause()
+	if err != nil {
+		return errors.Wrap(err, "bad Cause IE")
+	}
+
+	if cause == ie.CauseRequestAccepted {
+		return nil
+	}
+
+	s, found := causes[cause]
+	if !found {
+		return errors.Errorf("bad cause value %d", cause)
+	}
+
+	return errors.Errorf("failed, cause: %s", s)
+}
+
 type pfcpStateBase struct {
 	*PFCPConnection
 }
 
-func (b *pfcpStateBase) Timeout() error { return errTimeout }
-func (b *pfcpStateBase) Enter() error   { return nil }
-func (b *pfcpStateBase) HandleBegin()   {}
-func (b *pfcpStateBase) HandleStop() {
-	b.Done()
+func (s *pfcpStateBase) Timeout() error { return errTimeout }
+func (s *pfcpStateBase) Enter() error   { return nil }
+func (s *pfcpStateBase) HandleBegin()   {}
+func (s *pfcpStateBase) HandleStop() {
+	s.Done()
 }
 
-func (b *pfcpStateBase) HandleAssociationSetupResponse(asr *message.AssociationSetupResponse) error {
+func (s *pfcpStateBase) HandleAssociationSetupResponse(asr *message.AssociationSetupResponse) error {
 	return errUnexpected
 }
 
-func (b *pfcpStateBase) HandleHeartbeatRequest(hb *message.HeartbeatRequest) error {
-	return errUnexpected
+func (s *pfcpStateBase) HandleHeartbeatRequest(hr *message.HeartbeatRequest) error {
+	fmt.Printf("* Heartbeat request\n")
+	return s.Send(message.NewHeartbeatResponse(hr.SequenceNumber, ie.NewRecoveryTimeStamp(s.timestamp)))
 }
 
-func (b *pfcpStateBase) HandleSessionEstablishmentResponse(ser *message.SessionEstablishmentResponse) error {
+func (s *pfcpStateBase) HandleSessionEstablishmentResponse(ser *message.SessionEstablishmentResponse) error {
 	return errUnexpected
 }
 
@@ -294,7 +352,7 @@ func newPFCPAssociatingState(pc *PFCPConnection) pfcpState {
 func (s *pfcpAssociatingState) Name() string { return "ASSOCIATING" }
 
 func (s *pfcpAssociatingState) Enter() error {
-	s.SetTimeout(s.cfg.AssociationTimeout)
+	s.SetTimeout(s.cfg.RequestTimeout)
 	return s.Send(message.NewAssociationSetupRequest(
 		s.seq,
 		ie.NewRecoveryTimeStamp(s.timestamp),
@@ -306,7 +364,13 @@ func (s *pfcpAssociatingState) HandleTimeout() {
 }
 
 func (s *pfcpAssociatingState) HandleAssociationSetupResponse(asr *message.AssociationSetupResponse) error {
+	if !s.verifySequence(asr) {
+		return nil
+	}
 	s.IncSeq()
+	if err := verifyCause(asr.Cause); err != nil {
+		return errors.Wrap(err, "AssociationSetupResponse")
+	}
 	s.SetState(newPFCPAssociatedState)
 	return nil
 }
@@ -325,14 +389,90 @@ func newPFCPAssociatedState(pc *PFCPConnection) pfcpState {
 
 func (s *pfcpAssociatedState) Name() string { return "ASSOCIATED" }
 
-func (s *pfcpAssociatedState) HandleHeartbeatRequest(hr *message.HeartbeatRequest) error {
-	fmt.Printf("* Heartbeat request\n")
-	err := s.Send(message.NewHeartbeatResponse(hr.SequenceNumber, ie.NewRecoveryTimeStamp(s.timestamp)))
-	return err
+func (s *pfcpAssociatedState) Enter() error {
+	s.SetTimeout(s.cfg.RequestTimeout)
+	return s.Send(message.NewSessionEstablishmentRequest(
+		0, 0, 0, s.seq, 0,
+		ie.NewCreateFAR(
+			ie.NewApplyAction(ApplyAction_FORW),
+			ie.NewFARID(1),
+			ie.NewForwardingParameters(
+				ie.NewDestinationInterface(ie.DstInterfaceSGiLANN6LAN),
+				ie.NewNetworkInstance(EncodeAPN("sgi")))),
+		// TODO: replace for PGW (reverseFAR)
+		ie.NewCreateFAR(
+			ie.NewApplyAction(ApplyAction_FORW),
+			ie.NewFARID(2),
+			ie.NewForwardingParameters(
+				ie.NewDestinationInterface(ie.DstInterfaceAccess),
+				ie.NewNetworkInstance(EncodeAPN("access")))),
+		ie.NewCreateURR(
+			ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
+			ie.NewReportingTriggers(0),
+			ie.NewURRID(1)),
+		ie.NewCreateURR(
+			ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
+			ie.NewReportingTriggers(0),
+			ie.NewURRID(2)),
+		// TODO: replace for PGW (forwardPDR)
+		ie.NewCreatePDR(
+			ie.NewFARID(1),
+			ie.NewPDI(
+				ie.NewNetworkInstance(EncodeAPN("access")),
+				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
+				ie.NewSourceInterface(ie.SrcInterfaceAccess),
+				// TODO: replace for IPv6
+				ie.NewUEIPAddress(UEIPAddress_V4, s.cfg.UEIP.String(), "", 0)),
+			ie.NewPDRID(1),
+			ie.NewPrecedence(200),
+			ie.NewURRID(1),
+		),
+		ie.NewCreatePDR(
+			ie.NewFARID(2),
+			ie.NewPDI(
+				ie.NewNetworkInstance(EncodeAPN("sgi")),
+				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
+				ie.NewSourceInterface(ie.SrcInterfaceSGiLANN6LAN),
+				// TODO: replace for IPv6
+				ie.NewUEIPAddress(UEIPAddress_V4|UEIPAddress_SD, s.cfg.UEIP.String(), "", 0)),
+			ie.NewPDRID(2),
+			ie.NewPrecedence(200),
+			ie.NewURRID(1),
+		),
+		// TODO: replace for IPv6
+		ie.NewFSEID(0, s.cfg.Namespace.IPNet.IP, nil, nil),
+		ie.NewNodeID("", "", s.cfg.NodeID),
+	))
 }
 
+func (s *pfcpAssociatedState) HandleSessionEstablishmentResponse(ser *message.SessionEstablishmentResponse) error {
+	if !s.verifySequence(ser) {
+		return nil
+	}
+	s.IncSeq()
+	if err := verifyCause(ser.Cause); err != nil {
+		return errors.Wrap(err, "SessionEstablishmentResponse")
+	}
+	s.SetState(newPFCPSessionEstablishedState)
+	return nil
+}
+
+type pfcpSessionEstablishedState struct {
+	*pfcpStateBase
+}
+
+func newPFCPSessionEstablishedState(pc *PFCPConnection) pfcpState {
+	return &pfcpSessionEstablishedState{
+		pfcpStateBase: &pfcpStateBase{
+			PFCPConnection: pc,
+		},
+	}
+}
+
+func (s *pfcpSessionEstablishedState) Name() string { return "SESSION_ESTABLISHED" }
+
 // TODO: own logging func
-// TODO: examine AssociationSetupResponse
+// TODO: close the session
 // TODO: release association
 // TODO: command channel:
 //       * add session

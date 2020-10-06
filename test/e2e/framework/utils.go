@@ -21,6 +21,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 
 	// "github.com/safchain/ethtool"
 	"github.com/vishvananda/netlink"
@@ -247,4 +248,13 @@ func MustParseMAC(s string) net.HardwareAddr {
 		log.Panicf("failed to parse MAC address %q: %v", s, err)
 	}
 	return hw
+}
+
+func EncodeAPN(s string) string {
+	var r []rune
+	for _, p := range strings.Split(s, ".") {
+		r = append(r, rune(len(p)))
+		r = append(r, []rune(p)...)
+	}
+	return string(r)
 }
