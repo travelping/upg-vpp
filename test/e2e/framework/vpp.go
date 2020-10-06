@@ -141,12 +141,14 @@ func (vi *VPPInstance) stopVPP() {
 }
 
 func (vi *VPPInstance) closeNamespaces() {
+	// FIXME (allow tcpdumps to grab the packets)
+	<-time.After(1 * time.Second)
+	for _, ns := range vi.namespaces {
+		ns.Close()
+	}
 	if vi.vppNS != nil {
 		vi.vppNS.Close()
 		vi.vppNS = nil
-	}
-	for _, ns := range vi.namespaces {
-		ns.Close()
 	}
 	vi.namespaces = nil
 }
@@ -196,6 +198,12 @@ func (vi *VPPInstance) SetupNamespaces() error {
 
 		vi.namespaces[nsCfg.Name] = ns
 		fmt.Printf("%s ns: %s; (vpp) %s <--> (other) %s\n", nsCfg.Name, ns.Path(), *nsCfg.VPPIP, *nsCfg.OtherIP)
+		// FIXME: store pcaps to the specified location not /tmp
+		pcapPath := fmt.Sprintf("/tmp/%s.pcap", nsCfg.OtherLinkName)
+		fmt.Printf("* starting capture for %s to %s\n", nsCfg.Name, pcapPath)
+		if err := vi.vppNS.StartCapture(nsCfg.VPPLinkName, pcapPath); err != nil {
+			return errors.Wrapf(err, "capture for %s", nsCfg.Name)
+		}
 	}
 
 	return nil

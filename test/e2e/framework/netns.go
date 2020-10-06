@@ -2,7 +2,10 @@ package framework
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"os"
+	"os/exec"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,7 +19,8 @@ const (
 
 type NetNS struct {
 	ns.NetNS
-	IPNet *net.IPNet
+	IPNet    *net.IPNet
+	tcpDumps map[string]*exec.Cmd
 }
 
 func NewNS() (*NetNS, error) {
@@ -25,8 +29,18 @@ func NewNS() (*NetNS, error) {
 		return nil, err
 	}
 	return &NetNS{
-		NetNS: innerNS,
+		NetNS:    innerNS,
+		tcpDumps: make(map[string]*exec.Cmd),
 	}, nil
+}
+
+func (netns *NetNS) Close() error {
+	for iface, cmd := range netns.tcpDumps {
+		fmt.Printf("* stopping capture for %s\n", iface)
+		cmd.Process.Signal(os.Interrupt)
+		cmd.Wait()
+	}
+	return netns.NetNS.Close()
 }
 
 func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
@@ -112,4 +126,26 @@ func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
 		return innerErr
 	})
 	return l, err
+}
+
+func (netns *NetNS) StartCapture(iface, pcapPath string) error {
+	// TODO: use gopacket
+	// https://github.com/google/gopacket/blob/master/examples/pfdump/main.go
+	if _, found := netns.tcpDumps[iface]; found {
+		return errors.Errorf("tcpdump already started for interface %s", iface)
+	}
+	cmd := exec.Command(
+		"nsenter", "--net="+netns.Path(),
+		"tcpdump", "-n", "-i", iface, "-w", pcapPath)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return errors.Wrap(err, "error starting tcpdump")
+	}
+	// FIXME (let tcpdump start capturing)
+	<-time.After(1 * time.Second)
+	if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+		return errors.New("tcpdump has exited")
+	}
+	netns.tcpDumps[iface] = cmd
+	return nil
 }
