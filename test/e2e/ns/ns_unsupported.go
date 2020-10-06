@@ -18,6 +18,6 @@ func (ns *netNS) Set() error {
 
 // Creates a new persistent (bind-mounted) network namespace and returns an object
 // representing that namespace, without switching to it.
-func NewNS() (NetNS, error) {
+func NewNS(name string) (NetNS, error) {
 	return nil, notImplemented
 }

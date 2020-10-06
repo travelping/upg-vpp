@@ -23,8 +23,8 @@ type NetNS struct {
 	tcpDumps map[string]*exec.Cmd
 }
 
-func NewNS() (*NetNS, error) {
-	innerNS, err := ns.NewNS()
+func NewNS(name string) (*NetNS, error) {
+	innerNS, err := ns.NewNS(name)
 	if err != nil {
 		return nil, err
 	}

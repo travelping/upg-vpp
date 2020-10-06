@@ -48,7 +48,7 @@ func (ns *netNS) Set() error {
 
 // Creates a new persistent (bind-mounted) network namespace and returns an object
 // representing that namespace, without switching to it.
-func NewNS() (NetNS, error) {
+func NewNS(name string) (NetNS, error) {
 
 	nsRunDir := getNsRunDir()
 
@@ -90,7 +90,7 @@ func NewNS() (NetNS, error) {
 
 	}
 
-	nsName := fmt.Sprintf("cnitest-%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+	nsName := fmt.Sprintf("%s-%x-%x-%x-%x-%x", name, b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 
 	// create an empty file at the mount point
 	nsPath := path.Join(nsRunDir, nsName)

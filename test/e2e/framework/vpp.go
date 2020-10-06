@@ -175,7 +175,7 @@ func (vi *VPPInstance) Ctl(format string, args ...interface{}) error {
 func (vi *VPPInstance) SetupNamespaces() error {
 	var err error
 
-	vi.vppNS, err = NewNS()
+	vi.vppNS, err = NewNS("vpp")
 	if err != nil {
 		vi.closeNamespaces()
 		return errors.Wrap(err, "VppNS")
@@ -183,7 +183,7 @@ func (vi *VPPInstance) SetupNamespaces() error {
 	fmt.Printf("VPP ns: %s\n", vi.vppNS.Path())
 
 	for _, nsCfg := range vi.cfg.Namespaces {
-		ns, err := NewNS()
+		ns, err := NewNS(nsCfg.Name)
 		if err != nil {
 			return errors.Wrapf(err, "NewNS: %s", nsCfg.Name)
 		}
