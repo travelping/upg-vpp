@@ -54,16 +54,19 @@ func (cfg *PFCPConfig) setDefaults() {
 }
 
 type PFCPConnection struct {
-	cfg          PFCPConfig
-	conn         *net.UDPConn
-	seq          uint32
-	state        pfcpState
-	timestamp    time.Time
-	pendingEnter bool
-	timer        *time.Timer
-	messageCh    chan message.Message
-	listenErrCh  chan error
-	done         bool
+	cfg            PFCPConfig
+	conn           *net.UDPConn
+	seq            uint32
+	state          pfcpState
+	timestamp      time.Time
+	pendingEnter   bool
+	timer          *time.Timer
+	messageCh      chan message.Message
+	listenErrCh    chan error
+	done           bool
+	sessionStartCh chan struct{}
+	stopCh         chan struct{}
+	Stopped        bool
 }
 
 func NewPFCPConnection(cfg PFCPConfig) *PFCPConnection {
@@ -107,12 +110,8 @@ func (pc *PFCPConnection) IncSeq() {
 	pc.seq++
 }
 
-func (pc *PFCPConnection) RunFor(d time.Duration) error {
+func (pc *PFCPConnection) Run() error {
 	var err error
-	var stopCh <-chan time.Time
-	if d != 0 {
-		stopCh = time.After(d)
-	}
 	pc.conn = nil
 	pc.messageCh = make(chan message.Message, 1)
 	pc.listenErrCh = make(chan error, 1)
@@ -154,7 +153,7 @@ LOOP:
 				err = errors.Wrapf(err, "timeout in state %s", pc.state.Name())
 				break LOOP
 			}
-		case <-stopCh:
+		case <-pc.stopCh:
 			pc.state.HandleStop()
 		case err = <-pc.listenErrCh:
 			fmt.Printf("* Listener error: %v\n", err)
@@ -165,12 +164,30 @@ LOOP:
 	return err
 }
 
-func (pc *PFCPConnection) Run() error {
-	return pc.RunFor(0)
-}
-
 func (pc *PFCPConnection) Done() {
 	pc.done = true
+}
+
+func (pc *PFCPConnection) Start() (chan struct{}, chan error) {
+	pc.Stopped = false
+	pc.stopCh = make(chan struct{})
+	pc.sessionStartCh = make(chan struct{})
+	errCh := make(chan error)
+	go func() {
+		errCh <- pc.Run()
+	}()
+	return pc.sessionStartCh, errCh
+}
+
+func (pc *PFCPConnection) Stop() {
+	if pc.Stopped {
+		return
+	}
+	if pc.stopCh == nil {
+		panic("Start() not called")
+	}
+	close(pc.stopCh)
+	pc.Stopped = true
 }
 
 func (pc *PFCPConnection) handleMessage(msg message.Message) error {
@@ -470,6 +487,13 @@ func newPFCPSessionEstablishedState(pc *PFCPConnection) pfcpState {
 }
 
 func (s *pfcpSessionEstablishedState) Name() string { return "SESSION_ESTABLISHED" }
+
+func (s *pfcpSessionEstablishedState) Enter() error {
+	if s.sessionStartCh != nil {
+		close(s.sessionStartCh)
+	}
+	return nil
+}
 
 // TODO: own logging func
 // TODO: close the session

@@ -19,17 +19,22 @@ const (
 	GO_WS_FILE_SIZE   = GO_WS_CHUNK_COUNT * GO_WS_CHUNK_SIZE
 )
 
-type TrafficGen struct {
-	clientNS, serverNS *NetNS
-	vppIP              net.IP
-	s                  *http.Server
+type TrafficGenConfig struct {
+	ClientNS         *NetNS
+	ServerNS         *NetNS
+	ServerIP         net.IP
+	ServerPort       int
+	ServerListenPort int
 }
 
-func NewTrafficGen(clientNS, serverNS *NetNS, vppIP net.IP) *TrafficGen {
+type TrafficGen struct {
+	cfg TrafficGenConfig
+	s   *http.Server
+}
+
+func NewTrafficGen(cfg TrafficGenConfig) *TrafficGen {
 	return &TrafficGen{
-		clientNS: clientNS,
-		serverNS: serverNS,
-		vppIP:    vppIP,
+		cfg: cfg,
 	}
 }
 
@@ -67,7 +72,7 @@ func (tg *TrafficGen) StartWebserver() error {
 		}),
 	}
 
-	l, err := tg.serverNS.ListenTCP("0.0.0.0:777")
+	l, err := tg.cfg.ServerNS.ListenTCP(fmt.Sprintf("0.0.0.0:%d", tg.cfg.ServerListenPort))
 	if err != nil {
 		return errors.Wrap(err, "ListenTCP")
 	}
@@ -90,7 +95,7 @@ func (tg *TrafficGen) simulateDownload(url string, expectedFileSize int) error {
 	c := http.Client{
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
-			DialContext:           tg.clientNS.DialContext,
+			DialContext:           tg.cfg.ClientNS.DialContext,
 			MaxIdleConns:          100,
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
@@ -125,7 +130,7 @@ func (tg *TrafficGen) SimulateDownloadThroughProxy() error {
 		return err
 	}
 
-	if err := tg.simulateDownload(fmt.Sprintf("http://%s:555/dummy", tg.vppIP), GO_WS_FILE_SIZE); err != nil {
+	if err := tg.simulateDownload(fmt.Sprintf("http://%s:%d/dummy", tg.cfg.ServerIP, tg.cfg.ServerPort), GO_WS_FILE_SIZE); err != nil {
 		return err
 	}
 
@@ -133,5 +138,5 @@ func (tg *TrafficGen) SimulateDownloadThroughProxy() error {
 }
 
 func (tg *TrafficGen) SimulateDownloadFromVPPWebServer() error {
-	return tg.simulateDownload(fmt.Sprintf("http://%s/dummy", tg.vppIP), VPP_WS_FILE_SIZE)
+	return tg.simulateDownload(fmt.Sprintf("http://%s/dummy", tg.cfg.ServerIP), VPP_WS_FILE_SIZE)
 }

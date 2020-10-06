@@ -83,15 +83,21 @@ func TestVPP(t *testing.T) {
 			"test proxy server server-uri tcp://10.0.0.2/555 client-uri tcp://10.0.1.3/777 fifo-size 41943040 max-fifo-size 41943040 rcv-buf-size 41943040",
 		},
 	}, func(vi *VPPInstance) {
-		tg := NewTrafficGen(vi.GetNS("client"), vi.GetNS("server"), MustParseIP("10.0.0.2"))
+		tg := NewTrafficGen(TrafficGenConfig{
+			ClientNS:         vi.GetNS("client"),
+			ServerNS:         vi.GetNS("server"),
+			ServerIP:         MustParseIP("10.0.0.2"),
+			ServerPort:       555,
+			ServerListenPort: 777,
+		})
 		defer tg.TearDown()
 
 		if err := tg.SimulateDownloadFromVPPWebServer(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 
 		if err := tg.SimulateDownloadThroughProxy(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	})
 }
@@ -155,17 +161,52 @@ func TestUPG(t *testing.T) {
 			// "set upf proxy mss 1250"
 		},
 	}, func(vi *VPPInstance) {
-		// access side: ip r add default via 10.0.1.2
-		// sgi side: ip r add 10.0.1.0/24 via 10.0.2.2
 		pc := NewPFCPConnection(PFCPConfig{
 			Namespace: vi.GetNS("cp"),
 			UNodeIP:   MustParseIP("10.0.0.2"),
 			NodeID:    "pfcpstub",
 			UEIP:      MustParseIP("10.0.1.3"),
 		})
-		// FIXME: 30s run
-		if err := pc.RunFor(300 * time.Second); err != nil {
-			t.Error(err)
+		sessionStartCh, errCh := pc.Start()
+		select {
+		case <-time.After(30 * time.Second):
+			t.Errorf("timed out")
+			pc.Stop()
+		case err := <-errCh:
+			if err != nil {
+				t.Error(err)
+			} else {
+				t.Error("PFCPConnection stopped prematurely (?)")
+			}
+			return
+		case <-sessionStartCh:
+			t.Logf("Session started")
+			tg := NewTrafficGen(TrafficGenConfig{
+				ClientNS:         vi.GetNS("access"),
+				ServerNS:         vi.GetNS("sgi"),
+				ServerIP:         MustParseIP("10.0.2.3"),
+				ServerPort:       80,
+				ServerListenPort: 80,
+			})
+			defer tg.TearDown()
+
+			// FIXME: rename the method
+			if err := tg.SimulateDownloadThroughProxy(); err != nil {
+				t.Error(err)
+			}
+		}
+
+		pc.Stop()
+
+		select {
+		case <-time.After(30 * time.Second):
+			t.Errorf("timed out")
+		case err := <-errCh:
+			if err != nil {
+				t.Error(err)
+			} else {
+				t.Logf("Success")
+			}
 		}
 	})
 }
