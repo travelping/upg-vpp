@@ -1,5 +1,5 @@
 # FROM quay.io/travelping/upf:feature-2009-upf_v20.09-upfbase2_release
-FROM upf:debug
+FROM upg:debug
 
 ENV DEBIAN_FRONTEND noninteractive
 
