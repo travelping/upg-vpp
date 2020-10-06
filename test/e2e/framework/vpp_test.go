@@ -116,6 +116,11 @@ func TestUPG(t *testing.T) {
 				VPPLinkName:   "access0",
 				OtherLinkName: "access1",
 				Table:         100,
+				NSRoutes: []RouteConfig{
+					{
+						Gw: MustParseIP("10.0.1.2"),
+					},
+				},
 			},
 			{
 				Name:          "sgi",
@@ -125,25 +130,33 @@ func TestUPG(t *testing.T) {
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
+				NSRoutes: []RouteConfig{
+					{
+						Dst: MustParseIPNet("10.0.1.0/24"),
+						Gw:  MustParseIP("10.0.2.2"),
+					},
+				},
 			},
 		},
 		SetupCommands: []string{
 			"upf nwi name cp vrf 0",
 			"upf nwi name access vrf 100",
 			"upf nwi name sgi vrf 200",
-			"show upf nwi",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			// NOTE: "ip6" instead of "ip4" for IPv6
 			"upf tdf ul table vrf 100 ip4 table-id 1001",
 			// NOTE: "ip6" instead of "ip4" for IPv6
 			"upf tdf ul enable ip4 host-access0",
-			"show upf nwi",
-			// "ip route add @@DEFAULT_GW_SUBNET@@ table 200 via @@SGI_GW@@ host-sgi",
+			// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
+			// For IPv6, ::/0 should be used as the subnet
+			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
 			// "create upf application proxy name TST",
 			// "upf application TST rule 3000 add l7 regex ^https?://theserver/",
 			// "set upf proxy mss 1250"
 		},
 	}, func(vi *VPPInstance) {
+		// access side: ip r add default via 10.0.1.2
+		// sgi side: ip r add 10.0.1.0/24 via 10.0.2.2
 		pc := NewPFCPConnection(PFCPConfig{
 			Namespace: vi.GetNS("cp"),
 			UNodeIP:   MustParseIP("10.0.0.2"),
@@ -151,7 +164,7 @@ func TestUPG(t *testing.T) {
 			UEIP:      MustParseIP("10.0.1.3"),
 		})
 		// FIXME: 30s run
-		if err := pc.RunFor(30 * time.Second); err != nil {
+		if err := pc.RunFor(300 * time.Second); err != nil {
 			t.Error(err)
 		}
 	})

@@ -22,6 +22,11 @@ const (
 	VPP_BINARY = "/usr/bin/vpp"
 )
 
+type RouteConfig struct {
+	Dst *net.IPNet
+	Gw  net.IP
+}
+
 type VPPNetworkNamespace struct {
 	Name          string
 	VPPMac        net.HardwareAddr
@@ -30,6 +35,7 @@ type VPPNetworkNamespace struct {
 	VPPLinkName   string
 	OtherLinkName string
 	Table         int
+	NSRoutes      []RouteConfig
 }
 
 type VPPConfig struct {
@@ -194,6 +200,12 @@ func (vi *VPPInstance) SetupNamespaces() error {
 
 		if _, found := vi.namespaces[nsCfg.Name]; found {
 			panic("duplicate namespace name")
+		}
+
+		for _, rcfg := range nsCfg.NSRoutes {
+			if err := ns.AddRoute(rcfg.Dst, rcfg.Gw); err != nil {
+				return errors.Wrapf(err, "route for ns %s", nsCfg.Name)
+			}
 		}
 
 		vi.namespaces[nsCfg.Name] = ns

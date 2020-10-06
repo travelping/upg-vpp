@@ -149,3 +149,20 @@ func (netns *NetNS) StartCapture(iface, pcapPath string) error {
 	netns.tcpDumps[iface] = cmd
 	return nil
 }
+
+func (netns *NetNS) AddRoute(dst *net.IPNet, gw net.IP) error {
+	return netns.Do(func(_ ns.NetNS) error {
+		if err := netlink.RouteAdd(&netlink.Route{
+			Dst: dst,
+			Gw:  gw,
+		}); err != nil {
+			dstStr := "default"
+			if dst != nil {
+				dstStr = dst.String()
+			}
+			return errors.Wrapf(err, "add route %s via %s", dstStr, gw)
+		}
+
+		return nil
+	})
+}
