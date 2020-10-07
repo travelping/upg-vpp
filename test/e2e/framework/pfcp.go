@@ -2,6 +2,7 @@ package framework
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"time"
 
@@ -36,15 +37,17 @@ type pfcpState interface {
 	HandleAssociationSetupResponse(asr *message.AssociationSetupResponse) error
 	HandleHeartbeatRequest(hb *message.HeartbeatRequest) error
 	HandleSessionEstablishmentResponse(ser *message.SessionEstablishmentResponse) error
+	HandleSessionModificationResponse(smr *message.SessionModificationResponse) error
 }
 
 type PFCPConfig struct {
 	Namespace *NetNS
 	UNodeIP   net.IP
 	// TODO: UEIP should be per-session
-	UEIP           net.IP
-	NodeID         string
-	RequestTimeout time.Duration
+	UEIP                net.IP
+	NodeID              string
+	RequestTimeout      time.Duration
+	ReportQueryInterval time.Duration
 }
 
 func (cfg *PFCPConfig) setDefaults() {
@@ -67,6 +70,7 @@ type PFCPConnection struct {
 	sessionStartCh chan struct{}
 	stopCh         chan struct{}
 	Stopped        bool
+	curSEID        uint64
 }
 
 func NewPFCPConnection(cfg PFCPConfig) *PFCPConnection {
@@ -198,6 +202,8 @@ func (pc *PFCPConnection) handleMessage(msg message.Message) error {
 		return pc.state.HandleHeartbeatRequest(msg.(*message.HeartbeatRequest))
 	case message.MsgTypeSessionEstablishmentResponse:
 		return pc.state.HandleSessionEstablishmentResponse(msg.(*message.SessionEstablishmentResponse))
+	case message.MsgTypeSessionModificationResponse:
+		return pc.state.HandleSessionModificationResponse(msg.(*message.SessionModificationResponse))
 	default:
 		return errors.Errorf("can't handle message type %s", msg.MessageTypeName())
 	}
@@ -336,6 +342,10 @@ func (s *pfcpStateBase) HandleSessionEstablishmentResponse(ser *message.SessionE
 	return errUnexpected
 }
 
+func (s *pfcpStateBase) HandleSessionModificationResponse(smr *message.SessionModificationResponse) error {
+	return errUnexpected
+}
+
 type pfcpInitialState struct {
 	*pfcpStateBase
 }
@@ -408,6 +418,10 @@ func (s *pfcpAssociatedState) Name() string { return "ASSOCIATED" }
 
 func (s *pfcpAssociatedState) Enter() error {
 	s.SetTimeout(s.cfg.RequestTimeout)
+	for s.curSEID == 0 {
+		s.curSEID = rand.Uint64()
+	}
+
 	return s.Send(message.NewSessionEstablishmentRequest(
 		0, 0, 0, s.seq, 0,
 		ie.NewCreateFAR(
@@ -457,7 +471,7 @@ func (s *pfcpAssociatedState) Enter() error {
 			ie.NewURRID(1),
 		),
 		// TODO: replace for IPv6
-		ie.NewFSEID(0, s.cfg.Namespace.IPNet.IP, nil, nil),
+		ie.NewFSEID(s.curSEID, s.cfg.Namespace.IPNet.IP, nil, nil),
 		ie.NewNodeID("", "", s.cfg.NodeID),
 	))
 }
@@ -492,6 +506,67 @@ func (s *pfcpSessionEstablishedState) Enter() error {
 	if s.sessionStartCh != nil {
 		close(s.sessionStartCh)
 	}
+	if s.cfg.ReportQueryInterval > 0 {
+		s.SetTimeout(s.cfg.ReportQueryInterval)
+	}
+	return nil
+}
+
+func (s *pfcpSessionEstablishedState) Timeout() error {
+	s.SetTimeout(s.cfg.ReportQueryInterval)
+	// FIXME: use another ID for app detection
+	return s.Send(message.NewSessionModificationRequest(
+		0, 0, s.curSEID, s.seq, 0,
+		ie.NewQueryURR(ie.NewURRID(1))))
+}
+
+func (s *pfcpSessionEstablishedState) HandleSessionModificationResponse(smr *message.SessionModificationResponse) error {
+	if !s.verifySequence(smr) {
+		return nil
+	}
+	s.IncSeq()
+	if err := verifyCause(smr.Cause); err != nil {
+		return errors.Wrap(err, "SessionModificationResponse")
+	}
+	if len(smr.UsageReport) != 1 {
+		return errors.Errorf("expected 1 UsageReport in SessionModificationResponse, got %d", len(smr.UsageReport))
+	}
+
+	volMeasurement, err := smr.UsageReport[0].FindByType(ie.VolumeMeasurement)
+	if err != nil {
+		return errors.Wrap(err, "can't find VolumeMeasurement IE")
+	}
+
+	parsedVolMeasurement, err := volMeasurement.VolumeMeasurement()
+	if err != nil {
+		return errors.Wrap(err, "can't parse VolumeMeasurement IE")
+	}
+
+	if !parsedVolMeasurement.HasDLVOL() {
+		return errors.New("no DLVOL in VolumeMeasurement")
+	}
+
+	if !parsedVolMeasurement.HasULVOL() {
+		return errors.New("no ULVOL in VolumeMeasurement")
+	}
+
+	if !parsedVolMeasurement.HasTOVOL() {
+		return errors.New("no TOVOL in VolumeMeasurement")
+	}
+
+	durMeasurement, err := smr.UsageReport[0].FindByType(ie.DurationMeasurement)
+	if err != nil {
+		return errors.Wrap(err, "can't find DurationMeasurement IE")
+	}
+
+	duration, err := durMeasurement.DurationMeasurement()
+	if err != nil {
+		return errors.Wrap(err, "can't parse DurationMeasurement IE")
+	}
+
+	fmt.Printf("* SessionModificationResponse: up = %d, down = %d, tot = %d, duration = %v\n",
+		parsedVolMeasurement.UplinkVolume, parsedVolMeasurement.DownlinkVolume, parsedVolMeasurement.TotalVolume, duration)
+
 	return nil
 }
 

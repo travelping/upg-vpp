@@ -1,10 +1,10 @@
 package framework
 
 import (
-	"crypto/rand"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"strconv"

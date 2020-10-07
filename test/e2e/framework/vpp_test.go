@@ -208,10 +208,11 @@ func TestUPG(t *testing.T) {
 		},
 	}, func(vi *VPPInstance) {
 		pc := NewPFCPConnection(PFCPConfig{
-			Namespace: vi.GetNS("cp"),
-			UNodeIP:   MustParseIP("10.0.0.2"),
-			NodeID:    "pfcpstub",
-			UEIP:      MustParseIP("10.0.1.3"),
+			Namespace:           vi.GetNS("cp"),
+			UNodeIP:             MustParseIP("10.0.0.2"),
+			NodeID:              "pfcpstub",
+			UEIP:                MustParseIP("10.0.1.3"),
+			ReportQueryInterval: 1 * time.Second,
 		})
 		sessionStartCh, errCh := pc.Start()
 		select {
@@ -233,6 +234,8 @@ func TestUPG(t *testing.T) {
 				ServerIP:         MustParseIP("10.0.2.3"),
 				ServerPort:       80,
 				ServerListenPort: 80,
+				// FIXME
+				ChunkDelay: 50 * time.Millisecond,
 			})
 			if err := tg.StartWebserver(); err != nil {
 				t.Error(err)
