@@ -1,5 +1,6 @@
-# FROM quay.io/travelping/upf:feature-2009-upf_v20.09-upfbase2_release
-FROM upg:release
+ARG BASE
+
+FROM $BASE
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -8,10 +9,11 @@ RUN apt-get update && \
     add-apt-repository ppa:longsleep/golang-backports && \
     apt-get update && \
     apt-get install -y golang-go iproute2 gdb curl tcpdump iputils-ping \
-            libpcap-dev
+            libpcap-dev dumb-init
 
 ADD . /exttest
 
 WORKDIR /exttest
 
-ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["/bin/bash"]
