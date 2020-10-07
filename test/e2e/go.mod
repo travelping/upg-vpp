@@ -2,7 +2,7 @@ module github.com/travelping/upg-vpp/test/e2e
 
 go 1.13
 
-replace github.com/wmnsk/go-pfcp => /Users/ivan4th/work/travelping/go-pfcp
+replace github.com/wmnsk/go-pfcp => github.com/ivan4th/go-pfcp v0.0.7-0.20201007115118-38811fc30094
 
 require (
 	git.fd.io/govpp.git v0.3.5
