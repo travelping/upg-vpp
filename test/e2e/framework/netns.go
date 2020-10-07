@@ -2,7 +2,6 @@ package framework
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"regexp"
 	"time"
@@ -63,7 +62,6 @@ func (netns *NetNS) disableOffloading(linkName string) error {
 		updateFeatures := make(map[string]bool)
 		for name, value := range features {
 			if ethFeatureRx.MatchString(name) && value {
-				fmt.Printf("ethtool %s: %s off\n", linkName, name)
 				updateFeatures[name] = false
 			}
 		}
