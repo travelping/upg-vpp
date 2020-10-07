@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,19 +13,30 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	VPP_WS_FILE_SIZE  = 60000000
-	GO_WS_CHUNK_SIZE  = 1000000
-	GO_WS_CHUNK_COUNT = 400
-	GO_WS_FILE_SIZE   = GO_WS_CHUNK_COUNT * GO_WS_CHUNK_SIZE
-)
-
 type TrafficGenConfig struct {
 	ClientNS         *NetNS
 	ServerNS         *NetNS
 	ServerIP         net.IP
 	ServerPort       int
 	ServerListenPort int
+	ChunkSize        int
+	ChunkCount       int
+	ChunkDelay       time.Duration
+}
+
+func (cfg *TrafficGenConfig) setDefaults() {
+	if cfg.ServerPort == 0 {
+		cfg.ServerPort = 80
+	}
+	if cfg.ServerListenPort == 0 {
+		cfg.ServerListenPort = cfg.ServerPort
+	}
+	if cfg.ChunkSize == 0 {
+		cfg.ChunkSize = 1000000
+	}
+	if cfg.ChunkCount == 0 {
+		cfg.ChunkCount = 400
+	}
 }
 
 type TrafficGen struct {
@@ -33,14 +45,13 @@ type TrafficGen struct {
 }
 
 func NewTrafficGen(cfg TrafficGenConfig) *TrafficGen {
+	cfg.setDefaults()
 	return &TrafficGen{
 		cfg: cfg,
 	}
 }
 
-// TODO: pre-generate random chunk
-
-func (tg *TrafficGen) TearDown() {
+func (tg *TrafficGen) StopWebserver() {
 	if tg.s != nil {
 		tg.s.Close()
 		tg.s = nil
@@ -52,17 +63,25 @@ func (tg *TrafficGen) StartWebserver() error {
 		return nil
 	}
 
-	chunk := make([]byte, GO_WS_CHUNK_SIZE)
+	chunk := make([]byte, tg.cfg.ChunkSize)
+	if _, err := rand.Read(chunk); err != nil {
+		return errors.Wrap(err, "rand read")
+	}
+
 	tg.s = &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/octet-stream")
-			w.Header().Set("Content-Length", strconv.Itoa(GO_WS_FILE_SIZE))
-			for i := 0; i < GO_WS_CHUNK_COUNT; i++ {
+			fileSize := tg.cfg.ChunkCount * tg.cfg.ChunkSize
+			w.Header().Set("Content-Length", strconv.Itoa(fileSize))
+			for i := 0; i < tg.cfg.ChunkCount; i++ {
 				_, err := w.Write(chunk)
 				if err != nil {
 					// FIXME
 					log.Printf("Error serving the file: %v", err)
 					break
+				}
+				if tg.cfg.ChunkDelay > 0 {
+					<-time.After(tg.cfg.ChunkDelay)
 				}
 			}
 		}),
@@ -73,6 +92,7 @@ func (tg *TrafficGen) StartWebserver() error {
 		return errors.Wrap(err, "ListenTCP")
 	}
 
+	tg.cfg.ServerNS.addCleanup(tg.StopWebserver)
 	go func() {
 		switch err := tg.s.Serve(l); {
 		case err == http.ErrServerClosed:
@@ -85,7 +105,12 @@ func (tg *TrafficGen) StartWebserver() error {
 	return nil
 }
 
-func (tg *TrafficGen) simulateDownload(url string, expectedFileSize int) error {
+func (tg *TrafficGen) SimulateDownload() error {
+	portSuffix := ""
+	if tg.cfg.ServerPort != 80 {
+		portSuffix = fmt.Sprintf(":%d", tg.cfg.ServerPort)
+	}
+	url := fmt.Sprintf("http://%s%s/dummy", tg.cfg.ServerIP, portSuffix)
 	fmt.Printf("*** downloading from %s\n", url)
 
 	c := http.Client{
@@ -108,31 +133,10 @@ func (tg *TrafficGen) simulateDownload(url string, expectedFileSize int) error {
 	ts := time.Now()
 	content, err := ioutil.ReadAll(resp.Body)
 
-	if len(content) != expectedFileSize {
-		return errors.Errorf("bad file size. Expected %d, got %d bytes",
-			expectedFileSize, len(content))
-	}
-
 	elapsed := time.Since(ts)
 	fmt.Printf("*** downloaded %d bytes in %s (~%g Mbps)\n",
 		len(content), elapsed,
 		float64(len(content))*8.0*float64(time.Second)/(1000000.*float64(elapsed)))
 
 	return nil
-}
-
-func (tg *TrafficGen) SimulateDownloadThroughProxy() error {
-	if err := tg.StartWebserver(); err != nil {
-		return err
-	}
-
-	if err := tg.simulateDownload(fmt.Sprintf("http://%s:%d/dummy", tg.cfg.ServerIP, tg.cfg.ServerPort), GO_WS_FILE_SIZE); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (tg *TrafficGen) SimulateDownloadFromVPPWebServer() error {
-	return tg.simulateDownload(fmt.Sprintf("http://%s/dummy", tg.cfg.ServerIP), VPP_WS_FILE_SIZE)
 }

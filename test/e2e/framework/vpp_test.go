@@ -1,16 +1,21 @@
 package framework
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
+	VPP_WS_FILE_SIZE     = 60000000
 	VPP_WS_FIFO_SIZE_KiB = 60000
 )
 
@@ -45,7 +50,39 @@ func WithVPP(t *testing.T, cfg VPPConfig, toCall func(vi *VPPInstance)) {
 	toCall(vi)
 }
 
-func TestVPP(t *testing.T) {
+func noUPGNamespaces() []VPPNetworkNamespace {
+	return []VPPNetworkNamespace{
+		{
+			Name:          "client",
+			VPPMac:        MustParseMAC("fa:8a:78:4d:18:01"),
+			VPPIP:         MustParseIPNet("10.0.0.2/24"),
+			OtherIP:       MustParseIPNet("10.0.0.3/24"),
+			VPPLinkName:   "vpp-client-veth",
+			OtherLinkName: "client-veth",
+			Table:         0,
+		},
+		{
+			Name:          "server",
+			VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
+			VPPIP:         MustParseIPNet("10.0.1.2/24"),
+			OtherIP:       MustParseIPNet("10.0.1.3/24"),
+			VPPLinkName:   "vpp-server-veth",
+			OtherLinkName: "server-veth",
+			Table:         0,
+		},
+	}
+}
+
+func TestVPPWebServer(t *testing.T) {
+	var uname unix.Utsname
+	if err := unix.Uname(&uname); err != nil {
+		t.Fatalf("uname: %v", err)
+	}
+
+	if strings.Contains(string(uname.Release[:]), "linuxkit") {
+		t.Skip("VPP web server doesn't work on Mac Docker (and perhaps Windows one, too)")
+	}
+
 	wsDir, err := setupWebServerDir()
 	if err != nil {
 		t.Fatal(err)
@@ -53,26 +90,33 @@ func TestVPP(t *testing.T) {
 	defer os.RemoveAll(wsDir)
 
 	WithVPP(t, VPPConfig{
-		Namespaces: []VPPNetworkNamespace{
-			{
-				Name:          "client",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:18:01"),
-				VPPIP:         MustParseIPNet("10.0.0.2/24"),
-				OtherIP:       MustParseIPNet("10.0.0.3/24"),
-				VPPLinkName:   "vpp-client-veth",
-				OtherLinkName: "client-veth",
-				Table:         0,
-			},
-			{
-				Name:          "server",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
-				VPPIP:         MustParseIPNet("10.0.1.2/24"),
-				OtherIP:       MustParseIPNet("10.0.1.3/24"),
-				VPPLinkName:   "vpp-server-veth",
-				OtherLinkName: "server-veth",
-				Table:         0,
-			},
+		Namespaces: noUPGNamespaces(),
+		SetupCommands: []string{
+			// FIXME: fifo-size <nbytes> in 'http static server' is
+			// actually in KiB
+			// FIXME: prealloc-fios in 'http static server' command help
+			// (should be prealloc-fifos)
+			// FIXME: VPP http_static plugin fails on Mac Docker unless patched
+			// to use pool_get() and memset()
+			// instead of pool_get_aligned_zero_numa()
+			fmt.Sprintf("http static server www-root %s uri tcp://0.0.0.0/80 cache-size 2m fifo-size %d debug 2", wsDir, VPP_WS_FIFO_SIZE_KiB),
 		},
+	}, func(vi *VPPInstance) {
+		tg := NewTrafficGen(TrafficGenConfig{
+			ClientNS: vi.GetNS("client"),
+			ServerNS: vi.GetNS("server"),
+			ServerIP: MustParseIP("10.0.0.2"),
+		})
+
+		if err := tg.SimulateDownload(); err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+func TestVPPProxy(t *testing.T) {
+	WithVPP(t, VPPConfig{
+		Namespaces: noUPGNamespaces(),
 		SetupCommands: []string{
 			// FIXME: fifo-size <nbytes> in 'http static server' is
 			// actually in KiB
@@ -92,14 +136,13 @@ func TestVPP(t *testing.T) {
 			ServerPort:       555,
 			ServerListenPort: 777,
 		})
-		defer tg.TearDown()
 
-		// FIXME: disabled due to VPP on Mac Docker issue described above
-		// if err := tg.SimulateDownloadFromVPPWebServer(); err != nil {
-		// 	t.Error(err)
-		// }
+		if err := tg.StartWebserver(); err != nil {
+			t.Error(err)
+			return
+		}
 
-		if err := tg.SimulateDownloadThroughProxy(); err != nil {
+		if err := tg.SimulateDownload(); err != nil {
 			t.Error(err)
 		}
 	})
@@ -191,10 +234,12 @@ func TestUPG(t *testing.T) {
 				ServerPort:       80,
 				ServerListenPort: 80,
 			})
-			defer tg.TearDown()
+			if err := tg.StartWebserver(); err != nil {
+				t.Error(err)
+				return
+			}
 
-			// FIXME: rename the method
-			if err := tg.SimulateDownloadThroughProxy(); err != nil {
+			if err := tg.SimulateDownload(); err != nil {
 				t.Error(err)
 			}
 		}
