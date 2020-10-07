@@ -46,7 +46,7 @@ func NewCapture(cfg CaptureConfig) *Capture {
 	}
 }
 
-func (c *Capture) makeSource() (*pcap.Handle, error) {
+func (c *Capture) makeHandle() (*pcap.Handle, error) {
 	inactive, err := pcap.NewInactiveHandle(c.cfg.Iface)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create")
@@ -100,11 +100,11 @@ func (c *Capture) Start() error {
 	var handle *pcap.Handle
 	if c.cfg.TargetNS != nil {
 		err = c.cfg.TargetNS.Do(func() error {
-			handle, err = c.makeSource()
+			handle, err = c.makeHandle()
 			return err
 		})
 	} else {
-		handle, err = c.makeSource()
+		handle, err = c.makeHandle()
 	}
 	if err != nil {
 		f.Close()
