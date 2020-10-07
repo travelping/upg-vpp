@@ -23,10 +23,7 @@ import (
 	"os"
 	"strings"
 
-	// "github.com/safchain/ethtool"
 	"github.com/vishvananda/netlink"
-
-	"github.com/travelping/upg-vpp/test/e2e/ns"
 )
 
 var (
@@ -132,7 +129,7 @@ func ifaceFromNetlinkLink(l netlink.Link) net.Interface {
 // devices and move the host-side veth into the provided hostNS namespace.
 // hostVethName: If hostVethName is not specified, the host-side veth name will use a random string.
 // On success, SetupVethWithName returns (hostVeth, containerVeth, nil)
-func SetupVethWithName(contVethName, hostVethName string, mtu int, hostNS ns.NetNS) (net.Interface, net.Interface, error) {
+func SetupVethWithName(contVethName, hostVethName string, mtu int, hostNS *NetNS) (net.Interface, net.Interface, error) {
 	hostVethName, contVeth, err := makeVeth(contVethName, hostVethName, mtu)
 	if err != nil {
 		return net.Interface{}, net.Interface{}, err
@@ -151,7 +148,7 @@ func SetupVethWithName(contVethName, hostVethName string, mtu int, hostNS ns.Net
 		return net.Interface{}, net.Interface{}, fmt.Errorf("failed to move veth to host netns: %v", err)
 	}
 
-	err = hostNS.Do(func(_ ns.NetNS) error {
+	err = hostNS.Do(func() error {
 		hostVeth, err = netlink.LinkByName(hostVethName)
 		if err != nil {
 			return fmt.Errorf("failed to lookup %q in %q: %v", hostVethName, hostNS.Path(), err)
@@ -175,7 +172,7 @@ func SetupVethWithName(contVethName, hostVethName string, mtu int, hostNS ns.Net
 // Call SetupVeth from inside the container netns.  It will create both veth
 // devices and move the host-side veth into the provided hostNS namespace.
 // On success, SetupVeth returns (hostVeth, containerVeth, nil)
-func SetupVeth(contVethName string, mtu int, hostNS ns.NetNS) (net.Interface, net.Interface, error) {
+func SetupVeth(contVethName string, mtu int, hostNS *NetNS) (net.Interface, net.Interface, error) {
 	return SetupVethWithName(contVethName, "", mtu, hostNS)
 }
 

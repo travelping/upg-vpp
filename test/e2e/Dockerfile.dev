@@ -1,5 +1,5 @@
 # FROM quay.io/travelping/upf:feature-2009-upf_v20.09-upfbase2_release
-FROM upg:debug
+FROM upg:release
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -7,7 +7,8 @@ RUN apt-get update && \
     apt-get install -y software-properties-common && \
     add-apt-repository ppa:longsleep/golang-backports && \
     apt-get update && \
-    apt-get install -y golang-go iproute2 gdb curl tcpdump iputils-ping
+    apt-get install -y golang-go iproute2 gdb curl tcpdump iputils-ping \
+            libpcap-dev
 
 ADD . /exttest
 

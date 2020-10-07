@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
-	"os/exec"
 	"regexp"
 	"time"
 
@@ -26,7 +24,7 @@ var (
 type NetNS struct {
 	ns.NetNS
 	IPNet    *net.IPNet
-	tcpDumps map[string]*exec.Cmd
+	cleanups []func()
 }
 
 func NewNS(name string) (*NetNS, error) {
@@ -35,22 +33,25 @@ func NewNS(name string) (*NetNS, error) {
 		return nil, err
 	}
 	return &NetNS{
-		NetNS:    innerNS,
-		tcpDumps: make(map[string]*exec.Cmd),
+		NetNS: innerNS,
 	}, nil
 }
 
+func (netns *NetNS) Do(toCall func() error) error {
+	return netns.NetNS.Do(func(_ ns.NetNS) error {
+		return toCall()
+	})
+}
+
 func (netns *NetNS) Close() error {
-	for iface, cmd := range netns.tcpDumps {
-		fmt.Printf("* stopping capture for %s\n", iface)
-		cmd.Process.Signal(os.Interrupt)
-		cmd.Wait()
+	for _, cleanupFunc := range netns.cleanups {
+		cleanupFunc()
 	}
 	return netns.NetNS.Close()
 }
 
 func (netns *NetNS) disableOffloading(linkName string) error {
-	return netns.Do(func(_ ns.NetNS) error {
+	return netns.Do(func() error {
 		et, err := ethtool.NewEthtool()
 		if err != nil {
 			return errors.Wrap(err, "NewEthtool")
@@ -76,7 +77,7 @@ func (netns *NetNS) disableOffloading(linkName string) error {
 }
 
 func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
-	return netns.Do(func(_ ns.NetNS) error {
+	return netns.Do(func() error {
 		veth, err := netlink.LinkByName(linkName)
 		if err != nil {
 			return errors.Wrap(err, "locating client link in the client netns")
@@ -92,7 +93,7 @@ func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
 }
 
 func (netns *NetNS) SetupVethPair(thisLinkName string, thisAddress *net.IPNet, other *NetNS, otherLinkName string, otherAddress *net.IPNet) error {
-	if err := netns.Do(func(_ ns.NetNS) error {
+	if err := netns.Do(func() error {
 		if _, _, err := SetupVethWithName(thisLinkName, otherLinkName, MTU, other); err != nil {
 			return errors.Wrap(err, "creating veth pair")
 		}
@@ -137,7 +138,7 @@ func (netns *NetNS) DialContext(ctx context.Context, network, address string) (n
 	// if it isn't the case, call runtime.LockOSThread() and
 	// switch to the right one.
 	var conn net.Conn
-	err := netns.Do(func(_ ns.NetNS) error {
+	err := netns.Do(func() error {
 		var innerErr error
 		conn, innerErr = (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -150,7 +151,7 @@ func (netns *NetNS) DialContext(ctx context.Context, network, address string) (n
 
 func (netns *NetNS) DialUDP(laddr, raddr *net.UDPAddr) (*net.UDPConn, error) {
 	var conn *net.UDPConn
-	err := netns.Do(func(_ ns.NetNS) error {
+	err := netns.Do(func() error {
 		var innerErr error
 		conn, innerErr = net.DialUDP("udp", laddr, raddr)
 		return innerErr
@@ -160,7 +161,7 @@ func (netns *NetNS) DialUDP(laddr, raddr *net.UDPAddr) (*net.UDPConn, error) {
 
 func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
 	var l net.Listener
-	err := netns.Do(func(_ ns.NetNS) error {
+	err := netns.Do(func() error {
 		var innerErr error
 		l, innerErr = net.Listen("tcp", address)
 		return innerErr
@@ -168,30 +169,12 @@ func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
 	return l, err
 }
 
-func (netns *NetNS) StartCapture(iface, pcapPath string) error {
-	// TODO: use gopacket
-	// https://github.com/google/gopacket/blob/master/examples/pfdump/main.go
-	if _, found := netns.tcpDumps[iface]; found {
-		return errors.Errorf("tcpdump already started for interface %s", iface)
-	}
-	cmd := exec.Command(
-		"nsenter", "--net="+netns.Path(),
-		"tcpdump", "-n", "-i", iface, "-w", pcapPath)
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return errors.Wrap(err, "error starting tcpdump")
-	}
-	// FIXME (let tcpdump start capturing)
-	<-time.After(1 * time.Second)
-	if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
-		return errors.New("tcpdump has exited")
-	}
-	netns.tcpDumps[iface] = cmd
-	return nil
+func (netns *NetNS) addCleanup(toCall func()) {
+	netns.cleanups = append(netns.cleanups, toCall)
 }
 
 func (netns *NetNS) AddRoute(dst *net.IPNet, gw net.IP) error {
-	return netns.Do(func(_ ns.NetNS) error {
+	return netns.Do(func() error {
 		if err := netlink.RouteAdd(&netlink.Route{
 			Dst: dst,
 			Gw:  gw,
@@ -206,5 +189,3 @@ func (netns *NetNS) AddRoute(dst *net.IPNet, gw net.IP) error {
 		return nil
 	})
 }
-
-// https://github.com/safchain/ethtool/blob/8f958a28363a963779d180bc3d3715ab1333e1de/ethtool.go#L513

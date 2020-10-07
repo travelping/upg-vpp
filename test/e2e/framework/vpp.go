@@ -210,10 +210,14 @@ func (vi *VPPInstance) SetupNamespaces() error {
 
 		vi.namespaces[nsCfg.Name] = ns
 		fmt.Printf("%s ns: %s; (vpp) %s <--> (other) %s\n", nsCfg.Name, ns.Path(), *nsCfg.VPPIP, *nsCfg.OtherIP)
-		// FIXME: store pcaps to the specified location not /tmp
-		pcapPath := fmt.Sprintf("/tmp/%s.pcap", nsCfg.OtherLinkName)
-		fmt.Printf("* starting capture for %s to %s\n", nsCfg.Name, pcapPath)
-		if err := vi.vppNS.StartCapture(nsCfg.VPPLinkName, pcapPath); err != nil {
+		c := NewCapture(CaptureConfig{
+			Iface: nsCfg.VPPLinkName,
+			// FIXME: store pcaps to the specified location not /tmp
+			PCAPPath: fmt.Sprintf("/tmp/%s.pcap", nsCfg.OtherLinkName),
+			Snaplen:  0,
+			TargetNS: vi.vppNS,
+		})
+		if err := c.Start(); err != nil {
 			return errors.Wrapf(err, "capture for %s", nsCfg.Name)
 		}
 	}

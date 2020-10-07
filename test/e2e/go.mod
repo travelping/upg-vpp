@@ -7,6 +7,7 @@ replace github.com/wmnsk/go-pfcp => /Users/ivan4th/work/travelping/go-pfcp
 require (
 	git.fd.io/govpp.git v0.3.5
 	github.com/containernetworking/plugins v0.8.7
+	github.com/google/gopacket v1.1.18
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.1.0
 	github.com/pkg/errors v0.9.1
