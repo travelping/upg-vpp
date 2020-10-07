@@ -30,14 +30,14 @@ var (
 
 type pfcpState interface {
 	Name() string
-	Enter() error
-	Timeout() error
-	HandleBegin()
-	HandleStop()
-	HandleAssociationSetupResponse(asr *message.AssociationSetupResponse) error
-	HandleHeartbeatRequest(hb *message.HeartbeatRequest) error
-	HandleSessionEstablishmentResponse(ser *message.SessionEstablishmentResponse) error
-	HandleSessionModificationResponse(smr *message.SessionModificationResponse) error
+	Enter(pc *PFCPConnection) error
+	HandleTimeout(pc *PFCPConnection) error
+	HandleBegin(pc *PFCPConnection)
+	HandleStop(pc *PFCPConnection)
+	HandleAssociationSetupResponse(pc *PFCPConnection, asr *message.AssociationSetupResponse) error
+	HandleHeartbeatRequest(pc *PFCPConnection, hb *message.HeartbeatRequest) error
+	HandleSessionEstablishmentResponse(pc *PFCPConnection, ser *message.SessionEstablishmentResponse) error
+	HandleSessionModificationResponse(pc *PFCPConnection, smr *message.SessionModificationResponse) error
 }
 
 type PFCPConfig struct {
@@ -88,8 +88,7 @@ func (pc *PFCPConnection) enterState() {
 	pc.pendingEnter = true
 }
 
-func (pc *PFCPConnection) SetState(stateFunc func(*PFCPConnection) pfcpState) {
-	newState := stateFunc(pc)
+func (pc *PFCPConnection) SetState(newState pfcpState) {
 	if pc.state != nil {
 		fmt.Printf("*** %s -> %s\n", pc.state.Name(), newState.Name())
 	}
@@ -128,15 +127,15 @@ func (pc *PFCPConnection) Run() error {
 	defer pc.close()
 
 	pc.done = false
-	pc.SetState(newPFCPInitialState)
-	pc.state.HandleBegin()
+	pc.SetState(&pfcpInitialState{})
+	pc.state.HandleBegin(pc)
 
 LOOP:
 	for !pc.done {
 		if pc.pendingEnter {
 			pc.pendingEnter = false
 			fmt.Printf("* Enter state: %s\n", pc.state.Name())
-			if err = pc.state.Enter(); err != nil {
+			if err = pc.state.Enter(pc); err != nil {
 				err = errors.Wrapf(err, "Enter %s", pc.state.Name())
 				break LOOP
 			}
@@ -153,12 +152,12 @@ LOOP:
 				break LOOP
 			}
 		case <-timerCh:
-			if err = pc.state.Timeout(); err != nil {
+			if err = pc.state.HandleTimeout(pc); err != nil {
 				err = errors.Wrapf(err, "timeout in state %s", pc.state.Name())
 				break LOOP
 			}
 		case <-pc.stopCh:
-			pc.state.HandleStop()
+			pc.state.HandleStop(pc)
 		case err = <-pc.listenErrCh:
 			fmt.Printf("* Listener error: %v\n", err)
 			break LOOP
@@ -197,13 +196,13 @@ func (pc *PFCPConnection) Stop() {
 func (pc *PFCPConnection) handleMessage(msg message.Message) error {
 	switch msg.MessageType() {
 	case message.MsgTypeAssociationSetupResponse:
-		return pc.state.HandleAssociationSetupResponse(msg.(*message.AssociationSetupResponse))
+		return pc.state.HandleAssociationSetupResponse(pc, msg.(*message.AssociationSetupResponse))
 	case message.MsgTypeHeartbeatRequest:
-		return pc.state.HandleHeartbeatRequest(msg.(*message.HeartbeatRequest))
+		return pc.state.HandleHeartbeatRequest(pc, msg.(*message.HeartbeatRequest))
 	case message.MsgTypeSessionEstablishmentResponse:
-		return pc.state.HandleSessionEstablishmentResponse(msg.(*message.SessionEstablishmentResponse))
+		return pc.state.HandleSessionEstablishmentResponse(pc, msg.(*message.SessionEstablishmentResponse))
 	case message.MsgTypeSessionModificationResponse:
-		return pc.state.HandleSessionModificationResponse(msg.(*message.SessionModificationResponse))
+		return pc.state.HandleSessionModificationResponse(pc, msg.(*message.SessionModificationResponse))
 	default:
 		return errors.Errorf("can't handle message type %s", msg.MessageTypeName())
 	}
@@ -318,112 +317,87 @@ func verifyCause(causeIE *ie.IE) error {
 	return errors.Errorf("failed, cause: %s", s)
 }
 
-type pfcpStateBase struct {
-	*PFCPConnection
+type pfcpStateBase struct{}
+
+func (s *pfcpStateBase) Enter(pc *PFCPConnection) error         { return nil }
+func (s *pfcpStateBase) HandleTimeout(pc *PFCPConnection) error { return errTimeout }
+func (s *pfcpStateBase) HandleBegin(pc *PFCPConnection)         {}
+func (s *pfcpStateBase) HandleStop(pc *PFCPConnection) {
+	pc.Done()
 }
 
-func (s *pfcpStateBase) Timeout() error { return errTimeout }
-func (s *pfcpStateBase) Enter() error   { return nil }
-func (s *pfcpStateBase) HandleBegin()   {}
-func (s *pfcpStateBase) HandleStop() {
-	s.Done()
-}
-
-func (s *pfcpStateBase) HandleAssociationSetupResponse(asr *message.AssociationSetupResponse) error {
+func (s *pfcpStateBase) HandleAssociationSetupResponse(pc *PFCPConnection, asr *message.AssociationSetupResponse) error {
 	return errUnexpected
 }
 
-func (s *pfcpStateBase) HandleHeartbeatRequest(hr *message.HeartbeatRequest) error {
+func (s *pfcpStateBase) HandleHeartbeatRequest(pc *PFCPConnection, hr *message.HeartbeatRequest) error {
 	fmt.Printf("* Heartbeat request\n")
-	return s.Send(message.NewHeartbeatResponse(hr.SequenceNumber, ie.NewRecoveryTimeStamp(s.timestamp)))
+	return pc.Send(message.NewHeartbeatResponse(hr.SequenceNumber, ie.NewRecoveryTimeStamp(pc.timestamp)))
 }
 
-func (s *pfcpStateBase) HandleSessionEstablishmentResponse(ser *message.SessionEstablishmentResponse) error {
+func (s *pfcpStateBase) HandleSessionEstablishmentResponse(pc *PFCPConnection, ser *message.SessionEstablishmentResponse) error {
 	return errUnexpected
 }
 
-func (s *pfcpStateBase) HandleSessionModificationResponse(smr *message.SessionModificationResponse) error {
+func (s *pfcpStateBase) HandleSessionModificationResponse(pc *PFCPConnection, smr *message.SessionModificationResponse) error {
 	return errUnexpected
 }
 
-type pfcpInitialState struct {
-	*pfcpStateBase
-}
+type pfcpInitialState struct{ pfcpStateBase }
 
-func newPFCPInitialState(pc *PFCPConnection) pfcpState {
-	return &pfcpInitialState{
-		pfcpStateBase: &pfcpStateBase{
-			PFCPConnection: pc,
-		},
-	}
-}
+var _ pfcpState = &pfcpInitialState{}
 
 func (s *pfcpInitialState) Name() string { return "INITIAL" }
 
-func (s *pfcpInitialState) HandleBegin() {
-	s.SetState(newPFCPAssociatingState)
+func (s *pfcpInitialState) HandleBegin(pc *PFCPConnection) {
+	pc.SetState(&pfcpAssociatingState{})
 }
 
-type pfcpAssociatingState struct {
-	*pfcpStateBase
-}
+type pfcpAssociatingState struct{ pfcpStateBase }
 
-func newPFCPAssociatingState(pc *PFCPConnection) pfcpState {
-	return &pfcpAssociatingState{
-		pfcpStateBase: &pfcpStateBase{
-			PFCPConnection: pc,
-		},
-	}
-}
+var _ pfcpState = &pfcpAssociatingState{}
 
 func (s *pfcpAssociatingState) Name() string { return "ASSOCIATING" }
 
-func (s *pfcpAssociatingState) Enter() error {
-	s.SetTimeout(s.cfg.RequestTimeout)
-	return s.Send(message.NewAssociationSetupRequest(
-		s.seq,
-		ie.NewRecoveryTimeStamp(s.timestamp),
-		ie.NewNodeID("", "", s.cfg.NodeID)))
+func (s *pfcpAssociatingState) Enter(pc *PFCPConnection) error {
+	pc.SetTimeout(pc.cfg.RequestTimeout)
+	return pc.Send(message.NewAssociationSetupRequest(
+		pc.seq,
+		ie.NewRecoveryTimeStamp(pc.timestamp),
+		ie.NewNodeID("", "", pc.cfg.NodeID)))
 }
 
-func (s *pfcpAssociatingState) HandleTimeout() {
-	s.Reenter()
-}
-
-func (s *pfcpAssociatingState) HandleAssociationSetupResponse(asr *message.AssociationSetupResponse) error {
-	if !s.verifySequence(asr) {
-		return nil
-	}
-	s.IncSeq()
-	if err := verifyCause(asr.Cause); err != nil {
-		return errors.Wrap(err, "AssociationSetupResponse")
-	}
-	s.SetState(newPFCPAssociatedState)
+func (s *pfcpAssociatingState) HandleTimeout(pc *PFCPConnection) error {
+	pc.Reenter()
 	return nil
 }
 
-type pfcpAssociatedState struct {
-	*pfcpStateBase
+func (s *pfcpAssociatingState) HandleAssociationSetupResponse(pc *PFCPConnection, asr *message.AssociationSetupResponse) error {
+	if !pc.verifySequence(asr) {
+		return nil
+	}
+	pc.IncSeq()
+	if err := verifyCause(asr.Cause); err != nil {
+		return errors.Wrap(err, "AssociationSetupResponse")
+	}
+	pc.SetState(&pfcpAssociatedState{})
+	return nil
 }
 
-func newPFCPAssociatedState(pc *PFCPConnection) pfcpState {
-	return &pfcpAssociatedState{
-		pfcpStateBase: &pfcpStateBase{
-			PFCPConnection: pc,
-		},
-	}
-}
+type pfcpAssociatedState struct{ pfcpStateBase }
+
+var _ pfcpState = &pfcpAssociatedState{}
 
 func (s *pfcpAssociatedState) Name() string { return "ASSOCIATED" }
 
-func (s *pfcpAssociatedState) Enter() error {
-	s.SetTimeout(s.cfg.RequestTimeout)
-	for s.curSEID == 0 {
-		s.curSEID = rand.Uint64()
+func (s *pfcpAssociatedState) Enter(pc *PFCPConnection) error {
+	pc.SetTimeout(pc.cfg.RequestTimeout)
+	for pc.curSEID == 0 {
+		pc.curSEID = rand.Uint64()
 	}
 
-	return s.Send(message.NewSessionEstablishmentRequest(
-		0, 0, 0, s.seq, 0,
+	return pc.Send(message.NewSessionEstablishmentRequest(
+		0, 0, 0, pc.seq, 0,
 		ie.NewCreateFAR(
 			ie.NewApplyAction(ApplyAction_FORW),
 			ie.NewFARID(1),
@@ -453,7 +427,7 @@ func (s *pfcpAssociatedState) Enter() error {
 				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
 				ie.NewSourceInterface(ie.SrcInterfaceAccess),
 				// TODO: replace for IPv6
-				ie.NewUEIPAddress(UEIPAddress_V4, s.cfg.UEIP.String(), "", 0)),
+				ie.NewUEIPAddress(UEIPAddress_V4, pc.cfg.UEIP.String(), "", 0)),
 			ie.NewPDRID(1),
 			ie.NewPrecedence(200),
 			ie.NewURRID(1),
@@ -465,66 +439,58 @@ func (s *pfcpAssociatedState) Enter() error {
 				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
 				ie.NewSourceInterface(ie.SrcInterfaceSGiLANN6LAN),
 				// TODO: replace for IPv6
-				ie.NewUEIPAddress(UEIPAddress_V4|UEIPAddress_SD, s.cfg.UEIP.String(), "", 0)),
+				ie.NewUEIPAddress(UEIPAddress_V4|UEIPAddress_SD, pc.cfg.UEIP.String(), "", 0)),
 			ie.NewPDRID(2),
 			ie.NewPrecedence(200),
 			ie.NewURRID(1),
 		),
 		// TODO: replace for IPv6
-		ie.NewFSEID(s.curSEID, s.cfg.Namespace.IPNet.IP, nil, nil),
-		ie.NewNodeID("", "", s.cfg.NodeID),
+		ie.NewFSEID(pc.curSEID, pc.cfg.Namespace.IPNet.IP, nil, nil),
+		ie.NewNodeID("", "", pc.cfg.NodeID),
 	))
 }
 
-func (s *pfcpAssociatedState) HandleSessionEstablishmentResponse(ser *message.SessionEstablishmentResponse) error {
-	if !s.verifySequence(ser) {
+func (s *pfcpAssociatedState) HandleSessionEstablishmentResponse(pc *PFCPConnection, ser *message.SessionEstablishmentResponse) error {
+	if !pc.verifySequence(ser) {
 		return nil
 	}
-	s.IncSeq()
+	pc.IncSeq()
 	if err := verifyCause(ser.Cause); err != nil {
 		return errors.Wrap(err, "SessionEstablishmentResponse")
 	}
-	s.SetState(newPFCPSessionEstablishedState)
+	pc.SetState(&pfcpSessionEstablishedState{})
 	return nil
 }
 
-type pfcpSessionEstablishedState struct {
-	*pfcpStateBase
-}
+type pfcpSessionEstablishedState struct{ pfcpStateBase }
 
-func newPFCPSessionEstablishedState(pc *PFCPConnection) pfcpState {
-	return &pfcpSessionEstablishedState{
-		pfcpStateBase: &pfcpStateBase{
-			PFCPConnection: pc,
-		},
-	}
-}
+var _ pfcpState = &pfcpSessionEstablishedState{}
 
 func (s *pfcpSessionEstablishedState) Name() string { return "SESSION_ESTABLISHED" }
 
-func (s *pfcpSessionEstablishedState) Enter() error {
-	if s.sessionStartCh != nil {
-		close(s.sessionStartCh)
+func (s *pfcpSessionEstablishedState) Enter(pc *PFCPConnection) error {
+	if pc.sessionStartCh != nil {
+		close(pc.sessionStartCh)
 	}
-	if s.cfg.ReportQueryInterval > 0 {
-		s.SetTimeout(s.cfg.ReportQueryInterval)
+	if pc.cfg.ReportQueryInterval > 0 {
+		pc.SetTimeout(pc.cfg.ReportQueryInterval)
 	}
 	return nil
 }
 
-func (s *pfcpSessionEstablishedState) Timeout() error {
-	s.SetTimeout(s.cfg.ReportQueryInterval)
+func (s *pfcpSessionEstablishedState) HandleTimeout(pc *PFCPConnection) error {
+	pc.SetTimeout(pc.cfg.ReportQueryInterval)
 	// FIXME: use another ID for app detection
-	return s.Send(message.NewSessionModificationRequest(
-		0, 0, s.curSEID, s.seq, 0,
+	return pc.Send(message.NewSessionModificationRequest(
+		0, 0, pc.curSEID, pc.seq, 0,
 		ie.NewQueryURR(ie.NewURRID(1))))
 }
 
-func (s *pfcpSessionEstablishedState) HandleSessionModificationResponse(smr *message.SessionModificationResponse) error {
-	if !s.verifySequence(smr) {
+func (s *pfcpSessionEstablishedState) HandleSessionModificationResponse(pc *PFCPConnection, smr *message.SessionModificationResponse) error {
+	if !pc.verifySequence(smr) {
 		return nil
 	}
-	s.IncSeq()
+	pc.IncSeq()
 	if err := verifyCause(smr.Cause); err != nil {
 		return errors.Wrap(err, "SessionModificationResponse")
 	}
