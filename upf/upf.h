@@ -626,6 +626,9 @@ typedef struct
   /* DPO locks */
   u32 dpo_locks;
 
+  /* TEID table by choose_id */
+  u32 *teid_by_chid;
+
   f64 unix_time_start;
 
   u16 generation;
@@ -821,6 +824,10 @@ typedef struct
   uword *upf_app_by_name;
   /* adf apps vector */
   upf_adf_app_t *upf_apps;
+
+  //TODO: Change to UPF flags?
+  u32 pfcp_spec_version;
+  u32 rand_base;
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;

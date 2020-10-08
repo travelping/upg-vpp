@@ -794,24 +794,19 @@ decode_f_teid (u8 * data, u16 length, void *p)
 {
   pfcp_f_teid_t *v = p;
 
-  if (length < 5)
+  if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
 
   v->flags = get_u8 (data) & 0x0f;
-  v->teid = get_u32 (data);
-  length -= 5;
 
-  if (v->flags & F_TEID_CH)
+  if (!(v->flags & F_TEID_CH))
     {
-      if (v->flags & (F_TEID_V4 | F_TEID_V6))
-	{
-	  pfcp_debug ("PFCP: F-TEID with invalid flags (CH and v4/v6): %02x.",
-		      v->flags);
-	  return -1;
-	}
-    }
-  else
-    {
+      if (length < 4)
+	return PFCP_CAUSE_INVALID_LENGTH;
+
+      v->teid = get_u32 (data);
+      length -= 4;
+
       if (v->flags & F_TEID_CHID)
 	{
 	  pfcp_debug
@@ -819,35 +814,44 @@ decode_f_teid (u8 * data, u16 length, void *p)
 	     v->flags);
 	  return -1;
 	}
+
       if (!(v->flags & (F_TEID_V4 | F_TEID_V6)))
 	{
 	  pfcp_debug ("PFCP: F-TEID without v4/v6 address: %02x.", v->flags);
 	  return -1;
 	}
+
+      if (v->flags & F_TEID_V4)
+	{
+	  if (length < 4)
+	    return PFCP_CAUSE_INVALID_LENGTH;
+
+	  get_ip4 (v->ip4, data);
+	  length -= 4;
+	}
+
+      if (v->flags & F_TEID_V6)
+	{
+	  if (length < 16)
+	    return PFCP_CAUSE_INVALID_LENGTH;
+
+	  get_ip6 (v->ip6, data);
+	  length -= 16;
+	}
+
     }
-
-  if (v->flags & F_TEID_V4)
-    {
-      if (length < 4)
-	return PFCP_CAUSE_INVALID_LENGTH;
-
-      get_ip4 (v->ip4, data);
-      length -= 4;
-    }
-
-  if (v->flags & F_TEID_V6)
-    {
-      if (length < 16)
-	return PFCP_CAUSE_INVALID_LENGTH;
-
-      get_ip6 (v->ip6, data);
-      length -= 16;
-    }
-
-  if (v->flags & F_TEID_CHID)
+  else
     {
       if (length < 1)
 	return PFCP_CAUSE_INVALID_LENGTH;
+
+      if (!(v->flags & F_TEID_V6) && !(v->flags & F_TEID_V4))
+	{
+	  pfcp_debug
+	    ("PFCP: F-TEID with CH flag should have at least v4/v6 flag:%02x",
+	     v->flags);
+	  return -1;
+	}
 
       v->choose_id = get_u8 (data);
     }

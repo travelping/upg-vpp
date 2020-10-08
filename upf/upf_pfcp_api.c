@@ -32,6 +32,8 @@
 #include <vppinfra/types.h>
 #include <vppinfra/vec.h>
 #include <vppinfra/format.h>
+#include <vppinfra/random.h>
+#include <vppinfra/sparse_vec.h>
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/fib/ip6_fib.h>
 #include <vnet/ip/ip6_hop_by_hop.h>
@@ -531,14 +533,18 @@ handle_association_setup_request (pfcp_msg_t * req,
 
   SET_BIT (resp.grp.fields, ASSOCIATION_SETUP_RESPONSE_UP_FUNCTION_FEATURES);
   resp.up_function_features |= F_UPFF_EMPU;
-  /* currently no optional features are supported */
-
-  build_user_plane_ip_resource_information
-    (&resp.user_plane_ip_resource_information);
-  if (vec_len (resp.user_plane_ip_resource_information) != 0)
-    SET_BIT (resp.grp.fields,
-	     ASSOCIATION_SETUP_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION);
-
+  if (gtm->pfcp_spec_version >= 16)
+    {
+      resp.up_function_features |= F_UPFF_FTUP;
+    }
+  else
+    {
+      build_user_plane_ip_resource_information
+	(&resp.user_plane_ip_resource_information);
+      if (vec_len (resp.user_plane_ip_resource_information) != 0)
+	SET_BIT (resp.grp.fields,
+		 ASSOCIATION_SETUP_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION);
+    }
   if (r == 0)
     {
       n->heartbeat_handle = upf_pfcp_server_start_timer
@@ -799,9 +805,163 @@ lookup_nwi (u8 * name)
   return pool_elt_at_index (gtm->nwis, p[0]);
 }
 
+static bool
+validate_teid (u32 teid)
+{
+  return ((teid != 0) && (teid != 0xffffffff));
+}
+
+static int
+teid_v4_lookup (upf_main_t * gtm, u32 teid, upf_upip_res_t * res)
+{
+  clib_bihash_kv_8_8_t kv, value;
+  gtpu4_tunnel_key_t key4;
+
+  key4.dst = res->ip4.as_u32;
+  key4.teid = teid;
+
+  kv.key = key4.as_u64;
+
+  if (PREDICT_FALSE
+      (clib_bihash_search_8_8 (&gtm->v4_tunnel_by_key, &kv, &value)))
+    return UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+
+  return 0;
+}
+
+static int
+teid_v6_lookup (upf_main_t * gtm, u32 teid, upf_upip_res_t * res)
+{
+  clib_bihash_kv_24_8_t kv, value;
+
+  kv.key[0] = res->ip6.as_u64[0];
+  kv.key[1] = res->ip6.as_u64[1];
+  kv.key[2] = teid;
+
+  if (PREDICT_FALSE
+      (clib_bihash_search_24_8 (&gtm->v6_tunnel_by_key, &kv, &value)))
+    return UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+
+  return 0;
+}
+
+static u32
+process_teid_generation (upf_main_t * gtm, u8 chid, u32 flags,
+			 upf_upip_res_t * res, upf_session_t * sx)
+{
+  u8 retry_cnt = 10;
+  u32 teid = 0;
+  bool ok = false;
+  do
+    {
+      teid = random_u32 (&gtm->rand_base) & (UINT32_MAX ^ res->mask);
+      if (!validate_teid (teid))
+	{
+	  retry_cnt--;
+	  continue;
+	}
+
+      gtm->rand_base = teid;
+
+      ok =
+	((flags & F_TEID_V4) || (flags & F_TEID_V6)) &&
+	((teid_v4_lookup (gtm, teid, res) != 0) &&
+	 ((teid_v6_lookup (gtm, teid, res) != 0)));
+
+      if (ok)
+	break;
+    }
+  while (retry_cnt > 0);
+
+  if (!ok)
+    /* can't generate unique for given UPIP resource */
+    return 0;
+
+  if ((flags & F_TEID_CHID))
+    {
+      u32 *n = sparse_vec_validate (sx->teid_by_chid, chid);
+      n[0] = teid;
+    }
+
+  return teid;
+}
+
+static int
+handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
+	       upf_pdr_t * process_pdr, pfcp_created_pdr_t ** created_pdr_vec,
+	       upf_upip_res_t * res, struct pfcp_group *grp, u8 create)
+{
+  pfcp_created_pdr_t *created_pdr;
+  bool chosen = false;
+  u32 teid = 0;
+
+  process_pdr->pdi.fields |= F_PDI_LOCAL_F_TEID;
+
+  // We only generate F_TEID if NWI is defined
+  if ((pdi->f_teid.flags & F_TEID_CH))
+    {
+      if (!res)
+	return -1;
+
+      if ((pdi->f_teid.flags & F_TEID_CHID))
+	{
+	  u8 chid = pdi->f_teid.choose_id;
+	  teid = sparse_vec_index (sx->teid_by_chid, chid);
+
+	  if (teid)
+	    chosen = true;
+	}
+
+      if (!chosen)
+	{
+	  teid = process_teid_generation (gtm, pdi->f_teid.choose_id,
+					  pdi->f_teid.flags, res, sx);
+	  if (!teid)
+	    return -1;
+	}
+
+      process_pdr->pdi.teid.teid = teid;
+
+      if ((!is_zero_ip4_address (&res->ip4))
+	  && (pdi->f_teid.flags & F_TEID_V4))
+	{
+	  process_pdr->pdi.teid.ip4 = res->ip4;
+	  process_pdr->pdi.teid.flags |= F_TEID_V4;
+	}
+
+      if ((!is_zero_ip6_address (&res->ip6))
+	  && (pdi->f_teid.flags & F_TEID_V6))
+	{
+	  process_pdr->pdi.teid.flags |= F_TEID_V6;
+	  process_pdr->pdi.teid.ip6 = res->ip6;
+	}
+
+      if (create)
+	{
+	  vec_add2 (*created_pdr_vec, created_pdr, 1);
+	  memset (created_pdr, 0, sizeof (*created_pdr));
+	  SET_BIT (grp->fields, SESSION_ESTABLISHMENT_RESPONSE_CREATED_PDR);
+	  SET_BIT (created_pdr->grp.fields, CREATED_PDR_PDR_ID);
+	  SET_BIT (created_pdr->grp.fields, CREATED_PDR_F_TEID);
+	  created_pdr->pdr_id = process_pdr->id;
+	  created_pdr->f_teid = process_pdr->pdi.teid;
+	}
+    }
+  else
+    {
+      // CH == 0
+      process_pdr->pdi.teid = pdi->f_teid;
+    }
+
+  return 0;
+
+}
+
+
 static int
 handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 		   struct pfcp_group *grp,
+		   pfcp_created_pdr_t ** created_pdr_vec,
 		   int failed_rule_id_field,
 		   pfcp_failed_rule_id_t * failed_rule_id)
 {
@@ -819,10 +979,13 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 
   rules = pfcp_get_rules (sx, PFCP_PENDING);
   vec_alloc (rules->pdr, vec_len (create_pdr));
+  vec_alloc (*created_pdr_vec, vec_len (create_pdr));
 
   vec_foreach (pdr, create_pdr)
   {
+    upf_upip_res_t *res, *ip_res = NULL;
     upf_pdr_t *create;
+    upf_nwi_t *nwi = NULL;
 
     vec_add2 (rules->pdr, create, 1);
     memset (create, 0, sizeof (*create));
@@ -836,7 +999,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_NETWORK_INSTANCE))
       {
-	upf_nwi_t *nwi = lookup_nwi (pdr->pdi.network_instance);
+	nwi = lookup_nwi (pdr->pdi.network_instance);
 	if (!nwi)
 	  {
 	    upf_debug ("PDR: %d, PDI for unknown network instance\n",
@@ -853,11 +1016,29 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	create->pdi.nwi_index = nwi - gtm->nwis;
       }
 
+    /* *INDENT-OFF* */
+    pool_foreach (ip_res, gtm->upip_res,
+    ({
+      if (ip_res->nwi_index == create->pdi.nwi_index)
+	{
+	  res = ip_res;
+          break;
+	}
+    }));
+    /* *INDENT-ON* */
+
     create->pdi.src_intf = pdr->pdi.source_interface;
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_F_TEID))
       {
-	create->pdi.fields |= F_PDI_LOCAL_F_TEID;
+	if (handle_f_teid
+	    (sx, gtm, &pdr->pdi, create, created_pdr_vec, res, grp, 1) != 0)
+	  {
+	    r = -1;
+	    upf_debug ("create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
+		       pdr->pdr_id);
+	    break;
+	  }
 	/* TODO validate TEID and mask
 	   if (nwi->teid != (pdr->pdi.f_teid.teid & nwi->mask))
 	   {
@@ -868,7 +1049,6 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	   break;
 	   }
 	 */
-	create->pdi.teid = pdr->pdi.f_teid;
       }
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_UE_IP_ADDRESS))
@@ -1005,6 +1185,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
   vec_foreach (pdr, update_pdr)
   {
     upf_pdr_t *update;
+    upf_upip_res_t *res, *ip_res = NULL;
+    upf_nwi_t *nwi = NULL;
 
     update = pfcp_get_pdr (sx, PFCP_PENDING, pdr->pdr_id);
     if (!update)
@@ -1020,7 +1202,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
       {
 	if (vec_len (pdr->pdi.network_instance) != 0)
 	  {
-	    upf_nwi_t *nwi = lookup_nwi (pdr->pdi.network_instance);
+	    nwi = lookup_nwi (pdr->pdi.network_instance);
 	    if (!nwi)
 	      {
 		upf_debug ("PDR: %d, PDI for unknown network instance\n",
@@ -1038,11 +1220,25 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
     update->precedence = pdr->precedence;
     update->pdi.src_intf = pdr->pdi.source_interface;
 
+    /* *INDENT-OFF* */
+    pool_foreach (ip_res, gtm->upip_res,
+    ({
+      if (ip_res->nwi_index == update->pdi.nwi_index)
+	{
+	  res = ip_res;
+          break;
+	}
+    }));
+    /* *INDENT-ON* */
+
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_F_TEID))
       {
-	update->pdi.fields |= F_PDI_LOCAL_F_TEID;
-	/* TODO validate TEID and mask */
-	update->pdi.teid = pdr->pdi.f_teid;
+	if (handle_f_teid
+	    (sx, gtm, &pdr->pdi, update, NULL, res, grp, 0) != 0)
+	  {
+	    r = -1;
+	    break;
+	  }
       }
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_UE_IP_ADDRESS))
@@ -1054,7 +1250,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
 	  {
 	    /* neither SDF, nor Application Id, generate a wildcard
-	       ACL to make ACL scanning simpler */
+	      ACL to make ACL scanning simpler */
 	    update->pdi.fields |= F_PDI_SDF_FILTER;
 	    vec_reset_length (update->pdi.acl);
 	    vec_add1 (update->pdi.acl, wildcard_acl);
@@ -2424,9 +2620,10 @@ handle_session_establishment_request (pfcp_msg_t * req,
       pending->inactivity_timer.handle = ~0;
     }
 
-  if ((r = handle_create_pdr (sess, msg->create_pdr, &resp.grp,
-			      SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
-			      &resp.failed_rule_id)) != 0)
+  if ((r =
+       handle_create_pdr (sess, msg->create_pdr, &resp.grp, &resp.created_pdr,
+			  SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
+			  &resp.failed_rule_id)) != 0)
     goto out_send_resp;
 
   if ((r = handle_create_far (sess, msg->create_far, &resp.grp,
@@ -2533,9 +2730,11 @@ handle_session_modification_request (pfcp_msg_t * req,
 	  pending->inactivity_timer.handle = ~0;
 	}
 
-      if ((r = handle_create_pdr (sess, msg->create_pdr, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r =
+	   handle_create_pdr (sess, msg->create_pdr, &resp.grp,
+			      &resp.created_pdr,
+			      SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
+			      &resp.failed_rule_id)) != 0)
 	goto out_send_resp;
 
       if ((r = handle_update_pdr (sess, msg->update_pdr, &resp.grp,
