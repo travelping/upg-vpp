@@ -78,13 +78,13 @@ func (vi *VPPInstance) StartVPP() error {
 		return errors.Wrap(err, "error writing the startup conf file")
 	}
 
-	// // FIXME: use proper temp file!!! or pass cmds to the gdb
-	// ioutil.WriteFile("/tmp/foo", []byte("r\nbt\n"), 0700)
+	// FIXME: use proper temp file!!! or pass cmds to the gdb
+	ioutil.WriteFile("/tmp/foo", []byte("r\nbt 10\n"), 0700)
 
 	// TODO: check that the process is running
 	vi.cmd = exec.Command(
 		"nsenter", "--net="+vi.vppNS.Path(),
-		// "gdb", "--batch", "-x", "/tmp/foo", "--args",
+		"gdb", "--batch", "-x", "/tmp/foo", "--args",
 		VPP_BINARY, "-c", startupFile.Name())
 	vi.cmd.Stdout = os.Stdout
 	vi.cmd.Stderr = os.Stderr

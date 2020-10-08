@@ -71,6 +71,7 @@ type PFCPConnection struct {
 	stopCh         chan struct{}
 	Stopped        bool
 	curSEID        uint64
+	idBase         uint16 // TODO: move elsewhere
 }
 
 func NewPFCPConnection(cfg PFCPConfig) *PFCPConnection {
@@ -396,8 +397,8 @@ func (s *pfcpAssociatedState) Enter(pc *PFCPConnection) error {
 		pc.curSEID = rand.Uint64()
 	}
 
-	return pc.Send(message.NewSessionEstablishmentRequest(
-		0, 0, 0, pc.seq, 0,
+	pc.idBase = 1
+	ies := []*ie.IE{
 		ie.NewCreateFAR(
 			ie.NewApplyAction(ApplyAction_FORW),
 			ie.NewFARID(1),
@@ -419,35 +420,14 @@ func (s *pfcpAssociatedState) Enter(pc *PFCPConnection) error {
 			ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
 			ie.NewReportingTriggers(0),
 			ie.NewURRID(2)),
-		// TODO: replace for PGW (forwardPDR)
-		ie.NewCreatePDR(
-			ie.NewFARID(1),
-			ie.NewPDI(
-				ie.NewNetworkInstance(EncodeAPN("access")),
-				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
-				ie.NewSourceInterface(ie.SrcInterfaceAccess),
-				// TODO: replace for IPv6
-				ie.NewUEIPAddress(UEIPAddress_V4, pc.cfg.UEIP.String(), "", 0)),
-			ie.NewPDRID(1),
-			ie.NewPrecedence(200),
-			ie.NewURRID(1),
-		),
-		ie.NewCreatePDR(
-			ie.NewFARID(2),
-			ie.NewPDI(
-				ie.NewNetworkInstance(EncodeAPN("sgi")),
-				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
-				ie.NewSourceInterface(ie.SrcInterfaceSGiLANN6LAN),
-				// TODO: replace for IPv6
-				ie.NewUEIPAddress(UEIPAddress_V4|UEIPAddress_SD, pc.cfg.UEIP.String(), "", 0)),
-			ie.NewPDRID(2),
-			ie.NewPrecedence(200),
-			ie.NewURRID(1),
-		),
+	}
+	ies = append(ies, createPDRs(1, pc.cfg)...)
+	ies = append(ies,
 		// TODO: replace for IPv6
 		ie.NewFSEID(pc.curSEID, pc.cfg.Namespace.IPNet.IP, nil, nil),
-		ie.NewNodeID("", "", pc.cfg.NodeID),
-	))
+		ie.NewNodeID("", "", pc.cfg.NodeID))
+
+	return pc.Send(message.NewSessionEstablishmentRequest(0, 0, 0, pc.seq, 0, ies...))
 }
 
 func (s *pfcpAssociatedState) HandleSessionEstablishmentResponse(pc *PFCPConnection, ser *message.SessionEstablishmentResponse) error {
@@ -481,9 +461,19 @@ func (s *pfcpSessionEstablishedState) Enter(pc *PFCPConnection) error {
 func (s *pfcpSessionEstablishedState) HandleTimeout(pc *PFCPConnection) error {
 	pc.SetTimeout(pc.cfg.ReportQueryInterval)
 	// FIXME: use another ID for app detection
+	ies := []*ie.IE{
+		ie.NewQueryURR(ie.NewURRID(1)),
+	}
+	ies = append(ies, deletePDRs(pc.idBase)...)
+	if pc.idBase == 1 {
+		pc.idBase = 10
+	} else {
+		pc.idBase = 1
+	}
+	ies = append(ies, createPDRs(pc.idBase, pc.cfg)...)
 	return pc.Send(message.NewSessionModificationRequest(
 		0, 0, pc.curSEID, pc.seq, 0,
-		ie.NewQueryURR(ie.NewURRID(1))))
+		ies...))
 }
 
 func (s *pfcpSessionEstablishedState) HandleSessionModificationResponse(pc *PFCPConnection, smr *message.SessionModificationResponse) error {
@@ -534,6 +524,43 @@ func (s *pfcpSessionEstablishedState) HandleSessionModificationResponse(pc *PFCP
 		parsedVolMeasurement.UplinkVolume, parsedVolMeasurement.DownlinkVolume, parsedVolMeasurement.TotalVolume, duration)
 
 	return nil
+}
+
+func createPDRs(idBase uint16, cfg PFCPConfig) []*ie.IE {
+	return []*ie.IE{
+		// TODO: replace for PGW (forwardPDR)
+		ie.NewCreatePDR(
+			ie.NewFARID(1),
+			ie.NewPDI(
+				ie.NewNetworkInstance(EncodeAPN("access")),
+				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
+				ie.NewSourceInterface(ie.SrcInterfaceAccess),
+				// TODO: replace for IPv6
+				ie.NewUEIPAddress(UEIPAddress_V4, cfg.UEIP.String(), "", 0)),
+			ie.NewPDRID(idBase),
+			ie.NewPrecedence(200),
+			ie.NewURRID(1),
+		),
+		ie.NewCreatePDR(
+			ie.NewFARID(2),
+			ie.NewPDI(
+				ie.NewNetworkInstance(EncodeAPN("sgi")),
+				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
+				ie.NewSourceInterface(ie.SrcInterfaceSGiLANN6LAN),
+				// TODO: replace for IPv6
+				ie.NewUEIPAddress(UEIPAddress_V4|UEIPAddress_SD, cfg.UEIP.String(), "", 0)),
+			ie.NewPDRID(idBase+1),
+			ie.NewPrecedence(200),
+			ie.NewURRID(1),
+		),
+	}
+}
+
+func deletePDRs(idBase uint16) []*ie.IE {
+	return []*ie.IE{
+		ie.NewRemovePDR(ie.NewPDRID(idBase)),
+		ie.NewRemovePDR(ie.NewPDRID(idBase + 1)),
+	}
 }
 
 // TODO: own logging func
