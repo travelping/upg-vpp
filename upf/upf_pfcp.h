@@ -52,6 +52,8 @@ pfcp_rule_vector_fns (qer)
 /* *INDENT-ON* */
 
 #undef pfcp_rule_vector_fns
+#define vec_bsearch(k, v, compar)                               \
+        bsearch((k), (v), vec_len((v)), sizeof((v)[0]), compar)
 
 void pfcp_send_end_marker (upf_session_t * sx, u16 far_id);
 

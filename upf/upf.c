@@ -302,6 +302,8 @@ upf_init (vlib_main_t * vm)
 
   sm->vnet_main = vnet_get_main ();
   sm->vlib_main = vm;
+  sm->pfcp_spec_version = 15;
+  sm->rand_base = random_default_seed ();
 
   if ((error = vlib_call_init_function (vm, upf_proxy_main_init)))
     return error;

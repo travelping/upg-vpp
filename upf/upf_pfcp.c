@@ -22,6 +22,7 @@
 #include <vppinfra/clib.h>
 #include <vppinfra/mem.h>
 #include <vppinfra/pool.h>
+#include <vppinfra/sparse_vec.h>
 #include <vnet/ip/ip.h>
 #include <vnet/ip/format.h>
 #include <vnet/ip/ip6_hop_by_hop.h>
@@ -62,8 +63,8 @@ static void pfcp_add_del_v4_tdf (const void *tdf, void *si, int is_add);
 static void pfcp_add_del_v6_tdf (const void *tdf, void *si, int is_add);
 u8 *format_upf_acl (u8 * s, va_list * args);
 
-#define vec_bsearch(k, v, compar)				\
-	bsearch((k), (v), vec_len((v)), sizeof((v)[0]), compar)
+#define vec_bsearch(k, v, compar)                               \
+        bsearch((k), (v), vec_len((v)), sizeof((v)[0]), compar)
 
 static u8 *
 format_upf_device_name (u8 * s, va_list * args)
@@ -72,9 +73,12 @@ format_upf_device_name (u8 * s, va_list * args)
   u32 i = va_arg (*args, u32);
   upf_nwi_t *nwi;
 
-  nwi = pool_elt_at_index (gtm->nwis, i);
+  if (!pool_is_free_index (gtm->nwis, i))
+    {
+      nwi = pool_elt_at_index (gtm->nwis, i);
+      s = format (s, "upf-nwi-%U", format_network_instance, nwi->name);
+    }
 
-  s = format (s, "upf-nwi-%U", format_network_instance, nwi->name);
   return s;
 }
 
@@ -224,6 +228,7 @@ vnet_upf_delete_nwi_if (u8 * name, u32 * sw_if_idx)
 {
   vnet_main_t *vnm = upf_main.vnet_main;
   upf_main_t *gtm = &upf_main;
+  upf_upip_res_t *res;
   upf_nwi_t *nwi;
   uword *p;
 
@@ -244,6 +249,14 @@ vnet_upf_delete_nwi_if (u8 * name, u32 * sw_if_idx)
   gtm->nwi_index_by_sw_if_index[nwi->sw_if_index] = ~0;
 
   vec_add1 (gtm->free_nwi_hw_if_indices, nwi->hw_if_index);
+
+/* *INDENT-OFF* */
+  pool_foreach (res, gtm->upip_res,
+  ({
+    if (res->nwi_index == p[0])
+      res->nwi_index = ~0;
+  }));
+/* *INDENT-ON* */
 
   hash_unset_mem (gtm->nwi_index_by_name, nwi->name);
   vec_free (nwi->name);
@@ -540,6 +553,10 @@ pfcp_create_session (upf_node_assoc_t * assoc,
   //TODO sx->up_f_seid = sx - gtm->sessions;
   node_assoc_attach_session (assoc, sx);
   hash_set (gtm->session_by_id, cp_seid, sx - gtm->sessions);
+
+  /*Init TEID by choose_id hash lookup table */
+  sx->teid_by_chid =
+    sparse_vec_new ( /*elt bytes */ sizeof (u32), /*bits in index */ 8);
 
   vlib_worker_thread_barrier_release (vm);
 
