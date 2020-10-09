@@ -48,6 +48,8 @@ type PFCPConfig struct {
 	NodeID              string
 	RequestTimeout      time.Duration
 	ReportQueryInterval time.Duration
+	// TODO: should add ModifySession() instead
+	ReplacePDRs bool
 }
 
 func (cfg *PFCPConfig) setDefaults() {
@@ -464,13 +466,15 @@ func (s *pfcpSessionEstablishedState) HandleTimeout(pc *PFCPConnection) error {
 	ies := []*ie.IE{
 		ie.NewQueryURR(ie.NewURRID(1)),
 	}
-	ies = append(ies, deletePDRs(pc.idBase)...)
-	if pc.idBase == 1 {
-		pc.idBase = 10
-	} else {
-		pc.idBase = 1
+	if pc.cfg.ReplacePDRs {
+		ies = append(ies, deletePDRs(pc.idBase)...)
+		if pc.idBase == 1 {
+			pc.idBase = 10
+		} else {
+			pc.idBase = 1
+		}
+		ies = append(ies, createPDRs(pc.idBase, pc.cfg)...)
 	}
-	ies = append(ies, createPDRs(pc.idBase, pc.cfg)...)
 	return pc.Send(message.NewSessionModificationRequest(
 		0, 0, pc.curSEID, pc.seq, 0,
 		ies...))
