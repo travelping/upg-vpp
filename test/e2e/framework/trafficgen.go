@@ -1,8 +1,9 @@
 package framework
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -11,6 +12,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+)
+
+const (
+	READ_CHUNK_SIZE = 1000000
+	READ_TIMEOUT    = 15 * time.Second
 )
 
 type TrafficGenConfig struct {
@@ -22,6 +28,7 @@ type TrafficGenConfig struct {
 	ChunkSize        int
 	ChunkCount       int
 	ChunkDelay       time.Duration
+	Context          context.Context
 }
 
 func (cfg *TrafficGenConfig) setDefaults() {
@@ -36,6 +43,9 @@ func (cfg *TrafficGenConfig) setDefaults() {
 	}
 	if cfg.ChunkCount == 0 {
 		cfg.ChunkCount = 400
+	}
+	if cfg.Context == nil {
+		cfg.Context = context.Background()
 	}
 }
 
@@ -114,6 +124,7 @@ func (tg *TrafficGen) SimulateDownload() error {
 	fmt.Printf("*** downloading from %s\n", url)
 
 	c := http.Client{
+		// Timeout: READ_TIMEOUT,
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
 			DialContext:           tg.cfg.ClientNS.DialContext,
@@ -124,19 +135,34 @@ func (tg *TrafficGen) SimulateDownload() error {
 		},
 	}
 
-	resp, err := c.Get(url)
+	ctx, cancel := context.WithCancel(tg.cfg.Context)
+	timer := time.AfterFunc(READ_TIMEOUT, func() { cancel() })
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	resp, err := c.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "HTTP GET")
 	}
 	defer resp.Body.Close()
 
 	ts := time.Now()
-	content, err := ioutil.ReadAll(resp.Body)
+	total := 0
+	chunk := make([]byte, READ_CHUNK_SIZE)
+	for {
+		timer.Reset(READ_TIMEOUT)
+		n, err := resp.Body.Read(chunk)
+		total += n
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errors.Wrap(err, "error reading HTTP response")
+		}
+	}
 
 	elapsed := time.Since(ts)
 	fmt.Printf("*** downloaded %d bytes in %s (~%g Mbps)\n",
-		len(content), elapsed,
-		float64(len(content))*8.0*float64(time.Second)/(1000000.*float64(elapsed)))
+		total, elapsed,
+		float64(total)*8.0*float64(time.Second)/(1000000.*float64(elapsed)))
 
 	return nil
 }

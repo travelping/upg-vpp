@@ -35,19 +35,23 @@ func WithVPP(t *testing.T, cfg VPPConfig, toCall func(vi *VPPInstance)) {
 	defer vi.TearDown()
 
 	if err := vi.SetupNamespaces(); err != nil {
-		t.Fatal(err)
+		t.Error(err)
+	} else if err := vi.StartVPP(); err != nil {
+		t.Error(err)
+	} else if err := vi.Ctl("show version"); err != nil {
+		t.Error(err)
+	} else if err := vi.Configure(); err != nil {
+		t.Error(err)
+	} else if err := vi.VerifyVPPAlive(); err != nil {
+		t.Error(err)
+	} else {
+		toCall(vi)
+		if !t.Failed() {
+			if err := vi.VerifyVPPAlive(); err != nil {
+				t.Error(err)
+			}
+		}
 	}
-	if err := vi.StartVPP(); err != nil {
-		t.Fatal(err)
-	}
-	if err := vi.Ctl("show version"); err != nil {
-		t.Fatal(err)
-	}
-	if err := vi.Configure(); err != nil {
-		t.Fatal(err)
-	}
-
-	toCall(vi)
 }
 
 func noUPGNamespaces() []VPPNetworkNamespace {
@@ -106,6 +110,7 @@ func TestVPPWebServer(t *testing.T) {
 			ClientNS: vi.GetNS("client"),
 			ServerNS: vi.GetNS("server"),
 			ServerIP: MustParseIP("10.0.0.2"),
+			Context:  vi.Context,
 		})
 
 		if err := tg.SimulateDownload(); err != nil {
@@ -135,6 +140,7 @@ func TestVPPProxy(t *testing.T) {
 			ServerIP:         MustParseIP("10.0.0.2"),
 			ServerPort:       555,
 			ServerListenPort: 777,
+			Context:          vi.Context,
 		})
 
 		if err := tg.StartWebserver(); err != nil {
@@ -234,8 +240,8 @@ func TestUPG(t *testing.T) {
 				ServerIP:         MustParseIP("10.0.2.3"),
 				ServerPort:       80,
 				ServerListenPort: 80,
-				// FIXME
-				ChunkDelay: 50 * time.Millisecond,
+				ChunkDelay:       50 * time.Millisecond, // FIXME
+				Context:          vi.Context,
 			})
 			if err := tg.StartWebserver(); err != nil {
 				t.Error(err)
@@ -255,8 +261,6 @@ func TestUPG(t *testing.T) {
 		case err := <-errCh:
 			if err != nil {
 				t.Error(err)
-			} else {
-				t.Logf("Success")
 			}
 		}
 	})

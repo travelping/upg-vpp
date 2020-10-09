@@ -1,12 +1,14 @@
 package framework
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,10 +18,13 @@ import (
 	"git.fd.io/govpp.git/api"
 	"git.fd.io/govpp.git/core"
 	"git.fd.io/govpp.git/examples/binapi/vpe"
+	"golang.org/x/sys/unix"
 )
 
 const (
-	VPP_BINARY = "/usr/bin/vpp"
+	VPP_BINARY               = "/usr/bin/vpp"
+	VPP_MAX_CONNECT_ATTEMPTS = 10
+	VPP_RECONNECT_INTERVAL   = time.Second
 )
 
 type RouteConfig struct {
@@ -50,6 +55,8 @@ type VPPInstance struct {
 	cmd        *exec.Cmd
 	vppNS      *NetNS
 	namespaces map[string]*NetNS
+	Context    context.Context
+	cancel     context.CancelFunc
 }
 
 func NewVppInstance(cfg VPPConfig) *VPPInstance {
@@ -65,6 +72,14 @@ func (vi *VPPInstance) GetNS(name string) *NetNS {
 		log.Panicf("namespace %q not found", name)
 	}
 	return ns
+}
+
+func (vi *VPPInstance) VerifyVPPAlive() error {
+	if err := vi.Ctl("show version"); err != nil {
+		return errors.Wrap(err, "VPP is not alive: error executing 'show upf version'")
+	}
+
+	return nil
 }
 
 func (vi *VPPInstance) StartVPP() error {
@@ -88,16 +103,16 @@ func (vi *VPPInstance) StartVPP() error {
 		VPP_BINARY, "-c", startupFile.Name())
 	vi.cmd.Stdout = os.Stdout
 	vi.cmd.Stderr = os.Stderr
+	sigchldCh := make(chan os.Signal, 1)
+	signal.Notify(sigchldCh, unix.SIGCHLD)
 	if err := vi.cmd.Start(); err != nil {
 		return errors.Wrapf(err, "error starting vpp (%q)", VPP_BINARY)
 	}
 
-	time.Sleep(time.Second)
-
 	conn, conev, err := govpp.AsyncConnect(
 		socketclient.DefaultSocketName,
-		core.DefaultMaxReconnectAttempts,
-		core.DefaultReconnectInterval)
+		VPP_MAX_CONNECT_ATTEMPTS,
+		VPP_RECONNECT_INTERVAL)
 
 	if err != nil {
 		return errors.Wrapf(err, "error connecting to vpp socket at %q", socketclient.DefaultSocketName)
@@ -123,10 +138,45 @@ func (vi *VPPInstance) StartVPP() error {
 		return errors.Wrap(err, "NewAPIChannel")
 	}
 
+	var cancel context.CancelFunc
+	vi.Context, cancel = context.WithCancel(context.Background())
+	pid := vi.cmd.Process.Pid
+	go func() {
+		defer signal.Stop(sigchldCh)
+		for {
+			select {
+			case <-vi.Context.Done():
+			case <-sigchldCh:
+				<-time.After(500 * time.Millisecond)
+				var s unix.WaitStatus
+				wpid, err := unix.Wait4(pid, &s, unix.WNOHANG, nil)
+				if err == nil && wpid == 0 {
+					continue
+				}
+				if err != nil {
+					fmt.Printf("* Wait4 error: %s\n", err)
+				} else {
+					fmt.Printf("* VPP process has exited!\n")
+				}
+				cancel()
+				return
+			case e := <-conev:
+				if e.State == core.Failed {
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+
 	return nil
 }
 
 func (vi *VPPInstance) stopVPP() {
+	if vi.cancel != nil {
+		vi.cancel()
+	}
+
 	if vi.apiChannel != nil {
 		vi.apiChannel.Close()
 		vi.apiChannel = nil
@@ -143,7 +193,6 @@ func (vi *VPPInstance) stopVPP() {
 
 	vi.cmd.Process.Kill()
 	vi.cmd.Wait()
-	vi.cmd = nil
 }
 
 func (vi *VPPInstance) closeNamespaces() {
