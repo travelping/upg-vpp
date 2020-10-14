@@ -72,9 +72,12 @@ format_upf_device_name (u8 * s, va_list * args)
   u32 i = va_arg (*args, u32);
   upf_nwi_t *nwi;
 
-  nwi = pool_elt_at_index (gtm->nwis, i);
+  if (!pool_is_free_index (gtm->nwis, i))
+    {
+      nwi = pool_elt_at_index (gtm->nwis, i);
+      s = format (s, "upf-nwi-%U", format_network_instance, nwi->name);
+    }
 
-  s = format (s, "upf-nwi-%U", format_network_instance, nwi->name);
   return s;
 }
 
@@ -179,6 +182,7 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 
   nwi->hw_if_index = hw_if_index;
   nwi->sw_if_index = sw_if_index = hi->sw_if_index;
+  nwi->upip_index = UPF_INVALID_UPIP_INDEX;
 
   vec_validate_init_empty (gtm->nwi_index_by_sw_if_index, sw_if_index, ~0);
   gtm->nwi_index_by_sw_if_index[sw_if_index] = if_index;
@@ -244,6 +248,12 @@ vnet_upf_delete_nwi_if (u8 * name, u32 * sw_if_idx)
   gtm->nwi_index_by_sw_if_index[nwi->sw_if_index] = ~0;
 
   vec_add1 (gtm->free_nwi_hw_if_indices, nwi->hw_if_index);
+
+  if (nwi->upip_index != UPF_INVALID_UPIP_INDEX)
+    {
+      upf_upip_res_t *ip_res = pool_elt_at_index (gtm->upip_res, nwi->upip_index);
+      pool_put (gtm->upip_res, ip_res);
+    }
 
   hash_unset_mem (gtm->nwi_index_by_name, nwi->name);
   vec_free (nwi->name);

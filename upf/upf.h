@@ -153,6 +153,8 @@ typedef CLIB_PACKED (struct
 
 #define GTPU_IE_RECOVERY 14
 
+#define UPF_INVALID_UPIP_INDEX UINT32_MAX // or ~0
+
 /* *INDENT-OFF* */
 typedef CLIB_PACKED(struct
 {
@@ -689,6 +691,9 @@ typedef struct
   /* vnet intfc index */
   u32 sw_if_index;
   u32 hw_if_index;
+
+  /* upip index */
+  u32 upip_index;
 } upf_nwi_t;
 
 typedef struct
@@ -767,7 +772,6 @@ typedef struct
 
   /* pool of network instances */
   upf_upip_res_t *upip_res;
-  mhash_t upip_res_index;
 
   /* vector of encap tunnel instances */
   upf_session_t *sessions;

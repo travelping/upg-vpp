@@ -56,6 +56,7 @@ vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
 {
   upf_main_t *gtm = &upf_main;
   upf_upip_res_t *ip_res;
+  upf_nwi_t *nwi;
   upf_upip_res_t res = {
     .ip4 = *ip4,
     .ip6 = *ip6,
@@ -66,34 +67,36 @@ vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
   };
   uword *p;
 
-  if (name)
+  if (!name)
     {
-      p = hash_get_mem (gtm->nwi_index_by_name, name);
-      if (!p)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
-
-      res.nwi_index = p[0];
+      // there can not be UPIP resourse w/o network instance
+      return VNET_API_ERROR_NO_SUCH_ENTRY;
     }
 
-  p = mhash_get (&gtm->upip_res_index, &res);
+  p = hash_get_mem (gtm->nwi_index_by_name, name);
+  if (!p)
+    return VNET_API_ERROR_NO_SUCH_ENTRY;
+
+  res.nwi_index = p[0];
+
+  nwi = pool_elt_at_index (gtm->nwis, res.nwi_index);
 
   if (add)
     {
-      if (p)
+      if (nwi->upip_index != UPF_INVALID_UPIP_INDEX)
 	return VNET_API_ERROR_VALUE_EXIST;
 
       pool_get (gtm->upip_res, ip_res);
       memcpy (ip_res, &res, sizeof (res));
 
-      mhash_set (&gtm->upip_res_index, ip_res, ip_res - gtm->upip_res, NULL);
+      nwi->upip_index = ip_res - gtm->upip_res;
     }
   else
     {
-      if (!p)
+      if (nwi->upip_index == UPF_INVALID_UPIP_INDEX)
 	return VNET_API_ERROR_NO_SUCH_ENTRY;
 
-      ip_res = pool_elt_at_index (gtm->upip_res, p[0]);
-      mhash_unset (&gtm->upip_res_index, ip_res, NULL);
+      ip_res = pool_elt_at_index (gtm->upip_res, nwi->upip_index);
       pool_put (gtm->upip_res, ip_res);
     }
 
@@ -312,7 +315,6 @@ upf_init (vlib_main_t * vm)
 	      sizeof (ip46_address_t));
   sm->nwi_index_by_name =
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
-  mhash_init (&sm->upip_res_index, sizeof (uword), sizeof (upf_upip_res_t));
 
   /* initialize the IP/TEID hash's */
   clib_bihash_init_8_8 (&sm->v4_tunnel_by_key,
