@@ -299,7 +299,7 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
 
 	req = pfcp_msg_pool_elt_at_index (psm, p[0]);
 	hash_unset (psm->request_q, msg->seq_no);
-	upf_pfcp_server_stop_timer (req->timer);
+	upf_pfcp_server_stop_msg_timer (req);
 
 	msg->node = req->node;
 
@@ -490,8 +490,7 @@ restart_response_timer (pfcp_msg_t * msg)
 
   upf_debug ("Msg Seq No: %u, idx %u\n", msg->seq_no, id);
 
-  if (msg->timer != ~0)
-    upf_pfcp_server_stop_timer (msg->timer);
+  upf_pfcp_server_stop_msg_timer (msg);
   msg->timer =
     upf_pfcp_server_start_timer (PFCP_SERVER_RESPONSE, id, RESPONSE_TIMEOUT);
 }
@@ -1047,11 +1046,31 @@ static void upf_validate_session_timers ()
 
 #endif
 
-void upf_pfcp_server_stop_timer (u32 handle)
+void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
+  u32 id_resp, *exp_id, id_t1;
 
-  TW (tw_timer_stop) (&psm->timer, handle);
+  if (msg->timer == ~0)
+    return;
+
+  id_t1 = ((0x80 | PFCP_SERVER_T1) << 24) | msg->seq_no;
+  id_resp =
+    ((0x80 | PFCP_SERVER_RESPONSE) << 24) | pfcp_msg_get_index (psm, msg);
+
+  /*
+   * Prevent timer handlers from being invoked in case the expiration
+   * has already been registered for the current iteration of
+   * pfcp_process() loop
+   */
+  vec_foreach (exp_id, psm->expired)
+  {
+    if (*exp_id == id_t1 || *exp_id == id_resp)
+      *exp_id = ~0;
+  }
+
+  TW (tw_timer_stop) (&psm->timer, msg->timer);
+  msg->timer = ~0;
 }
 
 u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds)
@@ -1114,7 +1133,6 @@ static uword
   pfcp_server_main_t *psm = &pfcp_server_main;
   uword event_type, *event_data = 0;
   upf_main_t *gtm = &upf_main;
-  u32 *expired = NULL;
   u32 last_expired;
   pfcp_msg_t *msg;
 
@@ -1144,8 +1162,8 @@ static uword
 
       /* run the timing wheel first, to that the internal base for new and updated timers
        * is set to now */
-      expired =
-	TW (tw_timer_expire_timers_vec) (&psm->timer, psm->now, expired);
+      psm->expired =
+	TW (tw_timer_expire_timers_vec) (&psm->timer, psm->now, psm->expired);
 
       switch (event_type)
 	{
@@ -1219,20 +1237,27 @@ static uword
 	  break;
 	}
 
-      vec_sort_with_function (expired, timer_id_cmp);
+      vec_sort_with_function (psm->expired, timer_id_cmp);
       last_expired = ~0;
 
-      for (int i = 0; i < vec_len (expired); i++)
+      for (int i = 0; i < vec_len (psm->expired); i++)
 	{
-	  switch (expired[i] >> 24)
+	  /*
+	   * Check if the timer has been stopped while handling other
+	   * timers in this iteration of the upf_process() loop
+	   */
+	  if (psm->expired[i] == ~0)
+	    continue;
+
+	  switch (psm->expired[i] >> 24)
 	    {
 	    case 0 ... 0x7f:
-	      if (last_expired == expired[i])
+	      if (last_expired == psm->expired[i])
 		continue;
-	      last_expired = expired[i];
+	      last_expired = psm->expired[i];
 
 	      {
-		const u32 si = expired[i] & 0x7FFFFFFF;
+		const u32 si = psm->expired[i] & 0x7FFFFFFF;
 		upf_session_t *sx;
 
 		if (pool_is_free_index (gtm->sessions, si))
@@ -1245,35 +1270,29 @@ static uword
 
 	    case 0x80 | PFCP_SERVER_HB_TIMER:
 	      upf_debug ("PFCP Server Heartbeat Timeout: %u",
-			 expired[i] & 0x00FFFFFF);
-	      upf_server_send_heartbeat (expired[i] & 0x00FFFFFF);
+			 psm->expired[i] & 0x00FFFFFF);
+	      upf_server_send_heartbeat (psm->expired[i] & 0x00FFFFFF);
 	      break;
 
 	    case 0x80 | PFCP_SERVER_T1:
 	      upf_debug ("PFCP Server T1 Timeout: %u",
-			 expired[i] & 0x00FFFFFF);
-	      request_t1_expired (expired[i] & 0x00FFFFFF);
+			 psm->expired[i] & 0x00FFFFFF);
+	      request_t1_expired (psm->expired[i] & 0x00FFFFFF);
 	      break;
 
 	    case 0x80 | PFCP_SERVER_RESPONSE:
 	      upf_debug ("PFCP Server Response Timeout: %u",
-			 expired[i] & 0x00FFFFFF);
-	      response_expired (expired[i] & 0x00FFFFFF);
+			 psm->expired[i] & 0x00FFFFFF);
+	      response_expired (psm->expired[i] & 0x00FFFFFF);
 	      break;
 
 	    default:
-	      upf_debug ("timeout for unknown id: %u", expired[i] >> 24);
+	      upf_debug ("timeout for unknown id: %u", psm->expired[i] >> 24);
 	      break;
 	    }
 	}
 
-      /*
-       * Free messages that must be freed after the loop, because this may
-       * involve stopping timers which already have fired, so they're
-       * currently collected in the 'expired' vector. If handlers for
-       * these timers are invoked, they may end up handling messages
-       * that were freed (put to the msg_pool).
-       */
+      /* Free messages that must be freed after the loop */
 
       /* *INDENT-OFF* */
       pool_foreach (msg, psm->msg_pool,
@@ -1285,12 +1304,12 @@ static uword
 
 	hash_unset (psm->request_q, msg->seq_no);
 	mhash_unset (&psm->response_q, msg->request_key, NULL);
-	upf_pfcp_server_stop_timer (msg->timer);
+	upf_pfcp_server_stop_msg_timer (msg);
 	pfcp_msg_pool_put (psm, msg);
       }));
       /* *INDENT-ON* */
 
-      vec_reset_length (expired);
+      vec_reset_length (psm->expired);
       vec_reset_length (event_data);
       hash_free (psm->free_msgs_by_node);
       hash_free (psm->free_msgs_by_sidx);
