@@ -1,7 +1,7 @@
 From 3daf9fc66400b566f60626ac8aa1c0f0a8f3d35a Mon Sep 17 00:00:00 2001
 From: Andreas Schultz <andreas.schultz@travelping.com>
 Date: Mon, 20 Apr 2020 09:45:24 +0200
-Subject: [PATCH 2/6] Only install hyperscan on amd64
+Subject: [PATCH 2/7] Only install hyperscan on amd64
 
 Hyperscan is only supported on Intel. Keep it simple and
 test only for x86_64 (who is still using 32bit anyway?)

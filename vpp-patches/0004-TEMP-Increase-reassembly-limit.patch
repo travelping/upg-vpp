@@ -1,7 +1,7 @@
 From 03aa160f4e60bcf6e08fa2e00ed828d1a3ec5806 Mon Sep 17 00:00:00 2001
 From: Ivan Shvedunov <ivan4th@gmail.com>
 Date: Wed, 5 Aug 2020 16:44:28 +0300
-Subject: [PATCH 4/6] [TEMP] Increase reassembly limit
+Subject: [PATCH 4/7] [TEMP] Increase reassembly limit
 
 This is an interim solution till we implement a proper CLI command
 ---

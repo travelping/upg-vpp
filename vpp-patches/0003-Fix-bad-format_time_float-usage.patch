@@ -1,7 +1,7 @@
 From 24692e761d7ac74b4ef7d370b374b982740ad072 Mon Sep 17 00:00:00 2001
 From: Ivan Shvedunov <ivan4th@gmail.com>
 Date: Fri, 5 Jun 2020 01:41:55 +0300
-Subject: [PATCH 3/6] Fix bad format_time_float usage
+Subject: [PATCH 3/7] Fix bad format_time_float usage
 
 Was causing crashes with CLIB_DEBUG > 1
 ---
