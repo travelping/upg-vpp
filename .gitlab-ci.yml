@@ -111,6 +111,13 @@ build:debug:
     paths:
     - test-out
 
+test:patch-style:
+  stage: test
+  # the following is updated automatically by make update-build-image-tag
+  image: quay.io/travelping/upg-build:90cf570f931007523db7085e7d867659 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  script:
+  - hack/checkstyle.sh
+
 test:debug:
   extends: .test
   variables:
