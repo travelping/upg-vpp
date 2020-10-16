@@ -5,7 +5,7 @@ stages:
 
 variables:
   REGISTRY: "quay.io"
-  CONTAINER_IMAGE: travelping/upg
+  IMAGE_NAME: travelping/upg-vpp
   # this points to buildkitd k8s service
   BUILDKITD_ADDR: tcp://buildkitd:1234
   # This is needed to disable TLS in recent docker:...dind images.
@@ -135,15 +135,17 @@ test:release:
   script:
   # https://github.com/docker/compose/issues/5696#issuecomment-377906769
   - export COMPOSE_INTERACTIVE_NO_CLI=1
-  - CI_COMMIT_DESCRIBE=$(git describe --always --tags --dirty --first-parent)
-  - CONTAINER_VARIANT=debug
-  - CONTAINER_BASE_NAME=${REGISTRY}/${CONTAINER_IMAGE}:${CI_COMMIT_REF_SLUG}
-  - CONTAINER_GIT_DESCRIBE=${CONTAINER_BASE_NAME}_${CI_COMMIT_DESCRIBE}_${CONTAINER_VARIANT}
+  - IMAGE_VARIANT=debug
+  - IMAGE_BASE_NAME=${REGISTRY}/${IMAGE_NAME}
+  - |
+    . hack/version.sh
+    IMAGE_BASE_TAG=${UPG_IMAGE_TAG}
+  - IMAGE_FULL_NAME=${IMAGE_BASE_NAME}:${IMAGE_BASE_TAG}_${IMAGE_VARIANT}
   - cd /test
   # temporary workaround for the hugepages issue
   - sysctl vm.nr_hugepages=0
   - |
-    if bash -x scripts/test.sh "${CONTAINER_GIT_DESCRIBE}" ${TEST_PROFILES}; then
+    if bash -x scripts/test.sh "${IMAGE_FULL_NAME}" ${TEST_PROFILES}; then
       r=0
     else
       r=1
