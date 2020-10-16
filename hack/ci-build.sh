@@ -6,10 +6,11 @@ set -o errtrace
 set -x
 
 : ${REGISTRY:=quay.io}
-: ${CONTAINER_IMAGE:=travelping/upf}
+: ${CONTAINER_IMAGE:=travelping/upg-vpp}
 : ${DOCKERFILE:=Dockerfile.devel}
 : ${BUILDKITD_ADDR:=tcp://buildkitd:1234}
 
+. vpp.spec
 function do_build {
   # FIXME: can't export cache to quay.io:
   # https://github.com/moby/buildkit/issues/1440
@@ -21,20 +22,22 @@ function do_build {
            --local context=. \
            --local dockerfile=. \
            --opt filename="${DOCKERFILE}" \
+           --opt label:vpp.release="${VPP_RELEASE}" \
+           --opt label:vpp.commit="${VPP_COMMIT}" \
            "$@"
 }
 
-CI_COMMIT_DESCRIBE=$(git describe --always --tags --dirty --first-parent)
 IMAGE_VARIANT="${CI_BUILD_NAME##*:}"
-IMAGE_REPO="${REGISTRY}/${CONTAINER_IMAGE}"
-IMAGE_BASE_NAME="${IMAGE_REPO}:${CI_COMMIT_REF_SLUG}"
-IMAGE_COMMIT_SHA="${IMAGE_BASE_NAME}_${CI_COMMIT_SHA}_${IMAGE_VARIANT}"
-IMAGE_FULL_NAME="${IMAGE_BASE_NAME}_${CI_COMMIT_DESCRIBE}_${IMAGE_VARIANT}"
+IMAGE_BASE_NAME=${REGISTRY}/${IMAGE_NAME}
+. hack/version.sh
+IMAGE_BASE_TAG=${UPG_IMAGE_TAG}
+IMAGE_FULL_NAME=${IMAGE_BASE_NAME}:${IMAGE_BASE_TAG}_${IMAGE_VARIANT}
 
-case "${CI_COMMIT_REF_NAME}" in
-  stable/* | feature/20* ) export LABELS="";;
-  *)                       export LABELS="--label quay.expires-after=7d";;
-esac
+# TODO: reenable this
+# case "${CI_COMMIT_REF_NAME}" in
+#   stable/* | feature/20* ) export LABELS="";;
+#   *)                       export LABELS="--label quay.expires-after=7d";;
+# esac
 
 if [[ ${REGISTRY_LOGIN:-} && ${REGISTRY_PASSWORD:-} ]]; then
   echo >&2 "registry login..."
