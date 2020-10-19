@@ -442,7 +442,7 @@ handle_heartbeat_response (pfcp_msg_t * req, pfcp_simple_response_t * msg)
   n = pool_elt_at_index (gtm->nodes, req->node);
 
   if (msg->response.recovery_time_stamp > n->recovery_time_stamp)
-    pfcp_release_association (n);
+    upf_pfcp_server_deferred_release_association (req->node);
   else if (msg->response.recovery_time_stamp < n->recovery_time_stamp)
     {
       /* 3GPP TS 23.007, Sect. 19A:
@@ -520,7 +520,7 @@ handle_association_setup_request (pfcp_msg_t * req,
        * PFCP Association Setup Response message.
        *
        */
-      pfcp_release_association (n);
+      upf_pfcp_server_deferred_release_association (n - gtm->nodes);
     }
 
   n =
