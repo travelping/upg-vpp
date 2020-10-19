@@ -438,7 +438,7 @@ pfcp_release_association (upf_node_assoc_t * n)
       continue;
     hash_unset (psm->request_q, msg->seq_no);
     mhash_unset (&psm->response_q, msg->request_key, NULL);
-    upf_pfcp_server_stop_msg_timer (msg);
+    upf_pfcp_server_stop_timer (msg->timer);
     pfcp_msg_pool_put (psm, msg);
   }));
   /* *INDENT-ON* */
@@ -1024,7 +1024,7 @@ pfcp_disable_session (upf_session_t * sx, int drop_msgs)
 
 	hash_unset (psm->request_q, msg->seq_no);
 	mhash_unset (&psm->response_q, msg->request_key, NULL);
-	upf_pfcp_server_stop_msg_timer (msg);
+	upf_pfcp_server_stop_timer (msg->timer);
 	pfcp_msg_pool_put (psm, msg);
       }));
       /* *INDENT-ON* */

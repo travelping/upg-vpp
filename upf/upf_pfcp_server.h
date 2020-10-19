@@ -101,8 +101,6 @@ typedef struct
   vlib_frame_t *ip_lookup_tx_frames[2];
 
   vlib_main_t *vlib_main;
-
-  u32 *expired;
 } pfcp_server_main_t;
 
 typedef struct
@@ -130,7 +128,7 @@ void upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t,
 					   u8 start_it);
 
 u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds);
-void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg);
+void upf_pfcp_server_stop_timer (u32 handle);
 
 int upf_pfcp_send_request (upf_session_t * sx, u8 type,
 			   struct pfcp_group *grp);
