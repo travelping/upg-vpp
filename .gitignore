@@ -2,3 +2,5 @@
 /vpp-out
 __pycache__
 *.pyc
+debug
+release
