@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -434,14 +435,16 @@ func (pc *PFCPConnection) inState(state pfcpState) bool {
 	return pc.state == state
 }
 
-func (pc *PFCPConnection) waitForState(state pfcpState, timeout time.Duration) error {
+func (pc *PFCPConnection) waitForState(ctx context.Context, state pfcpState, timeout time.Duration) error {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
 	for !pc.inState(state) {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-timer.C:
-			pc.Stop()
+			pc.Stop(ctx)
 			return errors.New("session setup timeout")
 		case err := <-pc.errCh:
 			if err != nil {
@@ -466,14 +469,16 @@ func (pc *PFCPConnection) sessionInState(seid SEID, state sessionState) bool {
 	return s.state == state
 }
 
-func (pc *PFCPConnection) waitForSessionState(seid SEID, state sessionState, timeout time.Duration) error {
+func (pc *PFCPConnection) waitForSessionState(ctx context.Context, seid SEID, state sessionState, timeout time.Duration) error {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
 	for !pc.sessionInState(seid, state) {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-timer.C:
-			pc.Stop()
+			pc.Stop(ctx)
 			return errors.New("session setup timeout")
 		case err := <-pc.errCh:
 			if err != nil {
@@ -498,7 +503,7 @@ func (pc *PFCPConnection) getSessionModCh(seid SEID) chan *PFCPMeasurement {
 	return s.modCh
 }
 
-func (pc *PFCPConnection) waitForSessionModification(seid SEID, ies ...ie.IE) (*PFCPMeasurement, error) {
+func (pc *PFCPConnection) waitForSessionModification(ctx context.Context, seid SEID, ies ...ie.IE) (*PFCPMeasurement, error) {
 	modCh := pc.getSessionModCh(seid)
 	if modCh == nil {
 		return nil, errors.Errorf("session %016x not found", seid)
@@ -508,6 +513,8 @@ func (pc *PFCPConnection) waitForSessionModification(seid SEID, ies ...ie.IE) (*
 	defer timer.Stop()
 
 	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case <-timer.C:
 		return nil, errors.Errorf("session modification timed out for %016x", seid)
 	case err := <-pc.errCh:
@@ -657,7 +664,7 @@ func (pc *PFCPConnection) newSEID() SEID {
 	}
 }
 
-func (pc *PFCPConnection) Start() error {
+func (pc *PFCPConnection) Start(ctx context.Context) error {
 	if pc.Running {
 		return nil
 	}
@@ -682,10 +689,10 @@ func (pc *PFCPConnection) Start() error {
 		pc.errCh <- pc.run()
 	}()
 
-	return pc.waitForState(pfcpStateAssociated, AssociationTimeout)
+	return pc.waitForState(ctx, pfcpStateAssociated, AssociationTimeout)
 }
 
-func (pc *PFCPConnection) Stop() error {
+func (pc *PFCPConnection) Stop(ctx context.Context) error {
 	if !pc.Running {
 		return nil
 	}
@@ -697,6 +704,8 @@ func (pc *PFCPConnection) Stop() error {
 	pc.Running = true
 
 	select {
+	case <-ctx.Done():
+		return ctx.Err()
 	case <-time.After(PFCPStopTimeout):
 		return errors.New("timed out stopping PFCPConnection")
 	case err := <-pc.errCh:
@@ -704,24 +713,24 @@ func (pc *PFCPConnection) Stop() error {
 	}
 }
 
-func (pc *PFCPConnection) EstablishSession(ies ...*ie.IE) (SEID, error) {
+func (pc *PFCPConnection) EstablishSession(ctx context.Context, ies ...*ie.IE) (SEID, error) {
 	seid := pc.newSEID()
 	ies = append(ies,
 		// TODO: replace for IPv6
 		ie.NewFSEID(uint64(seid), pc.cfg.Namespace.IPNet.IP, nil, nil),
 		ie.NewNodeID("", "", pc.cfg.NodeID))
 	pc.requestCh <- message.NewSessionEstablishmentRequest(0, 0, 0, 0, 0, ies...)
-	return seid, pc.waitForSessionState(seid, sessionStateEstablished, SessionEstablishmentTimeout)
+	return seid, pc.waitForSessionState(ctx, seid, sessionStateEstablished, SessionEstablishmentTimeout)
 }
 
-func (pc *PFCPConnection) ModifySession(seid SEID, ies ...*ie.IE) (*PFCPMeasurement, error) {
+func (pc *PFCPConnection) ModifySession(ctx context.Context, seid SEID, ies ...*ie.IE) (*PFCPMeasurement, error) {
 	pc.requestCh <- message.NewSessionModificationRequest(0, 0, uint64(seid), 0, 0, ies...)
-	return pc.waitForSessionModification(seid)
+	return pc.waitForSessionModification(ctx, seid)
 }
 
-func (pc *PFCPConnection) DeleteSession(seid SEID, ies ...*ie.IE) (*PFCPMeasurement, error) {
+func (pc *PFCPConnection) DeleteSession(ctx context.Context, seid SEID, ies ...*ie.IE) (*PFCPMeasurement, error) {
 	pc.requestCh <- message.NewSessionDeletionRequest(0, 0, uint64(seid), 0, 0, ies...)
-	if err := pc.waitForSessionState(seid, sessionStateDeleted, SessionEstablishmentTimeout); err != nil {
+	if err := pc.waitForSessionState(ctx, seid, sessionStateDeleted, SessionEstablishmentTimeout); err != nil {
 		return nil, err
 	}
 
@@ -730,6 +739,8 @@ func (pc *PFCPConnection) DeleteSession(seid SEID, ies ...*ie.IE) (*PFCPMeasurem
 		panic("modCh must not be nil!")
 	}
 	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case ms := <-modCh:
 		return ms, nil
 	default:

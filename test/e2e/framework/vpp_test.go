@@ -230,12 +230,12 @@ func WithUPG(t *testing.T, toCall func(vi *VPPInstance, pc *PFCPConnection)) {
 			// ReplacePDRs:         tc.replacePDRs,
 		}
 		pc := NewPFCPConnection(cfg)
-		if err := pc.Start(); err != nil {
+		if err := pc.Start(vi.Context); err != nil {
 			t.Error(err)
 			return
 		}
 		defer func() {
-			if err := pc.Stop(); err != nil {
+			if err := pc.Stop(vi.Context); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -245,7 +245,7 @@ func WithUPG(t *testing.T, toCall func(vi *VPPInstance, pc *PFCPConnection)) {
 
 func TestMeasurement(t *testing.T) {
 	WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) { // TODO: should also set up a PFCPConnection
-		seid, err := pc.EstablishSession(simpleSession(ueIP)...)
+		seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP)...)
 		if err != nil {
 			t.Error(err)
 			return
@@ -265,7 +265,7 @@ func TestMeasurement(t *testing.T) {
 		// just be on the safe side with the packet captures
 		<-time.After(5 * time.Second)
 
-		ms, err := pc.DeleteSession(seid)
+		ms, err := pc.DeleteSession(vi.Context, seid)
 		if err != nil {
 			t.Error(err)
 			return
@@ -277,7 +277,7 @@ func TestMeasurement(t *testing.T) {
 
 func TestPDRReplacement(t *testing.T) {
 	WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) { // TODO: should also set up a PFCPConnection
-		seid, err := pc.EstablishSession(simpleSession(ueIP)...)
+		seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP)...)
 		if err != nil {
 			t.Error(err)
 			return
@@ -307,7 +307,7 @@ func TestPDRReplacement(t *testing.T) {
 			// uncommeting this crashes UPG as of 1.0.1
 			// idBase ^= 8
 			ies = append(ies, createPDRs(idBase, ueIP)...)
-			if _, err := pc.ModifySession(seid, ies...); err != nil {
+			if _, err := pc.ModifySession(vi.Context, seid, ies...); err != nil {
 				t.Errorf("ModifySession(): %v", err)
 				break
 			}
@@ -318,7 +318,7 @@ func TestPDRReplacement(t *testing.T) {
 			}
 		}
 
-		ms, err := pc.DeleteSession(seid)
+		ms, err := pc.DeleteSession(vi.Context, seid)
 		if err != nil {
 			t.Error(err)
 			return
