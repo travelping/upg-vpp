@@ -22,6 +22,11 @@ const (
 	VPP_WS_FIFO_SIZE_KiB = 60000
 )
 
+var (
+	ueIP     = MustParseIP("10.0.1.3")
+	serverIP = MustParseIP("10.0.2.3")
+)
+
 func setupWebServerDir() (string, error) {
 	wsDir, err := ioutil.TempDir("", "vpptest")
 	if err != nil {
@@ -157,7 +162,7 @@ func TestVPPProxy(t *testing.T) {
 	})
 }
 
-func WithUPG(t *testing.T, toCall func(vi *VPPInstance)) {
+func WithUPG(t *testing.T, toCall func(vi *VPPInstance, pc *PFCPConnection)) {
 	WithVPP(t, VPPConfig{
 		Namespaces: []VPPNetworkNamespace{
 			{
@@ -215,13 +220,7 @@ func WithUPG(t *testing.T, toCall func(vi *VPPInstance)) {
 			// "upf application TST rule 3000 add l7 regex ^https?://theserver/",
 			// "set upf proxy mss 1250"
 		},
-	}, toCall)
-}
-
-func TestUPG(t *testing.T) {
-	WithUPG(t, func(vi *VPPInstance) { // TODO: should also set up a PFCPConnection
-		ueIP := MustParseIP("10.0.1.3")
-		serverIP := MustParseIP("10.0.2.3")
+	}, func(vi *VPPInstance) {
 		cfg := PFCPConfig{
 			Namespace: vi.GetNS("cp"),
 			UNodeIP:   MustParseIP("10.0.0.2"),
@@ -240,24 +239,20 @@ func TestUPG(t *testing.T) {
 				t.Error(err)
 			}
 		}()
+		toCall(vi, pc)
+	})
+}
 
-		seid, err := pc.EstablishSession(simpleSession(cfg.UEIP)...)
+func TestMeasurement(t *testing.T) {
+	WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) { // TODO: should also set up a PFCPConnection
+		seid, err := pc.EstablishSession(simpleSession(ueIP)...)
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
 		t.Logf("Session started")
-		tg := NewTrafficGen(TrafficGenConfig{
-			ClientNS:         vi.GetNS("access"),
-			ServerNS:         vi.GetNS("sgi"),
-			ServerIP:         serverIP,
-			ServerPort:       80,
-			ServerListenPort: 80,
-			ChunkDelay:       50 * time.Millisecond, // FIXME
-			Context:          vi.Context,
-			NoLinger:         true, // avoid late TCP packets
-		})
+		tg := NewTrafficGen(tgTrafficMeasurementConfig(vi))
 		if err := tg.StartWebserver(); err != nil {
 			t.Error(err)
 			return
@@ -270,14 +265,58 @@ func TestUPG(t *testing.T) {
 		// just be on the safe side with the packet captures
 		<-time.After(5 * time.Second)
 
-		c := vi.Captures["access"]
-		if c == nil {
-			panic("capture not found")
+		ms, err := pc.DeleteSession(seid)
+		if err != nil {
+			t.Error(err)
+			return
 		}
 
-		ul := c.GetTrafficCount(Make5Tuple(ueIP, -1, serverIP, -1, layers.IPProtocolTCP))
-		dl := c.GetTrafficCount(Make5Tuple(serverIP, -1, ueIP, -1, layers.IPProtocolTCP))
-		t.Logf("capture stats: UL: %d, DL: %d", ul, dl)
+		verifyMeasurements(t, vi, ms)
+	})
+}
+
+func TestPDRReplacement(t *testing.T) {
+	WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) { // TODO: should also set up a PFCPConnection
+		seid, err := pc.EstablishSession(simpleSession(ueIP)...)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		t.Logf("Session started")
+		tg := NewTrafficGen(tgTrafficMeasurementConfig(vi))
+		if err := tg.StartWebserver(); err != nil {
+			t.Error(err)
+			return
+		}
+
+		doneCh := make(chan struct{})
+		go func() {
+			if err := tg.SimulateDownload(); err != nil {
+				t.Error(err)
+			}
+			// just be on the safe side with the packet captures
+			<-time.After(5 * time.Second)
+			close(doneCh)
+		}()
+
+		idBase := uint16(1)
+	LOOP:
+		for i := 1; ; i++ {
+			ies := deletePDRs(idBase)
+			// uncommeting this crashes UPG as of 1.0.1
+			// idBase ^= 8
+			ies = append(ies, createPDRs(idBase, ueIP)...)
+			if _, err := pc.ModifySession(seid, ies...); err != nil {
+				t.Errorf("ModifySession(): %v", err)
+				break
+			}
+			select {
+			case <-doneCh:
+				break LOOP
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
 
 		ms, err := pc.DeleteSession(seid)
 		if err != nil {
@@ -285,33 +324,62 @@ func TestUPG(t *testing.T) {
 			return
 		}
 
-		if ms == nil {
-			t.Error("DeleteSession didn't return any measurements")
-			return
-		}
-
-		r, found := ms.Reports[1]
-		switch {
-		case !found:
-			t.Error("report missing for URR 1")
-		case r.DownlinkVolume == nil:
-			t.Error("downlink volume missing in UsageReport")
-		case r.UplinkVolume == nil:
-			t.Error("uplink volume missing in UsageReport")
-		case r.TotalVolume == nil:
-			t.Error("total volume missing in UsageReport")
-		case ul != *r.UplinkVolume:
-			t.Errorf("bad uplink volume: reported %d, actual %d", *r.UplinkVolume, ul)
-			fallthrough
-		case dl != *r.DownlinkVolume:
-			t.Errorf("bad downlink volume: reported %d, actual %d", *r.UplinkVolume, ul)
-			fallthrough
-		case *r.UplinkVolume+*r.DownlinkVolume != *r.TotalVolume:
-			t.Errorf("bad total reported volume: must be %d, actual %d",
-				*r.UplinkVolume+*r.DownlinkVolume,
-				*r.TotalVolume)
-		}
+		verifyMeasurements(t, vi, ms)
 	})
+}
+
+// tgTrafficMeasurementConfig returns a TrafficGenConfig suitable
+// for precise traffic measurement. It includes delays to avoid
+// skipped packets in pcaps, as well as "NoLinger" option
+func tgTrafficMeasurementConfig(vi *VPPInstance) TrafficGenConfig {
+	return TrafficGenConfig{
+		ClientNS:         vi.GetNS("access"),
+		ServerNS:         vi.GetNS("sgi"),
+		ServerIP:         serverIP,
+		ServerPort:       80,
+		ServerListenPort: 80,
+		ChunkDelay:       50 * time.Millisecond,
+		Context:          vi.Context,
+		NoLinger:         true, // avoid late TCP packets
+	}
+}
+
+func verifyMeasurements(t *testing.T, vi *VPPInstance, ms *PFCPMeasurement) {
+	if ms == nil {
+		t.Error("DeleteSession didn't return any measurements")
+		return
+	}
+
+	c := vi.Captures["access"]
+	if c == nil {
+		panic("capture not found")
+	}
+
+	ul := c.GetTrafficCount(Make5Tuple(ueIP, -1, serverIP, -1, layers.IPProtocolTCP))
+	dl := c.GetTrafficCount(Make5Tuple(serverIP, -1, ueIP, -1, layers.IPProtocolTCP))
+	t.Logf("capture stats: UL: %d, DL: %d", ul, dl)
+
+	r, found := ms.Reports[1]
+	switch {
+	case !found:
+		t.Error("report missing for URR 1")
+	case r.DownlinkVolume == nil:
+		t.Error("downlink volume missing in UsageReport")
+	case r.UplinkVolume == nil:
+		t.Error("uplink volume missing in UsageReport")
+	case r.TotalVolume == nil:
+		t.Error("total volume missing in UsageReport")
+	case ul != *r.UplinkVolume:
+		t.Errorf("bad uplink volume: reported %d, actual %d", *r.UplinkVolume, ul)
+		fallthrough
+	case dl != *r.DownlinkVolume:
+		t.Errorf("bad downlink volume: reported %d, actual %d", *r.UplinkVolume, ul)
+		fallthrough
+	case *r.UplinkVolume+*r.DownlinkVolume != *r.TotalVolume:
+		t.Errorf("bad total reported volume: must be %d, actual %d",
+			*r.UplinkVolume+*r.DownlinkVolume,
+			*r.TotalVolume)
+	}
 }
 
 func simpleSession(ueIP net.IP) []*ie.IE {
