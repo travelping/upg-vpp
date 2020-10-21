@@ -3,6 +3,7 @@ package framework
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/google/gopacket/layers"
+	"github.com/wmnsk/go-pfcp/ie"
 	"golang.org/x/sys/unix"
 )
 
@@ -154,131 +157,224 @@ func TestVPPProxy(t *testing.T) {
 	})
 }
 
+func WithUPG(t *testing.T, toCall func(vi *VPPInstance)) {
+	WithVPP(t, VPPConfig{
+		Namespaces: []VPPNetworkNamespace{
+			{
+				Name:          "cp",
+				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
+				VPPIP:         MustParseIPNet("10.0.0.2/24"),
+				OtherIP:       MustParseIPNet("10.0.0.3/24"),
+				VPPLinkName:   "cp0",
+				OtherLinkName: "cp1",
+				Table:         0,
+			},
+			{
+				Name:          "access",
+				VPPMac:        MustParseMAC("fa:8a:78:4d:18:01"),
+				VPPIP:         MustParseIPNet("10.0.1.2/24"),
+				OtherIP:       MustParseIPNet("10.0.1.3/24"),
+				VPPLinkName:   "access0",
+				OtherLinkName: "access1",
+				Table:         100,
+				NSRoutes: []RouteConfig{
+					{
+						Gw: MustParseIP("10.0.1.2"),
+					},
+				},
+			},
+			{
+				Name:          "sgi",
+				VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
+				VPPIP:         MustParseIPNet("10.0.2.2/24"),
+				OtherIP:       MustParseIPNet("10.0.2.3/24"),
+				VPPLinkName:   "sgi0",
+				OtherLinkName: "sgi1",
+				Table:         200,
+				NSRoutes: []RouteConfig{
+					{
+						Dst: MustParseIPNet("10.0.1.0/24"),
+						Gw:  MustParseIP("10.0.2.2"),
+					},
+				},
+			},
+		},
+		SetupCommands: []string{
+			"upf nwi name cp vrf 0",
+			"upf nwi name access vrf 100",
+			"upf nwi name sgi vrf 200",
+			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
+			// NOTE: "ip6" instead of "ip4" for IPv6
+			"upf tdf ul table vrf 100 ip4 table-id 1001",
+			// NOTE: "ip6" instead of "ip4" for IPv6
+			"upf tdf ul enable ip4 host-access0",
+			// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
+			// For IPv6, ::/0 should be used as the subnet
+			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
+			// "create upf application proxy name TST",
+			// "upf application TST rule 3000 add l7 regex ^https?://theserver/",
+			// "set upf proxy mss 1250"
+		},
+	}, toCall)
+}
+
 func TestUPG(t *testing.T) {
-	for _, tc := range []struct {
-		name        string
-		replacePDRs bool
-	}{
-		{
-			name:        "Pass traffic using an UPG session",
-			replacePDRs: false,
-		},
-		{
-			name:        "Replace PDRs while passing traffic",
-			replacePDRs: true,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			WithVPP(t, VPPConfig{
-				Namespaces: []VPPNetworkNamespace{
-					{
-						Name:          "cp",
-						VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-						VPPIP:         MustParseIPNet("10.0.0.2/24"),
-						OtherIP:       MustParseIPNet("10.0.0.3/24"),
-						VPPLinkName:   "cp0",
-						OtherLinkName: "cp1",
-						Table:         0,
-					},
-					{
-						Name:          "access",
-						VPPMac:        MustParseMAC("fa:8a:78:4d:18:01"),
-						VPPIP:         MustParseIPNet("10.0.1.2/24"),
-						OtherIP:       MustParseIPNet("10.0.1.3/24"),
-						VPPLinkName:   "access0",
-						OtherLinkName: "access1",
-						Table:         100,
-						NSRoutes: []RouteConfig{
-							{
-								Gw: MustParseIP("10.0.1.2"),
-							},
-						},
-					},
-					{
-						Name:          "sgi",
-						VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
-						VPPIP:         MustParseIPNet("10.0.2.2/24"),
-						OtherIP:       MustParseIPNet("10.0.2.3/24"),
-						VPPLinkName:   "sgi0",
-						OtherLinkName: "sgi1",
-						Table:         200,
-						NSRoutes: []RouteConfig{
-							{
-								Dst: MustParseIPNet("10.0.1.0/24"),
-								Gw:  MustParseIP("10.0.2.2"),
-							},
-						},
-					},
-				},
-				SetupCommands: []string{
-					"upf nwi name cp vrf 0",
-					"upf nwi name access vrf 100",
-					"upf nwi name sgi vrf 200",
-					"upf pfcp endpoint ip 10.0.0.2 vrf 0",
-					// NOTE: "ip6" instead of "ip4" for IPv6
-					"upf tdf ul table vrf 100 ip4 table-id 1001",
-					// NOTE: "ip6" instead of "ip4" for IPv6
-					"upf tdf ul enable ip4 host-access0",
-					// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
-					// For IPv6, ::/0 should be used as the subnet
-					"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
-					// "create upf application proxy name TST",
-					// "upf application TST rule 3000 add l7 regex ^https?://theserver/",
-					// "set upf proxy mss 1250"
-				},
-			}, func(vi *VPPInstance) {
-				pc := NewPFCPConnection(PFCPConfig{
-					Namespace:           vi.GetNS("cp"),
-					UNodeIP:             MustParseIP("10.0.0.2"),
-					NodeID:              "pfcpstub",
-					UEIP:                MustParseIP("10.0.1.3"),
-					ReportQueryInterval: 1 * time.Second,
-					ReplacePDRs:         tc.replacePDRs,
-				})
-				sessionStartCh, errCh := pc.Start()
-				select {
-				case <-time.After(30 * time.Second):
-					t.Errorf("timed out")
-					pc.Stop()
-				case err := <-errCh:
-					if err != nil {
-						t.Error(err)
-					} else {
-						t.Error("PFCPConnection stopped prematurely (?)")
-					}
-					return
-				case <-sessionStartCh:
-					t.Logf("Session started")
-					tg := NewTrafficGen(TrafficGenConfig{
-						ClientNS:         vi.GetNS("access"),
-						ServerNS:         vi.GetNS("sgi"),
-						ServerIP:         MustParseIP("10.0.2.3"),
-						ServerPort:       80,
-						ServerListenPort: 80,
-						ChunkDelay:       50 * time.Millisecond, // FIXME
-						Context:          vi.Context,
-					})
-					if err := tg.StartWebserver(); err != nil {
-						t.Error(err)
-						return
-					}
+	WithUPG(t, func(vi *VPPInstance) { // TODO: should also set up a PFCPConnection
+		ueIP := MustParseIP("10.0.1.3")
+		serverIP := MustParseIP("10.0.2.3")
+		cfg := PFCPConfig{
+			Namespace: vi.GetNS("cp"),
+			UNodeIP:   MustParseIP("10.0.0.2"),
+			NodeID:    "pfcpstub",
+			UEIP:      ueIP,
+			// ReportQueryInterval: 1 * time.Second,
+			// ReplacePDRs:         tc.replacePDRs,
+		}
+		pc := NewPFCPConnection(cfg)
+		if err := pc.Start(); err != nil {
+			t.Error(err)
+			return
+		}
+		defer func() {
+			if err := pc.Stop(); err != nil {
+				t.Error(err)
+			}
+		}()
 
-					if err := tg.SimulateDownload(); err != nil {
-						t.Error(err)
-					}
-				}
+		seid, err := pc.EstablishSession(simpleSession(cfg.UEIP)...)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
-				pc.Stop()
-
-				select {
-				case <-time.After(30 * time.Second):
-					t.Errorf("timed out")
-				case err := <-errCh:
-					if err != nil {
-						t.Error(err)
-					}
-				}
-			})
+		t.Logf("Session started")
+		tg := NewTrafficGen(TrafficGenConfig{
+			ClientNS:         vi.GetNS("access"),
+			ServerNS:         vi.GetNS("sgi"),
+			ServerIP:         serverIP,
+			ServerPort:       80,
+			ServerListenPort: 80,
+			ChunkDelay:       50 * time.Millisecond, // FIXME
+			Context:          vi.Context,
+			NoLinger:         true, // avoid late TCP packets
 		})
+		if err := tg.StartWebserver(); err != nil {
+			t.Error(err)
+			return
+		}
+
+		if err := tg.SimulateDownload(); err != nil {
+			t.Error(err)
+		}
+
+		// just be on the safe side with the packet captures
+		<-time.After(5 * time.Second)
+
+		c := vi.Captures["access"]
+		if c == nil {
+			panic("capture not found")
+		}
+
+		ul := c.GetTrafficCount(Make5Tuple(ueIP, -1, serverIP, -1, layers.IPProtocolTCP))
+		dl := c.GetTrafficCount(Make5Tuple(serverIP, -1, ueIP, -1, layers.IPProtocolTCP))
+		t.Logf("capture stats: UL: %d, DL: %d", ul, dl)
+
+		ms, err := pc.DeleteSession(seid)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		if ms == nil {
+			t.Error("DeleteSession didn't return any measurements")
+			return
+		}
+
+		r, found := ms.Reports[1]
+		switch {
+		case !found:
+			t.Error("report missing for URR 1")
+		case r.DownlinkVolume == nil:
+			t.Error("downlink volume missing in UsageReport")
+		case r.UplinkVolume == nil:
+			t.Error("uplink volume missing in UsageReport")
+		case r.TotalVolume == nil:
+			t.Error("total volume missing in UsageReport")
+		case ul != *r.UplinkVolume:
+			t.Errorf("bad uplink volume: reported %d, actual %d", *r.UplinkVolume, ul)
+			fallthrough
+		case dl != *r.DownlinkVolume:
+			t.Errorf("bad downlink volume: reported %d, actual %d", *r.UplinkVolume, ul)
+			fallthrough
+		case *r.UplinkVolume+*r.DownlinkVolume != *r.TotalVolume:
+			t.Errorf("bad total reported volume: must be %d, actual %d",
+				*r.UplinkVolume+*r.DownlinkVolume,
+				*r.TotalVolume)
+		}
+	})
+}
+
+func simpleSession(ueIP net.IP) []*ie.IE {
+	ies := []*ie.IE{
+		ie.NewCreateFAR(
+			ie.NewApplyAction(ApplyAction_FORW),
+			ie.NewFARID(1),
+			ie.NewForwardingParameters(
+				ie.NewDestinationInterface(ie.DstInterfaceSGiLANN6LAN),
+				ie.NewNetworkInstance(EncodeAPN("sgi")))),
+		// TODO: replace for PGW (reverseFAR)
+		ie.NewCreateFAR(
+			ie.NewApplyAction(ApplyAction_FORW),
+			ie.NewFARID(2),
+			ie.NewForwardingParameters(
+				ie.NewDestinationInterface(ie.DstInterfaceAccess),
+				ie.NewNetworkInstance(EncodeAPN("access")))),
+		ie.NewCreateURR(
+			ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
+			ie.NewReportingTriggers(0),
+			ie.NewURRID(1)),
+		ie.NewCreateURR(
+			ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
+			ie.NewReportingTriggers(0),
+			ie.NewURRID(2)),
+	}
+
+	return append(ies, createPDRs(1, ueIP)...)
+}
+
+func createPDRs(idBase uint16, ueIP net.IP) []*ie.IE {
+	return []*ie.IE{
+		// TODO: replace for PGW (forwardPDR)
+		ie.NewCreatePDR(
+			ie.NewFARID(1),
+			ie.NewPDI(
+				ie.NewNetworkInstance(EncodeAPN("access")),
+				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
+				ie.NewSourceInterface(ie.SrcInterfaceAccess),
+				// TODO: replace for IPv6
+				ie.NewUEIPAddress(UEIPAddress_V4, ueIP.String(), "", 0)),
+			ie.NewPDRID(idBase),
+			ie.NewPrecedence(200),
+			ie.NewURRID(1),
+		),
+		ie.NewCreatePDR(
+			ie.NewFARID(2),
+			ie.NewPDI(
+				ie.NewNetworkInstance(EncodeAPN("sgi")),
+				ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0),
+				ie.NewSourceInterface(ie.SrcInterfaceSGiLANN6LAN),
+				// TODO: replace for IPv6
+				ie.NewUEIPAddress(UEIPAddress_V4|UEIPAddress_SD, ueIP.String(), "", 0)),
+			ie.NewPDRID(idBase+1),
+			ie.NewPrecedence(200),
+			ie.NewURRID(1),
+		),
+	}
+}
+
+func deletePDRs(idBase uint16) []*ie.IE {
+	return []*ie.IE{
+		ie.NewRemovePDR(ie.NewPDRID(idBase)),
+		ie.NewRemovePDR(ie.NewPDRID(idBase + 1)),
 	}
 }

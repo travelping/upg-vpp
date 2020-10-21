@@ -3,7 +3,10 @@ package framework
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,14 +38,17 @@ type CaptureStats struct {
 }
 
 type Capture struct {
-	cfg    CaptureConfig
-	Stats  CaptureStats
-	stopCh chan struct{}
+	sync.Mutex
+	cfg           CaptureConfig
+	Stats         CaptureStats
+	stopCh        chan struct{}
+	trafficCounts map[FiveTuple]uint64
 }
 
 func NewCapture(cfg CaptureConfig) *Capture {
 	return &Capture{
-		cfg: cfg,
+		cfg:           cfg,
+		trafficCounts: make(map[FiveTuple]uint64),
 	}
 }
 
@@ -59,13 +65,6 @@ func (c *Capture) makeHandle() (*pcap.Handle, error) {
 	} else if err = inactive.SetTimeout(time.Second); err != nil {
 		return nil, errors.Wrap(err, "could not set timeout")
 	}
-	// if *tstype != "" {
-	// 	if t, err := pcap.TimestampSourceFromString(*tstype); err != nil {
-	// 		log.Fatalf("Supported timestamp types: %v", inactive.SupportedTimestamps())
-	// 	} else if err := inactive.SetTimestampSource(t); err != nil {
-	// 		log.Fatalf("Supported timestamp types: %v", inactive.SupportedTimestamps())
-	// 	}
-	// }
 	if handle, err := inactive.Activate(); err != nil {
 		return nil, errors.Wrap(err, "PCAP Activate error")
 	} else {
@@ -143,6 +142,13 @@ func (c *Capture) Start() error {
 		for {
 			select {
 			case packet := <-source.Packets():
+				fiveTuple, globTuple, plen := packet5TupleAndLength(packet)
+				if fiveTuple != "" {
+					c.Lock()
+					c.trafficCounts[fiveTuple] += uint64(plen)
+					c.trafficCounts[globTuple] += uint64(plen)
+					c.Unlock()
+				}
 				if err := w.WritePacket(packet.Metadata().CaptureInfo, packet.Data()); err != nil {
 					fmt.Printf("Error writing packet: %s\n", err)
 					return
@@ -154,4 +160,68 @@ func (c *Capture) Start() error {
 	}()
 
 	return nil
+}
+
+func (c *Capture) GetTrafficCount(ft FiveTuple) uint64 {
+	c.Lock()
+	defer c.Unlock()
+	return c.trafficCounts[ft]
+}
+
+type FiveTuple string
+
+func Make5Tuple(srcIP net.IP, srcPort int, dstIP net.IP, dstPort int, proto layers.IPProtocol) FiveTuple {
+	srcPortStr := "*"
+	if srcPort >= 0 {
+		srcPortStr = strconv.Itoa(srcPort)
+	}
+	dstPortStr := "*"
+	if dstPort >= 0 {
+		dstPortStr = strconv.Itoa(dstPort)
+	}
+	return FiveTuple(fmt.Sprintf("%s %s:%s -> %s:%s", proto, srcIP, srcPortStr, dstIP, dstPortStr))
+}
+
+func packet5TupleAndLength(p gopacket.Packet) (FiveTuple, FiveTuple, uint16) {
+	var plen uint16
+	var srcIP, dstIP net.IP
+	var srcPort, dstPort uint16
+	var proto layers.IPProtocol
+
+	layer := p.Layer(layers.LayerTypeIPv4)
+	if layer != nil {
+		l := layer.(*layers.IPv4)
+		srcIP = l.SrcIP
+		dstIP = l.DstIP
+		proto = l.Protocol
+		plen = l.Length
+	} else {
+		layer = p.Layer(layers.LayerTypeIPv6)
+		if layer != nil {
+			l := layer.(*layers.IPv6)
+			srcIP = l.SrcIP
+			dstIP = l.DstIP
+			proto = l.NextHeader
+			plen = l.Length + 40
+		} else {
+			return "", "", 0
+		}
+	}
+
+	layer = p.Layer(layers.LayerTypeTCP)
+	if layer != nil {
+		l := layer.(*layers.TCP)
+		srcPort = uint16(l.SrcPort)
+		dstPort = uint16(l.DstPort)
+	} else {
+		layer = p.Layer(layers.LayerTypeUDP)
+		if layer != nil {
+			l := layer.(*layers.UDP)
+			srcPort = uint16(l.SrcPort)
+			dstPort = uint16(l.DstPort)
+		}
+	}
+
+	return Make5Tuple(srcIP, int(srcPort), dstIP, int(dstPort), proto),
+		Make5Tuple(srcIP, -1, dstIP, -1, proto), plen
 }

@@ -57,12 +57,14 @@ type VPPInstance struct {
 	namespaces map[string]*NetNS
 	Context    context.Context
 	cancel     context.CancelFunc
+	Captures   map[string]*Capture
 }
 
 func NewVppInstance(cfg VPPConfig) *VPPInstance {
 	return &VPPInstance{
 		cfg:        cfg,
 		namespaces: make(map[string]*NetNS),
+		Captures:   make(map[string]*Capture),
 	}
 }
 
@@ -196,8 +198,9 @@ func (vi *VPPInstance) stopVPP() {
 }
 
 func (vi *VPPInstance) closeNamespaces() {
-	// FIXME (allow tcpdumps to grab the packets)
-	<-time.After(1 * time.Second)
+	for _, c := range vi.Captures {
+		c.Stop()
+	}
 	for _, ns := range vi.namespaces {
 		ns.Close()
 	}
@@ -269,6 +272,7 @@ func (vi *VPPInstance) SetupNamespaces() error {
 		if err := c.Start(); err != nil {
 			return errors.Wrapf(err, "capture for %s", nsCfg.Name)
 		}
+		vi.Captures[nsCfg.Name] = c
 	}
 
 	return nil

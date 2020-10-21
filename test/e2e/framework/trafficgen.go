@@ -29,6 +29,8 @@ type TrafficGenConfig struct {
 	ChunkCount       int
 	ChunkDelay       time.Duration
 	Context          context.Context
+	// Set to true to avoid late TCP packets after the end of a connection
+	NoLinger bool
 }
 
 func (cfg *TrafficGenConfig) setDefaults() {
@@ -123,11 +125,25 @@ func (tg *TrafficGen) SimulateDownload() error {
 	url := fmt.Sprintf("http://%s%s/dummy", tg.cfg.ServerIP, portSuffix)
 	fmt.Printf("*** downloading from %s\n", url)
 
+	dialContext := tg.cfg.ClientNS.DialContext
+	if tg.cfg.NoLinger {
+		dialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+			conn, err := tg.cfg.ClientNS.DialContext(ctx, network, address)
+			if err != nil {
+				return nil, err
+			}
+			if tcpConn, ok := conn.(*net.TCPConn); ok {
+				tcpConn.SetLinger(0)
+			}
+			return conn, nil
+		}
+	}
+
 	c := http.Client{
 		// Timeout: READ_TIMEOUT,
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
-			DialContext:           tg.cfg.ClientNS.DialContext,
+			DialContext:           dialContext,
 			MaxIdleConns:          100,
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
