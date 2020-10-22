@@ -361,6 +361,29 @@ upf_init (vlib_main_t * vm)
 					FIB_SOURCE_PRIORITY_HI,
 					FIB_SOURCE_BH_SIMPLE);
 
+  clib_spinlock_init (&sm->upf_counter_lock);
+  vec_validate (sm->upf_simple_counters, UPF_N_COUNTERS - 1);
+
+  sm->upf_simple_counters[UPF_ASSOC_COUNTER].name = "total_assoc";
+  sm->upf_simple_counters[UPF_ASSOC_COUNTER].stat_segment_name =
+    "/upf/total_assoc";
+  vlib_validate_simple_counter (&sm->upf_simple_counters
+				[UPF_ASSOC_COUNTER], 0);
+  vlib_zero_simple_counter (&sm->upf_simple_counters
+			    [UPF_ASSOC_COUNTER], 0);
+
+  sm->upf_simple_counters[UPF_SESSIONS_COUNTER].name = "total_sessions";
+  sm->upf_simple_counters[UPF_SESSIONS_COUNTER].stat_segment_name =
+    "/upf/total_sessions";
+  vlib_validate_simple_counter (&sm->upf_simple_counters
+				[UPF_SESSIONS_COUNTER], 0);
+  vlib_zero_simple_counter (&sm->upf_simple_counters
+			    [UPF_SESSIONS_COUNTER], 0);
+
+  sm->upf_simple_counters[UPF_FLOW_COUNTER].name = "total_flows";
+  sm->upf_simple_counters[UPF_FLOW_COUNTER].stat_segment_name =
+    "/upf/total_flows";
+
   error = flowtable_init (vm);
   if (error)
     return error;
