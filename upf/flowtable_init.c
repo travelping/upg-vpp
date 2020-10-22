@@ -20,6 +20,8 @@
 #include <vppinfra/types.h>
 #include <vppinfra/vec.h>
 
+#include "upf.h"
+
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -68,6 +70,7 @@ flowtable_init_cpu (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
   flow_entry_t *f;
   clib_error_t *error = 0;
   dlist_elt_t *timer_slot;
+  upf_main_t *gtm = &upf_main;
 
   /* init hashtable */
   BV (clib_bihash_init) (&fmt->flows_ht, "flow hash table",
@@ -79,6 +82,14 @@ flowtable_init_cpu (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
   /* alloc TIMER_MAX_LIFETIME heads from the timers pool and fill them with defaults */
   pool_validate_index (fmt->timers, TIMER_MAX_LIFETIME - 1);
   upf_debug ("POOL SIZE %u", pool_elts (fmt->timers));
+
+  /* Init flows counter per cpu */
+  upf_counter_lock (gtm);
+  vlib_validate_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
+				fmt - fm->per_cpu);
+  vlib_zero_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
+			    fmt - fm->per_cpu);
+  upf_counter_unlock (gtm);
 
   /* *INDENT-OFF* */
   pool_foreach (timer_slot, fmt->timers,

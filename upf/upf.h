@@ -38,6 +38,7 @@
 #include <vnet/fib/fib_table.h>
 #include <vnet/policer/policer.h>
 #include <vnet/session/session_types.h>
+#include <vlib/vlib.h>
 
 #include "pfcp.h"
 #include "flowtable.h"
@@ -434,6 +435,13 @@ typedef struct
 #define URR_THRESHOLD_REACHED   BIT(1)
 #define URR_START_OF_TRAFFIC    BIT(2)
 
+typedef enum {
+  UPF_ASSOC_COUNTER = 0,
+  UPF_SESSIONS_COUNTER = 1,
+  UPF_FLOW_COUNTER = 2,
+  UPF_N_COUNTERS = 3,
+} upf_counters_type_t;
+
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */
 typedef struct
@@ -802,6 +810,10 @@ typedef struct
   mhash_t node_index_by_ip;
   uword *node_index_by_fqdn;
 
+  /* upg-related counters */
+  clib_spinlock_t upf_counter_lock;
+  vlib_simple_counter_main_t *upf_simple_counters;
+
 #if 0
   uword *vtep4;
   uword *vtep6;
@@ -877,6 +889,20 @@ upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
 {
   vnet_buffer (b)->l3_hdr_offset = b->current_data;
   b->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
+}
+
+static inline void
+upf_counter_lock (upf_main_t * gtm)
+{
+  if (gtm->upf_counter_lock)
+    clib_spinlock_lock (&gtm->upf_counter_lock);
+}
+
+static inline void
+upf_counter_unlock (upf_main_t * gtm)
+{
+  if (gtm->upf_counter_lock)
+    clib_spinlock_unlock (&gtm->upf_counter_lock);
 }
 
 #endif /* __included_upf_h__ */
