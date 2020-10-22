@@ -121,7 +121,7 @@ func TestVPPWebServer(t *testing.T) {
 			Context:  vi.Context,
 		})
 
-		if err := tg.SimulateDownload(); err != nil {
+		if err := tg.Run(); err != nil {
 			t.Error(err)
 		}
 	})
@@ -143,20 +143,15 @@ func TestVPPProxy(t *testing.T) {
 		},
 	}, func(vi *VPPInstance) {
 		tg := NewTrafficGen(TrafficGenConfig{
-			ClientNS:         vi.GetNS("client"),
-			ServerNS:         vi.GetNS("server"),
-			ServerIP:         MustParseIP("10.0.0.2"),
-			ServerPort:       555,
-			ServerListenPort: 777,
-			Context:          vi.Context,
+			ClientNS:            vi.GetNS("client"),
+			ServerNS:            vi.GetNS("server"),
+			ServerIP:            MustParseIP("10.0.0.2"),
+			WebServerPort:       555,
+			WebServerListenPort: 777,
+			Context:             vi.Context,
 		})
 
-		if err := tg.StartWebserver(); err != nil {
-			t.Error(err)
-			return
-		}
-
-		if err := tg.SimulateDownload(); err != nil {
+		if err := tg.Run(); err != nil {
 			t.Error(err)
 		}
 	})
@@ -244,107 +239,119 @@ func WithUPG(t *testing.T, toCall func(vi *VPPInstance, pc *PFCPConnection)) {
 }
 
 func TestMeasurement(t *testing.T) {
-	WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) { // TODO: should also set up a PFCPConnection
-		seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP)...)
-		if err != nil {
-			t.Error(err)
-			return
-		}
+	for _, tc := range []struct {
+		name        string
+		trafficType TrafficType
+	}{
+		{name: "TCP", trafficType: TrafficTypeTCP},
+		{name: "UDP", trafficType: TrafficTypeUDP},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) {
+				seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP)...)
+				if err != nil {
+					t.Error(err)
+					return
+				}
 
-		t.Logf("Session started")
-		tg := NewTrafficGen(tgTrafficMeasurementConfig(vi))
-		if err := tg.StartWebserver(); err != nil {
-			t.Error(err)
-			return
-		}
+				t.Logf("Session started")
+				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType))
+				if err := tg.Run(); err != nil {
+					t.Error(err)
+				}
 
-		if err := tg.SimulateDownload(); err != nil {
-			t.Error(err)
-		}
+				// just be on the safe side with the packet captures
+				<-time.After(5 * time.Second)
 
-		// just be on the safe side with the packet captures
-		<-time.After(5 * time.Second)
+				ms, err := pc.DeleteSession(vi.Context, seid)
+				if err != nil {
+					t.Error(err)
+					return
+				}
 
-		ms, err := pc.DeleteSession(vi.Context, seid)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		verifyMeasurements(t, vi, ms)
-	})
+				verifyMeasurements(t, vi, ms, tc.trafficType)
+			})
+		})
+	}
 }
 
 func TestPDRReplacement(t *testing.T) {
-	WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) { // TODO: should also set up a PFCPConnection
-		seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP)...)
-		if err != nil {
-			t.Error(err)
-			return
-		}
+	for _, tc := range []struct {
+		name        string
+		trafficType TrafficType
+	}{
+		{name: "TCP", trafficType: TrafficTypeTCP},
+		{name: "UDP", trafficType: TrafficTypeUDP},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) {
+				seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP)...)
+				if err != nil {
+					t.Error(err)
+					return
+				}
 
-		t.Logf("Session started")
-		tg := NewTrafficGen(tgTrafficMeasurementConfig(vi))
-		if err := tg.StartWebserver(); err != nil {
-			t.Error(err)
-			return
-		}
+				t.Logf("Session started")
+				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType))
+				tgDone := tg.Start()
+				idBase := uint16(1)
+			LOOP:
+				for i := 1; ; i++ {
+					ies := deletePDRs(idBase)
+					// uncommeting this crashes UPG as of 1.0.1
+					// idBase ^= 8
+					ies = append(ies, createPDRs(idBase, ueIP)...)
+					if _, err := pc.ModifySession(vi.Context, seid, ies...); err != nil {
+						t.Errorf("ModifySession(): %v", err)
+						break
+					}
+					select {
+					case <-tgDone:
+						break LOOP
+					case <-time.After(500 * time.Millisecond):
+					}
+				}
 
-		doneCh := make(chan struct{})
-		go func() {
-			if err := tg.SimulateDownload(); err != nil {
-				t.Error(err)
-			}
-			// just be on the safe side with the packet captures
-			<-time.After(5 * time.Second)
-			close(doneCh)
-		}()
+				if err := tg.Verify(); err != nil {
+					t.Errorf("Traffic generator: %v", err)
+				}
 
-		idBase := uint16(1)
-	LOOP:
-		for i := 1; ; i++ {
-			ies := deletePDRs(idBase)
-			// uncommeting this crashes UPG as of 1.0.1
-			// idBase ^= 8
-			ies = append(ies, createPDRs(idBase, ueIP)...)
-			if _, err := pc.ModifySession(vi.Context, seid, ies...); err != nil {
-				t.Errorf("ModifySession(): %v", err)
-				break
-			}
-			select {
-			case <-doneCh:
-				break LOOP
-			case <-time.After(500 * time.Millisecond):
-			}
-		}
+				ms, err := pc.DeleteSession(vi.Context, seid)
+				if err != nil {
+					t.Error(err)
+					return
+				}
 
-		ms, err := pc.DeleteSession(vi.Context, seid)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		verifyMeasurements(t, vi, ms)
-	})
+				verifyMeasurements(t, vi, ms, tc.trafficType)
+			})
+		})
+	}
 }
 
 // tgTrafficMeasurementConfig returns a TrafficGenConfig suitable
 // for precise traffic measurement. It includes delays to avoid
 // skipped packets in pcaps, as well as "NoLinger" option
-func tgTrafficMeasurementConfig(vi *VPPInstance) TrafficGenConfig {
-	return TrafficGenConfig{
-		ClientNS:         vi.GetNS("access"),
-		ServerNS:         vi.GetNS("sgi"),
-		ServerIP:         serverIP,
-		ServerPort:       80,
-		ServerListenPort: 80,
-		ChunkDelay:       50 * time.Millisecond,
-		Context:          vi.Context,
-		NoLinger:         true, // avoid late TCP packets
+func tgTrafficMeasurementConfig(vi *VPPInstance, trafficType TrafficType) TrafficGenConfig {
+	cfg := TrafficGenConfig{
+		ClientNS:            vi.GetNS("access"),
+		ServerNS:            vi.GetNS("sgi"),
+		ServerIP:            serverIP,
+		WebServerPort:       80,
+		WebServerListenPort: 80,
+		ChunkDelay:          50 * time.Millisecond,
+		Context:             vi.Context,
+		FinalDelay:          5 * time.Second, // make sure everything gets into the PCAP
+		VerifyStats:         true,
+		Type:                trafficType,
 	}
+
+	if trafficType == TrafficTypeUDP {
+		cfg.ChunkSize = 100
+	}
+	return cfg
 }
 
-func verifyMeasurements(t *testing.T, vi *VPPInstance, ms *PFCPMeasurement) {
+func verifyMeasurements(t *testing.T, vi *VPPInstance, ms *PFCPMeasurement, trafficType TrafficType) {
 	if ms == nil {
 		t.Error("DeleteSession didn't return any measurements")
 		return
@@ -355,8 +362,18 @@ func verifyMeasurements(t *testing.T, vi *VPPInstance, ms *PFCPMeasurement) {
 		panic("capture not found")
 	}
 
-	ul := c.GetTrafficCount(Make5Tuple(ueIP, -1, serverIP, -1, layers.IPProtocolTCP))
-	dl := c.GetTrafficCount(Make5Tuple(serverIP, -1, ueIP, -1, layers.IPProtocolTCP))
+	var proto layers.IPProtocol
+	switch trafficType {
+	case TrafficTypeTCP:
+		proto = layers.IPProtocolTCP
+	case TrafficTypeUDP:
+		proto = layers.IPProtocolUDP
+	default:
+		panic("bad traffic type")
+	}
+
+	ul := c.GetTrafficCount(Make5Tuple(ueIP, -1, serverIP, -1, proto))
+	dl := c.GetTrafficCount(Make5Tuple(serverIP, -1, ueIP, -1, proto))
 	t.Logf("capture stats: UL: %d, DL: %d", ul, dl)
 
 	r, found := ms.Reports[1]

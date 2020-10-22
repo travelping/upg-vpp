@@ -167,6 +167,16 @@ func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
 	return l, err
 }
 
+func (netns *NetNS) ListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
+	var c *net.UDPConn
+	err := netns.Do(func() error {
+		var innerErr error
+		c, innerErr = net.ListenUDP("udp", laddr)
+		return innerErr
+	})
+	return c, err
+}
+
 func (netns *NetNS) addCleanup(toCall func()) {
 	netns.cleanups = append(netns.cleanups, toCall)
 }
