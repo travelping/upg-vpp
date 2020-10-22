@@ -298,8 +298,9 @@ func TestPDRReplacement(t *testing.T) {
 			LOOP:
 				for i := 1; ; i++ {
 					ies := deletePDRs(idBase)
-					// uncommeting this crashes UPG as of 1.0.1
-					// idBase ^= 8
+					// changing the PDR IDs crashes UPG as of 1.0.1
+					// while it's handling a packet belonging to an affected flow
+					idBase ^= 8
 					ies = append(ies, createPDRs(idBase, ueIP)...)
 					if _, err := pc.ModifySession(vi.Context, seid, ies...); err != nil {
 						t.Errorf("ModifySession(): %v", err)
