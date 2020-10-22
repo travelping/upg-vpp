@@ -1007,11 +1007,4 @@ type pfcpRequest interface {
 	SetSequenceNumber(seq uint32)
 }
 
-// TODO: own logging func
-// TODO: close the session
-// TODO: release association
-// TODO: command channel:
-//       * add session
-//       * close session
-//       * modify session (just for report initially)
-//       * done
+// TODO: proper logging
