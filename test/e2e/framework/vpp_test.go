@@ -369,16 +369,18 @@ func verifyMeasurements(t *testing.T, vi *VPPInstance, ms *PFCPMeasurement) {
 		t.Error("uplink volume missing in UsageReport")
 	case r.TotalVolume == nil:
 		t.Error("total volume missing in UsageReport")
-	case ul != *r.UplinkVolume:
-		t.Errorf("bad uplink volume: reported %d, actual %d", *r.UplinkVolume, ul)
-		fallthrough
-	case dl != *r.DownlinkVolume:
-		t.Errorf("bad downlink volume: reported %d, actual %d", *r.UplinkVolume, ul)
-		fallthrough
-	case *r.UplinkVolume+*r.DownlinkVolume != *r.TotalVolume:
-		t.Errorf("bad total reported volume: must be %d, actual %d",
-			*r.UplinkVolume+*r.DownlinkVolume,
-			*r.TotalVolume)
+	default:
+		if ul != *r.UplinkVolume {
+			t.Errorf("bad uplink volume: reported %d, actual %d", *r.UplinkVolume, ul)
+		}
+		if dl != *r.DownlinkVolume {
+			t.Errorf("bad downlink volume: reported %d, actual %d", *r.DownlinkVolume, dl)
+		}
+		if *r.UplinkVolume+*r.DownlinkVolume != *r.TotalVolume {
+			t.Errorf("bad total reported volume: must be %d, actual %d",
+				*r.UplinkVolume+*r.DownlinkVolume,
+				*r.TotalVolume)
+		}
 	}
 }
 
