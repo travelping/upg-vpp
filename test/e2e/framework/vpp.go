@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	VPP_BINARY               = "/usr/bin/vpp"
 	VPP_MAX_CONNECT_ATTEMPTS = 10
 	VPP_RECONNECT_INTERVAL   = time.Second
 )
@@ -50,6 +49,7 @@ type VPPConfig struct {
 
 type VPPInstance struct {
 	cfg        VPPConfig
+	startupCfg VPPStartupConfig
 	conn       *core.Connection
 	apiChannel api.Channel
 	cmd        *exec.Cmd
@@ -61,8 +61,11 @@ type VPPInstance struct {
 }
 
 func NewVppInstance(cfg VPPConfig) *VPPInstance {
+	var startupCfg VPPStartupConfig
+	startupCfg.SetFromEnv()
 	return &VPPInstance{
 		cfg:        cfg,
+		startupCfg: startupCfg,
 		namespaces: make(map[string]*NetNS),
 		Captures:   make(map[string]*Capture),
 	}
@@ -91,7 +94,7 @@ func (vi *VPPInstance) StartVPP() error {
 	}
 	defer os.Remove(startupFile.Name())
 
-	if _, err := startupFile.Write([]byte(vppStartup)); err != nil {
+	if _, err := startupFile.Write([]byte(vi.startupCfg.Get())); err != nil {
 		return errors.Wrap(err, "error writing the startup conf file")
 	}
 
@@ -102,13 +105,13 @@ func (vi *VPPInstance) StartVPP() error {
 	vi.cmd = exec.Command(
 		"nsenter", "--net="+vi.vppNS.Path(),
 		"gdb", "--batch", "-x", "/tmp/foo", "--args",
-		VPP_BINARY, "-c", startupFile.Name())
+		vi.startupCfg.BinaryPath, "-c", startupFile.Name())
 	vi.cmd.Stdout = os.Stdout
 	vi.cmd.Stderr = os.Stderr
 	sigchldCh := make(chan os.Signal, 1)
 	signal.Notify(sigchldCh, unix.SIGCHLD)
 	if err := vi.cmd.Start(); err != nil {
-		return errors.Wrapf(err, "error starting vpp (%q)", VPP_BINARY)
+		return errors.Wrapf(err, "error starting vpp (%q)", vi.startupCfg.BinaryPath)
 	}
 
 	conn, conev, err := govpp.AsyncConnect(
