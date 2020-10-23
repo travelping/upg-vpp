@@ -731,9 +731,9 @@ typedef struct
 
 typedef enum
 {
- ADR_FAIL = 0,
- ADR_OK,
- ADR_NEED_MORE_DATA
+  ADR_FAIL = 0,
+  ADR_OK,
+  ADR_NEED_MORE_DATA
 } adr_result_t;
 
 /* bihash buckets are cheap, only 8 bytes per bucket */

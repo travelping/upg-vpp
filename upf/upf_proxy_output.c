@@ -46,10 +46,10 @@ typedef enum
 } upf_proxy_output_next_t;
 
 static upf_proxy_output_next_t ft_next_map_next[FT_NEXT_N_NEXT] = {
-  [FT_NEXT_DROP]     = UPF_PROXY_OUTPUT_NEXT_DROP,
+  [FT_NEXT_DROP] = UPF_PROXY_OUTPUT_NEXT_DROP,
   [FT_NEXT_CLASSIFY] = UPF_PROXY_OUTPUT_NEXT_CLASSIFY,
-  [FT_NEXT_PROCESS]  = UPF_PROXY_OUTPUT_NEXT_PROCESS,
-  [FT_NEXT_PROXY]    = UPF_PROXY_OUTPUT_NEXT_PROCESS,
+  [FT_NEXT_PROCESS] = UPF_PROXY_OUTPUT_NEXT_PROCESS,
+  [FT_NEXT_PROXY] = UPF_PROXY_OUTPUT_NEXT_PROCESS,
 };
 
 /* Statistics (not all errors) */
@@ -172,9 +172,12 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 		     flow_next (flow, FT_ORIGIN), flow_next (flow,
 							     FT_REVERSE));
 
-	  if (pool_is_free (gtm->sessions, gtm->sessions + flow->session_index))
+	  if (pool_is_free
+	      (gtm->sessions, gtm->sessions + flow->session_index))
 	    {
-              clib_warning("The flow has sidx %d that refers to a dead session", flow->session_index);
+	      clib_warning
+		("The flow has sidx %d that refers to a dead session",
+		 flow->session_index);
 	      next = UPF_PROXY_OUTPUT_NEXT_DROP;
 	      error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
 	      goto stats;

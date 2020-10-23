@@ -14,14 +14,14 @@
 #define RESET_BIT(mask, n)  ((mask) &= ~BIT(n))
 #define ISSET_BIT(mask, n)  (!!((mask) & BIT(n)))
 
-typedef struct __attribute__((packed))
+typedef struct __attribute__ ((packed))
 {
   u8 sequence[3];
   u8 spare;
   u8 ies[];
 } pfcp_node_msg_header_t;
 
-typedef struct __attribute__((packed))
+typedef struct __attribute__ ((packed))
 {
   u64 seid;
   u8 sequence[3];
@@ -37,7 +37,7 @@ typedef struct __attribute__((packed))
   u8 ies[];
 } pfcp_session_msg_header_t;
 
-typedef struct __attribute__((packed))
+typedef struct __attribute__ ((packed))
 {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
   u8 s_flag:1;
@@ -64,13 +64,13 @@ typedef struct __attribute__((packed))
 #define NODE_MSG_HDR_LEN (offsetof(pfcp_header_t, msg_hdr.ies))
 #define SESSION_MSG_HDR_LEN (offsetof(pfcp_header_t, session_hdr.ies))
 
-typedef struct __attribute__((packed))
+typedef struct __attribute__ ((packed))
 {
   u16 type;
   u16 length;
 } pfcp_ie_t;
 
-typedef struct __attribute__((packed))
+typedef struct __attribute__ ((packed))
 {
   u16 type;
   u16 length;

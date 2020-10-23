@@ -296,10 +296,10 @@ app_scan_for_uri (u8 * uri, flow_entry_t * flow, struct rules *active,
 
 	addr =
 	  &flow->key.ip[direction ^ flow->is_reverse ^
-			!!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD)];
+			! !(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD)];
 	upf_debug ("Using %U as UE IP, S/D: %u",
 		   format_ip46_address, addr, IP46_TYPE_ANY,
-		   !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD));
+		   ! !(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD));
 
 	if (ip46_address_is_ip4 (addr))
 	  {
@@ -313,7 +313,7 @@ app_scan_for_uri (u8 * uri, flow_entry_t * flow, struct rules *active,
 	      {
 		adf_debug
 		  ("skip PDR %u for UE IPv4 mismatch, S/D: %u, %U != %U\n",
-		   pdr->id, !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD),
+		   pdr->id, ! !(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD),
 		   format_ip4_address, &pdr->pdi.ue_addr.ip4,
 		   format_ip46_address, addr, IP46_TYPE_ANY);
 		continue;
@@ -331,7 +331,7 @@ app_scan_for_uri (u8 * uri, flow_entry_t * flow, struct rules *active,
 	      {
 		adf_debug
 		  ("skip PDR %u for UE IPv6 mismatch, S/D: %u, %U != %U\n",
-		   pdr->id, !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD),
+		   pdr->id, ! !(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD),
 		   format_ip6_address, &pdr->pdi.ue_addr.ip6,
 		   format_ip46_address, addr, IP46_TYPE_ANY);
 		continue;
@@ -362,7 +362,7 @@ app_scan_for_uri (u8 * uri, flow_entry_t * flow, struct rules *active,
 
 adr_result_t
 upf_application_detection (vlib_main_t * vm, u8 * p,
-			   flow_entry_t * flow, struct rules *active)
+			   flow_entry_t * flow, struct rules * active)
 {
   adr_result_t r;
   upf_pdr_t *origin, *reverse;

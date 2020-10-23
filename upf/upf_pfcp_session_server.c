@@ -72,7 +72,8 @@ pfcp_session_server_rx_callback (session_t * s)
       ASSERT (ph.data_length >= ph.data_offset);
 
       len = ph.data_length - ph.data_offset;
-      msg = clib_mem_alloc_aligned_no_fail (sizeof (*msg), CLIB_CACHE_LINE_BYTES);
+      msg =
+	clib_mem_alloc_aligned_no_fail (sizeof (*msg), CLIB_CACHE_LINE_BYTES);
       memset (msg, 0, sizeof (*msg));
 
       msg->session_handle = session_handle (s);
@@ -102,7 +103,8 @@ pfcp_session_server_rx_callback (session_t * s)
 
       ph.data_offset += rv;
       if (ph.data_offset == ph.data_length)
-	svm_fifo_dequeue_drop (s->rx_fifo, ph.data_length + SESSION_CONN_HDR_LEN);
+	svm_fifo_dequeue_drop (s->rx_fifo,
+			       ph.data_length + SESSION_CONN_HDR_LEN);
       else
 	svm_fifo_overwrite_head (s->rx_fifo, (u8 *) & ph, sizeof (ph));
 
@@ -113,8 +115,9 @@ pfcp_session_server_rx_callback (session_t * s)
 		 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
 		 clib_net_to_host_u16 (msg->lcl.port), msg->data);
 
-      vlib_process_signal_event_mt (gtm->vlib_main, pfcp_api_process_node.index,
-				    EVENT_RX, (uword) msg);
+      vlib_process_signal_event_mt (gtm->vlib_main,
+				    pfcp_api_process_node.index, EVENT_RX,
+				    (uword) msg);
 
       max_deq = svm_fifo_max_dequeue_cons (s->rx_fifo);
     }
@@ -144,7 +147,8 @@ pfcp_session_server_session_reset_callback (session_t * s)
 static int
 pfcp_session_server_session_connected_callback (u32 app_index,
 						u32 api_context,
-						session_t * s, session_error_t err)
+						session_t * s,
+						session_error_t err)
 {
   upf_debug ("called...");
   return -1;

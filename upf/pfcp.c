@@ -1031,8 +1031,8 @@ decode_gate_status (u8 * data, u16 length, void *p)
 
   status = get_u8 (data);
   /* 2,3 - shall not be sent. If received, shall be interpreted as the value "1". */
-  v->dl = !!(status & 0x03);
-  v->ul = !!((status >> 2) & 0x03);
+  v->dl = ! !(status & 0x03);
+  v->ul = ! !((status >> 2) & 0x03);
 
   return 0;
 }
@@ -1142,21 +1142,21 @@ format_reporting_triggers (u8 * s, va_list * args)
 	      "START:%d,STOPT:%d,DROTH:%d,LIUSA:%d,"
 	      "VOLQU:%d,TIMQU:%d,ENVCL:%d,MACAR:%d,"
 	      "EVETH:%d,EVEQU:%d,IPMJL:%d",
-	      !!(*v & REPORTING_TRIGGER_PERIODIC_REPORTING),
-	      !!(*v & REPORTING_TRIGGER_VOLUME_THRESHOLD),
-	      !!(*v & REPORTING_TRIGGER_TIME_THRESHOLD),
-	      !!(*v & REPORTING_TRIGGER_QUOTA_HOLDING_TIME),
-	      !!(*v & REPORTING_TRIGGER_START_OF_TRAFFIC),
-	      !!(*v & REPORTING_TRIGGER_STOP_OF_TRAFFIC),
-	      !!(*v & REPORTING_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
-	      !!(*v & REPORTING_TRIGGER_LINKED_USAGE_REPORTING),
-	      !!(*v & REPORTING_TRIGGER_VOLUME_QUOTA),
-	      !!(*v & REPORTING_TRIGGER_TIME_QUOTA),
-	      !!(*v & REPORTING_TRIGGER_ENVELOPE_CLOSURE),
-	      !!(*v & REPORTING_TRIGGER_MAC_ADDRESSES_REPORTING),
-	      !!(*v & REPORTING_TRIGGER_EVENT_THRESHOLD),
-	      !!(*v & REPORTING_TRIGGER_EVENT_QUOTA),
-	      !!(*v & REPORTING_TRIGGER_IP_MULTICAST_JOIN_LEAVE));
+	      ! !(*v & REPORTING_TRIGGER_PERIODIC_REPORTING),
+	      ! !(*v & REPORTING_TRIGGER_VOLUME_THRESHOLD),
+	      ! !(*v & REPORTING_TRIGGER_TIME_THRESHOLD),
+	      ! !(*v & REPORTING_TRIGGER_QUOTA_HOLDING_TIME),
+	      ! !(*v & REPORTING_TRIGGER_START_OF_TRAFFIC),
+	      ! !(*v & REPORTING_TRIGGER_STOP_OF_TRAFFIC),
+	      ! !(*v & REPORTING_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
+	      ! !(*v & REPORTING_TRIGGER_LINKED_USAGE_REPORTING),
+	      ! !(*v & REPORTING_TRIGGER_VOLUME_QUOTA),
+	      ! !(*v & REPORTING_TRIGGER_TIME_QUOTA),
+	      ! !(*v & REPORTING_TRIGGER_ENVELOPE_CLOSURE),
+	      ! !(*v & REPORTING_TRIGGER_MAC_ADDRESSES_REPORTING),
+	      ! !(*v & REPORTING_TRIGGER_EVENT_THRESHOLD),
+	      ! !(*v & REPORTING_TRIGGER_EVENT_QUOTA),
+	      ! !(*v & REPORTING_TRIGGER_IP_MULTICAST_JOIN_LEAVE));
   return s;
 }
 
@@ -1329,7 +1329,8 @@ free_redirect_information (void *p)
 {
   pfcp_redirect_information_t *v = p;
 
-  if (v->type == REDIRECT_INFORMATION_HTTP || v->type == REDIRECT_INFORMATION_SIP)
+  if (v->type == REDIRECT_INFORMATION_HTTP
+      || v->type == REDIRECT_INFORMATION_SIP)
     vec_free (v->uri);
 }
 
@@ -1339,9 +1340,9 @@ format_report_type (u8 * s, va_list * args)
   pfcp_report_type_t *v = va_arg (*args, pfcp_report_type_t *);
 
   return format (s, "DLDR:%d,USAR:%d,ERIR:%d,UPIR:%d,PMIR:%d,SESR:%d",
-		 !!(*v & REPORT_TYPE_DLDR), !!(*v & REPORT_TYPE_USAR),
-		 !!(*v & REPORT_TYPE_ERIR), !!(*v & REPORT_TYPE_UPIR),
-		 !!(*v & REPORT_TYPE_PMIR), !!(*v & REPORT_TYPE_SESR));
+		 ! !(*v & REPORT_TYPE_DLDR), ! !(*v & REPORT_TYPE_USAR),
+		 ! !(*v & REPORT_TYPE_ERIR), ! !(*v & REPORT_TYPE_UPIR),
+		 ! !(*v & REPORT_TYPE_PMIR), ! !(*v & REPORT_TYPE_SESR));
 }
 
 #define decode_report_type decode_u8_ie
@@ -1448,24 +1449,24 @@ format_up_function_features (u8 * s, va_list * args)
 		 "MPAS:%d,RTTL:%d,VTIME:%d,NORP:%d,"
 		 "IPTV:%d,IP6PL:%d,TSCU:%d,MPTCP:%d,"
 		 "ATSSS-LL:%d,QFQM:%d,GPQM:%d",
-		 !!(*v & F_UPFF_BUCP), !!(*v & F_UPFF_DDND),
-		 !!(*v & F_UPFF_DLBD), !!(*v & F_UPFF_TRST),
-		 !!(*v & F_UPFF_FTUP), !!(*v & F_UPFF_PFDM),
-		 !!(*v & F_UPFF_HEEU), !!(*v & F_UPFF_TREU),
-		 !!(*v & F_UPFF_EMPU), !!(*v & F_UPFF_PDIU),
-		 !!(*v & F_UPFF_UDBC), !!(*v & F_UPFF_QUOAC),
-		 !!(*v & F_UPFF_TRACE), !!(*v & F_UPFF_FRRT),
-		 !!(*v & F_UPFF_PFDE), !!(*v & F_UPFF_EPFAR),
-		 !!(*v & F_UPFF_DPDRA), !!(*v & F_UPFF_ADPDP),
-		 !!(*v & F_UPFF_UEIP), !!(*v & F_UPFF_SSET),
-		 !!(*v & F_UPFF_MNOP), !!(*v & F_UPFF_MTE),
-		 !!(*v & F_UPFF_BUNDL), !!(*v & F_UPFF_GCOM),
-		 !!(*v & F_UPFF_MPAS), !!(*v & F_UPFF_RTTL),
-		 !!(*v & F_UPFF_VTIME), !!(*v & F_UPFF_NORP),
-		 !!(*v & F_UPFF_IPTV), !!(*v & F_UPFF_IP6PL),
-		 !!(*v & F_UPFF_TSCU), !!(*v & F_UPFF_MPTCP),
-		 !!(*v & F_UPFF_ATSSS_LL), !!(*v & F_UPFF_QFQM),
-		 !!(*v & F_UPFF_GPQM));
+		 ! !(*v & F_UPFF_BUCP), ! !(*v & F_UPFF_DDND),
+		 ! !(*v & F_UPFF_DLBD), ! !(*v & F_UPFF_TRST),
+		 ! !(*v & F_UPFF_FTUP), ! !(*v & F_UPFF_PFDM),
+		 ! !(*v & F_UPFF_HEEU), ! !(*v & F_UPFF_TREU),
+		 ! !(*v & F_UPFF_EMPU), ! !(*v & F_UPFF_PDIU),
+		 ! !(*v & F_UPFF_UDBC), ! !(*v & F_UPFF_QUOAC),
+		 ! !(*v & F_UPFF_TRACE), ! !(*v & F_UPFF_FRRT),
+		 ! !(*v & F_UPFF_PFDE), ! !(*v & F_UPFF_EPFAR),
+		 ! !(*v & F_UPFF_DPDRA), ! !(*v & F_UPFF_ADPDP),
+		 ! !(*v & F_UPFF_UEIP), ! !(*v & F_UPFF_SSET),
+		 ! !(*v & F_UPFF_MNOP), ! !(*v & F_UPFF_MTE),
+		 ! !(*v & F_UPFF_BUNDL), ! !(*v & F_UPFF_GCOM),
+		 ! !(*v & F_UPFF_MPAS), ! !(*v & F_UPFF_RTTL),
+		 ! !(*v & F_UPFF_VTIME), ! !(*v & F_UPFF_NORP),
+		 ! !(*v & F_UPFF_IPTV), ! !(*v & F_UPFF_IP6PL),
+		 ! !(*v & F_UPFF_TSCU), ! !(*v & F_UPFF_MPTCP),
+		 ! !(*v & F_UPFF_ATSSS_LL), ! !(*v & F_UPFF_QFQM),
+		 ! !(*v & F_UPFF_GPQM));
 }
 
 static int
@@ -1514,10 +1515,10 @@ format_apply_action (u8 * s, va_list * args)
   pfcp_apply_action_t *v = va_arg (*args, pfcp_apply_action_t *);
 
   return format (s, "DROP:%d,FORW:%d,BUFF:%d,NOCP:%d,DUPL:%d,IPMA:%d,IPMD:%d",
-		 !!(*v & F_APPLY_DROP), !!(*v & F_APPLY_FORW),
-		 !!(*v & F_APPLY_BUFF), !!(*v & F_APPLY_NOCP),
-		 !!(*v & F_APPLY_DUPL), !!(*v & F_APPLY_IPMA),
-		 !!(*v & F_APPLY_IPMD));
+		 ! !(*v & F_APPLY_DROP), ! !(*v & F_APPLY_FORW),
+		 ! !(*v & F_APPLY_BUFF), ! !(*v & F_APPLY_NOCP),
+		 ! !(*v & F_APPLY_DUPL), ! !(*v & F_APPLY_IPMA),
+		 ! !(*v & F_APPLY_IPMD));
 }
 
 #define decode_apply_action decode_u8_ie
@@ -1646,8 +1647,8 @@ format_pfcpsmreq_flags (u8 * s, va_list * args)
   pfcp_pfcpsmreq_flags_t *v = va_arg (*args, pfcp_pfcpsmreq_flags_t *);
 
   return format (s, "DROBU:%d,SNDEM:%d,QUARR:%d",
-		 !!(*v & PFCPSMREQ_DROBU), !!(*v & PFCPSMREQ_SNDEM),
-		 !!(*v & PFCPSMREQ_QAURR));
+		 ! !(*v & PFCPSMREQ_DROBU), ! !(*v & PFCPSMREQ_SNDEM),
+		 ! !(*v & PFCPSMREQ_QAURR));
 }
 
 #define decode_pfcpsmreq_flags decode_u8_ie
@@ -1658,7 +1659,7 @@ format_pfcpsrrsp_flags (u8 * s, va_list * args)
 {
   pfcp_pfcpsrrsp_flags_t *v = va_arg (*args, pfcp_pfcpsrrsp_flags_t *);
 
-  return format (s, "DROBU:%d", !!(*v & PFCPSRRSP_DROBU));
+  return format (s, "DROBU:%d", ! !(*v & PFCPSRRSP_DROBU));
 }
 
 #define decode_pfcpsrrsp_flags decode_u8_ie
@@ -2029,9 +2030,9 @@ format_measurement_method (u8 * s, va_list * args)
   pfcp_measurement_method_t *v = va_arg (*args, pfcp_measurement_method_t *);
 
   s = format (s, "DURAT:%d,VOLUM:%d,EVENT:%d",
-	      !!(*v & MEASUREMENT_METHOD_DURATION),
-	      !!(*v & MEASUREMENT_METHOD_VOLUME),
-	      !!(*v & MEASUREMENT_METHOD_EVENT));
+	      ! !(*v & MEASUREMENT_METHOD_DURATION),
+	      ! !(*v & MEASUREMENT_METHOD_VOLUME),
+	      ! !(*v & MEASUREMENT_METHOD_EVENT));
   return s;
 }
 
@@ -2049,25 +2050,26 @@ format_usage_report_trigger (u8 * s, va_list * args)
 	      "VOLQU:%d,TIMQU:%d,LIUSA:%d,TERMR:%d,"
 	      "MONIT:%d,ENVCL:%d,MACAR:%d,EVETH:%d,"
 	      "EVEQU:%d,TEBUR:%d,IPMJL:%d",
-	      !!(*v & USAGE_REPORT_TRIGGER_PERIODIC_REPORTING),
-	      !!(*v & USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD),
-	      !!(*v & USAGE_REPORT_TRIGGER_TIME_THRESHOLD),
-	      !!(*v & USAGE_REPORT_TRIGGER_QUOTA_HOLDING_TIME),
-	      !!(*v & USAGE_REPORT_TRIGGER_START_OF_TRAFFIC),
-	      !!(*v & USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC),
-	      !!(*v & USAGE_REPORT_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
-	      !!(*v & USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT),
-	      !!(*v & USAGE_REPORT_TRIGGER_VOLUME_QUOTA),
-	      !!(*v & USAGE_REPORT_TRIGGER_TIME_QUOTA),
-	      !!(*v & USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING),
-	      !!(*v & USAGE_REPORT_TRIGGER_TERMINATION_REPORT),
-	      !!(*v & USAGE_REPORT_TRIGGER_MONITORING_TIME),
-	      !!(*v & USAGE_REPORT_TRIGGER_ENVELOPE_CLOSURE),
-	      !!(*v & USAGE_REPORT_TRIGGER_MAC_ADDRESSES_REPORTING),
-	      !!(*v & USAGE_REPORT_TRIGGER_EVENT_THRESHOLD),
-	      !!(*v & USAGE_REPORT_TRIGGER_EVENT_QUOTA),
-	      !!(*v & USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT),
-	      !!(*v & USAGE_REPORT_TRIGGER_IP_MULTICAST_JOIN_LEAVE));
+	      ! !(*v & USAGE_REPORT_TRIGGER_PERIODIC_REPORTING),
+	      ! !(*v & USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD),
+	      ! !(*v & USAGE_REPORT_TRIGGER_TIME_THRESHOLD),
+	      ! !(*v & USAGE_REPORT_TRIGGER_QUOTA_HOLDING_TIME),
+	      ! !(*v & USAGE_REPORT_TRIGGER_START_OF_TRAFFIC),
+	      ! !(*v & USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC),
+	      ! !(*v & USAGE_REPORT_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
+	      ! !(*v & USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT),
+	      ! !(*v & USAGE_REPORT_TRIGGER_VOLUME_QUOTA),
+	      ! !(*v & USAGE_REPORT_TRIGGER_TIME_QUOTA),
+	      ! !(*v & USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING),
+	      ! !(*v & USAGE_REPORT_TRIGGER_TERMINATION_REPORT),
+	      ! !(*v & USAGE_REPORT_TRIGGER_MONITORING_TIME),
+	      ! !(*v & USAGE_REPORT_TRIGGER_ENVELOPE_CLOSURE),
+	      ! !(*v & USAGE_REPORT_TRIGGER_MAC_ADDRESSES_REPORTING),
+	      ! !(*v & USAGE_REPORT_TRIGGER_EVENT_THRESHOLD),
+	      ! !(*v & USAGE_REPORT_TRIGGER_EVENT_QUOTA),
+	      ! !(*v &
+		  USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT),
+	      ! !(*v & USAGE_REPORT_TRIGGER_IP_MULTICAST_JOIN_LEAVE));
   return s;
 }
 
@@ -2449,8 +2451,8 @@ decode_outer_header_creation (u8 * data, u16 length, void *p)
   length -= 2;
 
   if (v->description == 0 ||
-      (!!(v->description & OUTER_HEADER_CREATION_GTP_ANY)) ==
-      (!!(v->description & OUTER_HEADER_CREATION_UDP_ANY)) ||
+      (! !(v->description & OUTER_HEADER_CREATION_GTP_ANY)) ==
+      (! !(v->description & OUTER_HEADER_CREATION_UDP_ANY)) ||
       (v->description & OUTER_HEADER_CREATION_UDP_ANY) ==
       OUTER_HEADER_CREATION_UDP_ANY)
     {
@@ -2548,10 +2550,10 @@ format_cp_function_features (u8 * s, va_list * args)
 
   return format (s, "LOAD:%d,OVRL:%d,EPFAR:%d,SSET:%d,"
 		 "BUNDL:%d,MPAS:%d,ARDR:%d",
-		 !!(*v & F_CPFF_LOAD), !!(*v & F_CPFF_OVRL),
-		 !!(*v & F_CPFF_EPFAR), !!(*v & F_CPFF_SSET),
-		 !!(*v & F_CPFF_BUNDL), !!(*v & F_CPFF_MPAS),
-		 !!(*v & F_CPFF_ARDR));
+		 ! !(*v & F_CPFF_LOAD), ! !(*v & F_CPFF_OVRL),
+		 ! !(*v & F_CPFF_EPFAR), ! !(*v & F_CPFF_SSET),
+		 ! !(*v & F_CPFF_BUNDL), ! !(*v & F_CPFF_MPAS),
+		 ! !(*v & F_CPFF_ARDR));
 }
 
 #define decode_cp_function_features decode_u8_ie
@@ -2563,10 +2565,10 @@ format_usage_information (u8 * s, va_list * args)
   pfcp_usage_information_t *v = va_arg (*args, pfcp_usage_information_t *);
 
   s = format (s, "UBE:%d,UAE:%d,AFT:%d,BEF:%d",
-	      !!(*v & USAGE_INFORMATION_BEFORE_QoS_ENFORCEMENT),
-	      !!(*v & USAGE_INFORMATION_AFTER_QoS_ENFORCEMENT),
-	      !!(*v & USAGE_INFORMATION_AFTER),
-	      !!(*v & USAGE_INFORMATION_BEFORE));
+	      ! !(*v & USAGE_INFORMATION_BEFORE_QoS_ENFORCEMENT),
+	      ! !(*v & USAGE_INFORMATION_AFTER_QoS_ENFORCEMENT),
+	      ! !(*v & USAGE_INFORMATION_AFTER),
+	      ! !(*v & USAGE_INFORMATION_BEFORE));
 
   return s;
 }
@@ -2645,9 +2647,9 @@ format_ue_ip_address (u8 * s, va_list * args)
   pfcp_ue_ip_address_t *v = va_arg (*args, pfcp_ue_ip_address_t *);
 
   s = format (s, "S/D:%d,CHv4:%d,CHv6:%d",
-	      !!(v->flags & IE_UE_IP_ADDRESS_SD),
-	      !!(v->flags & IE_UE_IP_ADDRESS_CHV4),
-	      !!(v->flags & IE_UE_IP_ADDRESS_CHV6));
+	      ! !(v->flags & IE_UE_IP_ADDRESS_SD),
+	      ! !(v->flags & IE_UE_IP_ADDRESS_CHV4),
+	      ! !(v->flags & IE_UE_IP_ADDRESS_CHV6));
 
   if (v->flags & IE_UE_IP_ADDRESS_V4)
     s = format (s, ",IPv4:%U", format_ip4_address, &v->ip4);
@@ -2762,7 +2764,7 @@ format_packet_rate (u8 * s, va_list * args)
 {
   pfcp_packet_rate_t *v = va_arg (*args, pfcp_packet_rate_t *);
 
-  s = format (s, "RCSR:%d", !!(v->flags & PACKET_RATE_RCSR));
+  s = format (s, "RCSR:%d", ! !(v->flags & PACKET_RATE_RCSR));
 
   if (v->flags & PACKET_RATE_ULPR)
     s = format (s, ",UL:%U", format_packet_rate_t, &v->ul);
@@ -3027,11 +3029,11 @@ format_measurement_information (u8 * s, va_list * args)
     va_arg (*args, pfcp_measurement_information_t *);
 
   return format (s, "MBQE:%d,INAM:%d,RADI:%d,ISTM:%d,MNOP:%d",
-		 !!(v->flags & MEASUREMENT_INFORMATION_MBQE),
-		 !!(v->flags & MEASUREMENT_INFORMATION_INAM),
-		 !!(v->flags & MEASUREMENT_INFORMATION_RADI),
-		 !!(v->flags & MEASUREMENT_INFORMATION_ISTM),
-		 !!(v->flags & MEASUREMENT_INFORMATION_MNOP));
+		 ! !(v->flags & MEASUREMENT_INFORMATION_MBQE),
+		 ! !(v->flags & MEASUREMENT_INFORMATION_INAM),
+		 ! !(v->flags & MEASUREMENT_INFORMATION_RADI),
+		 ! !(v->flags & MEASUREMENT_INFORMATION_ISTM),
+		 ! !(v->flags & MEASUREMENT_INFORMATION_MNOP));
 }
 
 static int
@@ -3063,10 +3065,10 @@ format_node_report_type (u8 * s, va_list * args)
   pfcp_node_report_type_t *v = va_arg (*args, pfcp_node_report_type_t *);
 
   return format (s, "UPFR:%d,UPRR:%d,GKDR:%d,GPQR",
-		 !!(v->flags & NRT_USER_PLANE_PATH_FAILURE_REPORT),
-		 !!(v->flags & NRT_USER_PLANE_PATH_RECOVERY_REPORT),
-		 !!(v->flags & NRT_CLOCK_DRIFT_REPORT),
-		 !!(v->flags & NRT_GTP_U_PATH_QOS_REPORT));
+		 ! !(v->flags & NRT_USER_PLANE_PATH_FAILURE_REPORT),
+		 ! !(v->flags & NRT_USER_PLANE_PATH_RECOVERY_REPORT),
+		 ! !(v->flags & NRT_CLOCK_DRIFT_REPORT),
+		 ! !(v->flags & NRT_GTP_U_PATH_QOS_REPORT));
 }
 
 static int
@@ -3182,7 +3184,7 @@ encode_remote_gtp_u_peer (void *p, u8 ** vec)
   pfcp_remote_gtp_u_peer_t *v = p;
   u8 flags;
 
-  flags = (v->destination_interface != (u8)~0 ? REMOTE_GTP_U_PEER_DI : 0) |
+  flags = (v->destination_interface != (u8) ~ 0 ? REMOTE_GTP_U_PEER_DI : 0) |
     (vec_len (v->network_instance) > 0 ? REMOTE_GTP_U_PEER_NI : 0);
 
   if (ip46_address_is_ip4 (&v->ip))
@@ -3196,7 +3198,7 @@ encode_remote_gtp_u_peer (void *p, u8 ** vec)
       put_ip46_ip6 (*vec, v->ip);
     }
 
-  if (v->destination_interface != (u8)~0)
+  if (v->destination_interface != (u8) ~ 0)
     {
       put_u16 (*vec, 1);
       put_u8 (*vec, v->destination_interface);
@@ -3238,7 +3240,8 @@ format_oci_flags (u8 * s, va_list * args)
 {
   pfcp_oci_flags_t *v = va_arg (*args, pfcp_oci_flags_t *);
 
-  return format (s, "AOCI:%d", !!(v->flags & OCI_ASSOCIATE_OCI_WITH_NODE_ID));
+  return format (s, "AOCI:%d",
+		 ! !(v->flags & OCI_ASSOCIATE_OCI_WITH_NODE_ID));
 }
 
 static int
@@ -3271,8 +3274,8 @@ format_pfcp_association_release_request (u8 * s, va_list * args)
     va_arg (*args, pfcp_pfcp_association_release_request_t *);
 
   return format (s, "SARR:%d,URSS:%d",
-		 !!(v->flags & F_PFCP_ASSOCIATION_RELEASE_REQUEST_SARR),
-		 !!(v->flags & F_PFCP_ASSOCIATION_RELEASE_REQUEST_URSS));
+		 ! !(v->flags & F_PFCP_ASSOCIATION_RELEASE_REQUEST_SARR),
+		 ! !(v->flags & F_PFCP_ASSOCIATION_RELEASE_REQUEST_URSS));
 }
 
 static int
@@ -3657,7 +3660,7 @@ format_rqi (u8 * s, va_list * args)
 {
   pfcp_rqi_t *v = va_arg (*args, pfcp_rqi_t *);
 
-  return format (s, "RQI:%d", !!(v->flags & RQI_FLAG));
+  return format (s, "RQI:%d", ! !(v->flags & RQI_FLAG));
 }
 
 static int
@@ -3867,7 +3870,7 @@ format_proxying (u8 * s, va_list * args)
   pfcp_proxying_t *v = va_arg (*args, pfcp_proxying_t *);
 
   return format (s, "ARP:%d,INS:%d",
-		 !!(v->flags & F_PROXY_ARP), !!(v->flags & F_PROXY_IP6_NS));
+		 ! !(v->flags & F_PROXY_ARP), ! !(v->flags & F_PROXY_IP6_NS));
 }
 
 static int
@@ -3904,7 +3907,7 @@ format_ethernet_filter_properties (u8 * s, va_list * args)
     va_arg (*args, pfcp_ethernet_filter_properties_t *);
 
   return format (s, "BIDE:%d",
-		 !!(v->flags & F_BIDIRECTIONAL_ETHERNET_FILTER));
+		 ! !(v->flags & F_BIDIRECTIONAL_ETHERNET_FILTER));
 }
 
 static int
@@ -4092,7 +4095,7 @@ format_ethernet_pdu_session_information (u8 * s, va_list * args)
   pfcp_ethernet_pdu_session_information_t *v =
     va_arg (*args, pfcp_ethernet_pdu_session_information_t *);
 
-  return format (s, "ETHI:%d", !!(v->flags & F_ETHERNET_INDICATION));
+  return format (s, "ETHI:%d", ! !(v->flags & F_ETHERNET_INDICATION));
 }
 
 static int
@@ -4429,7 +4432,7 @@ format_pfcpsrreq_flags (u8 * s, va_list * args)
 {
   pfcp_pfcpsrreq_flags_t *v = va_arg (*args, pfcp_pfcpsrreq_flags_t *);
 
-  return format (s, "PSDBU:%d", !!(*v & PFCPSRREQ_PSDBU));
+  return format (s, "PSDBU:%d", ! !(*v & PFCPSRREQ_PSDBU));
 }
 
 #define decode_pfcpsrreq_flags decode_u8_ie
@@ -4440,7 +4443,7 @@ format_pfcpaureq_flags (u8 * s, va_list * args)
 {
   pfcp_pfcpaureq_flags_t *v = va_arg (*args, pfcp_pfcpaureq_flags_t *);
 
-  return format (s, "PARPS:%d", !!(*v & PFCPAUREQ_PARPS));
+  return format (s, "PARPS:%d", ! !(*v & PFCPAUREQ_PARPS));
 }
 
 #define decode_pfcpaureq_flags decode_u8_ie
@@ -7667,7 +7670,7 @@ static void
 free_vector_ie (const struct pfcp_group_ie_def *item,
 		const struct pfcp_ie_def *def, u8 * v)
 {
-  if (*(u8 **)v == NULL)
+  if (*(u8 **) v == NULL)
     return;
   u8 *end = *(u8 **) v + _vec_len (*(u8 **) v) * def->length;
   for (u8 * i = *(u8 **) v; i < end; i += def->length)

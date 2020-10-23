@@ -313,11 +313,11 @@ flow_mk_key (u64 seid, u8 * header, u8 is_ip4,
    * get into the same flow */
   if (is_ip4)
     {
-      parse_ip4_packet ((ip4_header_t *)header, is_reverse, key);
+      parse_ip4_packet ((ip4_header_t *) header, is_reverse, key);
     }
   else
     {
-      parse_ip6_packet ((ip6_header_t *)header, is_reverse, key);
+      parse_ip6_packet ((ip6_header_t *) header, is_reverse, key);
     }
 }
 
@@ -349,9 +349,11 @@ flow_update_lifetime (flow_entry_t * f, u8 * iph, u8 is_ip4)
    */
   if (f->key.proto == IP_PROTOCOL_TCP)
     {
-      tcp_header_t *hdr = (tcp_header_t *)(is_ip4 ?
-					   ip4_next_header ((ip4_header_t *)iph) :
-					   ip6_next_header ((ip6_header_t *)iph));
+      tcp_header_t *hdr = (tcp_header_t *) (is_ip4 ?
+					    ip4_next_header ((ip4_header_t *)
+							     iph) :
+					    ip6_next_header ((ip6_header_t *)
+							     iph));
 
       return flow_tcp_update_lifetime (f, hdr);
     }

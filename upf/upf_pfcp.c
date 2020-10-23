@@ -627,8 +627,8 @@ static uword
 peer_addr_ref (const upf_far_forward_t * fwd)
 {
   u8 is_ip4 =
-    !!(fwd->
-       outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
+    ! !(fwd->
+	outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
   upf_main_t *gtm = &upf_main;
   clib_bihash_kv_24_8_t kv, value;
   u32 fib_index;
@@ -685,8 +685,8 @@ static uword
 peer_addr_unref (const upf_far_forward_t * fwd)
 {
   u8 is_ip4 =
-    !!(fwd->
-       outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
+    ! !(fwd->
+	outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
   upf_main_t *gtm = &upf_main;
   clib_bihash_kv_24_8_t kv, value;
   upf_peer_t *p = NULL;
@@ -1254,11 +1254,10 @@ pfcp_add_del_tdf (const void *tdf, void *si, int is_ip4, int is_add)
   upf_main_t *gtm = &upf_main;
   upf_acl_t *acl = (upf_acl_t *) tdf;
   upf_session_t *sx = si;
-  fib_prefix_t pfx =
-    {
-     .fp_proto = is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
-     .fp_addr = acl->match.address[UPF_ACL_FIELD_SRC],
-    };
+  fib_prefix_t pfx = {
+    .fp_proto = is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
+    .fp_addr = acl->match.address[UPF_ACL_FIELD_SRC],
+  };
   u32 fib_index;
 
   if (acl->fib_index >= vec_len (gtm->tdf_ul_table[pfx.fp_proto]))
@@ -1317,8 +1316,8 @@ format_upf_acl (u8 * s, va_list * args)
 
   return format (s,
 		 "%u: %u, (%u/%u/%u/%u) TEID 0x%08x, UE-IP %U, %u/%u, %U/%U:%u-%u <-> %U/%U:%u-%u",
-		 acl->pdr_idx, acl->precedence, !!acl->is_ip4,
-		 !!acl->match_teid, !!acl->match_ue_ip, !!acl->match_sdf,
+		 acl->pdr_idx, acl->precedence, ! !acl->is_ip4,
+		 ! !acl->match_teid, ! !acl->match_ue_ip, ! !acl->match_sdf,
 		 acl->teid, format_ip46_address, &acl->ue_ip, itype,
 		 acl->match.protocol, acl->mask.protocol, format_ip46_address,
 		 &acl->match.address[IPFILTER_RULE_FIELD_SRC], itype,
@@ -1603,7 +1602,7 @@ build_pfcp_rules (upf_session_t * sx)
 	pdr->pdi.fields & F_PDI_UE_IP_ADDR)
       {
 	ue_ip_t ue_ip;
-	u8 is_dst = !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD);
+	u8 is_dst = ! !(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD);
 
 	if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
 	  {
@@ -1713,7 +1712,8 @@ build_urr_link_map (upf_session_t * sx)
   }
 }
 
-static void upf_ip_lookup_tx (u32 bi, int is_ip4)
+static void
+upf_ip_lookup_tx (u32 bi, int is_ip4)
 {
   vlib_main_t *vm = vlib_get_main ();
   u32 node_index = is_ip4 ? ip4_lookup_node.index : ip6_lookup_node.index;
@@ -1740,10 +1740,10 @@ pfcp_update_apply (upf_session_t * sx)
   if (!pending->pdr && !pending->far && !pending->urr && !pending->qer)
     return 0;
 
-  pending_pdr = !!pending->pdr;
-  pending_far = !!pending->far;
-  pending_urr = !!pending->urr;
-  pending_qer = !!pending->qer;
+  pending_pdr = ! !pending->pdr;
+  pending_far = ! !pending->far;
+  pending_urr = ! !pending->urr;
+  pending_qer = ! !pending->qer;
 
   vlib_worker_thread_barrier_sync (vm);
 
@@ -1896,8 +1896,8 @@ pfcp_update_apply (upf_session_t * sx)
 	  continue;
 
 	is_ip4 =
-	  !!(far->forward.outer_header_creation.description &
-	     OUTER_HEADER_CREATION_ANY_IP4);
+	  ! !(far->forward.outer_header_creation.description &
+	      OUTER_HEADER_CREATION_ANY_IP4);
 
 	upf_debug ("TODO: send_end_marker for FAR %d", far->id);
 	bi = upf_gtpu_end_marker (send_em->fib_index, send_em->dpoi_index,
@@ -1913,7 +1913,7 @@ pfcp_update_apply (upf_session_t * sx)
       {
 	upf_pfcp_session_start_stop_urr_time
 	  (si, &urr->measurement_period,
-	   !!(urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING));
+	   ! !(urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING));
       }
 
     if ((urr->methods & PFCP_URR_TIME))
@@ -1922,7 +1922,7 @@ pfcp_update_apply (upf_session_t * sx)
 	  {
 	    upf_pfcp_session_start_stop_urr_time
 	      (si, &urr->time_threshold,
-	       !!(urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD));
+	       ! !(urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD));
 	  }
 	if (urr->update_flags & PFCP_URR_UPDATE_TIME_QUOTA)
 	  {
@@ -1930,8 +1930,8 @@ pfcp_update_apply (upf_session_t * sx)
 	      (urr->time_threshold.base !=
 	       0) ? urr->time_threshold.base : now;
 	    upf_pfcp_session_start_stop_urr_time (si, &urr->time_quota,
-						  !!(urr->triggers &
-						     REPORTING_TRIGGER_TIME_QUOTA));
+						  ! !(urr->triggers &
+						      REPORTING_TRIGGER_TIME_QUOTA));
 	  }
       }
   }
@@ -2055,27 +2055,35 @@ format_tcp_flags_brief (u8 * s, va_list * args)
 {
   int flags = va_arg (*args, int);
 
-  if (flags & TCP_FLAG_FIN) s = format(s, "F");
-  if (flags & TCP_FLAG_SYN) s = format(s, "S");
-  if (flags & TCP_FLAG_RST) s = format(s, "R");
-  if (flags & TCP_FLAG_PSH) s = format(s, "P");
-  if (flags & TCP_FLAG_ACK) s = format(s, "A");
-  if (flags & TCP_FLAG_URG) s = format(s, "U");
-  if (flags & TCP_FLAG_ECE) s = format(s, "E");
-  if (flags & TCP_FLAG_CWR) s = format(s, "C");
+  if (flags & TCP_FLAG_FIN)
+    s = format (s, "F");
+  if (flags & TCP_FLAG_SYN)
+    s = format (s, "S");
+  if (flags & TCP_FLAG_RST)
+    s = format (s, "R");
+  if (flags & TCP_FLAG_PSH)
+    s = format (s, "P");
+  if (flags & TCP_FLAG_ACK)
+    s = format (s, "A");
+  if (flags & TCP_FLAG_URG)
+    s = format (s, "U");
+  if (flags & TCP_FLAG_ECE)
+    s = format (s, "E");
+  if (flags & TCP_FLAG_CWR)
+    s = format (s, "C");
 
   return s;
 }
 
-static void display_packet_for_urr(vlib_main_t * vm, vlib_buffer_t * b,
-                                   const char *node_name,
-                                   u16 urr_id, u8 is_ul, u8 is_dl,
-                                   u64 up, u64 down, u64 tot, uword len,
-                                   u8 is_ip4)
+static void
+display_packet_for_urr (vlib_main_t * vm, vlib_buffer_t * b,
+			const char *node_name,
+			u16 urr_id, u8 is_ul, u8 is_dl,
+			u64 up, u64 down, u64 tot, uword len, u8 is_ip4)
 {
-  if (b->current_length < sizeof(ip4_header_t))
+  if (b->current_length < sizeof (ip4_header_t))
     {
-      clib_warning("URR LOG: IP header truncated");
+      clib_warning ("URR LOG: IP header truncated");
       return;
     }
 
@@ -2087,65 +2095,68 @@ static void display_packet_for_urr(vlib_main_t * vm, vlib_buffer_t * b,
   if (is_ip4)
     {
       ip4_header_t *ip = (ip4_header_t *) vlib_buffer_get_current (b);
-      u32 header_bytes = (ip->ip_version_and_header_length & 0xf) * sizeof (u32);
+      u32 header_bytes =
+	(ip->ip_version_and_header_length & 0xf) * sizeof (u32);
       bytes_left = b->current_length - header_bytes;
 
-      if (b->current_length < sizeof(header_bytes))
-        {
-          clib_warning("URR LOG: IP header truncated");
-          return;
-        }
+      if (b->current_length < sizeof (header_bytes))
+	{
+	  clib_warning ("URR LOG: IP header truncated");
+	  return;
+	}
 
       next_header = (u8 *) vlib_buffer_get_current (b) + header_bytes;
-      s = format (0, "URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
-                      urr_id, is_ul, is_dl, up, down, tot,
-                      format_ip4_address, ip->src_address.data,
-                      format_ip4_address, ip->dst_address.data,
-                      len, format_ip_protocol, ip->protocol);
+      s =
+	format (0,
+		"URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
+		urr_id, is_ul, is_dl, up, down, tot, format_ip4_address,
+		ip->src_address.data, format_ip4_address,
+		ip->dst_address.data, len, format_ip_protocol, ip->protocol);
       protocol = ip->protocol;
     }
   else
     {
       ip6_header_t *ip = (ip6_header_t *) vlib_buffer_get_current (b);
-      next_header = (u8 *) ip6_next_header(ip);
-      bytes_left = b->current_length - sizeof(ip6_header_t);
-      s = format (0, "URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
-                  urr_id, is_ul, is_dl, up, down, tot,
-                  format_ip6_address, &ip->src_address,
-                  format_ip6_address, &ip->dst_address,
-                  len, format_ip_protocol, ip->protocol);
+      next_header = (u8 *) ip6_next_header (ip);
+      bytes_left = b->current_length - sizeof (ip6_header_t);
+      s =
+	format (0,
+		"URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
+		urr_id, is_ul, is_dl, up, down, tot, format_ip6_address,
+		&ip->src_address, format_ip6_address, &ip->dst_address, len,
+		format_ip_protocol, ip->protocol);
       protocol = ip->protocol;
     }
   switch (protocol)
     {
     case IP_PROTOCOL_TCP:
-      if (bytes_left < sizeof(tcp_header_t))
-        {
-          s = format(s, " <truncated>");
-        }
+      if (bytes_left < sizeof (tcp_header_t))
+	{
+	  s = format (s, " <truncated>");
+	}
       else
-        {
-          tcp_header_t *tcp = (tcp_header_t*) next_header;
-          s = format (s, " %u -> %u flags %U seq %u ack %u",
-                      clib_net_to_host_u16(tcp->src_port),
-                      clib_net_to_host_u16(tcp->dst_port),
-                      format_tcp_flags_brief, tcp->flags,
-                      clib_net_to_host_u32(tcp->seq_number),
-                      clib_net_to_host_u32(tcp->ack_number));
-        }
+	{
+	  tcp_header_t *tcp = (tcp_header_t *) next_header;
+	  s = format (s, " %u -> %u flags %U seq %u ack %u",
+		      clib_net_to_host_u16 (tcp->src_port),
+		      clib_net_to_host_u16 (tcp->dst_port),
+		      format_tcp_flags_brief, tcp->flags,
+		      clib_net_to_host_u32 (tcp->seq_number),
+		      clib_net_to_host_u32 (tcp->ack_number));
+	}
       break;
     case IP_PROTOCOL_UDP:
-      if (bytes_left < sizeof(udp_header_t))
-        {
-          s = format(s, " <truncated>");
-        }
+      if (bytes_left < sizeof (udp_header_t))
+	{
+	  s = format (s, " <truncated>");
+	}
       else
-        {
-          udp_header_t *udp = (udp_header_t*) next_header;
-          s = format (s, " %u -> %u",
-                      clib_net_to_host_u16(udp->src_port),
-                      clib_net_to_host_u16(udp->dst_port));
-        }
+	{
+	  udp_header_t *udp = (udp_header_t *) next_header;
+	  s = format (s, " %u -> %u",
+		      clib_net_to_host_u16 (udp->src_port),
+		      clib_net_to_host_u16 (udp->dst_port));
+	}
       break;
     case IP_PROTOCOL_ICMP:
       /* s = format (s, "%U", format_ip4_icmp_header, next_header, bytes_left); */
@@ -2154,14 +2165,14 @@ static void display_packet_for_urr(vlib_main_t * vm, vlib_buffer_t * b,
     }
 
   clib_warning ("node %s: TRAFFIC LOG: %v", node_name, s);
-  vec_free(s);
+  vec_free (s);
 }
 
 #endif
 
 u32
 process_urrs (vlib_main_t * vm, upf_session_t * sess,
-              const char * node_name,
+	      const char *node_name,
 	      struct rules *active,
 	      upf_pdr_t * pdr, vlib_buffer_t * b,
 	      u8 is_dl, u8 is_ul, u32 next)
@@ -2245,13 +2256,14 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 #ifdef UPF_TRAFFIC_LOG
 	ip4_header_t *iph =
 	  (ip4_header_t *) (b->data + vnet_buffer (b)->l3_hdr_offset);
-        display_packet_for_urr (vm, b, node_name, *urr_id,
-                                is_ul, is_dl,
-                                urr->volume.measure.bytes.ul,
-                                urr->volume.measure.bytes.dl,
-                                urr->volume.measure.bytes.total,
-                                len,
-                                (iph->ip_version_and_header_length & 0xF0) == 0x40);
+	display_packet_for_urr (vm, b, node_name, *urr_id,
+				is_ul, is_dl,
+				urr->volume.measure.bytes.ul,
+				urr->volume.measure.bytes.dl,
+				urr->volume.measure.bytes.total,
+				len,
+				(iph->ip_version_and_header_length & 0xF0) ==
+				0x40);
 #endif
 
 	if (PREDICT_FALSE (r & URR_QUOTA_EXHAUSTED))
@@ -2366,7 +2378,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 
 u32
 process_qers (vlib_main_t * vm, upf_session_t * sess,
-	      struct rules *r,
+	      struct rules * r,
 	      upf_pdr_t * pdr, vlib_buffer_t * b,
 	      u8 is_dl, u8 is_ul, u32 next)
 {
@@ -2391,7 +2403,7 @@ process_qers (vlib_main_t * vm, upf_session_t * sess,
   {
     upf_qer_t *qer = pfcp_get_qer_by_id (r, *qer_id);
     upf_qer_policer_t *pol;
-    u32 col __attribute__((unused));
+    u32 col __attribute__ ((unused));
 
     if (!qer)
       continue;
@@ -2733,13 +2745,15 @@ format_pfcp_session (u8 * s, va_list * args)
       s = format (s, "  LIUSA: %U\n", format_bitmap_hex, urr->liusa_bitmap);
 
     s =
-      format (s, "  Start Time: %U\n", format_time_float, NULL, urr->start_time);
-    s = format (s, "  vTime of First Usage: %U \n"
-		"  vTime of Last Usage:  %U \n",
-		format_vlib_time, gtm->vlib_main,
-		urr->usage_before_monitoring_time.time_of_first_packet,
-		format_vlib_time, gtm->vlib_main,
-		urr->usage_before_monitoring_time.time_of_last_packet);
+      format (s, "  Start Time: %U\n", format_time_float, NULL,
+	      urr->start_time);
+    s =
+      format (s,
+	      "  vTime of First Usage: %U \n" "  vTime of Last Usage:  %U \n",
+	      format_vlib_time, gtm->vlib_main,
+	      urr->usage_before_monitoring_time.time_of_first_packet,
+	      format_vlib_time, gtm->vlib_main,
+	      urr->usage_before_monitoring_time.time_of_last_packet);
     if (urr->methods & PFCP_URR_VOLUME)
       {
 	urr_volume_t *v = &urr->volume;
@@ -2909,8 +2923,7 @@ format_pfcp_endpoint_key (u8 * s, va_list * args)
   ip46_address_fib_t *key = va_arg (*args, ip46_address_fib_t *);
 
   s = format (s, "%U [@%u]",
-	      format_ip46_address, &key->addr, IP46_TYPE_ANY,
-	      key->fib_index);
+	      format_ip46_address, &key->addr, IP46_TYPE_ANY, key->fib_index);
 
   return s;
 }

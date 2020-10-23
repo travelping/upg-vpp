@@ -64,13 +64,12 @@ typedef enum
   UPF_CLASSIFY_N_NEXT,
 } upf_classify_next_t;
 
-static upf_classify_next_t upf_classify_flow_next[] =
-  {
-   [FT_NEXT_DROP]     = UPF_CLASSIFY_NEXT_DROP,
-   [FT_NEXT_CLASSIFY] = UPF_CLASSIFY_NEXT_DROP,
-   [FT_NEXT_PROCESS]  = UPF_CLASSIFY_NEXT_PROCESS,
-   [FT_NEXT_PROXY]    = UPF_CLASSIFY_NEXT_PROXY,
-  };
+static upf_classify_next_t upf_classify_flow_next[] = {
+  [FT_NEXT_DROP] = UPF_CLASSIFY_NEXT_DROP,
+  [FT_NEXT_CLASSIFY] = UPF_CLASSIFY_NEXT_DROP,
+  [FT_NEXT_PROCESS] = UPF_CLASSIFY_NEXT_PROCESS,
+  [FT_NEXT_PROXY] = UPF_CLASSIFY_NEXT_PROXY,
+};
 
 typedef struct
 {
@@ -138,7 +137,7 @@ upf_acl_classify_one (vlib_main_t * vm, u32 teid,
 {
   u32 pf_len = is_ip4 ? 32 : 64;
 
-  if (!!is_ip4 != !!acl->is_ip4)
+  if (! !is_ip4 != ! !acl->is_ip4)
     return 0;
 
   upf_debug ("TEID %08x, Match %u, ACL %08x\n",
@@ -199,7 +198,7 @@ upf_acl_classify_one (vlib_main_t * vm, u32 teid,
 
 always_inline u32
 upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
-			  struct rules *active, u8 is_ip4, u32 * pdr_idx)
+			  struct rules * active, u8 is_ip4, u32 * pdr_idx)
 {
   u32 next = UPF_CLASSIFY_NEXT_DROP;
   upf_acl_t *acl, *acl_vec;
@@ -277,7 +276,7 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 
 always_inline u32
 upf_acl_classify_proxied (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
-			  struct rules *active, u8 is_ip4, u32 * pdr_idx)
+			  struct rules * active, u8 is_ip4, u32 * pdr_idx)
 {
   u32 next = UPF_CLASSIFY_NEXT_DROP;
   upf_acl_t *acl, *acl_vec;
@@ -316,7 +315,7 @@ upf_acl_classify_proxied (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 
 always_inline u32
 upf_acl_classify_return (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
-			 struct rules *active, u8 is_ip4, u32 * pdr_idx)
+			 struct rules * active, u8 is_ip4, u32 * pdr_idx)
 {
   u32 next = UPF_CLASSIFY_NEXT_DROP;
   upf_acl_t *acl, *acl_vec;
@@ -361,7 +360,7 @@ upf_acl_classify_return (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 
 static_always_inline u32
 flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
-	      struct rules *r)
+	      struct rules * r)
 {
   upf_pdr_t *pdr = pfcp_get_pdr_by_id (r, flow_pdr_id (flow, direction));
   return pdr - r->pdr;
@@ -432,8 +431,10 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 			       upf_buffer_opaque (b)->gtpu.flow_id);
 
 	  is_reverse = upf_buffer_opaque (b)->gtpu.is_reverse;
-	  direction = (is_reverse == flow->is_reverse) ? FT_ORIGIN : FT_REVERSE;
-	  upf_debug ("is_rev %u, dir %s\n", is_reverse, direction == FT_ORIGIN ? "FT_ORIGIN" : "FT_REVERSE");
+	  direction =
+	    (is_reverse == flow->is_reverse) ? FT_ORIGIN : FT_REVERSE;
+	  upf_debug ("is_rev %u, dir %s\n", is_reverse,
+		     direction == FT_ORIGIN ? "FT_ORIGIN" : "FT_REVERSE");
 
 	  if (flow_next (flow, direction) != FT_NEXT_CLASSIFY)
 	    {
@@ -445,7 +446,8 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	       */
 
 	      /* need to reload pdr_idx, as the flow entry was not ready at that time */
-	      upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, active);
+	      upf_buffer_opaque (b)->gtpu.pdr_idx =
+		flow_pdr_idx (flow, direction, active);
 	      next = upf_classify_flow_next[flow_next (flow, direction)];
 	    }
 	  else if (direction == FT_ORIGIN)

@@ -63,23 +63,19 @@ static int node_msg (pfcp_msg_t * msg);
 static int session_msg (pfcp_msg_t * msg);
 
 /* permit out ip from any to assigned */
-static const acl_rule_t wildcard_acl =
-  {
-   .type = IPFILTER_WILDCARD,
-   .action = ACL_PERMIT,
-   .direction = ACL_OUT,
-   .proto = ~0,
-   .address =
-   {
-    [UPF_ACL_FIELD_SRC] = ACL_ADDR_ANY,
-    [UPF_ACL_FIELD_DST] = ACL_ADDR_ASSIGNED
-   },
-   .port =
-   {
-    [UPF_ACL_FIELD_SRC] = {.min = 0, .max = ~0},
-    [UPF_ACL_FIELD_DST] = {.min = 0, .max = ~0}
-   }
-  };
+static const acl_rule_t wildcard_acl = {
+  .type = IPFILTER_WILDCARD,
+  .action = ACL_PERMIT,
+  .direction = ACL_OUT,
+  .proto = ~0,
+  .address = {
+	      [UPF_ACL_FIELD_SRC] = ACL_ADDR_ANY,
+	      [UPF_ACL_FIELD_DST] = ACL_ADDR_ASSIGNED},
+  .port = {
+	   [UPF_ACL_FIELD_SRC] = {.min = 0,.max = ~0},
+	   [UPF_ACL_FIELD_DST] = {.min = 0,.max = ~0}
+	   }
+};
 
 size_t
 upf_pfcp_api_session_data_size ()
@@ -903,7 +899,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	  unformat_input_t input;
 	  acl_rule_t *acl;
 
-	  unformat_init_string (&input, (char *) sdf->flow, vec_len(sdf->flow));
+	  unformat_init_string (&input, (char *) sdf->flow,
+				vec_len (sdf->flow));
 	  vec_add2 (create->pdi.acl, acl, 1);
 
 	  if (!unformat_ipfilter (&input, acl))
@@ -1078,7 +1075,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	  unformat_input_t input;
 	  acl_rule_t *acl;
 
-	  unformat_init_string (&input, (char *) sdf->flow, vec_len(sdf->flow));
+	  unformat_init_string (&input, (char *) sdf->flow,
+				vec_len (sdf->flow));
 	  vec_add2 (update->pdi.acl, acl, 1);
 
 	  if (!unformat_ipfilter (&input, acl))
@@ -1261,9 +1259,9 @@ ip_udp_gtpu_rewrite (upf_far_forward_t * ff, u32 fib_index, int is_ip4)
     ip4_gtpu_header_t *h4;
     ip6_gtpu_header_t *h6;
     u8 *rw;
-  } r = {
-    .rw = 0
-  };
+  } r =
+  {
+  .rw = 0};
   int len = is_ip4 ? sizeof *r.h4 : sizeof *r.h6;
 
   vec_validate_aligned (r.rw, len - 1, CLIB_CACHE_LINE_BYTES);
@@ -1418,7 +1416,8 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	    pfcp_outer_header_creation_t *ohc =
 	      &far->forwarding_parameters.outer_header_creation;
 	    u32 fib_index;
-	    int is_ip4 = !!(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
+	    int is_ip4 =
+	      ! !(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
 
 	    create->forward.flags |= FAR_F_OUTER_HEADER_CREATION;
 	    create->forward.outer_header_creation =
@@ -1556,7 +1555,8 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	    pfcp_outer_header_creation_t *ohc =
 	      &far->update_forwarding_parameters.outer_header_creation;
 	    u32 fib_index;
-	    int is_ip4 = !!(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
+	    int is_ip4 =
+	      ! !(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
 
 	    if (ISSET_BIT (far->update_forwarding_parameters.grp.fields,
 			   UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS) &&

@@ -346,7 +346,7 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 	  sidx = vnet_buffer (b)->ip.adj_index[VLIB_TX];
 	  upf_debug ("Session %d (0x%08x)", sidx, sidx);
 	  ASSERT (~0 != sidx);
-          ASSERT (! pool_is_free (gtm->sessions, gtm->sessions + sidx));
+	  ASSERT (!pool_is_free (gtm->sessions, gtm->sessions + sidx));
 
 	  ip0 = vlib_buffer_get_current (b);
 	  error0 = IP4_ERROR_NONE;
@@ -357,7 +357,7 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 
 	  b->error = error_node->errors[error0];
 	  vnet_calc_checksums_inline
-	    (vm, b, 1 /* is_ip4 */ , 0 /* is_ip6 */);
+	    (vm, b, 1 /* is_ip4 */ , 0 /* is_ip6 */ );
 
 	  upf_buffer_opaque (b)->gtpu.session_index = sidx;
 	  upf_buffer_opaque (b)->gtpu.is_proxied = 0;
@@ -478,7 +478,7 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node) (vlib_main_t * vm,
 
 	  b->error = error_node->errors[error0];
 	  vnet_calc_checksums_inline
-	    (vm, b, 0 /* is_ip4 */ , 1 /* is_ip6 */);
+	    (vm, b, 0 /* is_ip4 */ , 1 /* is_ip6 */ );
 
 	  upf_buffer_opaque (b)->gtpu.session_index = sidx;
 	  upf_buffer_opaque (b)->gtpu.data_offset = 0;

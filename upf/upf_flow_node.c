@@ -69,7 +69,7 @@ format_get_flowinfo (u8 * s, va_list * args)
 
 static_always_inline u32
 flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
-	      struct rules *r)
+	      struct rules * r)
 {
   upf_pdr_t *pdr = pfcp_get_pdr_by_id (r, flow_pdr_id (flow, direction));
   return pdr - r->pdr;
@@ -77,7 +77,7 @@ flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
 
 always_inline u32
 load_gtpu_flow_info (flowtable_main_t * fm, vlib_buffer_t * b,
-		     flow_entry_t * flow, struct rules *r, uword is_reverse)
+		     flow_entry_t * flow, struct rules * r, uword is_reverse)
 {
   flow_direction_t direction =
     flow->is_reverse == is_reverse ? FT_ORIGIN : FT_REVERSE;
@@ -189,8 +189,12 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      break;
 	    }
 
-	  p0 = vlib_buffer_get_current (b0) + upf_buffer_opaque (b0)->gtpu.data_offset;
-	  p1 = vlib_buffer_get_current (b1) + upf_buffer_opaque (b1)->gtpu.data_offset;
+	  p0 =
+	    vlib_buffer_get_current (b0) +
+	    upf_buffer_opaque (b0)->gtpu.data_offset;
+	  p1 =
+	    vlib_buffer_get_current (b1) +
+	    upf_buffer_opaque (b1)->gtpu.data_offset;
 
 	  sx0 =
 	    pool_elt_at_index (gtm->sessions,
@@ -326,7 +330,9 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      goto stats1;
 	    }
 
-	  p = vlib_buffer_get_current (b0) + upf_buffer_opaque (b0)->gtpu.data_offset;
+	  p =
+	    vlib_buffer_get_current (b0) +
+	    upf_buffer_opaque (b0)->gtpu.data_offset;
 
 	  sx0 =
 	    pool_elt_at_index (gtm->sessions,
@@ -353,7 +359,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  FLOW_DEBUG (fm, flow);
 
 	  flow_debug ("is_rev: %u, flow: %u, c: %u", is_reverse,
-		     flow->is_reverse, created);
+		      flow->is_reverse, created);
 
 	  /* timer management */
 	  flow_update_lifetime (flow, p, is_ip4);
