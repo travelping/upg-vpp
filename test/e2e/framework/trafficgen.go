@@ -19,11 +19,12 @@ import (
 type TrafficType int
 
 const (
-	READ_CHUNK_SIZE             = 1000000
-	READ_TIMEOUT                = 15 * time.Second
-	MAX_ERRORS                  = 16
-	TrafficTypeTCP  TrafficType = 0
-	TrafficTypeUDP  TrafficType = 1
+	READ_CHUNK_SIZE                = 1000000
+	READ_TIMEOUT                   = 15 * time.Second
+	MAX_ERRORS                     = 16
+	TrafficTypeTCP     TrafficType = 0
+	TrafficTypeUDP     TrafficType = 1
+	FakeHostnamePrefix             = "theserver-"
 )
 
 type TrafficGenConfig struct {
@@ -41,6 +42,7 @@ type TrafficGenConfig struct {
 	Context             context.Context
 	Type                TrafficType
 	VerifyStats         bool
+	UseFakeHostname     bool
 	// Set to true to avoid late TCP packets after the end of a connection
 	NoLinger bool
 }
@@ -243,33 +245,37 @@ func (tg *TrafficGen) startWebserver() error {
 	return nil
 }
 
+func (tg *TrafficGen) dialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	address = fakeHostnameToIP(address)
+	conn, err := tg.cfg.ClientNS.DialContext(ctx, network, address)
+	if err != nil {
+		return nil, err
+	}
+	if tg.cfg.NoLinger {
+		if tcpConn, ok := conn.(*net.TCPConn); ok {
+			tcpConn.SetLinger(0)
+		}
+	}
+	return conn, nil
+}
+
 func (tg *TrafficGen) simulateDownload() error {
 	portSuffix := ""
 	if tg.cfg.WebServerPort != 80 {
 		portSuffix = fmt.Sprintf(":%d", tg.cfg.WebServerPort)
 	}
-	url := fmt.Sprintf("http://%s%s/dummy", tg.cfg.ServerIP, portSuffix)
-	fmt.Printf("*** downloading from %s\n", url)
-
-	dialContext := tg.cfg.ClientNS.DialContext
-	if tg.cfg.NoLinger {
-		dialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-			conn, err := tg.cfg.ClientNS.DialContext(ctx, network, address)
-			if err != nil {
-				return nil, err
-			}
-			if tcpConn, ok := conn.(*net.TCPConn); ok {
-				tcpConn.SetLinger(0)
-			}
-			return conn, nil
-		}
+	hostname := tg.cfg.ServerIP.String()
+	if tg.cfg.UseFakeHostname {
+		hostname = ipToFakeHostname(hostname)
 	}
+	url := fmt.Sprintf("http://%s%s/dummy", hostname, portSuffix)
+	fmt.Printf("*** downloading from %s\n", url)
 
 	c := http.Client{
 		// Timeout: READ_TIMEOUT,
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
-			DialContext:           dialContext,
+			DialContext:           tg.dialContext,
 			MaxIdleConns:          100,
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
@@ -411,4 +417,19 @@ func (tg *TrafficGen) Start() chan error {
 		errCh <- tg.Run()
 	}()
 	return errCh
+}
+
+func fakeHostnameToIP(s string) string {
+	// theserver-1-2-3-4 -> 1.2.3.4
+	// This trick is used to trigger app detection while not using real
+	// hostname resolution, while not tweaking net.Http too much
+	if strings.HasPrefix(s, FakeHostnamePrefix) {
+		return strings.ReplaceAll(s[len(FakeHostnamePrefix):], "-", ".")
+	}
+
+	return s
+}
+
+func ipToFakeHostname(s string) string {
+	return FakeHostnamePrefix + strings.ReplaceAll(s, ".", "-")
 }

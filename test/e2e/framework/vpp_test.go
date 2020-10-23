@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	VPP_WS_FILE_SIZE     = 60000000
-	VPP_WS_FIFO_SIZE_KiB = 60000
+	VPP_WS_FILE_SIZE          = 60000000
+	VPP_WS_FIFO_SIZE_KiB      = 60000
+	NON_APP_TRAFFIC_THRESHOLD = 1000
 )
 
 var (
@@ -211,8 +212,8 @@ func WithUPG(t *testing.T, toCall func(vi *VPPInstance, pc *PFCPConnection)) {
 			// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
 			// For IPv6, ::/0 should be used as the subnet
 			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
-			// "create upf application proxy name TST",
-			// "upf application TST rule 3000 add l7 regex ^https?://theserver/",
+			"create upf application proxy name TST",
+			"upf application TST rule 3000 add l7 regex ^https?://theserver-.*",
 			// "set upf proxy mss 1250"
 		},
 	}, func(vi *VPPInstance) {
@@ -230,6 +231,8 @@ func WithUPG(t *testing.T, toCall func(vi *VPPInstance, pc *PFCPConnection)) {
 			return
 		}
 		defer func() {
+			// make sure all PFCP packets are recorded
+			<-time.After(time.Second)
 			if err := pc.Stop(vi.Context); err != nil {
 				t.Error(err)
 			}
@@ -240,28 +243,32 @@ func WithUPG(t *testing.T, toCall func(vi *VPPInstance, pc *PFCPConnection)) {
 
 func TestMeasurement(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		trafficType TrafficType
+		name         string
+		trafficType  TrafficType
+		appPDR       bool
+		fakeHostname bool
 	}{
 		{name: "TCP", trafficType: TrafficTypeTCP},
+		{name: "TCP+Proxy", trafficType: TrafficTypeTCP, appPDR: true},
+		{name: "TCP+App", trafficType: TrafficTypeTCP, appPDR: true, fakeHostname: true},
 		{name: "UDP", trafficType: TrafficTypeUDP},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) {
-				seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP)...)
+				seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP, tc.appPDR)...)
 				if err != nil {
 					t.Error(err)
 					return
 				}
 
 				t.Logf("Session started")
-				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType))
+				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType, tc.fakeHostname))
 				if err := tg.Run(); err != nil {
 					t.Error(err)
 				}
 
-				// just be on the safe side with the packet captures
-				<-time.After(5 * time.Second)
+				vi.Ctl("show upf session")
+				vi.Ctl("show upf flows")
 
 				ms, err := pc.DeleteSession(vi.Context, seid)
 				if err != nil {
@@ -269,7 +276,7 @@ func TestMeasurement(t *testing.T) {
 					return
 				}
 
-				verifyMeasurements(t, vi, ms, tc.trafficType)
+				verifyMeasurement(t, vi, ms, tc.trafficType, tc.appPDR && tc.fakeHostname, NON_APP_TRAFFIC_THRESHOLD)
 			})
 		})
 	}
@@ -277,31 +284,36 @@ func TestMeasurement(t *testing.T) {
 
 func TestPDRReplacement(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		trafficType TrafficType
+		name         string
+		trafficType  TrafficType
+		appPDR       bool
+		fakeHostname bool
 	}{
 		{name: "TCP", trafficType: TrafficTypeTCP},
+		{name: "TCP+Proxy", trafficType: TrafficTypeTCP, appPDR: true},
+		{name: "TCP+App", trafficType: TrafficTypeTCP, appPDR: true, fakeHostname: true},
 		{name: "UDP", trafficType: TrafficTypeUDP},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) {
-				seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP)...)
+				seid, err := pc.EstablishSession(vi.Context, simpleSession(ueIP, tc.appPDR)...)
 				if err != nil {
 					t.Error(err)
 					return
 				}
 
 				t.Logf("Session started")
-				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType))
+				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType, tc.fakeHostname))
 				tgDone := tg.Start()
 				idBase := uint16(1)
+				var i int
 			LOOP:
-				for i := 1; ; i++ {
-					ies := deletePDRs(idBase)
+				for i = 1; ; i++ {
+					ies := deletePDRs(idBase, tc.appPDR)
 					// changing the PDR IDs crashes UPG as of 1.0.1
 					// while it's handling a packet belonging to an affected flow
 					idBase ^= 8
-					ies = append(ies, createPDRs(idBase, ueIP)...)
+					ies = append(ies, createPDRs(idBase, ueIP, tc.appPDR)...)
 					if _, err := pc.ModifySession(vi.Context, seid, ies...); err != nil {
 						t.Errorf("ModifySession(): %v", err)
 						break
@@ -313,6 +325,9 @@ func TestPDRReplacement(t *testing.T) {
 					}
 				}
 
+				vi.Ctl("show upf session")
+				vi.Ctl("show upf flows")
+
 				if err := tg.Verify(); err != nil {
 					t.Errorf("Traffic generator: %v", err)
 				}
@@ -323,7 +338,9 @@ func TestPDRReplacement(t *testing.T) {
 					return
 				}
 
-				verifyMeasurements(t, vi, ms, tc.trafficType)
+				verifyMeasurement(
+					t, vi, ms, tc.trafficType, tc.appPDR && tc.fakeHostname,
+					NON_APP_TRAFFIC_THRESHOLD)
 			})
 		})
 	}
@@ -332,7 +349,7 @@ func TestPDRReplacement(t *testing.T) {
 // tgTrafficMeasurementConfig returns a TrafficGenConfig suitable
 // for precise traffic measurement. It includes delays to avoid
 // skipped packets in pcaps, as well as "NoLinger" option
-func tgTrafficMeasurementConfig(vi *VPPInstance, trafficType TrafficType) TrafficGenConfig {
+func tgTrafficMeasurementConfig(vi *VPPInstance, trafficType TrafficType, fakeHostname bool) TrafficGenConfig {
 	cfg := TrafficGenConfig{
 		ClientNS:            vi.GetNS("access"),
 		ServerNS:            vi.GetNS("sgi"),
@@ -344,6 +361,7 @@ func tgTrafficMeasurementConfig(vi *VPPInstance, trafficType TrafficType) Traffi
 		FinalDelay:          5 * time.Second, // make sure everything gets into the PCAP
 		VerifyStats:         true,
 		Type:                trafficType,
+		UseFakeHostname:     fakeHostname,
 	}
 
 	if trafficType == TrafficTypeUDP {
@@ -352,12 +370,63 @@ func tgTrafficMeasurementConfig(vi *VPPInstance, trafficType TrafficType) Traffi
 	return cfg
 }
 
-func verifyMeasurements(t *testing.T, vi *VPPInstance, ms *PFCPMeasurement, trafficType TrafficType) {
+func verifyMeasurement(t *testing.T, vi *VPPInstance, ms *PFCPMeasurement, trafficType TrafficType, app bool, appToleration uint64) {
 	if ms == nil {
 		t.Error("DeleteSession didn't return any measurements")
 		return
 	}
 
+	if app {
+		if verifyPreAppReport(t, ms, 1, appToleration) {
+			if validateReport(t, ms, 2) != nil {
+				*ms.Reports[2].UplinkVolume += *ms.Reports[1].UplinkVolume
+				*ms.Reports[2].DownlinkVolume += *ms.Reports[1].DownlinkVolume
+				*ms.Reports[2].TotalVolume += *ms.Reports[1].TotalVolume
+			}
+			verifyMainReport(t, vi, ms, trafficType, 2)
+		}
+	} else {
+		verifyMainReport(t, vi, ms, trafficType, 1)
+	}
+}
+
+func validateReport(t *testing.T, ms *PFCPMeasurement, urrId uint32) *PFCPReport {
+	r, found := ms.Reports[urrId]
+	switch {
+	case !found:
+		t.Errorf("report missing for URR %d", urrId)
+	case r.DownlinkVolume == nil:
+		t.Error("downlink volume missing in UsageReport")
+	case r.UplinkVolume == nil:
+		t.Error("uplink volume missing in UsageReport")
+	case r.TotalVolume == nil:
+		t.Error("total volume missing in UsageReport")
+	default:
+		return &r
+	}
+	return nil
+}
+
+func verifyPreAppReport(t *testing.T, ms *PFCPMeasurement, urrId uint32, toleration uint64) bool {
+	r := validateReport(t, ms, urrId)
+	if r == nil {
+		return false
+	}
+	if *r.DownlinkVolume > toleration {
+		t.Errorf("too much non-app dl traffic: %d (max %d)", *r.DownlinkVolume, toleration)
+	}
+	if *r.UplinkVolume > toleration {
+		t.Errorf("too much non-app ul traffic: %d (max %d)", *r.UplinkVolume, toleration)
+	}
+	if *r.UplinkVolume+*r.DownlinkVolume != *r.TotalVolume {
+		t.Errorf("bad total reported volume: must be %d, actual %d",
+			*r.UplinkVolume+*r.DownlinkVolume,
+			*r.TotalVolume)
+	}
+	return true
+}
+
+func verifyMainReport(t *testing.T, vi *VPPInstance, ms *PFCPMeasurement, trafficType TrafficType, urrId uint32) bool {
 	c := vi.Captures["access"]
 	if c == nil {
 		panic("capture not found")
@@ -377,32 +446,25 @@ func verifyMeasurements(t *testing.T, vi *VPPInstance, ms *PFCPMeasurement, traf
 	dl := c.GetTrafficCount(Make5Tuple(serverIP, -1, ueIP, -1, proto))
 	t.Logf("capture stats: UL: %d, DL: %d", ul, dl)
 
-	r, found := ms.Reports[1]
-	switch {
-	case !found:
-		t.Error("report missing for URR 1")
-	case r.DownlinkVolume == nil:
-		t.Error("downlink volume missing in UsageReport")
-	case r.UplinkVolume == nil:
-		t.Error("uplink volume missing in UsageReport")
-	case r.TotalVolume == nil:
-		t.Error("total volume missing in UsageReport")
-	default:
-		if ul != *r.UplinkVolume {
-			t.Errorf("bad uplink volume: reported %d, actual %d", *r.UplinkVolume, ul)
-		}
-		if dl != *r.DownlinkVolume {
-			t.Errorf("bad downlink volume: reported %d, actual %d", *r.DownlinkVolume, dl)
-		}
-		if *r.UplinkVolume+*r.DownlinkVolume != *r.TotalVolume {
-			t.Errorf("bad total reported volume: must be %d, actual %d",
-				*r.UplinkVolume+*r.DownlinkVolume,
-				*r.TotalVolume)
-		}
+	r := validateReport(t, ms, urrId)
+	if r == nil {
+		return false
 	}
+	if ul != *r.UplinkVolume {
+		t.Errorf("bad uplink volume: reported %d, actual %d", *r.UplinkVolume, ul)
+	}
+	if dl != *r.DownlinkVolume {
+		t.Errorf("bad downlink volume: reported %d, actual %d", *r.DownlinkVolume, dl)
+	}
+	if *r.UplinkVolume+*r.DownlinkVolume != *r.TotalVolume {
+		t.Errorf("bad total reported volume: must be %d, actual %d",
+			*r.UplinkVolume+*r.DownlinkVolume,
+			*r.TotalVolume)
+	}
+	return true
 }
 
-func simpleSession(ueIP net.IP) []*ie.IE {
+func simpleSession(ueIP net.IP, appPDR bool) []*ie.IE {
 	ies := []*ie.IE{
 		ie.NewCreateFAR(
 			ie.NewApplyAction(ApplyAction_FORW),
@@ -427,11 +489,11 @@ func simpleSession(ueIP net.IP) []*ie.IE {
 			ie.NewURRID(2)),
 	}
 
-	return append(ies, createPDRs(1, ueIP)...)
+	return append(ies, createPDRs(1, ueIP, appPDR)...)
 }
 
-func createPDRs(idBase uint16, ueIP net.IP) []*ie.IE {
-	return []*ie.IE{
+func createPDRs(idBase uint16, ueIP net.IP, appPDR bool) []*ie.IE {
+	ies := []*ie.IE{
 		// TODO: replace for PGW (forwardPDR)
 		ie.NewCreatePDR(
 			ie.NewFARID(1),
@@ -458,11 +520,43 @@ func createPDRs(idBase uint16, ueIP net.IP) []*ie.IE {
 			ie.NewURRID(1),
 		),
 	}
+	if appPDR {
+		ies = append(ies,
+			ie.NewCreatePDR(
+				ie.NewFARID(1),
+				ie.NewPDI(
+					ie.NewApplicationID("TST"),
+					ie.NewNetworkInstance(EncodeAPN("access")),
+					ie.NewSourceInterface(ie.SrcInterfaceAccess),
+					// TODO: replace for IPv6
+					ie.NewUEIPAddress(UEIPAddress_V4, ueIP.String(), "", 0)),
+				ie.NewPDRID(idBase+2),
+				ie.NewPrecedence(100),
+				ie.NewURRID(2)),
+			ie.NewCreatePDR(
+				ie.NewFARID(2),
+				ie.NewPDI(
+					ie.NewApplicationID("TST"),
+					ie.NewNetworkInstance(EncodeAPN("sgi")),
+					ie.NewSourceInterface(ie.SrcInterfaceSGiLANN6LAN),
+					// TODO: replace for IPv6
+					ie.NewUEIPAddress(UEIPAddress_V4|UEIPAddress_SD, ueIP.String(), "", 0)),
+				ie.NewPDRID(idBase+3),
+				ie.NewPrecedence(100),
+				ie.NewURRID(2)))
+	}
+	return ies
 }
 
-func deletePDRs(idBase uint16) []*ie.IE {
-	return []*ie.IE{
+func deletePDRs(idBase uint16, appPDR bool) []*ie.IE {
+	ies := []*ie.IE{
 		ie.NewRemovePDR(ie.NewPDRID(idBase)),
 		ie.NewRemovePDR(ie.NewPDRID(idBase + 1)),
 	}
+	if appPDR {
+		ies = append(ies,
+			ie.NewRemovePDR(ie.NewPDRID(idBase+2)),
+			ie.NewRemovePDR(ie.NewPDRID(idBase+3)))
+	}
+	return ies
 }
