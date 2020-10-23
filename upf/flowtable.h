@@ -121,6 +121,7 @@ typedef struct flow_entry
   u8 is_l3_proxy:1;
   u8 is_spliced:1;
   u8 dont_splice:1;
+  u8 app_detection_done:1;
   u16 tcp_state;
 
   /* stats */
@@ -142,6 +143,9 @@ typedef struct flow_entry
   u32 _seq_offs[FT_ORDER_MAX];
   u32 _tsval_offs[FT_ORDER_MAX];
 
+  u8 *app_uri;
+  /* Generation ID that must match the session's if this flow is up to date */
+  u16 generation;
 #if CLIB_DEBUG > 0
   u32 cpu_index;
 #endif
@@ -240,7 +244,8 @@ u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
 			       BVT (clib_bihash_kv) * kv,
-			       u32 const now, u8 is_reverse, int *created);
+			       u32 const now, u8 is_reverse, u16 generation,
+			       int *created);
 
 void
 timer_wheel_index_update (flowtable_main_t * fm,
@@ -313,11 +318,11 @@ flow_mk_key (u64 seid, u8 * header, u8 is_ip4,
    * get into the same flow */
   if (is_ip4)
     {
-      parse_ip4_packet ((ip4_header_t *)header, is_reverse, key);
+      parse_ip4_packet ((ip4_header_t *) header, is_reverse, key);
     }
   else
     {
-      parse_ip6_packet ((ip6_header_t *)header, is_reverse, key);
+      parse_ip6_packet ((ip6_header_t *) header, is_reverse, key);
     }
 }
 
@@ -349,9 +354,11 @@ flow_update_lifetime (flow_entry_t * f, u8 * iph, u8 is_ip4)
    */
   if (f->key.proto == IP_PROTOCOL_TCP)
     {
-      tcp_header_t *hdr = (tcp_header_t *)(is_ip4 ?
-					   ip4_next_header ((ip4_header_t *)iph) :
-					   ip6_next_header ((ip6_header_t *)iph));
+      tcp_header_t *hdr = (tcp_header_t *) (is_ip4 ?
+					    ip4_next_header ((ip4_header_t *)
+							     iph) :
+					    ip6_next_header ((ip6_header_t *)
+							     iph));
 
       return flow_tcp_update_lifetime (f, hdr);
     }

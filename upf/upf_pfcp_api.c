@@ -2442,7 +2442,7 @@ handle_session_establishment_request (pfcp_msg_t * req,
     goto out_send_resp;
 
   r = pfcp_update_apply (sess);
-  upf_debug ("Appy: %d\n", r);
+  upf_debug ("Apply: %d\n", r);
 
   pfcp_update_finish (sess);
 
@@ -2597,6 +2597,9 @@ handle_session_modification_request (pfcp_msg_t * req,
 
       if ((r = pfcp_update_apply (sess)) != 0)
 	goto out_update_finish;
+
+      /* TODO: perhaps only increase it on PDR updates */
+      sess->generation++;
     }
 
   active = pfcp_get_rules (sess, PFCP_ACTIVE);

@@ -627,6 +627,8 @@ typedef struct
   u32 dpo_locks;
 
   f64 unix_time_start;
+
+  u16 generation;
 } upf_session_t;
 
 

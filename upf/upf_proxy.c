@@ -764,6 +764,13 @@ proxy_send_redir (session_t * s, upf_proxy_session_t * ps,
   u8 *wispr, *html, *http, *url;
   int i;
 
+  pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
+  far = pfcp_get_far_by_id (active, pdr->far_id);
+
+  /* Edge case: session modified, redirect no longer applicable */
+  if (!(far && far->forward.flags & FAR_F_REDIRECT_INFORMATION))
+    return -1;
+
   upf_debug("sidx %d psidx %d", s->session_index, proxy_session_index(ps));
 
   svm_fifo_dequeue_drop_all (ps->rx_fifo);
@@ -787,9 +794,6 @@ proxy_send_redir (session_t * s, upf_proxy_session_t * ps,
   goto out;
 
 found:
-  pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
-  far = pfcp_get_far_by_id (active, pdr->far_id);
-
   /* Send it */
   url = far->forward.redirect_information.uri;
   wispr = format (0, wispr_proxy_template, url);
@@ -828,15 +832,41 @@ proxy_rx_callback_static (session_t * s, upf_proxy_session_t * ps)
   sx = pool_elt_at_index (gtm->sessions, flow->session_index);
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
+  /*
+   * 4 possibilities here:
+   * a) the flow should be answered with a redirect
+   * b) the flow uses app detection
+   * c) none of (a) and (b) but one of them used to be true
+   *    but (a) once was true
+   * d) none of (a) and (b) but one of them used to be true
+   *    but (b) once was true
+   */
   if (flow->is_redirect)
     {
-      /* if we get here, it has to be a ACL based redirect */
-      return proxy_send_redir (s, ps, flow, sx, active);
+      /* if we get here, it has to be (a) or (c) */
+      if (!proxy_send_redir (s, ps, flow, sx, active))
+	return 0;
+      flow->is_redirect = 0; /* (c), but maybe now it needs app detection? */
     }
 
-  /* WTF, how did that happen */
-  ASSERT (active->flags & PFCP_ADR);
+  if (!(active->flags & PFCP_ADR))
+    {
+      /*
+       * Edge case (c) or (d): the session has been modified, this flow doesn't
+       * really need the proxy anymore, but has already been proxied
+       */
+      upf_debug ("connect outgoing session");
 
+      flow_next (flow, FT_ORIGIN) =
+	flow_next (flow, FT_REVERSE) = FT_NEXT_PROXY;
+
+      /* start outgoing connect to server */
+      proxy_start_connect (ps);
+
+      return 0;
+    }
+
+  /* proceed with app detection (a) */
   upf_debug ("proxy: %v", ps->rx_buf);
   r = upf_application_detection (gtm->vlib_main, ps->rx_buf, flow, active);
   upf_debug ("r: %d", r);
