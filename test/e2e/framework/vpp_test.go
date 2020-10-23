@@ -262,7 +262,7 @@ func TestMeasurement(t *testing.T) {
 				}
 
 				t.Logf("Session started")
-				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType, tc.fakeHostname))
+				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType, tc.fakeHostname, false))
 				if err := tg.Run(); err != nil {
 					t.Error(err)
 				}
@@ -284,15 +284,65 @@ func TestMeasurement(t *testing.T) {
 
 func TestPDRReplacement(t *testing.T) {
 	for _, tc := range []struct {
-		name         string
-		trafficType  TrafficType
-		appPDR       bool
-		fakeHostname bool
+		name              string
+		trafficType       TrafficType
+		appPDR            bool
+		toggleAppPDR      bool
+		fakeHostname      bool
+		verifyMeasurement bool
+		retry             bool
 	}{
-		{name: "TCP", trafficType: TrafficTypeTCP},
-		{name: "TCP+Proxy", trafficType: TrafficTypeTCP, appPDR: true},
-		{name: "TCP+App", trafficType: TrafficTypeTCP, appPDR: true, fakeHostname: true},
-		{name: "UDP", trafficType: TrafficTypeUDP},
+		{
+			name:              "TCP",
+			trafficType:       TrafficTypeTCP,
+			verifyMeasurement: true,
+		},
+		{
+			name:              "TCP+Proxy",
+			trafficType:       TrafficTypeTCP,
+			appPDR:            true,
+			verifyMeasurement: true,
+		},
+		{
+			name:              "TCP+ProxyOnOff",
+			trafficType:       TrafficTypeTCP,
+			appPDR:            true,
+			toggleAppPDR:      true,
+			verifyMeasurement: true,
+		},
+		{
+			name:              "TCP+ProxyOffOn",
+			trafficType:       TrafficTypeTCP,
+			toggleAppPDR:      true,
+			verifyMeasurement: true,
+			retry:             true,
+		},
+		{
+			name:              "TCP+Proxy+App",
+			trafficType:       TrafficTypeTCP,
+			appPDR:            true,
+			fakeHostname:      true,
+			verifyMeasurement: true,
+		},
+		{
+			name:         "TCP+ProxyOnOff+App",
+			trafficType:  TrafficTypeTCP,
+			appPDR:       true,
+			fakeHostname: true,
+			toggleAppPDR: true,
+		},
+		{
+			name:         "TCP+ProxyOffOn+App",
+			trafficType:  TrafficTypeTCP,
+			fakeHostname: true,
+			toggleAppPDR: true,
+			retry:        true,
+		},
+		{
+			name:              "UDP",
+			trafficType:       TrafficTypeUDP,
+			verifyMeasurement: true,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			WithUPG(t, func(vi *VPPInstance, pc *PFCPConnection) {
@@ -303,25 +353,29 @@ func TestPDRReplacement(t *testing.T) {
 				}
 
 				t.Logf("Session started")
-				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType, tc.fakeHostname))
+				tg := NewTrafficGen(tgTrafficMeasurementConfig(vi, tc.trafficType, tc.fakeHostname, tc.retry))
 				tgDone := tg.Start()
 				idBase := uint16(1)
 				var i int
+				useAppPDRs := tc.appPDR
 			LOOP:
 				for i = 1; ; i++ {
-					ies := deletePDRs(idBase, tc.appPDR)
-					// changing the PDR IDs crashes UPG as of 1.0.1
-					// while it's handling a packet belonging to an affected flow
-					idBase ^= 8
-					ies = append(ies, createPDRs(idBase, ueIP, tc.appPDR)...)
-					if _, err := pc.ModifySession(vi.Context, seid, ies...); err != nil {
-						t.Errorf("ModifySession(): %v", err)
-						break
-					}
 					select {
 					case <-tgDone:
 						break LOOP
 					case <-time.After(500 * time.Millisecond):
+					}
+					ies := deletePDRs(idBase, useAppPDRs)
+					// changing the PDR IDs crashes UPG as of 1.0.1
+					// while it's handling a packet belonging to an affected flow
+					idBase ^= 8
+					if tc.toggleAppPDR {
+						useAppPDRs = !useAppPDRs
+					}
+					ies = append(ies, createPDRs(idBase, ueIP, useAppPDRs)...)
+					if _, err := pc.ModifySession(vi.Context, seid, ies...); err != nil {
+						t.Errorf("ModifySession(): %v", err)
+						break
 					}
 				}
 
@@ -338,9 +392,11 @@ func TestPDRReplacement(t *testing.T) {
 					return
 				}
 
-				verifyMeasurement(
-					t, vi, ms, tc.trafficType, tc.appPDR && tc.fakeHostname,
-					NON_APP_TRAFFIC_THRESHOLD)
+				if tc.verifyMeasurement {
+					verifyMeasurement(
+						t, vi, ms, tc.trafficType, tc.appPDR && tc.fakeHostname,
+						NON_APP_TRAFFIC_THRESHOLD)
+				}
 			})
 		})
 	}
@@ -349,19 +405,22 @@ func TestPDRReplacement(t *testing.T) {
 // tgTrafficMeasurementConfig returns a TrafficGenConfig suitable
 // for precise traffic measurement. It includes delays to avoid
 // skipped packets in pcaps, as well as "NoLinger" option
-func tgTrafficMeasurementConfig(vi *VPPInstance, trafficType TrafficType, fakeHostname bool) TrafficGenConfig {
+func tgTrafficMeasurementConfig(vi *VPPInstance, trafficType TrafficType, fakeHostname, retry bool) TrafficGenConfig {
 	cfg := TrafficGenConfig{
 		ClientNS:            vi.GetNS("access"),
 		ServerNS:            vi.GetNS("sgi"),
 		ServerIP:            serverIP,
 		WebServerPort:       80,
 		WebServerListenPort: 80,
-		ChunkDelay:          50 * time.Millisecond,
-		Context:             vi.Context,
-		FinalDelay:          5 * time.Second, // make sure everything gets into the PCAP
-		VerifyStats:         true,
-		Type:                trafficType,
-		UseFakeHostname:     fakeHostname,
+		// Uncomment for faster runs
+		// ChunkCount:      40,
+		ChunkDelay:      50 * time.Millisecond,
+		Context:         vi.Context,
+		FinalDelay:      3 * time.Second, // make sure everything gets into the PCAP
+		VerifyStats:     !retry,
+		Type:            trafficType,
+		UseFakeHostname: fakeHostname,
+		Retry:           retry,
 	}
 
 	if trafficType == TrafficTypeUDP {

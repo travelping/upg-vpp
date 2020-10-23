@@ -20,7 +20,7 @@ type TrafficType int
 
 const (
 	READ_CHUNK_SIZE                = 1000000
-	READ_TIMEOUT                   = 15 * time.Second
+	READ_TIMEOUT                   = 3 * time.Second
 	MAX_ERRORS                     = 16
 	TrafficTypeTCP     TrafficType = 0
 	TrafficTypeUDP     TrafficType = 1
@@ -43,6 +43,7 @@ type TrafficGenConfig struct {
 	Type                TrafficType
 	VerifyStats         bool
 	UseFakeHostname     bool
+	Retry               bool
 	// Set to true to avoid late TCP packets after the end of a connection
 	NoLinger bool
 }
@@ -283,28 +284,43 @@ func (tg *TrafficGen) simulateDownload() error {
 		},
 	}
 
-	ctx, cancel := context.WithCancel(tg.cfg.Context)
-	timer := time.AfterFunc(READ_TIMEOUT, func() { cancel() })
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	resp, err := c.Do(req)
-	if err != nil {
-		return errors.Wrap(err, "HTTP GET")
-	}
-	defer resp.Body.Close()
-
-	ts := time.Now()
-	total := 0
+	var ts time.Time
+	var total int
 	chunk := make([]byte, READ_CHUNK_SIZE)
-	for {
-		timer.Reset(READ_TIMEOUT)
-		n, err := resp.Body.Read(chunk)
-		total += n
-		tg.recordStats(0, n, 0, 0)
-		if err == io.EOF {
-			break
-		}
+	retried := false
+	retrySucceeded := false
+OUTER:
+	for i := 0; i < 10 && !retrySucceeded; i++ {
+		ctx, cancel := context.WithCancel(tg.cfg.Context)
+		timer := time.AfterFunc(READ_TIMEOUT, func() { cancel() })
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		resp, err := c.Do(req)
 		if err != nil {
-			return errors.Wrap(err, "error reading HTTP response")
+			return errors.Wrap(err, "HTTP GET")
+		}
+		defer resp.Body.Close()
+
+		ts = time.Now()
+		total = 0
+		for {
+			timer.Reset(READ_TIMEOUT)
+			n, err := resp.Body.Read(chunk)
+			total += n
+			if retried && n > 0 {
+				retrySucceeded = true
+			}
+			tg.recordStats(0, n, 0, 0)
+			if err == io.EOF {
+				break OUTER
+			}
+			if err != nil {
+				if tg.cfg.Retry && tg.cfg.Context.Err() == nil {
+					fmt.Printf("* failed, retrying: %v\n", err)
+					retried = true
+					break
+				}
+				return errors.Wrap(err, "error reading HTTP response")
+			}
 		}
 	}
 
@@ -312,6 +328,11 @@ func (tg *TrafficGen) simulateDownload() error {
 	fmt.Printf("*** downloaded %d bytes in %s (~%g Mbps)\n",
 		total, elapsed,
 		float64(total)*8.0*float64(time.Second)/(1000000.*float64(elapsed)))
+
+	// the point is that if the connection fails, it must be possible to retry afterwards
+	if retried && !retrySucceeded {
+		return errors.New("retries were attempted, but none succeeded")
+	}
 
 	return nil
 }
