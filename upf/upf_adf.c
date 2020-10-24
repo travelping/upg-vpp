@@ -365,38 +365,61 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
 			   flow_entry_t * flow, struct rules *active)
 {
   adr_result_t r;
-  upf_pdr_t *origin, *reverse;
+  upf_pdr_t *origin = 0, *reverse = 0;
   u16 port;
   u8 *uri = NULL;
 
   /* this runs after the forward and reverse ACL rules have been established */
-  origin = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
-  reverse = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_REVERSE));
+  /* reverse and origin may not be there yet during flow reclassification */
+  if (flow_pdr_id (flow, FT_ORIGIN) != 0)
+    {
+      origin = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
+    }
+  if (flow_pdr_id (flow, FT_REVERSE) != ~0)
+    {
+      reverse = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_REVERSE));
+    }
+  if (!origin && !reverse)
+    return ADR_FAIL;
 
   adf_debug ("Old PDR Origin: %p %u, Reverse: %p %u\n",
 	     origin, flow_pdr_id (flow, FT_ORIGIN),
 	     reverse, flow_pdr_id (flow, FT_REVERSE));
 
-  port = clib_net_to_host_u16 (flow->key.port[FT_REVERSE ^ flow->is_reverse]);
-  upf_debug ("Using port %u, instead of %u", port,
-	     clib_net_to_host_u16 (flow->
-				   key.port[FT_ORIGIN ^ flow->is_reverse]));
-
-  if (*p == TLS_HANDSHAKE)
-    r = upf_adr_try_tls (port, p, &uri);
-  else
-    r = upf_adr_try_http (port, p, &uri);
-
-  switch (r)
+  if (flow->app_detection_done)
     {
-    case ADR_NEED_MORE_DATA:
-      return r;
+      r = ADR_OK;
+      if (!flow->app_uri)
+        goto out;
+      uri = flow->app_uri;
+    }
+  else
+    {
+      ASSERT (p);
 
-    case ADR_FAIL:
-      goto out;
+      port = clib_net_to_host_u16 (flow->key.port[FT_REVERSE ^ flow->is_reverse]);
+      upf_debug ("Using port %u, instead of %u", port,
+		 clib_net_to_host_u16 (flow->
+				       key.port[FT_ORIGIN ^ flow->is_reverse]));
 
-    case ADR_OK:
-      break;
+      if (*p == TLS_HANDSHAKE)
+	r = upf_adr_try_tls (port, p, &uri);
+      else
+	r = upf_adr_try_http (port, p, &uri);
+
+      switch (r)
+	{
+	case ADR_NEED_MORE_DATA:
+	  return r;
+
+	case ADR_FAIL:
+	  goto out;
+
+	case ADR_OK:
+	  break;
+	}
+
+      flow->app_uri = uri;
     }
 
   adf_debug ("URI: %v", uri);
@@ -414,21 +437,25 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
   reverse = flow->is_redirect ?
     origin : app_scan_for_uri (uri, flow, active, FT_REVERSE, reverse);
 
-  vec_free (uri);
-
 out:
   if (!origin)
     return ADR_FAIL;
 
+  flow->app_detection_done = 1;
   flow_pdr_id (flow, FT_ORIGIN) = origin->id;
   if ((origin->pdi.fields & F_PDI_APPLICATION_ID))
     flow->application_id = origin->pdi.adr.application_id;
 
-  if (reverse)
-    flow_pdr_id (flow, FT_REVERSE) = reverse->id;
-
   /* we are done with scanning for PDRs */
-  flow_next (flow, FT_ORIGIN) = flow_next (flow, FT_REVERSE) = FT_NEXT_PROXY;
+  if (reverse)
+    {
+      flow_pdr_id (flow, FT_REVERSE) = reverse->id;
+      flow_next (flow, FT_REVERSE) = FT_NEXT_PROXY;
+    }
+  else
+    flow_next (flow, FT_REVERSE) = FT_NEXT_CLASSIFY;
+
+  flow_next (flow, FT_ORIGIN) = FT_NEXT_PROXY;
 
   adf_debug ("New PDR Origin: %p %u, Reverse: %p %u\n",
 	     origin, flow_pdr_id (flow, FT_ORIGIN),

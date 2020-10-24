@@ -123,6 +123,9 @@ flow_entry_free (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
   ASSERT (f->cpu_index == os_get_thread_index ());
 #endif
 
+  if (f->app_uri)
+    vec_free (f->app_uri);
+
   vec_add1 (fmt->flow_cache, f - fm->flows);
 
   if (vec_len (fmt->flow_cache) > 2 * FLOW_CACHE_SZ)
@@ -265,7 +268,7 @@ u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
 			       BVT (clib_bihash_kv) * kv, u32 const now,
-			       u8 is_reverse, int *created)
+			       u8 is_reverse, u16 generation, int *created)
 {
   flow_entry_t *f;
   dlist_elt_t *timer_entry;
@@ -300,6 +303,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
   f->application_id = ~0;
+  f->generation = generation;
   flow_pdr_id (f, FT_ORIGIN) = ~0;
   flow_pdr_id (f, FT_REVERSE) = ~0;
   flow_teid (f, FT_ORIGIN) = ~0;
@@ -423,12 +427,12 @@ format_flow (u8 * s, va_list * args)
 	      flow->stats[is_reverse ^ FT_REVERSE].pkts,
 	      flow_pdr_id (flow, FT_ORIGIN),
 	      flow_pdr_id (flow, FT_REVERSE), app_name, flow->lifetime,
-              flow->is_l3_proxy, flow->is_spliced);
+	      flow->is_l3_proxy, flow->is_spliced);
 #if CLIB_DEBUG > 1
   s = format (s, ", cpu %u", flow->cpu_index);
 #endif
 
-  vec_free(app_name);
+  vec_free (app_name);
   return s;
 }
 

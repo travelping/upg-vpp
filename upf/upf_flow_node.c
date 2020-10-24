@@ -67,24 +67,30 @@ format_get_flowinfo (u8 * s, va_list * args)
   return s;
 }
 
-static_always_inline u32
-flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
-	      struct rules *r)
-{
-  upf_pdr_t *pdr = pfcp_get_pdr_by_id (r, flow_pdr_id (flow, direction));
-  return pdr - r->pdr;
-}
-
 always_inline u32
 load_gtpu_flow_info (flowtable_main_t * fm, vlib_buffer_t * b,
-		     flow_entry_t * flow, struct rules *r, uword is_reverse)
+		     flow_entry_t * flow, struct rules *r, uword is_reverse,
+		     u16 generation)
 {
   flow_direction_t direction =
     flow->is_reverse == is_reverse ? FT_ORIGIN : FT_REVERSE;
 
   upf_buffer_opaque (b)->gtpu.is_reverse = is_reverse;
   upf_buffer_opaque (b)->gtpu.flow_id = flow - fm->flows;
-  upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, r);
+
+  if (flow->generation != generation)
+    {
+      flow_debug ("Flow has an old generation ID: %U", format_flow_key, &flow->key);
+      flow->application_id = ~0;
+      flow->generation = generation;
+      flow_pdr_id (flow, FT_ORIGIN) = ~0;
+      flow_pdr_id (flow, FT_REVERSE) = ~0;
+      flow_next (flow, FT_ORIGIN) = FT_NEXT_CLASSIFY;
+      flow_next (flow, FT_REVERSE) = FT_NEXT_CLASSIFY;
+      upf_buffer_opaque (b)->gtpu.pdr_idx = ~0;
+    }
+  else
+    upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, r);
 
   return flow_next (flow, direction);
 }
@@ -208,10 +214,10 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  /* lookup/create flow */
 	  flow_idx0 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv0, current_time,
-					   is_reverse0, &created0);
+					   is_reverse0, sx0->generation, &created0);
 	  flow_idx1 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv1, current_time,
-					   is_reverse1, &created1);
+					   is_reverse1, sx0->generation, &created1);
 
 	  if (PREDICT_FALSE (~0 == flow_idx0 || ~0 == flow_idx1))
 	    {
@@ -245,8 +251,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow1->stats[is_reverse1].bytes += b1->current_length;
 
 	  /* fill buffer with flow data */
-	  next0 = load_gtpu_flow_info (fm, b0, flow0, active0, is_reverse0);
-	  next1 = load_gtpu_flow_info (fm, b1, flow1, active1, is_reverse1);
+	  next0 = load_gtpu_flow_info (fm, b0, flow0, active0, is_reverse0, sx0->generation);
+	  next1 = load_gtpu_flow_info (fm, b1, flow1, active1, is_reverse1, sx1->generation);
 
 	  /* flowtable counters */
 	  CPT_THRU += 2;
@@ -338,7 +344,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow_mk_key (sx0->cp_seid, p, is_ip4, &is_reverse, &kv);
 	  flow_idx =
 	    flowtable_entry_lookup_create (fm, fmt, &kv, current_time,
-					   is_reverse, &created);
+					   is_reverse, sx0->generation, &created);
 
 	  if (PREDICT_FALSE (~0 == flow_idx))
 	    {
@@ -364,7 +370,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow->stats[is_reverse].bytes += b0->current_length;
 
 	  /* fill opaque buffer with flow data */
-	  next0 = load_gtpu_flow_info (fm, b0, flow, active0, is_reverse);
+	  next0 = load_gtpu_flow_info (fm, b0, flow, active0, is_reverse, sx0->generation);
 	  flow_debug ("flow next: %u, origin: %u, reverse: %u",
 		      next0, flow_next (flow, FT_ORIGIN), flow_next (flow,
 								     FT_REVERSE));
