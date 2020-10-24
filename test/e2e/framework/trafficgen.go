@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -19,12 +20,17 @@ import (
 type TrafficType int
 
 const (
-	READ_CHUNK_SIZE                = 1000000
-	READ_TIMEOUT                   = 3 * time.Second
-	MAX_ERRORS                     = 16
-	TrafficTypeTCP     TrafficType = 0
-	TrafficTypeUDP     TrafficType = 1
-	FakeHostnamePrefix             = "theserver-"
+	READ_CHUNK_SIZE = 1000000
+	READ_TIMEOUT    = 3 * time.Second
+	MAX_ERRORS      = 16
+
+	FakeHostnamePrefix = "theserver-"
+)
+
+const (
+	TrafficTypeHTTP TrafficType = iota
+	TrafficTypeHTTPRedirect
+	TrafficTypeUDP
 )
 
 type TrafficGenConfig struct {
@@ -45,7 +51,9 @@ type TrafficGenConfig struct {
 	UseFakeHostname     bool
 	Retry               bool
 	// Set to true to avoid late TCP packets after the end of a connection
-	NoLinger bool
+	NoLinger               bool
+	RedirectLocationSubstr string
+	RedirectResponseSubstr string
 }
 
 func (cfg *TrafficGenConfig) setDefaults() {
@@ -260,7 +268,7 @@ func (tg *TrafficGen) dialContext(ctx context.Context, network, address string) 
 	return conn, nil
 }
 
-func (tg *TrafficGen) simulateDownload() error {
+func (tg *TrafficGen) downloadURL() string {
 	portSuffix := ""
 	if tg.cfg.WebServerPort != 80 {
 		portSuffix = fmt.Sprintf(":%d", tg.cfg.WebServerPort)
@@ -269,10 +277,11 @@ func (tg *TrafficGen) simulateDownload() error {
 	if tg.cfg.UseFakeHostname {
 		hostname = ipToFakeHostname(hostname)
 	}
-	url := fmt.Sprintf("http://%s%s/dummy", hostname, portSuffix)
-	fmt.Printf("*** downloading from %s\n", url)
+	return fmt.Sprintf("http://%s%s/dummy", hostname, portSuffix)
+}
 
-	c := http.Client{
+func (tg *TrafficGen) httpClient() *http.Client {
+	return &http.Client{
 		// Timeout: READ_TIMEOUT,
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
@@ -283,19 +292,31 @@ func (tg *TrafficGen) simulateDownload() error {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
+}
+
+func (tg *TrafficGen) simulateDownload() error {
+	url := tg.downloadURL()
+	fmt.Printf("*** downloading from %s\n", url)
+	c := tg.httpClient()
 
 	var ts time.Time
 	var total int
 	chunk := make([]byte, READ_CHUNK_SIZE)
-	retried := false
+	retry := false
 	retrySucceeded := false
 OUTER:
 	for i := 0; i < 10 && !retrySucceeded; i++ {
 		ctx, cancel := context.WithCancel(tg.cfg.Context)
 		timer := time.AfterFunc(READ_TIMEOUT, func() { cancel() })
+		defer timer.Stop()
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		resp, err := c.Do(req)
 		if err != nil {
+			if tg.cfg.Retry && tg.cfg.Context.Err() == nil {
+				fmt.Printf("* HTTP GET failed: %v\n", err)
+				retry = true
+				break
+			}
 			return errors.Wrap(err, "HTTP GET")
 		}
 		defer resp.Body.Close()
@@ -306,7 +327,7 @@ OUTER:
 			timer.Reset(READ_TIMEOUT)
 			n, err := resp.Body.Read(chunk)
 			total += n
-			if retried && n > 0 {
+			if retry && n > 0 {
 				retrySucceeded = true
 			}
 			tg.recordStats(0, n, 0, 0)
@@ -315,8 +336,8 @@ OUTER:
 			}
 			if err != nil {
 				if tg.cfg.Retry && tg.cfg.Context.Err() == nil {
-					fmt.Printf("* failed, retrying: %v\n", err)
-					retried = true
+					fmt.Printf("* failed: %v\n", err)
+					retry = true
 					break
 				}
 				return errors.Wrap(err, "error reading HTTP response")
@@ -330,7 +351,83 @@ OUTER:
 		float64(total)*8.0*float64(time.Second)/(1000000.*float64(elapsed)))
 
 	// the point is that if the connection fails, it must be possible to retry afterwards
-	if retried && !retrySucceeded {
+	if retry && !retrySucceeded {
+		return errors.New("retries were attempted, but none succeeded")
+	}
+
+	return nil
+}
+
+func (tg *TrafficGen) checkRedirectOnce() (mayRetry bool, err error) {
+	url := tg.downloadURL()
+	fmt.Printf("*** accessing url %s (expecting redirect)\n", url)
+	c := tg.httpClient()
+	// https://stackoverflow.com/a/38150816
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	ctx, cancel := context.WithCancel(tg.cfg.Context)
+	timer := time.AfterFunc(READ_TIMEOUT, func() { cancel() })
+	defer timer.Stop()
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	resp, err := c.Do(req)
+	if err != nil {
+		return true, errors.Wrap(err, "HTTP GET")
+	}
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return true, errors.Wrap(err, "HTTP GET")
+	}
+
+	if tg.cfg.RedirectResponseSubstr != "" &&
+		!strings.Contains(string(bs), tg.cfg.RedirectResponseSubstr) {
+		return false, errors.Errorf("bad redirect response body:\n%s", bs)
+	}
+
+	loc, err := resp.Location()
+	if err != nil {
+		if errors.Is(err, http.ErrNoLocation) {
+			return false, errors.New("no location in redirect response")
+		}
+		return false, errors.Wrap(err, "error getting response location")
+	}
+
+	fmt.Printf("*** redirect: %s -> %s\n", url, loc)
+
+	if tg.cfg.RedirectLocationSubstr != "" &&
+		!strings.Contains(loc.String(), tg.cfg.RedirectLocationSubstr) {
+		return false, errors.Errorf("bad redirect location %q", loc)
+	}
+
+	return true, nil
+}
+
+func (tg *TrafficGen) checkRedirect() error {
+	retry := false
+	retrySucceeded := false
+	for i := 0; i < tg.cfg.ChunkCount; i++ {
+		mayRetry, err := tg.checkRedirectOnce()
+		switch {
+		case err == nil && retry:
+			retrySucceeded = true
+			fallthrough
+		case err == nil:
+			if tg.cfg.ChunkDelay > 0 {
+				<-time.After(tg.cfg.ChunkDelay)
+			}
+			continue
+		case !tg.cfg.Retry || !mayRetry:
+			return err
+		default:
+			fmt.Printf("* retryable checkRedirect error: %v\n", err)
+			retry = true
+		}
+	}
+
+	if retry && !retrySucceeded {
 		return errors.New("retries were attempted, but none succeeded")
 	}
 
@@ -402,7 +499,7 @@ func (tg *TrafficGen) udpPing() error {
 func (tg *TrafficGen) Run() error {
 	var err error
 	switch tg.cfg.Type {
-	case TrafficTypeTCP:
+	case TrafficTypeHTTP:
 		if err := tg.startWebserver(); err != nil {
 			tg.recordError("starting webserver: %v", err)
 		} else if err = tg.simulateDownload(); err != nil {
@@ -413,6 +510,10 @@ func (tg *TrafficGen) Run() error {
 			tg.recordError("starting udp server: %v", err)
 		} else if err = tg.udpPing(); err != nil {
 			tg.recordError("udp ping error: %v", err)
+		}
+	case TrafficTypeHTTPRedirect:
+		if err := tg.checkRedirect(); err != nil {
+			tg.recordError("redirect error: %v", err)
 		}
 	default:
 		panic("bad traffic type")
