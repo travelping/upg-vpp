@@ -127,7 +127,7 @@ upf_pfcp_show_endpoint_command_fn (vlib_main_t * vm,
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_main_t *gtm = &upf_main;
   clib_error_t *error = NULL;
-  ip46_address_fib_t  *key;
+  ip46_address_fib_t *key;
   uword *v;
 
   if (unformat_user (main_input, unformat_line_input, line_input))
@@ -142,7 +142,8 @@ upf_pfcp_show_endpoint_command_fn (vlib_main_t * vm,
       unformat_free (line_input);
     }
 
-  vlib_cli_output (vm, "Endpoints: %d\n", mhash_elts (&gtm->pfcp_endpoint_index));
+  vlib_cli_output (vm, "Endpoints: %d\n",
+		   mhash_elts (&gtm->pfcp_endpoint_index));
 
   /* *INDENT-OFF* */
   mhash_foreach(key, v, &gtm->pfcp_endpoint_index,
@@ -1076,18 +1077,17 @@ upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
 #define _(type, name) type name;
   foreach_upf_proxy_config_fields
 #undef _
-  u32 tmp32;
+    u32 tmp32;
 
 #define _(type, name) name = pm->name;
   foreach_upf_proxy_config_fields
 #undef _
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "mss %d", &tmp32))
 	mss = (u16) tmp32;
       else if (unformat (input, "fifo-size %U",
-		    unformat_memory_size, &fifo_size))
+			 unformat_memory_size, &fifo_size))
 	;
       else if (unformat (input, "max-fifo-size %U",
 			 unformat_memory_size, &max_fifo_size))
@@ -1112,8 +1112,7 @@ upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
 #define _(type, name) pm->name = name;
   foreach_upf_proxy_config_fields
 #undef _
-
-  return 0;
+    return 0;
 }
 
 /* *INDENT-OFF* */
@@ -1177,6 +1176,7 @@ VLIB_CLI_COMMAND (upf_show_proxy_command, static) =
 };
 
 /* *INDENT-ON* */
+
 static clib_error_t *
 upf_show_proxy_session_command_fn (vlib_main_t * vm,
 				   unformat_input_t * main_input,

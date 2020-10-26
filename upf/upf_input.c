@@ -149,7 +149,9 @@ upf_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  if (PREDICT_TRUE (upf_buffer_opaque (b)->gtpu.pdr_idx != ~0))
 	    {
-	      pdr = vec_elt_at_index(active->pdr, upf_buffer_opaque (b)->gtpu.pdr_idx);
+	      pdr =
+		vec_elt_at_index (active->pdr,
+				  upf_buffer_opaque (b)->gtpu.pdr_idx);
 	      far = pfcp_get_far_by_id (active, pdr->far_id);
 	    }
 

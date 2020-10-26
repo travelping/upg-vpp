@@ -72,7 +72,7 @@ format_gtpu_rx_trace (u8 * s, va_list * args)
 }
 
 always_inline uword
-upf_gtpu_signalling_msg (gtpu_header_t *gtpu, u32 *error)
+upf_gtpu_signalling_msg (gtpu_header_t * gtpu, u32 * error)
 {
   if (PREDICT_FALSE ((gtpu->ver_flags & GTPU_S_BIT) == 0))
     {
@@ -96,7 +96,8 @@ upf_gtpu_signalling_msg (gtpu_header_t *gtpu, u32 *error)
 
 always_inline uword
 upf_gtpu_input (vlib_main_t * vm,
-		vlib_node_runtime_t * node, vlib_frame_t * from_frame, u8 is_ip4)
+		vlib_node_runtime_t * node, vlib_frame_t * from_frame,
+		u8 is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -252,7 +253,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		      goto trace0;
 		    }
 		  last_key4.as_u64 = key4_0.as_u64;
-		  session_index0 = last_session_index = (value.value & 0xffffffff);
+		  session_index0 = last_session_index =
+		    (value.value & 0xffffffff);
 		  rule_index0 = last_rule_index = value.value >> 32;
 		}
 	      else
@@ -289,7 +291,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		      goto trace0;
 		    }
 		  clib_memcpy (&last_key6.key, &kv.key, sizeof (kv.key));
-		  session_index0 = last_session_index = (value.value & 0xffffffff);
+		  session_index0 = last_session_index =
+		    (value.value & 0xffffffff);
 		  rule_index0 = last_rule_index = value.value >> 32;
 		}
 	      else
@@ -310,10 +313,11 @@ upf_gtpu_input (vlib_main_t * vm,
 
 	      if (PREDICT_FALSE ((gtpu0->ver_flags & GTPU_E_BIT) != 0))
 		{
-		  gtpu_ext_header_t *ext = ( gtpu_ext_header_t *)&gtpu0->next_ext_type;
+		  gtpu_ext_header_t *ext =
+		    (gtpu_ext_header_t *) & gtpu0->next_ext_type;
 		  u8 *end = vlib_buffer_get_tail (b0);
 
-		  while ((u8 *)ext < end && ext->type != 0)
+		  while ((u8 *) ext < end && ext->type != 0)
 		    {
 		      /* gtpu_ext_header_t is 4 bytes and the len is in units of 4 */
 		      gtpu_hdr_len0 += ext->len * 4;
@@ -328,18 +332,21 @@ upf_gtpu_input (vlib_main_t * vm,
 
 	  hdr_len0 += gtpu_hdr_len0;
 	  upf_buffer_opaque (b0)->gtpu.data_offset = hdr_len0;
-	  upf_buffer_opaque (b0)->gtpu.ext_hdr_len = gtpu_hdr_len0 - (sizeof (gtpu_header_t) - 4);
+	  upf_buffer_opaque (b0)->gtpu.ext_hdr_len =
+	    gtpu_hdr_len0 - (sizeof (gtpu_header_t) - 4);
 	  upf_buffer_opaque (b0)->gtpu.hdr_flags = gtpu0->ver_flags;
 	  upf_buffer_opaque (b0)->gtpu.is_proxied = 0;
-	  upf_buffer_opaque (b0)->gtpu.teid = clib_net_to_host_u32 (gtpu0->teid);
+	  upf_buffer_opaque (b0)->gtpu.teid =
+	    clib_net_to_host_u32 (gtpu0->teid);
 	  upf_buffer_opaque (b0)->gtpu.session_index = session_index0;
 	  upf_buffer_opaque (b0)->gtpu.pdr_idx =
-	    !(pfcp_get_rules (t0, PFCP_ACTIVE)->flags & PFCP_CLASSIFY) ? rule_index0 : ~0;
+	    !(pfcp_get_rules (t0, PFCP_ACTIVE)->flags & PFCP_CLASSIFY) ?
+	    rule_index0 : ~0;
 	  upf_buffer_opaque (b0)->gtpu.flags =
 	    is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;
 	  upf_buffer_opaque (b0)->gtpu.flow_id = ~0;
 
-	  if (PREDICT_FALSE ((hdr_len0 + sizeof(*ip4_0)) >=
+	  if (PREDICT_FALSE ((hdr_len0 + sizeof (*ip4_0)) >=
 			     vlib_buffer_length_in_chain (vm, b0)))
 	    {
 	      error0 = UPF_GTPU_ERROR_LENGTH_ERROR;
@@ -351,10 +358,12 @@ upf_gtpu_input (vlib_main_t * vm,
 	  ip4_0 = vlib_buffer_get_current (b0) + hdr_len0;
 	  if ((ip4_0->ip_version_and_header_length & 0xF0) == 0x40)
 	    next0 = (~0 == upf_buffer_opaque (b0)->gtpu.pdr_idx) ?
-	      UPF_GTPU_INPUT_NEXT_IP4_FLOW_PROCESS : UPF_GTPU_INPUT_NEXT_IP4_PROCESS;
+	      UPF_GTPU_INPUT_NEXT_IP4_FLOW_PROCESS :
+	      UPF_GTPU_INPUT_NEXT_IP4_PROCESS;
 	  else
 	    next0 = (~0 == upf_buffer_opaque (b0)->gtpu.pdr_idx) ?
-	      UPF_GTPU_INPUT_NEXT_IP6_FLOW_PROCESS : UPF_GTPU_INPUT_NEXT_IP6_PROCESS;
+	      UPF_GTPU_INPUT_NEXT_IP6_FLOW_PROCESS :
+	      UPF_GTPU_INPUT_NEXT_IP6_PROCESS;
 
 	  pkts_decapsulated++;
 
@@ -424,7 +433,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		      goto trace1;
 		    }
 		  last_key4.as_u64 = key4_1.as_u64;
-		  session_index1 = last_session_index = (value.value & 0xffffffff);
+		  session_index1 = last_session_index =
+		    (value.value & 0xffffffff);
 		  rule_index1 = last_rule_index = value.value >> 32;
 		}
 	      else
@@ -461,7 +471,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		      goto trace1;
 		    }
 		  clib_memcpy (&last_key6.key, &kv.key, sizeof (kv.key));
-		  session_index1 = last_session_index = (value.value & 0xffffffff);
+		  session_index1 = last_session_index =
+		    (value.value & 0xffffffff);
 		  rule_index1 = last_rule_index = value.value >> 32;
 		}
 	      else
@@ -482,10 +493,11 @@ upf_gtpu_input (vlib_main_t * vm,
 
 	      if (PREDICT_FALSE ((gtpu1->ver_flags & GTPU_E_BIT) != 0))
 		{
-		  gtpu_ext_header_t *ext = ( gtpu_ext_header_t *)&gtpu1->next_ext_type;
+		  gtpu_ext_header_t *ext =
+		    (gtpu_ext_header_t *) & gtpu1->next_ext_type;
 		  u8 *end = vlib_buffer_get_tail (b1);
 
-		  while ((u8 *)ext < end && ext->type != 0)
+		  while ((u8 *) ext < end && ext->type != 0)
 		    {
 		      /* gtpu_ext_header_t is 4 bytes and the len is in units of 4 */
 		      gtpu_hdr_len1 += ext->len * 4;
@@ -500,18 +512,21 @@ upf_gtpu_input (vlib_main_t * vm,
 
 	  hdr_len1 += gtpu_hdr_len1;
 	  upf_buffer_opaque (b1)->gtpu.data_offset = hdr_len1;
-	  upf_buffer_opaque (b1)->gtpu.ext_hdr_len = gtpu_hdr_len1 - (sizeof (gtpu_header_t) - 4);
+	  upf_buffer_opaque (b1)->gtpu.ext_hdr_len =
+	    gtpu_hdr_len1 - (sizeof (gtpu_header_t) - 4);
 	  upf_buffer_opaque (b1)->gtpu.hdr_flags = gtpu1->ver_flags;
 	  upf_buffer_opaque (b1)->gtpu.is_proxied = 0;
-	  upf_buffer_opaque (b1)->gtpu.teid = clib_net_to_host_u32 (gtpu1->teid);
+	  upf_buffer_opaque (b1)->gtpu.teid =
+	    clib_net_to_host_u32 (gtpu1->teid);
 	  upf_buffer_opaque (b1)->gtpu.session_index = session_index1;
 	  upf_buffer_opaque (b1)->gtpu.pdr_idx =
-	    !(pfcp_get_rules (t1, PFCP_ACTIVE)->flags & PFCP_CLASSIFY) ? rule_index1 : ~0;
+	    !(pfcp_get_rules (t1, PFCP_ACTIVE)->flags & PFCP_CLASSIFY) ?
+	    rule_index1 : ~0;
 	  upf_buffer_opaque (b1)->gtpu.flags =
 	    is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;
 	  upf_buffer_opaque (b1)->gtpu.flow_id = ~0;
 
-	  if (PREDICT_FALSE ((hdr_len1 + sizeof(*ip4_1)) >=
+	  if (PREDICT_FALSE ((hdr_len1 + sizeof (*ip4_1)) >=
 			     vlib_buffer_length_in_chain (vm, b1)))
 	    {
 	      error1 = UPF_GTPU_ERROR_LENGTH_ERROR;
@@ -523,10 +538,12 @@ upf_gtpu_input (vlib_main_t * vm,
 	  ip4_1 = vlib_buffer_get_current (b1) + hdr_len1;
 	  if ((ip4_1->ip_version_and_header_length & 0xF0) == 0x40)
 	    next1 = (~0 == upf_buffer_opaque (b1)->gtpu.pdr_idx) ?
-	      UPF_GTPU_INPUT_NEXT_IP4_FLOW_PROCESS : UPF_GTPU_INPUT_NEXT_IP4_PROCESS;
+	      UPF_GTPU_INPUT_NEXT_IP4_FLOW_PROCESS :
+	      UPF_GTPU_INPUT_NEXT_IP4_PROCESS;
 	  else
 	    next1 = (~0 == upf_buffer_opaque (b1)->gtpu.pdr_idx) ?
-	      UPF_GTPU_INPUT_NEXT_IP6_FLOW_PROCESS : UPF_GTPU_INPUT_NEXT_IP6_PROCESS;
+	      UPF_GTPU_INPUT_NEXT_IP6_FLOW_PROCESS :
+	      UPF_GTPU_INPUT_NEXT_IP6_PROCESS;
 
 	  pkts_decapsulated++;
 
@@ -648,7 +665,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		      goto trace00;
 		    }
 		  last_key4.as_u64 = key4_0.as_u64;
-		  session_index0 = last_session_index = (value.value & 0xffffffff);
+		  session_index0 = last_session_index =
+		    (value.value & 0xffffffff);
 		  rule_index0 = last_rule_index = value.value >> 32;
 		}
 	      else
@@ -685,7 +703,8 @@ upf_gtpu_input (vlib_main_t * vm,
 		      goto trace00;
 		    }
 		  clib_memcpy (&last_key6.key, &kv.key, sizeof (kv.key));
-		  session_index0 = last_session_index = (value.value & 0xffffffff);
+		  session_index0 = last_session_index =
+		    (value.value & 0xffffffff);
 		  rule_index0 = last_rule_index = value.value >> 32;
 		}
 	      else
@@ -706,10 +725,11 @@ upf_gtpu_input (vlib_main_t * vm,
 
 	      if (PREDICT_FALSE ((gtpu0->ver_flags & GTPU_E_BIT) != 0))
 		{
-		  gtpu_ext_header_t *ext = ( gtpu_ext_header_t *)&gtpu0->next_ext_type;
+		  gtpu_ext_header_t *ext =
+		    (gtpu_ext_header_t *) & gtpu0->next_ext_type;
 		  u8 *end = vlib_buffer_get_tail (b0);
 
-		  while ((u8 *)ext < end && ext->type != 0)
+		  while ((u8 *) ext < end && ext->type != 0)
 		    {
 		      /* gtpu_ext_header_t is 4 bytes and the len is in units of 4 */
 		      gtpu_hdr_len0 += ext->len * 4;
@@ -724,18 +744,21 @@ upf_gtpu_input (vlib_main_t * vm,
 
 	  hdr_len0 += gtpu_hdr_len0;
 	  upf_buffer_opaque (b0)->gtpu.data_offset = hdr_len0;
-	  upf_buffer_opaque (b0)->gtpu.ext_hdr_len = gtpu_hdr_len0 - (sizeof (gtpu_header_t) - 4);
+	  upf_buffer_opaque (b0)->gtpu.ext_hdr_len =
+	    gtpu_hdr_len0 - (sizeof (gtpu_header_t) - 4);
 	  upf_buffer_opaque (b0)->gtpu.hdr_flags = gtpu0->ver_flags;
 	  upf_buffer_opaque (b0)->gtpu.is_proxied = 0;
-	  upf_buffer_opaque (b0)->gtpu.teid = clib_net_to_host_u32 (gtpu0->teid);
+	  upf_buffer_opaque (b0)->gtpu.teid =
+	    clib_net_to_host_u32 (gtpu0->teid);
 	  upf_buffer_opaque (b0)->gtpu.session_index = session_index0;
 	  upf_buffer_opaque (b0)->gtpu.pdr_idx =
-	    !(pfcp_get_rules (t0, PFCP_ACTIVE)->flags & PFCP_CLASSIFY) ? rule_index0 : ~0;
+	    !(pfcp_get_rules (t0, PFCP_ACTIVE)->flags & PFCP_CLASSIFY) ?
+	    rule_index0 : ~0;
 	  upf_buffer_opaque (b0)->gtpu.flags =
 	    (is_ip4) ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;
 	  upf_buffer_opaque (b0)->gtpu.flow_id = ~0;
 
-	  if (PREDICT_FALSE ((hdr_len0 + sizeof(*ip4_0)) >=
+	  if (PREDICT_FALSE ((hdr_len0 + sizeof (*ip4_0)) >=
 			     vlib_buffer_length_in_chain (vm, b0)))
 	    {
 	      error0 = UPF_GTPU_ERROR_LENGTH_ERROR;
@@ -747,10 +770,12 @@ upf_gtpu_input (vlib_main_t * vm,
 	  ip4_0 = vlib_buffer_get_current (b0) + hdr_len0;
 	  if ((ip4_0->ip_version_and_header_length & 0xF0) == 0x40)
 	    next0 = (~0 == upf_buffer_opaque (b0)->gtpu.pdr_idx) ?
-	      UPF_GTPU_INPUT_NEXT_IP4_FLOW_PROCESS : UPF_GTPU_INPUT_NEXT_IP4_PROCESS;
+	      UPF_GTPU_INPUT_NEXT_IP4_FLOW_PROCESS :
+	      UPF_GTPU_INPUT_NEXT_IP4_PROCESS;
 	  else
 	    next0 = (~0 == upf_buffer_opaque (b0)->gtpu.pdr_idx) ?
-	      UPF_GTPU_INPUT_NEXT_IP6_FLOW_PROCESS : UPF_GTPU_INPUT_NEXT_IP6_PROCESS;
+	      UPF_GTPU_INPUT_NEXT_IP6_FLOW_PROCESS :
+	      UPF_GTPU_INPUT_NEXT_IP6_PROCESS;
 
 	  pkts_decapsulated++;
 
@@ -776,8 +801,9 @@ upf_gtpu_input (vlib_main_t * vm,
     }
   /* Do we still need this now that tunnel tx stats is kept? */
   vlib_node_increment_counter (vm, is_ip4 ?
-			       upf_gtpu4_input_node.index : upf_gtpu6_input_node.
-			       index, UPF_GTPU_ERROR_DECAPSULATED,
+			       upf_gtpu4_input_node.index :
+			       upf_gtpu6_input_node.index,
+			       UPF_GTPU_ERROR_DECAPSULATED,
 			       pkts_decapsulated);
 
   return from_frame->n_vectors;
@@ -785,15 +811,15 @@ upf_gtpu_input (vlib_main_t * vm,
 
 
 VLIB_NODE_FN (upf_gtpu4_input_node) (vlib_main_t * vm,
-				 vlib_node_runtime_t * node,
-				 vlib_frame_t * from_frame)
+				     vlib_node_runtime_t * node,
+				     vlib_frame_t * from_frame)
 {
   return upf_gtpu_input (vm, node, from_frame, /* is_ip4 */ 1);
 }
 
 VLIB_NODE_FN (upf_gtpu6_input_node) (vlib_main_t * vm,
-				 vlib_node_runtime_t * node,
-				 vlib_frame_t * from_frame)
+				     vlib_node_runtime_t * node,
+				     vlib_frame_t * from_frame)
 {
   return upf_gtpu_input (vm, node, from_frame, /* is_ip4 */ 0);
 }
@@ -981,9 +1007,9 @@ decode_error_indication (vlib_buffer_t * b, gtp_error_ind_t * error)
   return 0;
 }
 
-VLIB_NODE_FN(upf_gtp_error_ind_node) (vlib_main_t * vm,
-				      vlib_node_runtime_t * node,
-				      vlib_frame_t * frame)
+VLIB_NODE_FN (upf_gtp_error_ind_node) (vlib_main_t * vm,
+				       vlib_node_runtime_t * node,
+				       vlib_frame_t * frame)
 {
   upf_main_t *gtm = &upf_main;
   u32 *buffers, *first_buffer;
@@ -1012,9 +1038,10 @@ VLIB_NODE_FN(upf_gtp_error_ind_node) (vlib_main_t * vm,
       vlib_buffer_advance (b, vnet_buffer (b)->l4_hdr_offset);
       gtpu = vlib_buffer_get_current (b);
 
-      upf_debug("P: %U", format_hex_bytes, gtpu, 16);
-      upf_debug("%p, TEID: %u, Flags: %02x, Ext: %u", gtpu,
-		gtpu->teid, gtpu->ver_flags & GTPU_E_S_PN_BIT, gtpu->next_ext_type);
+      upf_debug ("P: %U", format_hex_bytes, gtpu, 16);
+      upf_debug ("%p, TEID: %u, Flags: %02x, Ext: %u", gtpu,
+		 gtpu->teid, gtpu->ver_flags & GTPU_E_S_PN_BIT,
+		 gtpu->next_ext_type);
 
       memset (&error, 0, sizeof (error));
 
@@ -1192,15 +1219,18 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 	      gtpu0->sequence = 0;
 	    }
 	  gtpu0->type = GTPU_TYPE_ECHO_RESPONSE;
-	  gtpu0->length = clib_net_to_host_u16(sizeof (gtpu_ie_recovery_t) + 4);
+	  gtpu0->length =
+	    clib_net_to_host_u16 (sizeof (gtpu_ie_recovery_t) + 4);
 	  /*
-           * TS 29.281 5.1: for Echo Request/Response, 0 is always used
-           * for the response TEID
-           */
+	   * TS 29.281 5.1: for Echo Request/Response, 0 is always used
+	   * for the response TEID
+	   */
 	  gtpu0->teid = 0;
 	  gtpu0->pdu_number = 0;
 	  gtpu0->next_ext_type = 0;
-	  gtpu_recovery0 = (gtpu_ie_recovery_t *) ((u8*)(udp0 + 1) + sizeof (gtpu_header_t));
+	  gtpu_recovery0 =
+	    (gtpu_ie_recovery_t *) ((u8 *) (udp0 + 1) +
+				    sizeof (gtpu_header_t));
 	  gtpu_recovery0->ie_type = GTPU_IE_RECOVERY;
 	  gtpu_recovery0->restart_counter = 0;
 
@@ -1214,7 +1244,8 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 
 	  /* Calculate new IP length. */
 	  new_len0 = ip4_header_bytes (ip0) +
-	    sizeof (udp_header_t) + sizeof (gtpu_header_t) + sizeof (gtpu_ie_recovery_t);
+	    sizeof (udp_header_t) + sizeof (gtpu_header_t) +
+	    sizeof (gtpu_ie_recovery_t);
 	  p0->current_length = new_len0;
 
 	  /* Update IP header fields and checksum. */
@@ -1229,9 +1260,9 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 	  ip0->fragment_id = fid[0];
 	  fid += 1;
 
-	  new_ip_len0 = clib_host_to_net_u16(new_len0);
-	  sum0 = ip_csum_update(sum0, ip0->length, new_ip_len0,
-				ip4_header_t, length);
+	  new_ip_len0 = clib_host_to_net_u16 (new_len0);
+	  sum0 = ip_csum_update (sum0, ip0->length, new_ip_len0,
+				 ip4_header_t, length);
 	  ip0->length = new_ip_len0;
 
 	  ip0->checksum = ip_csum_fold (sum0);
@@ -1244,9 +1275,9 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 	  udp0->dst_port = port0;
 
 	  /* UDP length. */
-	  udp0->length = clib_host_to_net_u16(sizeof (udp_header_t) +
-					      sizeof (gtpu_header_t) +
-					      sizeof (gtpu_ie_recovery_t));
+	  udp0->length = clib_host_to_net_u16 (sizeof (udp_header_t) +
+					       sizeof (gtpu_header_t) +
+					       sizeof (gtpu_ie_recovery_t));
 	  /* UDP checksum. */
 	  udp0->checksum = 0;
 	  udp0->checksum = ip4_tcp_udp_compute_checksum (vm, p0, ip0);
@@ -1280,8 +1311,8 @@ format_gtpu_ip6_echo_req_trace (u8 * s, va_list * args)
 }
 
 VLIB_NODE_FN (upf_gtp_ip6_echo_req_node) (vlib_main_t * vm,
-				      vlib_node_runtime_t * node,
-				      vlib_frame_t * frame)
+					  vlib_node_runtime_t * node,
+					  vlib_frame_t * frame)
 {
   ip6_main_t *i6m = &ip6_main;
   uword n_packets = frame->n_vectors;
@@ -1337,15 +1368,18 @@ VLIB_NODE_FN (upf_gtp_ip6_echo_req_node) (vlib_main_t * vm,
 	      gtpu0->sequence = 0;
 	    }
 	  gtpu0->type = GTPU_TYPE_ECHO_RESPONSE;
-	  gtpu0->length = clib_net_to_host_u16(sizeof (gtpu_ie_recovery_t) + 4);
+	  gtpu0->length =
+	    clib_net_to_host_u16 (sizeof (gtpu_ie_recovery_t) + 4);
 	  /*
-           * TS 29.281 5.1: for Echo Request/Response, 0 is always used
-           * for the response TEID
-           */
+	   * TS 29.281 5.1: for Echo Request/Response, 0 is always used
+	   * for the response TEID
+	   */
 	  gtpu0->teid = 0;
 	  gtpu0->pdu_number = 0;
 	  gtpu0->next_ext_type = 0;
-	  gtpu_recovery0 = (gtpu_ie_recovery_t *) ((u8*)(udp0 + 1) + sizeof (gtpu_header_t));
+	  gtpu_recovery0 =
+	    (gtpu_ie_recovery_t *) ((u8 *) (udp0 + 1) +
+				    sizeof (gtpu_header_t));
 	  gtpu_recovery0->ie_type = GTPU_IE_RECOVERY;
 	  gtpu_recovery0->restart_counter = 0;
 
@@ -1363,7 +1397,9 @@ VLIB_NODE_FN (upf_gtp_ip6_echo_req_node) (vlib_main_t * vm,
 	  ip0->hop_limit = i6m->host_config.ttl;
 
 	  /* Calculate new IP length. */
-	  new_len0 = sizeof (udp_header_t) + sizeof (gtpu_header_t) + sizeof (gtpu_ie_recovery_t);
+	  new_len0 =
+	    sizeof (udp_header_t) + sizeof (gtpu_header_t) +
+	    sizeof (gtpu_ie_recovery_t);
 	  p0->current_length = sizeof (ip6_header_t) + new_len0;
 	  ip0->payload_length = clib_host_to_net_u16 (new_len0);
 
@@ -1889,15 +1925,18 @@ VLIB_REGISTER_NODE (ip4_gtpu_upf_bypass_node) = {
 
 #ifndef CLIB_MARCH_VARIANT
 /* Dummy init function to get us linked in. */
-clib_error_t * ip4_gtpu_upf_bypass_init (vlib_main_t * vm)
-{ return 0; }
+clib_error_t *
+ip4_gtpu_upf_bypass_init (vlib_main_t * vm)
+{
+  return 0;
+}
 
 VLIB_INIT_FUNCTION (ip4_gtpu_upf_bypass_init);
 #endif /* CLIB_MARCH_VARIANT */
 
 VLIB_NODE_FN (ip6_gtpu_upf_bypass_node) (vlib_main_t * vm,
-				     vlib_node_runtime_t * node,
-				     vlib_frame_t * frame)
+					 vlib_node_runtime_t * node,
+					 vlib_frame_t * frame)
 {
   return ip_gtpu_upf_bypass_inline (vm, node, frame, /* is_ip4 */ 0);
 }
@@ -1920,8 +1959,11 @@ VLIB_REGISTER_NODE (ip6_gtpu_upf_bypass_node) = {
 
 #ifndef CLIB_MARCH_VARIANT
 /* Dummy init function to get us linked in. */
-clib_error_t * ip6_gtpu_upf_bypass_init (vlib_main_t * vm)
-{ return 0; }
+clib_error_t *
+ip6_gtpu_upf_bypass_init (vlib_main_t * vm)
+{
+  return 0;
+}
 
 VLIB_INIT_FUNCTION (ip6_gtpu_upf_bypass_init);
 #endif /* CLIB_MARCH_VARIANT */

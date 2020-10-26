@@ -86,8 +86,7 @@ format_upf_forward_trace (u8 * s, va_list * args)
 
 static uword
 upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
-             const char * node_name,
-	     vlib_frame_t * from_frame, int is_ip4)
+	     const char *node_name, vlib_frame_t * from_frame, int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -143,20 +142,22 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  if (PREDICT_TRUE (upf_buffer_opaque (b)->gtpu.pdr_idx != ~0))
 	    {
-	      pdr = vec_elt_at_index (active->pdr, upf_buffer_opaque (b)->gtpu.pdr_idx);
+	      pdr =
+		vec_elt_at_index (active->pdr,
+				  upf_buffer_opaque (b)->gtpu.pdr_idx);
 	      far = pfcp_get_far_by_id (active, pdr->far_id);
 	    }
 
 	  if (is_ip4)
-            {
-              upf_debug ("IP hdr: %U", format_ip4_header,
-                         vlib_buffer_get_current (b), b->current_length);
-            }
-          else
-            {
-              upf_debug ("IP hdr: %U", format_ip6_header,
-                         vlib_buffer_get_current (b), b->current_length);
-            }
+	    {
+	      upf_debug ("IP hdr: %U", format_ip4_header,
+			 vlib_buffer_get_current (b), b->current_length);
+	    }
+	  else
+	    {
+	      upf_debug ("IP hdr: %U", format_ip6_header,
+			 vlib_buffer_get_current (b), b->current_length);
+	    }
 
 	  if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
 	    goto stats;
@@ -290,14 +291,16 @@ VLIB_NODE_FN (upf_ip4_forward_node) (vlib_main_t * vm,
 				     vlib_node_runtime_t * node,
 				     vlib_frame_t * from_frame)
 {
-  return upf_forward (vm, node, "upf-ip4-forward", from_frame, /* is_ip4 */ 1);
+  return upf_forward (vm, node, "upf-ip4-forward", from_frame,	/* is_ip4 */
+		      1);
 }
 
 VLIB_NODE_FN (upf_ip6_forward_node) (vlib_main_t * vm,
 				     vlib_node_runtime_t * node,
 				     vlib_frame_t * from_frame)
 {
-  return upf_forward (vm, node, "upf-ip6-forward", from_frame, /* is_ip4 */ 0);
+  return upf_forward (vm, node, "upf-ip6-forward", from_frame,	/* is_ip4 */
+		      0);
 }
 
 /* *INDENT-OFF* */

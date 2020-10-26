@@ -63,23 +63,19 @@ static int node_msg (pfcp_msg_t * msg);
 static int session_msg (pfcp_msg_t * msg);
 
 /* permit out ip from any to assigned */
-static const acl_rule_t wildcard_acl =
-  {
-   .type = IPFILTER_WILDCARD,
-   .action = ACL_PERMIT,
-   .direction = ACL_OUT,
-   .proto = ~0,
-   .address =
-   {
-    [UPF_ACL_FIELD_SRC] = ACL_ADDR_ANY,
-    [UPF_ACL_FIELD_DST] = ACL_ADDR_ASSIGNED
-   },
-   .port =
-   {
-    [UPF_ACL_FIELD_SRC] = {.min = 0, .max = ~0},
-    [UPF_ACL_FIELD_DST] = {.min = 0, .max = ~0}
-   }
-  };
+static const acl_rule_t wildcard_acl = {
+  .type = IPFILTER_WILDCARD,
+  .action = ACL_PERMIT,
+  .direction = ACL_OUT,
+  .proto = ~0,
+  .address = {
+	      [UPF_ACL_FIELD_SRC] = ACL_ADDR_ANY,
+	      [UPF_ACL_FIELD_DST] = ACL_ADDR_ASSIGNED},
+  .port = {
+	   [UPF_ACL_FIELD_SRC] = {.min = 0,.max = ~0},
+	   [UPF_ACL_FIELD_DST] = {.min = 0,.max = ~0}
+	   }
+};
 
 size_t
 upf_pfcp_api_session_data_size ()
@@ -903,7 +899,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	  unformat_input_t input;
 	  acl_rule_t *acl;
 
-	  unformat_init_string (&input, (char *) sdf->flow, vec_len(sdf->flow));
+	  unformat_init_string (&input, (char *) sdf->flow,
+				vec_len (sdf->flow));
 	  vec_add2 (create->pdi.acl, acl, 1);
 
 	  if (!unformat_ipfilter (&input, acl))
@@ -1078,7 +1075,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	  unformat_input_t input;
 	  acl_rule_t *acl;
 
-	  unformat_init_string (&input, (char *) sdf->flow, vec_len(sdf->flow));
+	  unformat_init_string (&input, (char *) sdf->flow,
+				vec_len (sdf->flow));
 	  vec_add2 (update->pdi.acl, acl, 1);
 
 	  if (!unformat_ipfilter (&input, acl))

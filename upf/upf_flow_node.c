@@ -80,7 +80,8 @@ load_gtpu_flow_info (flowtable_main_t * fm, vlib_buffer_t * b,
 
   if (flow->generation != generation)
     {
-      flow_debug ("Flow has an old generation ID: %U", format_flow_key, &flow->key);
+      flow_debug ("Flow has an old generation ID: %U", format_flow_key,
+		  &flow->key);
       flow->application_id = ~0;
       flow->generation = generation;
       flow_pdr_id (flow, FT_ORIGIN) = ~0;
@@ -195,8 +196,12 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      break;
 	    }
 
-	  p0 = vlib_buffer_get_current (b0) + upf_buffer_opaque (b0)->gtpu.data_offset;
-	  p1 = vlib_buffer_get_current (b1) + upf_buffer_opaque (b1)->gtpu.data_offset;
+	  p0 =
+	    vlib_buffer_get_current (b0) +
+	    upf_buffer_opaque (b0)->gtpu.data_offset;
+	  p1 =
+	    vlib_buffer_get_current (b1) +
+	    upf_buffer_opaque (b1)->gtpu.data_offset;
 
 	  sx0 =
 	    pool_elt_at_index (gtm->sessions,
@@ -214,10 +219,12 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  /* lookup/create flow */
 	  flow_idx0 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv0, current_time,
-					   is_reverse0, sx0->generation, &created0);
+					   is_reverse0, sx0->generation,
+					   &created0);
 	  flow_idx1 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv1, current_time,
-					   is_reverse1, sx0->generation, &created1);
+					   is_reverse1, sx0->generation,
+					   &created1);
 
 	  if (PREDICT_FALSE (~0 == flow_idx0 || ~0 == flow_idx1))
 	    {
@@ -251,8 +258,12 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow1->stats[is_reverse1].bytes += b1->current_length;
 
 	  /* fill buffer with flow data */
-	  next0 = load_gtpu_flow_info (fm, b0, flow0, active0, is_reverse0, sx0->generation);
-	  next1 = load_gtpu_flow_info (fm, b1, flow1, active1, is_reverse1, sx1->generation);
+	  next0 =
+	    load_gtpu_flow_info (fm, b0, flow0, active0, is_reverse0,
+				 sx0->generation);
+	  next1 =
+	    load_gtpu_flow_info (fm, b1, flow1, active1, is_reverse1,
+				 sx1->generation);
 
 	  /* flowtable counters */
 	  CPT_THRU += 2;
@@ -332,7 +343,9 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      goto stats1;
 	    }
 
-	  p = vlib_buffer_get_current (b0) + upf_buffer_opaque (b0)->gtpu.data_offset;
+	  p =
+	    vlib_buffer_get_current (b0) +
+	    upf_buffer_opaque (b0)->gtpu.data_offset;
 
 	  sx0 =
 	    pool_elt_at_index (gtm->sessions,
@@ -344,7 +357,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow_mk_key (sx0->cp_seid, p, is_ip4, &is_reverse, &kv);
 	  flow_idx =
 	    flowtable_entry_lookup_create (fm, fmt, &kv, current_time,
-					   is_reverse, sx0->generation, &created);
+					   is_reverse, sx0->generation,
+					   &created);
 
 	  if (PREDICT_FALSE (~0 == flow_idx))
 	    {
@@ -359,7 +373,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  FLOW_DEBUG (fm, flow);
 
 	  flow_debug ("is_rev: %u, flow: %u, c: %u", is_reverse,
-		     flow->is_reverse, created);
+		      flow->is_reverse, created);
 
 	  /* timer management */
 	  flow_update_lifetime (flow, p, is_ip4);
@@ -370,10 +384,12 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow->stats[is_reverse].bytes += b0->current_length;
 
 	  /* fill opaque buffer with flow data */
-	  next0 = load_gtpu_flow_info (fm, b0, flow, active0, is_reverse, sx0->generation);
-	  flow_debug ("flow next: %u, origin: %u, reverse: %u",
-		      next0, flow_next (flow, FT_ORIGIN), flow_next (flow,
-								     FT_REVERSE));
+	  next0 =
+	    load_gtpu_flow_info (fm, b0, flow, active0, is_reverse,
+				 sx0->generation);
+	  flow_debug ("flow next: %u, origin: %u, reverse: %u", next0,
+		      flow_next (flow, FT_ORIGIN), flow_next (flow,
+							      FT_REVERSE));
 
 	  /* flowtable counters */
 	  CPT_THRU++;
