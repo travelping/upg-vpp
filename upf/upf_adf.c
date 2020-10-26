@@ -390,17 +390,19 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
     {
       r = ADR_OK;
       if (!flow->app_uri)
-        goto out;
+	goto out;
       uri = flow->app_uri;
     }
   else
     {
       ASSERT (p);
 
-      port = clib_net_to_host_u16 (flow->key.port[FT_REVERSE ^ flow->is_reverse]);
+      port =
+	clib_net_to_host_u16 (flow->key.port[FT_REVERSE ^ flow->is_reverse]);
       upf_debug ("Using port %u, instead of %u", port,
 		 clib_net_to_host_u16 (flow->
-				       key.port[FT_ORIGIN ^ flow->is_reverse]));
+				       key.port[FT_ORIGIN ^ flow->
+						is_reverse]));
 
       if (*p == TLS_HANDSHAKE)
 	r = upf_adr_try_tls (port, p, &uri);

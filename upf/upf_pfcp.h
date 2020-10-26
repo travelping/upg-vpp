@@ -127,7 +127,7 @@ upf_nwi_fib_index (fib_protocol_t proto, u32 nwi_index)
 
 static_always_inline u32
 flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
-			  struct rules *r)
+	      struct rules *r)
 {
   upf_pdr_t *pdr;
   u32 pdr_id = flow_pdr_id (flow, direction);

@@ -64,13 +64,12 @@ typedef enum
   UPF_CLASSIFY_N_NEXT,
 } upf_classify_next_t;
 
-static upf_classify_next_t upf_classify_flow_next[] =
-  {
-   [FT_NEXT_DROP]     = UPF_CLASSIFY_NEXT_DROP,
-   [FT_NEXT_CLASSIFY] = UPF_CLASSIFY_NEXT_DROP,
-   [FT_NEXT_PROCESS]  = UPF_CLASSIFY_NEXT_PROCESS,
-   [FT_NEXT_PROXY]    = UPF_CLASSIFY_NEXT_PROXY,
-  };
+static upf_classify_next_t upf_classify_flow_next[] = {
+  [FT_NEXT_DROP] = UPF_CLASSIFY_NEXT_DROP,
+  [FT_NEXT_CLASSIFY] = UPF_CLASSIFY_NEXT_DROP,
+  [FT_NEXT_PROCESS] = UPF_CLASSIFY_NEXT_PROCESS,
+  [FT_NEXT_PROXY] = UPF_CLASSIFY_NEXT_PROXY,
+};
 
 typedef struct
 {
@@ -457,14 +456,16 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 			       upf_buffer_opaque (b)->gtpu.flow_id);
 
 	  is_reverse = upf_buffer_opaque (b)->gtpu.is_reverse;
-	  direction = (is_reverse == flow->is_reverse) ? FT_ORIGIN : FT_REVERSE;
+	  direction =
+	    (is_reverse == flow->is_reverse) ? FT_ORIGIN : FT_REVERSE;
 	  /*
 	   * In case of a proxy flow surviving session modification,
 	   * we need to classify both ends of the flow to re-run the
 	   * app detection just once
 	   */
 	  reclassify_proxy_flow = flow->is_l3_proxy;
-	  upf_debug ("is_rev %u, dir %s\n", is_reverse, direction == FT_ORIGIN ? "FT_ORIGIN" : "FT_REVERSE");
+	  upf_debug ("is_rev %u, dir %s\n", is_reverse,
+		     direction == FT_ORIGIN ? "FT_ORIGIN" : "FT_REVERSE");
 
 	  if (flow_next (flow, direction) != FT_NEXT_CLASSIFY)
 	    {
@@ -476,16 +477,19 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	       */
 
 	      /* need to reload pdr_idx, as the flow entry was not ready at that time */
-	      upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, active);
+	      upf_buffer_opaque (b)->gtpu.pdr_idx =
+		flow_pdr_idx (flow, direction, active);
 	      next = upf_classify_flow_next[flow_next (flow, direction)];
 	    }
 	  else if (direction == FT_ORIGIN)
 	    {
 	      next =
-		upf_acl_classify_forward (vm, upf_buffer_opaque (b)->gtpu.teid,
+		upf_acl_classify_forward (vm,
+					  upf_buffer_opaque (b)->gtpu.teid,
 					  flow, active, is_ip4,
-					  &upf_buffer_opaque (b)->gtpu.pdr_idx);
-	      if (reclassify_proxy_flow) /* for app detection */
+					  &upf_buffer_opaque (b)->
+					  gtpu.pdr_idx);
+	      if (reclassify_proxy_flow)	/* for app detection */
 		{
 		  if (upf_buffer_opaque (b)->gtpu.is_proxied)
 		    upf_acl_classify_proxied (vm, 0, flow, active, is_ip4, 0);
@@ -495,33 +499,40 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    }
 	  else
 	    {
-	      if (reclassify_proxy_flow) /* for app detection */
+	      if (reclassify_proxy_flow)	/* for app detection */
 		upf_acl_classify_forward (vm, 0, flow, active, is_ip4, 0);
 	      if (upf_buffer_opaque (b)->gtpu.is_proxied)
 		next =
-		  upf_acl_classify_proxied (vm, upf_buffer_opaque (b)->gtpu.teid,
+		  upf_acl_classify_proxied (vm,
+					    upf_buffer_opaque (b)->gtpu.teid,
 					    flow, active, is_ip4,
-					    &upf_buffer_opaque (b)->gtpu.pdr_idx);
+					    &upf_buffer_opaque (b)->
+					    gtpu.pdr_idx);
 	      else
 		next =
-		  upf_acl_classify_return (vm, upf_buffer_opaque (b)->gtpu.teid,
+		  upf_acl_classify_return (vm,
+					   upf_buffer_opaque (b)->gtpu.teid,
 					   flow, active, is_ip4,
-					   &upf_buffer_opaque (b)->gtpu.pdr_idx);
+					   &upf_buffer_opaque (b)->
+					   gtpu.pdr_idx);
 	    }
 
 	  if (flow->app_detection_done)
 	    {
 	      /* try to reclassify the app based on the saved URI, if any */
-	      upf_debug("re-run app detection (reverse)");
-	      ar = upf_application_detection(vm, 0, flow, active);
+	      upf_debug ("re-run app detection (reverse)");
+	      ar = upf_application_detection (vm, 0, flow, active);
 	      ASSERT (ar == ADR_OK);
-	      upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, active);
+	      upf_buffer_opaque (b)->gtpu.pdr_idx =
+		flow_pdr_idx (flow, direction, active);
 	    }
 
-	  
+
 	  upf_debug ("Next: %u", next);
-	  ASSERT (flow_next (flow, FT_ORIGIN) != FT_NEXT_PROXY || flow_pdr_id (flow, FT_ORIGIN) != ~0);
-	  ASSERT (flow_next (flow, FT_REVERSE) != FT_NEXT_PROXY || flow_pdr_id (flow, FT_REVERSE) != ~0);
+	  ASSERT (flow_next (flow, FT_ORIGIN) != FT_NEXT_PROXY
+		  || flow_pdr_id (flow, FT_ORIGIN) != ~0);
+	  ASSERT (flow_next (flow, FT_REVERSE) != FT_NEXT_PROXY
+		  || flow_pdr_id (flow, FT_REVERSE) != ~0);
 
 	  len = vlib_buffer_length_in_chain (vm, b);
 	  stats_n_packets += 1;

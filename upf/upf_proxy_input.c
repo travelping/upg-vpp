@@ -93,7 +93,8 @@ format_upf_proxy_input_trace (u8 * s, va_list * args)
 }
 
 static u8
-tcp_flow_is_valid (tcp_connection_t * tc, flow_entry_t *f, flow_direction_t direction)
+tcp_flow_is_valid (tcp_connection_t * tc, flow_entry_t * f,
+		   flow_direction_t direction)
 {
   flow_direction_t origin = direction ^ f->is_reverse;
   flow_direction_t reverse = direction ^ FT_REVERSE ^ f->is_reverse;
@@ -112,7 +113,7 @@ tcp_flow_is_valid (tcp_connection_t * tc, flow_entry_t *f, flow_direction_t dire
 }
 
 static void
-kill_connection_hard (tcp_connection_t *tc)
+kill_connection_hard (tcp_connection_t * tc)
 {
   session_lookup_del_connection (&tc->connection);
 
@@ -121,7 +122,7 @@ kill_connection_hard (tcp_connection_t *tc)
 }
 
 static_always_inline u32
-splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
+splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
 {
   flow_direction_t origin = FT_ORIGIN ^ direction;
   flow_direction_t reverse = FT_REVERSE ^ direction;
@@ -138,7 +139,9 @@ splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
 
   // lookup connections
-  tc = transport_get_connection (TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index);
+  tc =
+    transport_get_connection (TRANSPORT_PROTO_TCP, ftc->conn_index,
+			      ftc->thread_index);
   if (!tc)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
 
@@ -152,12 +155,15 @@ splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
 
   tcpRx = tcp_get_connection_from_transport
-    (transport_get_connection (TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index));
-  tcpTx = tcp_get_connection_from_transport
-    (transport_get_connection (TRANSPORT_PROTO_TCP, rev->conn_index, rev->thread_index));
+    (transport_get_connection
+     (TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index));
+  tcpTx =
+    tcp_get_connection_from_transport (transport_get_connection
+				       (TRANSPORT_PROTO_TCP, rev->conn_index,
+					rev->thread_index));
 
-  ASSERT (tcp_flow_is_valid(tcpRx, flow, direction));
-  ASSERT (tcp_flow_is_valid(tcpTx, flow, FT_REVERSE ^ direction));
+  ASSERT (tcp_flow_is_valid (tcpRx, flow, direction));
+  ASSERT (tcp_flow_is_valid (tcpTx, flow, FT_REVERSE ^ direction));
 
   if (!tcpRx || !tcpTx)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
@@ -171,7 +177,8 @@ splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
-  if (tcp_opts_tstamp (&tcpTx->rcv_opts) != tcp_opts_tstamp (&tcpRx->rcv_opts))
+  if (tcp_opts_tstamp (&tcpTx->rcv_opts) !=
+      tcp_opts_tstamp (&tcpRx->rcv_opts))
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
@@ -186,11 +193,11 @@ splice_tcp_connection (flow_entry_t *flow, flow_direction_t direction)
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
-  if (flow_seq_offs(flow, origin) == 0)
-    flow_seq_offs(flow, origin) = tcpRx->rcv_nxt - tcpTx->snd_nxt;
+  if (flow_seq_offs (flow, origin) == 0)
+    flow_seq_offs (flow, origin) = tcpRx->rcv_nxt - tcpTx->snd_nxt;
 
-  if (flow_seq_offs(flow, reverse) == 0)
-    flow_seq_offs(flow, reverse) = tcpRx->snd_nxt - tcpTx->rcv_nxt;
+  if (flow_seq_offs (flow, reverse) == 0)
+    flow_seq_offs (flow, reverse) = tcpRx->snd_nxt - tcpTx->rcv_nxt;
 
   /* kill the TCP connections, session and proxy session */
   kill_connection_hard (tcpRx);
@@ -212,7 +219,7 @@ upf_vnet_load_tcp_hdr_offset (vlib_buffer_t * b)
     {
       int ip_hdr_bytes = ip4_header_bytes (ip4);
       if (PREDICT_FALSE (b->current_length < ip_hdr_bytes + sizeof (*tcp)))
-	  return -1;
+	return -1;
 
       tcp = ip4_next_header (ip4);
       vnet_buffer (b)->tcp.hdr_offset = (u8 *) tcp - (u8 *) ip4;
@@ -233,7 +240,8 @@ upf_vnet_load_tcp_hdr_offset (vlib_buffer_t * b)
 }
 
 static_always_inline void
-load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction, flow_entry_t * flow)
+load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction,
+		    flow_entry_t * flow)
 {
   tcp_header_t *tcp;
   tcp_options_t opts;
@@ -245,7 +253,7 @@ load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction, flow_entry_t 
     return;
 
   tcp = tcp_buffer_hdr (b);
-  memset (&opts, 0, sizeof(opts));
+  memset (&opts, 0, sizeof (opts));
   if (tcp_options_parse (tcp, &opts, 1))
     return;
 
@@ -257,8 +265,7 @@ load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction, flow_entry_t 
 
 static uword
 upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
-                 const char * node_name,
-		 vlib_frame_t * from_frame, int is_ip4)
+		 const char *node_name, vlib_frame_t * from_frame, int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -406,25 +413,27 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  load_tstamp_offset (b, direction, flow);
 		  next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
 		}
-              else
-                goto stats;
+	      else
+		goto stats;
 	    }
 
-          // FT_REVERSE direction (DL) and stitched traffic (upf-ip[46]-tcp-forward)
-          // is accounted for on the upf-ip[46]-forward node
-          if (direction == FT_ORIGIN && next != UPF_PROXY_INPUT_NEXT_TCP_FORWARD)
-            {
-              /* Get next node index and adj index from tunnel next_dpo */
-              sess = pool_elt_at_index (gtm->sessions, flow->session_index);
-              active = pfcp_get_rules (sess, PFCP_ACTIVE);
-              pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, direction));
-              far = pdr ? pfcp_get_far_by_id (active, pdr->far_id) : NULL;
+	  // FT_REVERSE direction (DL) and stitched traffic (upf-ip[46]-tcp-forward)
+	  // is accounted for on the upf-ip[46]-forward node
+	  if (direction == FT_ORIGIN
+	      && next != UPF_PROXY_INPUT_NEXT_TCP_FORWARD)
+	    {
+	      /* Get next node index and adj index from tunnel next_dpo */
+	      sess = pool_elt_at_index (gtm->sessions, flow->session_index);
+	      active = pfcp_get_rules (sess, PFCP_ACTIVE);
+	      pdr =
+		pfcp_get_pdr_by_id (active, flow_pdr_id (flow, direction));
+	      far = pdr ? pfcp_get_far_by_id (active, pdr->far_id) : NULL;
 
-              if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
-                {
-                  next = UPF_FORWARD_NEXT_DROP;
-                  goto stats;
-                }
+	      if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
+		{
+		  next = UPF_FORWARD_NEXT_DROP;
+		  goto stats;
+		}
 
 
 #define IS_DL(_pdr, _far)						\
@@ -432,15 +441,15 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 #define IS_UL(_pdr, _far)						\
               ((_pdr)->pdi.src_intf == SRC_INTF_ACCESS || (_far)->forward.dst_intf == DST_INTF_CORE)
 
-              upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
-              next = process_qers (vm, sess, active, pdr, b,
-                                   IS_DL (pdr, far), IS_UL (pdr, far), next);
-              next = process_urrs (vm, sess, node_name, active, pdr, b,
-                                   IS_DL (pdr, far), IS_UL (pdr, far), next);
+	      upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
+	      next = process_qers (vm, sess, active, pdr, b,
+				   IS_DL (pdr, far), IS_UL (pdr, far), next);
+	      next = process_urrs (vm, sess, node_name, active, pdr, b,
+				   IS_DL (pdr, far), IS_UL (pdr, far), next);
 
 #undef IS_DL
 #undef IS_UL
-            }
+	    }
 
 	stats:
 	  len = vlib_buffer_length_in_chain (vm, b);
@@ -497,14 +506,16 @@ VLIB_NODE_FN (upf_ip4_proxy_input_node) (vlib_main_t * vm,
 					 vlib_node_runtime_t * node,
 					 vlib_frame_t * from_frame)
 {
-  return upf_proxy_input (vm, node, "upf-ip4-proxy-input", from_frame, /* is_ip4 */ 1);
+  return upf_proxy_input (vm, node, "upf-ip4-proxy-input", from_frame,
+			  /* is_ip4 */ 1);
 }
 
 VLIB_NODE_FN (upf_ip6_proxy_input_node) (vlib_main_t * vm,
 					 vlib_node_runtime_t * node,
 					 vlib_frame_t * from_frame)
 {
-  return upf_proxy_input (vm, node, "upf-ip6-proxy-input", from_frame, /* is_ip4 */ 0);
+  return upf_proxy_input (vm, node, "upf-ip6-proxy-input", from_frame,
+			  /* is_ip4 */ 0);
 }
 
 /* *INDENT-OFF* */

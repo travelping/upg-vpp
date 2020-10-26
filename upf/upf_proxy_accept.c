@@ -147,7 +147,7 @@ proxy_session_stream_accept_notify (transport_connection_t * tc, u32 flow_id)
  */
 static tcp_connection_t *
 upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
-                           u8 is_ip4)
+			   u8 is_ip4)
 {
   tcp_header_t *tcp;
   transport_connection_t *tconn;
@@ -159,12 +159,12 @@ upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
       ip4 = vlib_buffer_get_current (b);
       tcp = ip4_next_header (ip4);
       tconn = session_lookup_connection_wt4 (fib_index,
-                                             &ip4->dst_address,
-                                             &ip4->src_address,
-                                             tcp->dst_port,
-                                             tcp->src_port,
-                                             TRANSPORT_PROTO_TCP,
-                                             thread_index, &is_filtered);
+					     &ip4->dst_address,
+					     &ip4->src_address,
+					     tcp->dst_port,
+					     tcp->src_port,
+					     TRANSPORT_PROTO_TCP,
+					     thread_index, &is_filtered);
       tc = tcp_get_connection_from_transport (tconn);
       /* ASSERT (tcp_lookup_is_valid (tc, b, tcp)); */
     }
@@ -174,12 +174,12 @@ upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
       ip6 = vlib_buffer_get_current (b);
       tcp = ip6_next_header (ip6);
       tconn = session_lookup_connection_wt6 (fib_index,
-                                             &ip6->dst_address,
-                                             &ip6->src_address,
-                                             tcp->dst_port,
-                                             tcp->src_port,
-                                             TRANSPORT_PROTO_TCP,
-                                             thread_index, &is_filtered);
+					     &ip6->dst_address,
+					     &ip6->src_address,
+					     tcp->dst_port,
+					     tcp->src_port,
+					     TRANSPORT_PROTO_TCP,
+					     thread_index, &is_filtered);
       tc = tcp_get_connection_from_transport (tconn);
       /* ASSERT (tcp_lookup_is_valid (tc, b, tcp)); */
     }
@@ -221,11 +221,12 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
       flow = pool_elt_at_index (fm->flows, flow_id);
       ASSERT (flow);
       if (pool_is_free (gtm->sessions, gtm->sessions + flow->session_index))
-        {
-          clib_warning("The flow has sidx %d that refers to a dead session", flow->session_index);
-          error = UPF_PROXY_ERROR_INVALID_FLOW;
-          goto done;
-        }
+	{
+	  clib_warning ("The flow has sidx %d that refers to a dead session",
+			flow->session_index);
+	  error = UPF_PROXY_ERROR_INVALID_FLOW;
+	  goto done;
+	}
 
       /* make sure connection_index is invalid */
       vnet_buffer (b)->tcp.connection_index = ~0;
@@ -247,11 +248,10 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
       upf_debug ("FIB: %u", fib_idx);
 
       /* Make sure connection wasn't just created */
-      old_conn = upf_tcp_lookup_connection (fib_idx, b, thread_index,
-                                            is_ip4);
+      old_conn = upf_tcp_lookup_connection (fib_idx, b, thread_index, is_ip4);
       if (PREDICT_FALSE (old_conn != NULL))
 	{
-          clib_warning("duplicate connection in upf-proxy-accept");
+	  clib_warning ("duplicate connection in upf-proxy-accept");
 	  error = UPF_PROXY_ERROR_CONNECTION_EXISTS;
 	  goto done;
 	}

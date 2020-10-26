@@ -1329,7 +1329,8 @@ free_redirect_information (void *p)
 {
   pfcp_redirect_information_t *v = p;
 
-  if (v->type == REDIRECT_INFORMATION_HTTP || v->type == REDIRECT_INFORMATION_SIP)
+  if (v->type == REDIRECT_INFORMATION_HTTP
+      || v->type == REDIRECT_INFORMATION_SIP)
     vec_free (v->uri);
 }
 
@@ -3182,7 +3183,7 @@ encode_remote_gtp_u_peer (void *p, u8 ** vec)
   pfcp_remote_gtp_u_peer_t *v = p;
   u8 flags;
 
-  flags = (v->destination_interface != (u8)~0 ? REMOTE_GTP_U_PEER_DI : 0) |
+  flags = (v->destination_interface != (u8) ~ 0 ? REMOTE_GTP_U_PEER_DI : 0) |
     (vec_len (v->network_instance) > 0 ? REMOTE_GTP_U_PEER_NI : 0);
 
   if (ip46_address_is_ip4 (&v->ip))
@@ -3196,7 +3197,7 @@ encode_remote_gtp_u_peer (void *p, u8 ** vec)
       put_ip46_ip6 (*vec, v->ip);
     }
 
-  if (v->destination_interface != (u8)~0)
+  if (v->destination_interface != (u8) ~ 0)
     {
       put_u16 (*vec, 1);
       put_u8 (*vec, v->destination_interface);
@@ -7667,7 +7668,7 @@ static void
 free_vector_ie (const struct pfcp_group_ie_def *item,
 		const struct pfcp_ie_def *def, u8 * v)
 {
-  if (*(u8 **)v == NULL)
+  if (*(u8 **) v == NULL)
     return;
   u8 *end = *(u8 **) v + _vec_len (*(u8 **) v) * def->length;
   for (u8 * i = *(u8 **) v; i < end; i += def->length)

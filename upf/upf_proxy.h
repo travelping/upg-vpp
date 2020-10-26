@@ -24,7 +24,7 @@
 extern vlib_node_registration_t upf_ip4_proxy_server_output_node;
 extern vlib_node_registration_t upf_ip6_proxy_server_output_node;
 
-u8 * format_upf_proxy_session (u8 * s, va_list * args);
+u8 *format_upf_proxy_session (u8 * s, va_list * args);
 
 typedef struct
 {
@@ -81,13 +81,12 @@ typedef struct
    * Configuration params
    */
 #define _(type, name) type name;
-  foreach_upf_proxy_config_fields
+    foreach_upf_proxy_config_fields
 #undef _
-
-  /*
-   * Test state variables
-   */
-  upf_proxy_session_t *sessions;	/**< Session pool, shared */
+    /*
+     * Test state variables
+     */
+    upf_proxy_session_t * sessions;	/**< Session pool, shared */
   clib_rwlock_t sessions_lock;
   u32 **connection_index_by_thread;
   pthread_t client_thread_handle;
@@ -140,11 +139,9 @@ proxy_session_lookup_by_index (u32 session_index, u32 thread_index)
   upf_proxy_main_t *pm = &upf_proxy_main;
   u32 ps_index;
 
-  if (session_index <
-      vec_len (pm->session_to_proxy_session[thread_index]))
+  if (session_index < vec_len (pm->session_to_proxy_session[thread_index]))
     {
-      ps_index =
-	pm->session_to_proxy_session[thread_index][session_index];
+      ps_index = pm->session_to_proxy_session[thread_index][session_index];
       return proxy_session_get (ps_index);
     }
   return 0;
