@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -254,4 +255,13 @@ func EncodeAPN(s string) string {
 		r = append(r, []rune(p)...)
 	}
 	return string(r)
+}
+
+func RunningInLinuxkit() bool {
+	var uname unix.Utsname
+	if err := unix.Uname(&uname); err != nil {
+		return false
+	}
+
+	return strings.Contains(string(uname.Release[:]), "linuxkit")
 }

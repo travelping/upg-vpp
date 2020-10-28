@@ -60,7 +60,7 @@ type VPPInstance struct {
 	Captures   map[string]*Capture
 }
 
-func NewVppInstance(cfg VPPConfig) *VPPInstance {
+func NewVPPInstance(cfg VPPConfig) *VPPInstance {
 	var startupCfg VPPStartupConfig
 	startupCfg.SetFromEnv()
 	return &VPPInstance{
