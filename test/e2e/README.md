@@ -23,7 +23,7 @@ $ docker run -it --rm --privileged -v $PWD:/exttest \
 Inside the environment, you can start the tests like that:
 
 ```console
-$ go test -v ./framework
+$ go test -count=1 -ginkgo.v
 ```
 
 Or, you can take a shortcut and start the tests immediately (again,
@@ -34,5 +34,5 @@ modify the tests):
 $ docker run -it --rm --privileged -v $PWD:/exttest \
              --privileged --shm-size 1024m \
              --name exttest exttest-dev \
-             go test -v ./framework
+             go test -count=1 -ginkgo.v
 ```
