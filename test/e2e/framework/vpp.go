@@ -95,11 +95,14 @@ type VPPInstance struct {
 func NewVPPInstance(cfg VPPConfig) *VPPInstance {
 	var startupCfg VPPStartupConfig
 	startupCfg.SetFromEnv()
+	context, cancel := context.WithCancel(context.Background())
 	return &VPPInstance{
 		cfg:        cfg,
 		startupCfg: startupCfg,
 		namespaces: make(map[string]*NetNS),
 		Captures:   make(map[string]*Capture),
+		Context:    context,
+		cancel:     cancel,
 	}
 }
 
@@ -175,8 +178,6 @@ func (vi *VPPInstance) StartVPP() error {
 		return errors.Wrap(err, "NewAPIChannel")
 	}
 
-	var cancel context.CancelFunc
-	vi.Context, cancel = context.WithCancel(context.Background())
 	pid := vi.cmd.Process.Pid
 	go func() {
 		defer signal.Stop(sigchldCh)
@@ -195,11 +196,11 @@ func (vi *VPPInstance) StartVPP() error {
 				} else {
 					fmt.Printf("* VPP process has exited!\n")
 				}
-				cancel()
+				vi.cancel()
 				return
 			case e := <-conev:
 				if e.State == core.Failed {
-					cancel()
+					vi.cancel()
 					return
 				}
 			}

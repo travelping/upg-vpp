@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -19,6 +20,7 @@ type Framework struct {
 	PFCPCfg *PFCPConfig
 	PFCP    *PFCPConnection
 	GTPU    *GTPU
+	Context context.Context
 }
 
 func NewDefaultFramework(mode UPGMode) *Framework {
@@ -48,20 +50,22 @@ func (f *Framework) BeforeEach() {
 	if f.Mode == UPGModePGW {
 		var err error
 		f.GTPU, err = NewGTPU(GTPUConfig{
-			GRXNS:      f.VPP.GetNS("grx"),
-			UENS:       f.VPP.GetNS("ue"),
-			UEIP:       f.VPPCfg.GetNamespaceAddress("ue").IP,
-			SGWGRXIP:   f.VPPCfg.GetNamespaceAddress("grx").IP,
-			PGWGRXIP:   f.VPPCfg.GetVPPAddress("grx").IP,
-			TEIDPGWs5u: TEIDPGWs5u,
-			TEIDSGWs5u: TEIDSGWs5u,
-			LinkName:   f.VPPCfg.GetNamespaceLinkName("ue"),
-			Context:    f.VPP.Context,
+			GRXNS:         f.VPP.GetNS("grx"),
+			UENS:          f.VPP.GetNS("ue"),
+			UEIP:          f.VPPCfg.GetNamespaceAddress("ue").IP,
+			SGWGRXIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
+			PGWGRXIP:      f.VPPCfg.GetVPPAddress("grx").IP,
+			TEIDPGWs5u:    TEIDPGWs5u,
+			TEIDSGWs5u:    TEIDSGWs5u,
+			LinkName:      f.VPPCfg.GetNamespaceLinkName("ue"),
+			ParentContext: f.VPP.Context,
 		})
 		ExpectNoError(err)
 		ExpectNoError(f.GTPU.Start())
+		f.Context = f.GTPU.Context
 	} else {
 		f.GTPU = nil
+		f.Context = f.VPP.Context
 	}
 	ExpectNoError(f.VPP.StartCapture())
 	ExpectNoError(f.VPP.StartVPP())

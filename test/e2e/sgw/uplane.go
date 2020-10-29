@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/binary"
 	"net"
+	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -160,8 +162,19 @@ func (up *UserPlaneServer) listenRoutine(ctx context.Context) {
 			return
 		default:
 			buffer := make([]byte, 9000)
+			// https://github.com/golang/go/issues/35876
+			time.Sleep(time.Millisecond)
+			// ReadFromUDP() locks the connection, so Close()
+			// will hang. So, let's make some pauses to give
+			// it a chance to run
+			listenConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 			n, src, err := listenConn.ReadFromUDP(buffer)
 			if err != nil {
+				if os.IsTimeout(err) {
+					// not really a problem, just a small pause for Close()
+					// if it needs to run
+					continue
+				}
 				// sadly even internal http2 lib parses these errors this way
 				if !strings.Contains(err.Error(), "use of closed network connection") {
 					up.logger.WithError(err).Error("Failed to read from UDP connection")

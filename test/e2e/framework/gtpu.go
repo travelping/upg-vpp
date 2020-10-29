@@ -13,24 +13,24 @@ import (
 )
 
 type GTPUConfig struct {
-	GRXNS      *NetNS
-	UENS       *NetNS
-	UEIP       net.IP
-	SGWGRXIP   net.IP
-	PGWGRXIP   net.IP
-	TEIDPGWs5u uint32
-	TEIDSGWs5u uint32
-	LinkName   string
-	MTU        int
-	Context    context.Context
+	GRXNS         *NetNS
+	UENS          *NetNS
+	UEIP          net.IP
+	SGWGRXIP      net.IP
+	PGWGRXIP      net.IP
+	TEIDPGWs5u    uint32
+	TEIDSGWs5u    uint32
+	LinkName      string
+	MTU           int
+	ParentContext context.Context
 }
 
 func (cfg *GTPUConfig) SetDefaults() {
 	if cfg.MTU == 0 {
 		cfg.MTU = 1300
 	}
-	if cfg.Context == nil {
-		cfg.Context = context.Background()
+	if cfg.ParentContext == nil {
+		cfg.ParentContext = context.Background()
 	}
 }
 
@@ -38,6 +38,7 @@ type GTPU struct {
 	cfg     GTPUConfig
 	up      *sgw.UserPlaneServer
 	session *sgw.SimpleSession
+	Context context.Context
 }
 
 func NewGTPU(cfg GTPUConfig) (*GTPU, error) {
@@ -75,9 +76,16 @@ func (gtpu *GTPU) Start() error {
 
 	logrus.SetLevel(logrus.DebugLevel)
 
-	if err := gtpu.up.Start(gtpu.cfg.Context); err != nil {
+	if err := gtpu.up.Start(gtpu.cfg.ParentContext); err != nil {
 		return errors.Wrap(err, "error starting GTPU")
 	}
+
+	var cancel context.CancelFunc
+	gtpu.Context, cancel = context.WithCancel(gtpu.cfg.ParentContext)
+	go func() {
+		<-gtpu.up.Done()
+		cancel()
+	}()
 
 	session := sgw.NewSimpleSession(sgw.SimpleSessionConfig{
 		UNodeAddr: &net.UDPAddr{

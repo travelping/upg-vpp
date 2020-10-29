@@ -244,7 +244,7 @@ func startMeasurementSession(f *framework.Framework, cfg *framework.SessionConfi
 		cfg.PGWGRXIP = f.VPPCfg.GetVPPAddress("grx").IP
 		cfg.SGWGRXIP = f.VPPCfg.GetNamespaceAddress("grx").IP
 	}
-	seid, err := f.PFCP.EstablishSession(f.VPP.Context, cfg.SessionIEs()...)
+	seid, err := f.PFCP.EstablishSession(f.Context, cfg.SessionIEs()...)
 	framework.ExpectNoError(err)
 	return seid
 }
@@ -253,7 +253,7 @@ func deleteSession(f *framework.Framework, seid framework.SEID) *framework.PFCPM
 	f.VPP.Ctl("show upf session")
 	f.VPP.Ctl("show upf flows")
 
-	ms, err := f.PFCP.DeleteSession(f.VPP.Context, seid)
+	ms, err := f.PFCP.DeleteSession(f.Context, seid)
 	framework.ExpectNoError(err)
 	return ms
 }
@@ -268,7 +268,7 @@ func trafficGen(f *framework.Framework, trafficType framework.TrafficType, cfg f
 	cfg.WebServerPort = 80
 	cfg.WebServerListenPort = 80
 	cfg.ChunkDelay = 50 * time.Millisecond
-	cfg.Context = f.VPP.Context
+	cfg.Context = f.Context
 	cfg.FinalDelay = 3 * time.Second // make sure everything gets into the PCAP
 	cfg.Type = trafficType
 	cfg.RedirectLocationSubstr = "127.0.0.1/this-is-my-redirect"
