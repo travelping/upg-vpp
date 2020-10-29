@@ -73,11 +73,8 @@ format_upf_device_name (u8 * s, va_list * args)
   u32 i = va_arg (*args, u32);
   upf_nwi_t *nwi;
 
-  if (!pool_is_free_index (gtm->nwis, i))
-    {
-      nwi = pool_elt_at_index (gtm->nwis, i);
-      s = format (s, "upf-nwi-%U", format_network_instance, nwi->name);
-    }
+  nwi = pool_elt_at_index (gtm->nwis, i);
+  s = format (s, "upf-nwi-%U", format_network_instance, nwi->name);
 
   return s;
 }
@@ -228,7 +225,6 @@ vnet_upf_delete_nwi_if (u8 * name, u32 * sw_if_idx)
 {
   vnet_main_t *vnm = upf_main.vnet_main;
   upf_main_t *gtm = &upf_main;
-  upf_upip_res_t *res;
   upf_nwi_t *nwi;
   uword *p;
 
@@ -249,14 +245,6 @@ vnet_upf_delete_nwi_if (u8 * name, u32 * sw_if_idx)
   gtm->nwi_index_by_sw_if_index[nwi->sw_if_index] = ~0;
 
   vec_add1 (gtm->free_nwi_hw_if_indices, nwi->hw_if_index);
-
-/* *INDENT-OFF* */
-  pool_foreach (res, gtm->upip_res,
-  ({
-    if (res->nwi_index == p[0])
-      res->nwi_index = ~0;
-  }));
-/* *INDENT-ON* */
 
   hash_unset_mem (gtm->nwi_index_by_name, nwi->name);
   vec_free (nwi->name);
