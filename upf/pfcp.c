@@ -770,21 +770,20 @@ static u8 *
 format_f_teid (u8 * s, va_list * args)
 {
   pfcp_f_teid_t *v = va_arg (*args, pfcp_f_teid_t *);
+  u16 flags = (v->flags & 0xf);
+
+  s = format (s, "CH:%d,CHID:%d,V4:%d,V6:%d,", !!(flags & F_TEID_CH),
+	      !!(flags & F_TEID_CHID), !!(flags & F_TEID_V4),
+	      !!(flags & F_TEID_V6));
 
   if ((v->flags & 0xf) == F_TEID_V4)
-    s = format (s, "%d,IPv4:%U", v->teid, format_ip4_address, &v->ip4);
+    s = format (s, "TEID:%d,IPv4:%U", v->teid, format_ip4_address, &v->ip4);
   else if ((v->flags & 0xf) == F_TEID_V6)
-    s = format (s, "%d,IPv6:%U", v->teid, format_ip6_address, &v->ip6);
+    s = format (s, "TEID:%d,IPv6:%U", v->teid, format_ip6_address, &v->ip6);
   else if ((v->flags & 0xf) == (F_TEID_V4 | F_TEID_V6))
-    s = format (s, "%d,IPv4:%U,IPv6:%U",
+    s = format (s, "TEID:%d,IPv4:%U,IPv6:%U",
 		v->teid, format_ip4_address, &v->ip4,
 		format_ip6_address, &v->ip6);
-  else if ((v->flags & 0xf) == F_TEID_CH)
-    s = format (s, "%d,CH:1", v->teid);
-  else if ((v->flags & 0xf) == (F_TEID_CH | F_TEID_CHID))
-    s = format (s, "%d,CH:1,CHID:%d", v->teid, v->choose_id);
-  else
-    s = format (s, "invalid flags: %02x", v->flags);
 
   return s;
 }
