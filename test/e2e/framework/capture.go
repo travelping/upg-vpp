@@ -198,41 +198,71 @@ func Make5Tuple(srcIP net.IP, srcPort int, dstIP net.IP, dstPort int, proto laye
 	return FiveTuple(fmt.Sprintf("%s %s:%s -> %s:%s", proto, srcIP, srcPortStr, dstIP, dstPortStr))
 }
 
+// decapLayers returns an IPv4 or IPv6 layer from the packet,
+// along with a following TCP/UDP/ICMPv4/ICMPv6 layer.
+// If there's GTP-U encapsulation, the layers after the
+// GTPU one are used
+func decapLayers(p gopacket.Packet) (gopacket.Layer, gopacket.Layer) {
+	var l3, next gopacket.Layer // ICMP is not really "l4"
+	gotGTPU := false
+	for _, l := range p.Layers() {
+		switch l.LayerType() {
+		case layers.LayerTypeGTPv1U:
+			gotGTPU = true
+		case layers.LayerTypeIPv4, layers.LayerTypeIPv6:
+			if l3 != nil && !gotGTPU {
+				// some unknown kind of encapsulation
+				continue
+			}
+			l3 = l
+			next = nil
+		case layers.LayerTypeICMPv4, layers.LayerTypeICMPv6,
+			layers.LayerTypeTCP, layers.LayerTypeUDP:
+			if l3 != nil {
+				next = l
+			}
+		}
+	}
+	return l3, next
+}
+
 func packet5TupleAndLength(p gopacket.Packet) (FiveTuple, FiveTuple, uint16) {
 	var plen uint16
 	var srcIP, dstIP net.IP
 	var srcPort, dstPort uint16
 	var proto layers.IPProtocol
 
-	layer := p.Layer(layers.LayerTypeIPv4)
-	if layer != nil {
-		l := layer.(*layers.IPv4)
+	l3, next := decapLayers(p)
+	if l3 == nil {
+		return "", "", 0
+	}
+
+	switch l3.LayerType() {
+	case layers.LayerTypeIPv4:
+		l := l3.(*layers.IPv4)
 		srcIP = l.SrcIP
 		dstIP = l.DstIP
 		proto = l.Protocol
 		plen = l.Length
-	} else {
-		layer = p.Layer(layers.LayerTypeIPv6)
-		if layer != nil {
-			l := layer.(*layers.IPv6)
-			srcIP = l.SrcIP
-			dstIP = l.DstIP
-			proto = l.NextHeader
-			plen = l.Length + 40
-		} else {
-			return "", "", 0
-		}
+	case layers.LayerTypeIPv6:
+		l := l3.(*layers.IPv6)
+		srcIP = l.SrcIP
+		dstIP = l.DstIP
+		proto = l.NextHeader
+		plen = l.Length + 40
+	default:
+		// shouldn't be here
+		panic("BUG: bad layer type")
 	}
 
-	layer = p.Layer(layers.LayerTypeTCP)
-	if layer != nil {
-		l := layer.(*layers.TCP)
-		srcPort = uint16(l.SrcPort)
-		dstPort = uint16(l.DstPort)
-	} else {
-		layer = p.Layer(layers.LayerTypeUDP)
-		if layer != nil {
-			l := layer.(*layers.UDP)
+	if next != nil {
+		switch next.LayerType() {
+		case layers.LayerTypeTCP:
+			l := next.(*layers.TCP)
+			srcPort = uint16(l.SrcPort)
+			dstPort = uint16(l.DstPort)
+		case layers.LayerTypeUDP:
+			l := next.(*layers.UDP)
 			srcPort = uint16(l.SrcPort)
 			dstPort = uint16(l.DstPort)
 		}

@@ -26,7 +26,7 @@ var _ = ginkgo.Describe("PGW", func() {
 	f := framework.NewDefaultFramework(framework.UPGModePGW)
 
 	describeMeasurement(f)
-	// describePDRReplacement(f)
+	describePDRReplacement(f)
 })
 
 func describeMeasurement(f *framework.Framework) {
@@ -325,8 +325,23 @@ func verifyPreAppReport(ms *framework.PFCPMeasurement, urrId uint32, toleration 
 }
 
 func verifyMainReport(f *framework.Framework, ms *framework.PFCPMeasurement, trafficType framework.TrafficType, urrId uint32) {
-	// FIXME: perhaps use gtpu instead?
-	c := f.VPP.Captures["ue"]
+	var c *framework.Capture
+	switch f.Mode {
+	case framework.UPGModePGW:
+		// NOTE: if we use UE, we can get bad traffic figures,
+		// as some packets could be lost due to GTPU
+		// encap/decap being slow (especially true for the
+		// userspace GTPU mode), so UPG sees them but UE
+		// doesn't
+		c = f.VPP.Captures["grx"]
+	case framework.UPGModeTDF:
+		// In TDF mode, UE netns is connected directly to the
+		// VPP nents through a veth, so no loss is expected
+		// there
+		c = f.VPP.Captures["ue"]
+	default:
+		panic("bad mode")
+	}
 	if c == nil {
 		panic("capture not found")
 	}
