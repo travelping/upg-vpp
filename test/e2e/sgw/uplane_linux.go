@@ -21,42 +21,51 @@ func (kt *KernelTunnel) UnregisterSession(s Session) error {
 	}
 	s.SetTunnelRegistered(false)
 
-	movedLink, err := kt.up.moveLinkFromUEToGRX(kt.GTPLink)
-	if err != nil {
-		return errors.Wrap(err, "error moving GTP link back to the GRX netns")
-	}
-	kt.GTPLink = movedLink.(*netlink.GTP)
-
-	if pdp, err := kt.up.grxHandle.GTPPDPByITEI(kt.GTPLink, int(s.TEIDSGWs5u())); err != nil {
-		return errors.Wrap(err, "Failed to get tunnel by ITEI")
-	} else {
-		if err := kt.up.grxHandle.GTPPDPDel(kt.GTPLink, pdp); err != nil {
-			return errors.Wrap(err, "Failed to delete gtp tunnel")
+	if err := kt.up.cfg.UENetNS.Do(func() error {
+		if pdp, err := kt.up.ueHandle.GTPPDPByITEI(kt.GTPLink, int(s.TEIDSGWs5u())); err != nil {
+			return errors.Wrap(err, "Failed to get tunnel by ITEI")
+		} else {
+			if err := kt.up.ueHandle.GTPPDPDel(kt.GTPLink, pdp); err != nil {
+				return errors.Wrap(err, "Failed to delete gtp tunnel")
+			}
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	return kt.removeRouteAndIPAndRule(s.IPv4(), kt.GTPLink)
 }
 
 func (kt *KernelTunnel) addTunnel(s Session) error {
-	// Remove already existing tunnel
-	if pdp, _ := kt.up.grxHandle.GTPPDPByMSAddress(kt.GTPLink, s.UNodeAddr().IP); pdp != nil {
-		s.Logger().Warn("Registering session against already existing gtpu netlink by MSAddress")
-		kt.up.grxHandle.GTPPDPDel(kt.GTPLink, pdp)
-	}
-	if pdp, _ := kt.up.grxHandle.GTPPDPByITEI(kt.GTPLink, int(s.TEIDSGWs5u())); pdp != nil {
-		s.Logger().Warn("Registering session against already existing gtpu netlink by ITEI")
-		kt.up.grxHandle.GTPPDPDel(kt.GTPLink, pdp)
+	kt.up.logger.WithField("GTPLink", kt.GTPLink.Name).Debug("addTunnel")
+
+	if err := kt.up.cfg.UENetNS.Do(func() error {
+		// Remove already existing tunnel
+		if pdp, _ := kt.up.ueHandle.GTPPDPByMSAddress(kt.GTPLink, s.UNodeAddr().IP); pdp != nil {
+			s.Logger().Warn("Registering session against already existing gtpu netlink by MSAddress")
+			kt.up.ueHandle.GTPPDPDel(kt.GTPLink, pdp)
+		}
+		if pdp, _ := kt.up.ueHandle.GTPPDPByITEI(kt.GTPLink, int(s.TEIDSGWs5u())); pdp != nil {
+			s.Logger().Warn("Registering session against already existing gtpu netlink by ITEI")
+			kt.up.ueHandle.GTPPDPDel(kt.GTPLink, pdp)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	pdp := &netlink.PDP{
 		Version:     1,
-		PeerAddress: s.UNodeAddr().IP,
-		MSAddress:   s.IPv4(),
+		PeerAddress: s.UNodeAddr().IP.To4(),
+		MSAddress:   s.IPv4().To4(),
 		OTEI:        s.TEIDPGWs5u(),
 		ITEI:        s.TEIDSGWs5u(),
 	}
-	if err := kt.up.grxHandle.GTPPDPAdd(kt.GTPLink, pdp); err != nil {
+
+	if err := kt.up.cfg.GRXNetNS.Do(func() error {
+		return kt.up.grxHandle.GTPPDPAdd(kt.GTPLink, pdp)
+	}); err != nil {
 		return errors.Wrap(err, "Failed to add gtp tunnel")
 	}
 
@@ -65,6 +74,10 @@ func (kt *KernelTunnel) addTunnel(s Session) error {
 		return errors.Wrap(err, "error moving GTP link to the UE netns")
 	}
 	kt.GTPLink = movedLink.(*netlink.GTP)
+
+	if err := kt.up.ueHandle.LinkSetUp(kt.GTPLink); err != nil {
+		return errors.Wrapf(err, "Failed to setup device: %s", kt.GTPLink.Name)
+	}
 
 	return nil
 }

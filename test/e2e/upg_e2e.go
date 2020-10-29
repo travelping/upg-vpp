@@ -326,21 +326,19 @@ func verifyPreAppReport(ms *framework.PFCPMeasurement, urrId uint32, toleration 
 
 func verifyMainReport(f *framework.Framework, ms *framework.PFCPMeasurement, trafficType framework.TrafficType, urrId uint32) {
 	var c *framework.Capture
-	switch f.Mode {
-	case framework.UPGModePGW:
+	if f.SlowGTPU() {
 		// NOTE: if we use UE, we can get bad traffic figures,
 		// as some packets could be lost due to GTPU
 		// encap/decap being slow (especially true for the
 		// userspace GTPU mode), so UPG sees them but UE
 		// doesn't
 		c = f.VPP.Captures["grx"]
-	case framework.UPGModeTDF:
+	} else {
 		// In TDF mode, UE netns is connected directly to the
 		// VPP nents through a veth, so no loss is expected
-		// there
+		// there.
+		// And kernel-based GTPU is just fast enough.
 		c = f.VPP.Captures["ue"]
-	default:
-		panic("bad mode")
 	}
 	if c == nil {
 		panic("capture not found")

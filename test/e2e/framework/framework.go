@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo"
+
+	"github.com/travelping/upg-vpp/test/e2e/sgw"
 )
 
 const (
@@ -111,6 +113,14 @@ func (f *Framework) UEIP() net.IP {
 
 func (f *Framework) ServerIP() net.IP {
 	return f.VPPCfg.GetNamespaceAddress("sgi").IP
+}
+
+// SlowGTPU returns true if UPG runs in PGW mode, and userspace GTP-U
+// tunneling is being used, which may be not fast enough, causing some
+// packet drops on GRX<->UE path. In this case, only GRX pcaps should
+// be used to validate traffic measurements
+func (f *Framework) SlowGTPU() bool {
+	return f.Mode == UPGModePGW && gtpuTunnelType() == sgw.SGWGTPUTunnelTypeTun
 }
 
 func defaultPFCPConfig(vppCfg VPPConfig) PFCPConfig {

@@ -21,6 +21,7 @@ func NewKernelTunnel(up *UserPlaneServer, cfg SGWGTPUTunnel) *KernelTunnel {
 }
 
 func (kt *KernelTunnel) Start(ctx context.Context) error {
+	kt.up.logger.Debug("KernelTunnel: start")
 	// remove previous tunnel to clean everything
 	if err := kt.cleanup(); err != nil {
 		return errors.Wrap(err, "error cleaning up old interfaces")
@@ -28,8 +29,9 @@ func (kt *KernelTunnel) Start(ctx context.Context) error {
 
 	f, err := kt.up.s5uConn.File()
 	if err != nil {
-		return errors.Wrap(err, "Failed to retrieve file from conn")
+		return errors.Wrap(err, "failed to retrieve file from the conn")
 	}
+	defer f.Close()
 
 	kt.GTPLink = &netlink.GTP{
 		LinkAttrs: netlink.LinkAttrs{
@@ -38,6 +40,15 @@ func (kt *KernelTunnel) Start(ctx context.Context) error {
 		FD1:  int(f.Fd()),
 		Role: RoleSGSN,
 	}
+
+	// Need to re-create the connection
+	// https://github.com/golang/go/issues/29277
+	// https://github.com/golang/go/blob/2291cae2af659876e93a3e1f95c708abb1475d02/src/os/file_unix.go#L76-L80
+	fc, err := net.FileConn(f)
+	if err != nil {
+		return errors.Wrap(err, "FileConn")
+	}
+	kt.up.s5uConn = fc.(*net.UDPConn)
 
 	if err := kt.up.grxHandle.LinkAdd(kt.GTPLink); err != nil {
 		return errors.Wrapf(err, "Failed to add device: %s", kt.GTPLink.Name)
@@ -50,6 +61,8 @@ func (kt *KernelTunnel) Start(ctx context.Context) error {
 	if err := kt.up.grxHandle.LinkSetMTU(kt.GTPLink, kt.cfg.MTU); err != nil {
 		return errors.Wrapf(err, "Failed to set MTU for device: %s", kt.GTPLink.Name)
 	}
+
+	kt.up.logger.WithField("GTPLink", kt.GTPLink.Name).Debug("created GTPLink %q in grx netns")
 
 	return nil
 }
