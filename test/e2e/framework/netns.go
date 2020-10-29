@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
+	nns "github.com/vishvananda/netns"
 	"github.com/travelping/upg-vpp/test/e2e/ns"
 )
 
@@ -21,7 +22,6 @@ var (
 
 type NetNS struct {
 	ns.NetNS
-	IPNet    *net.IPNet
 	cleanups []func()
 }
 
@@ -33,6 +33,10 @@ func NewNS(name string) (*NetNS, error) {
 	return &NetNS{
 		NetNS: innerNS,
 	}, nil
+}
+
+func (netns *NetNS) Handle() nns.NsHandle {
+	return nns.NsHandle(netns.Fd())
 }
 
 func (netns *NetNS) Do(toCall func() error) error {
@@ -59,7 +63,6 @@ func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
 			return errors.Errorf("failed to set address for the bridge: %v", err)
 		}
 
-		netns.IPNet = address
 		return nil
 	})
 }

@@ -18,7 +18,7 @@ const (
 )
 
 var _ = ginkgo.Describe("VPP", func() {
-	f := framework.NewFramework(&framework.VPPConfig{
+	f := framework.NewFramework(framework.UPGModeNone, &framework.VPPConfig{
 		Namespaces: []framework.VPPNetworkNamespace{
 			{
 				Name:          "client",

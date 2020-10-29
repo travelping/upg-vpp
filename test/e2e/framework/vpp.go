@@ -40,11 +40,43 @@ type VPPNetworkNamespace struct {
 	OtherLinkName string
 	Table         int
 	NSRoutes      []RouteConfig
+	SkipVPPConfig bool
+	L3Capture     bool
 }
 
 type VPPConfig struct {
 	Namespaces    []VPPNetworkNamespace
 	SetupCommands []string
+}
+
+func (cfg VPPConfig) GetVPPAddress(namespace string) *net.IPNet {
+	for _, ns := range cfg.Namespaces {
+		if ns.Name == namespace {
+			return ns.VPPIP
+		}
+	}
+
+	panic("No network namespace: " + namespace)
+}
+
+func (cfg VPPConfig) GetNamespaceAddress(namespace string) *net.IPNet {
+	for _, ns := range cfg.Namespaces {
+		if ns.Name == namespace {
+			return ns.OtherIP
+		}
+	}
+
+	panic("No network namespace: " + namespace)
+}
+
+func (cfg VPPConfig) GetNamespaceLinkName(namespace string) string {
+	for _, ns := range cfg.Namespaces {
+		if ns.Name == namespace {
+			return ns.OtherLinkName
+		}
+	}
+
+	panic("No network namespace: " + namespace)
 }
 
 type VPPInstance struct {
@@ -249,31 +281,58 @@ func (vi *VPPInstance) SetupNamespaces() error {
 			return errors.Wrapf(err, "NewNS: %s", nsCfg.Name)
 		}
 
-		if err := vi.vppNS.SetupVethPair(nsCfg.VPPLinkName, nil, ns, nsCfg.OtherLinkName, nsCfg.OtherIP); err != nil {
-			return errors.Wrap(err, "SetupVethPair (client)")
-		}
-
 		if _, found := vi.namespaces[nsCfg.Name]; found {
 			panic("duplicate namespace name")
 		}
 
-		for _, rcfg := range nsCfg.NSRoutes {
-			if err := ns.AddRoute(rcfg.Dst, rcfg.Gw); err != nil {
-				return errors.Wrapf(err, "route for ns %s", nsCfg.Name)
+		if nsCfg.VPPLinkName != "" {
+			if err := vi.vppNS.SetupVethPair(nsCfg.VPPLinkName, nil, ns, nsCfg.OtherLinkName, nsCfg.OtherIP); err != nil {
+				return errors.Wrap(err, "SetupVethPair (client)")
 			}
+
+			for _, rcfg := range nsCfg.NSRoutes {
+				if err := ns.AddRoute(rcfg.Dst, rcfg.Gw); err != nil {
+					return errors.Wrapf(err, "route for ns %s", nsCfg.Name)
+				}
+			}
+			fmt.Printf("%s ns: %s; (vpp) %s <--> (other) %s\n", nsCfg.Name, ns.Path(), *nsCfg.VPPIP, *nsCfg.OtherIP)
+		} else {
+			fmt.Printf("%s ns: %s; (other) %s\n", nsCfg.Name, ns.Path(), *nsCfg.OtherIP)
 		}
 
 		vi.namespaces[nsCfg.Name] = ns
-		fmt.Printf("%s ns: %s; (vpp) %s <--> (other) %s\n", nsCfg.Name, ns.Path(), *nsCfg.VPPIP, *nsCfg.OtherIP)
-		c := NewCapture(CaptureConfig{
+	}
+
+	return nil
+}
+
+func (vi *VPPInstance) StartCapture() error {
+	for _, nsCfg := range vi.cfg.Namespaces {
+		ns, found := vi.namespaces[nsCfg.Name]
+		if !found {
+			panic("bad namespace name: " + nsCfg.Name)
+		}
+		captureCfg := CaptureConfig{
 			Iface: nsCfg.VPPLinkName,
 			// FIXME: store pcaps to the specified location not /tmp
 			PCAPPath: fmt.Sprintf("/tmp/%s.pcap", nsCfg.OtherLinkName),
 			Snaplen:  0,
 			TargetNS: vi.vppNS,
-		})
+		}
+		if nsCfg.VPPLinkName == "" {
+			captureCfg.Iface = nsCfg.OtherLinkName
+			captureCfg.TargetNS = ns
+		}
+		if nsCfg.L3Capture {
+			if nsCfg.OtherIP.IP.To4() == nil {
+				captureCfg.LayerType = "IPv6"
+			} else {
+				captureCfg.LayerType = "IPv4"
+			}
+		}
+		c := NewCapture(captureCfg)
 		if err := c.Start(); err != nil {
-			return errors.Wrapf(err, "capture for %s", nsCfg.Name)
+			return errors.Wrapf(err, "capture for %s (link %s)", nsCfg.Name, captureCfg.Iface)
 		}
 		vi.Captures[nsCfg.Name] = c
 	}
@@ -292,6 +351,10 @@ func (vi *VPPInstance) runCmds(cmds ...string) error {
 }
 
 func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
+	if nsCfg.SkipVPPConfig {
+		return nil
+	}
+
 	var cmds []string
 	ipCmd := "ip"
 	if nsCfg.VPPIP.IP.To4() == nil {

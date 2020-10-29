@@ -17,15 +17,18 @@ import (
 	"github.com/google/gopacket/pcapgo"
 )
 
-const (
-	CAPTURE_DECODER = "Ethernet"
-)
-
 type CaptureConfig struct {
-	Iface    string
-	PCAPPath string
-	Snaplen  int
-	TargetNS *NetNS
+	Iface     string
+	PCAPPath  string
+	Snaplen   int
+	TargetNS  *NetNS
+	LayerType string
+}
+
+func (cfg *CaptureConfig) SetDefaults() {
+	if cfg.LayerType == "" {
+		cfg.LayerType = "Ethernet"
+	}
 }
 
 type CaptureStats struct {
@@ -46,6 +49,7 @@ type Capture struct {
 }
 
 func NewCapture(cfg CaptureConfig) *Capture {
+	cfg.SetDefaults()
 	return &Capture{
 		cfg:           cfg,
 		trafficCounts: make(map[FiveTuple]uint64),
@@ -90,7 +94,19 @@ func (c *Capture) Start() error {
 		return errors.Wrapf(err, "error creating pcap file %q", c.cfg.PCAPPath)
 	}
 	w := pcapgo.NewWriter(f)
-	if err := w.WriteFileHeader(uint32(c.cfg.Snaplen), layers.LinkTypeEthernet); err != nil {
+	var linkType layers.LinkType
+	switch c.cfg.LayerType {
+	case "Ethernet":
+		linkType = layers.LinkTypeEthernet
+	case "IPv4":
+		linkType = layers.LinkTypeIPv4
+	case "IPv6":
+		linkType = layers.LinkTypeIPv6
+	default:
+		panic("bad layer type: " + c.cfg.LayerType)
+	}
+
+	if err := w.WriteFileHeader(uint32(c.cfg.Snaplen), linkType); err != nil {
 		f.Close()
 		os.Remove(c.cfg.PCAPPath)
 		return errors.Wrapf(err, "error writing pcap header")
@@ -111,11 +127,11 @@ func (c *Capture) Start() error {
 		return err
 	}
 
-	dec, ok := gopacket.DecodersByLayerName[CAPTURE_DECODER]
+	dec, ok := gopacket.DecodersByLayerName[c.cfg.LayerType]
 	if !ok {
 		f.Close()
 		os.Remove(c.cfg.PCAPPath)
-		log.Panicf("No decoder named %s", CAPTURE_DECODER)
+		log.Panicf("No decoder named %s", c.cfg.LayerType)
 	}
 
 	source := gopacket.NewPacketSource(handle, dec)

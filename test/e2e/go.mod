@@ -11,9 +11,13 @@ require (
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/common v0.14.0 // indirect
 	github.com/safchain/ethtool v0.0.0-20200804214954-8f958a28363a
+	github.com/sirupsen/logrus v1.6.0
+	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
+	github.com/wmnsk/go-gtp v0.7.13
 	github.com/wmnsk/go-pfcp v0.0.6
 	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
 )

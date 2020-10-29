@@ -31,6 +31,12 @@ const (
 	UEIPAddress_V4   = 2
 	UEIPAddress_V6   = 1
 
+	OuterHeaderCreation_GTPUUDPIPV4 = 1 << 8
+	OuterHeaderCreation_GTPUUDPIPV6 = 1 << 9
+
+	OuterHeaderRemoval_GTPUUDPIPV4 = 0
+	OuterHeaderRemoval_GTPUUDPIPV6 = 1
+
 	AssociationTimeout          = 10 * time.Second
 	SessionEstablishmentTimeout = 10 * time.Second
 	SessionModificationTimeout  = 10 * time.Second
@@ -206,10 +212,9 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 }
 
 type PFCPConfig struct {
-	Namespace *NetNS
-	UNodeIP   net.IP
-	// TODO: UEIP should be per-session
-	UEIP             net.IP
+	Namespace        *NetNS
+	CNodeIP          net.IP
+	UNodeIP          net.IP
 	NodeID           string
 	RequestTimeout   time.Duration
 	HeartbeatTimeout time.Duration
@@ -532,7 +537,6 @@ func (pc *PFCPConnection) dial() error {
 	var err error
 	pc.conn, err = pc.cfg.Namespace.DialUDP(
 		&net.UDPAddr{
-			IP:   pc.cfg.Namespace.IPNet.IP,
 			Port: PFCP_PORT,
 		},
 		&net.UDPAddr{
@@ -717,7 +721,7 @@ func (pc *PFCPConnection) EstablishSession(ctx context.Context, ies ...*ie.IE) (
 	seid := pc.newSEID()
 	ies = append(ies,
 		// TODO: replace for IPv6
-		ie.NewFSEID(uint64(seid), pc.cfg.Namespace.IPNet.IP, nil, nil),
+		ie.NewFSEID(uint64(seid), pc.cfg.CNodeIP, nil, nil),
 		ie.NewNodeID("", "", pc.cfg.NodeID))
 	pc.requestCh <- message.NewSessionEstablishmentRequest(0, 0, 0, 0, 0, ies...)
 	return seid, pc.waitForSessionState(ctx, seid, sessionStateEstablished, SessionEstablishmentTimeout)
@@ -883,7 +887,7 @@ func (s *pfcpSession) postMeasurement(m message.Message) error {
 			r.Duration = &duration
 		}
 
-		s.pc.log("%s: %s", m.MessageTypeName(), r)
+		s.pc.log("%s: urrID %d %s", m.MessageTypeName(), urrid, r)
 		ms.Reports[urrid] = r
 	}
 	s.modCh <- &ms

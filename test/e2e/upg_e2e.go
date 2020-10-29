@@ -7,6 +7,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+
 	"github.com/travelping/upg-vpp/test/e2e/framework"
 )
 
@@ -15,24 +16,34 @@ const (
 )
 
 var _ = ginkgo.Describe("TDF", func() {
-	var sessionCfg framework.SessionConfig
-	var seid framework.SEID
-	var ms *framework.PFCPMeasurement
+	f := framework.NewDefaultFramework(framework.UPGModeTDF)
 
-	f := framework.NewDefaultFramework()
+	describeMeasurement(f)
+	describePDRReplacement(f)
+})
 
-	sessionContext := func(desc string, cfg framework.SessionConfig, body func()) {
-		ginkgo.Context(desc, func() {
-			ginkgo.BeforeEach(func() {
-				sessionCfg = cfg
-				seid = startMeasurementSession(f, &sessionCfg)
-			})
+var _ = ginkgo.Describe("PGW", func() {
+	f := framework.NewDefaultFramework(framework.UPGModePGW)
 
-			body()
-		})
-	}
+	describeMeasurement(f)
+	// describePDRReplacement(f)
+})
 
+func describeMeasurement(f *framework.Framework) {
 	ginkgo.Context("session measurement", func() {
+		var ms *framework.PFCPMeasurement
+		var seid framework.SEID
+
+		sessionContext := func(desc string, cfg framework.SessionConfig, body func()) {
+			ginkgo.Context(desc, func() {
+				ginkgo.BeforeEach(func() {
+					seid = startMeasurementSession(f, &cfg)
+				})
+
+				body()
+			})
+		}
+
 		verifyNonAppTraffic := func(trafficType framework.TrafficType) {
 			tg := trafficGen(f, trafficType, framework.TrafficGenConfig{})
 			framework.ExpectNoError(tg.Run())
@@ -76,8 +87,25 @@ var _ = ginkgo.Describe("TDF", func() {
 			})
 		})
 	})
+}
 
+func describePDRReplacement(f *framework.Framework) {
 	ginkgo.Context("PDR replacement", func() {
+		var ms *framework.PFCPMeasurement
+		var seid framework.SEID
+		var sessionCfg framework.SessionConfig
+
+		sessionContext := func(desc string, cfg framework.SessionConfig, body func()) {
+			ginkgo.Context(desc, func() {
+				ginkgo.BeforeEach(func() {
+					sessionCfg = cfg
+					seid = startMeasurementSession(f, &sessionCfg)
+				})
+
+				body()
+			})
+		}
+
 		pdrReplacementLoop := func(toggleAppPDR bool, tgDone chan error) {
 		LOOP:
 			for {
@@ -196,7 +224,7 @@ var _ = ginkgo.Describe("TDF", func() {
 			})
 		})
 	})
-})
+}
 
 type measurementCfg struct {
 	trafficType  framework.TrafficType
@@ -208,7 +236,14 @@ type measurementCfg struct {
 func startMeasurementSession(f *framework.Framework, cfg *framework.SessionConfig) framework.SEID {
 	ginkgo.By("starting a PFCP session")
 	cfg.IdBase = 1
-	cfg.UEIP = framework.DefaultUEIP
+	cfg.UEIP = f.UEIP()
+	cfg.Mode = f.Mode
+	if cfg.Mode == framework.UPGModePGW {
+		cfg.TEIDPGWs5u = framework.TEIDPGWs5u
+		cfg.TEIDSGWs5u = framework.TEIDSGWs5u
+		cfg.PGWGRXIP = f.VPPCfg.GetVPPAddress("grx").IP
+		cfg.SGWGRXIP = f.VPPCfg.GetNamespaceAddress("grx").IP
+	}
 	seid, err := f.PFCP.EstablishSession(f.VPP.Context, cfg.SessionIEs()...)
 	framework.ExpectNoError(err)
 	return seid
@@ -227,9 +262,9 @@ func trafficGen(f *framework.Framework, trafficType framework.TrafficType, cfg f
 	ginkgo.By("starting the traffic generator")
 
 	// this config ensures the possibility of precise measurement
-	cfg.ClientNS = f.VPP.GetNS("access")
+	cfg.ClientNS = f.VPP.GetNS("ue")
 	cfg.ServerNS = f.VPP.GetNS("sgi")
-	cfg.ServerIP = framework.DefaultServerIP
+	cfg.ServerIP = f.ServerIP()
 	cfg.WebServerPort = 80
 	cfg.WebServerListenPort = 80
 	cfg.ChunkDelay = 50 * time.Millisecond
@@ -290,7 +325,8 @@ func verifyPreAppReport(ms *framework.PFCPMeasurement, urrId uint32, toleration 
 }
 
 func verifyMainReport(f *framework.Framework, ms *framework.PFCPMeasurement, trafficType framework.TrafficType, urrId uint32) {
-	c := f.VPP.Captures["access"]
+	// FIXME: perhaps use gtpu instead?
+	c := f.VPP.Captures["ue"]
 	if c == nil {
 		panic("capture not found")
 	}
@@ -305,11 +341,11 @@ func verifyMainReport(f *framework.Framework, ms *framework.PFCPMeasurement, tra
 		panic("bad traffic type")
 	}
 
-	ul := c.GetTrafficCount(framework.Make5Tuple(framework.DefaultUEIP, -1, framework.DefaultServerIP, -1, proto))
-	dl := c.GetTrafficCount(framework.Make5Tuple(framework.DefaultServerIP, -1, framework.DefaultUEIP, -1, proto))
+	ul := c.GetTrafficCount(framework.Make5Tuple(f.UEIP(), -1, f.ServerIP(), -1, proto))
+	dl := c.GetTrafficCount(framework.Make5Tuple(f.ServerIP(), -1, f.UEIP(), -1, proto))
 	framework.Logf("capture stats: UL: %d, DL: %d", ul, dl)
 
 	r := validateReport(ms, urrId)
-	framework.ExpectEqual(ul, *r.UplinkVolume)
-	framework.ExpectEqual(dl, *r.DownlinkVolume)
+	framework.ExpectEqual(ul, *r.UplinkVolume, "uplink volume for urr %d", urrId)
+	framework.ExpectEqual(dl, *r.DownlinkVolume, "downlink volume for urr %d", urrId)
 }

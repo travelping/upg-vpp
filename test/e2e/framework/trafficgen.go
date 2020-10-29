@@ -319,7 +319,10 @@ OUTER:
 			}
 			return errors.Wrap(err, "HTTP GET")
 		}
-		defer resp.Body.Close()
+		defer func() {
+			resp.Body.Close()
+			c.CloseIdleConnections()
+		}()
 
 		ts = time.Now()
 		total = 0
@@ -375,7 +378,10 @@ func (tg *TrafficGen) checkRedirectOnce() (mayRetry bool, err error) {
 	if err != nil {
 		return true, errors.Wrap(err, "HTTP GET")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		resp.Body.Close()
+		c.CloseIdleConnections()
+	}()
 
 	bs, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -456,9 +462,7 @@ func (tg *TrafficGen) udpPing() error {
 	}
 
 	c, err := tg.cfg.ClientNS.DialUDP(
-		&net.UDPAddr{
-			IP: tg.cfg.ClientNS.IPNet.IP,
-		},
+		nil,
 		&net.UDPAddr{
 			IP:   tg.cfg.ServerIP,
 			Port: tg.cfg.UDPServerPort,

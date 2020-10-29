@@ -1,29 +1,35 @@
 package framework
 
 import (
+	"net"
 	"time"
 
 	"github.com/onsi/ginkgo"
 )
 
-var (
-	DefaultUEIP     = MustParseIP("10.0.1.3")
-	DefaultServerIP = MustParseIP("10.0.2.3")
+const (
+	TEIDPGWs5u = 1000000000
+	TEIDSGWs5u = 1000000001
 )
 
 type Framework struct {
+	Mode    UPGMode
 	VPPCfg  *VPPConfig
 	VPP     *VPPInstance
 	PFCPCfg *PFCPConfig
 	PFCP    *PFCPConnection
+	GTPU    *GTPU
 }
 
-func NewDefaultFramework() *Framework {
-	return NewFramework(defaultVPPConfig(), defaultPFCPConfig())
+func NewDefaultFramework(mode UPGMode) *Framework {
+	vppCfg := vppConfig(mode)
+	pfcpCfg := defaultPFCPConfig(vppCfg)
+	return NewFramework(mode, &vppCfg, &pfcpCfg)
 }
 
-func NewFramework(vppCfg *VPPConfig, pfcpCfg *PFCPConfig) *Framework {
+func NewFramework(mode UPGMode, vppCfg *VPPConfig, pfcpCfg *PFCPConfig) *Framework {
 	f := &Framework{
+		Mode:    mode,
 		VPPCfg:  vppCfg,
 		PFCPCfg: pfcpCfg,
 	}
@@ -37,6 +43,27 @@ func (f *Framework) BeforeEach() {
 	// https://github.com/kubernetes/kubernetes/blob/84096f02e9ecb1dd596d3e05b56238485e4ba051/test/e2e/framework/framework.go#L184-L168
 	f.VPP = NewVPPInstance(*f.VPPCfg)
 	ExpectNoError(f.VPP.SetupNamespaces())
+	// do GTP-U setup before we start the captures,
+	// as it creates the ue's link
+	if f.Mode == UPGModePGW {
+		var err error
+		f.GTPU, err = NewGTPU(GTPUConfig{
+			GRXNS:      f.VPP.GetNS("grx"),
+			UENS:       f.VPP.GetNS("ue"),
+			UEIP:       f.VPPCfg.GetNamespaceAddress("ue").IP,
+			SGWGRXIP:   f.VPPCfg.GetNamespaceAddress("grx").IP,
+			PGWGRXIP:   f.VPPCfg.GetVPPAddress("grx").IP,
+			TEIDPGWs5u: TEIDPGWs5u,
+			TEIDSGWs5u: TEIDSGWs5u,
+			LinkName:   f.VPPCfg.GetNamespaceLinkName("ue"),
+			Context:    f.VPP.Context,
+		})
+		ExpectNoError(err)
+		ExpectNoError(f.GTPU.Start())
+	} else {
+		f.GTPU = nil
+	}
+	ExpectNoError(f.VPP.StartCapture())
 	ExpectNoError(f.VPP.StartVPP())
 	ExpectNoError(f.VPP.Ctl("show version"))
 	ExpectNoError(f.VPP.Configure())
@@ -46,88 +73,46 @@ func (f *Framework) BeforeEach() {
 		f.PFCPCfg.Namespace = f.VPP.GetNS("cp")
 		f.PFCP = NewPFCPConnection(*f.PFCPCfg)
 		ExpectNoError(f.PFCP.Start(f.VPP.Context))
+	} else {
+		f.PFCP = nil
 	}
+
 }
 
 func (f *Framework) AfterEach() {
 	if f.VPP != nil {
 		ExpectNoError(f.VPP.VerifyVPPAlive())
+		defer func() {
+			f.VPP.TearDown()
+			f.VPP = nil
+		}()
 		if f.PFCP != nil {
 			// FIXME: we need to make sure all PFCP packets are recorded
 			<-time.After(time.Second)
 			ExpectNoError(f.PFCP.Stop(f.VPP.Context))
 			f.PFCP = nil
 		}
-		f.VPP.TearDown()
-		f.VPP = nil
+
+		if f.GTPU != nil {
+			ExpectNoError(f.GTPU.Stop())
+			f.GTPU = nil
+		}
+
 	}
 }
 
-func defaultVPPConfig() *VPPConfig {
-	return &VPPConfig{
-		Namespaces: []VPPNetworkNamespace{
-			{
-				Name:          "cp",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-				VPPIP:         MustParseIPNet("10.0.0.2/24"),
-				OtherIP:       MustParseIPNet("10.0.0.3/24"),
-				VPPLinkName:   "cp0",
-				OtherLinkName: "cp1",
-				Table:         0,
-			},
-			{
-				Name:          "access",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:18:01"),
-				VPPIP:         MustParseIPNet("10.0.1.2/24"),
-				OtherIP:       MustParseIPNet("10.0.1.3/24"),
-				VPPLinkName:   "access0",
-				OtherLinkName: "access1",
-				Table:         100,
-				NSRoutes: []RouteConfig{
-					{
-						Gw: MustParseIP("10.0.1.2"),
-					},
-				},
-			},
-			{
-				Name:          "sgi",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
-				VPPIP:         MustParseIPNet("10.0.2.2/24"),
-				OtherIP:       MustParseIPNet("10.0.2.3/24"),
-				VPPLinkName:   "sgi0",
-				OtherLinkName: "sgi1",
-				Table:         200,
-				NSRoutes: []RouteConfig{
-					{
-						Dst: MustParseIPNet("10.0.1.0/24"),
-						Gw:  MustParseIP("10.0.2.2"),
-					},
-				},
-			},
-		},
-		SetupCommands: []string{
-			"upf nwi name cp vrf 0",
-			"upf nwi name access vrf 100",
-			"upf nwi name sgi vrf 200",
-			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
-			// NOTE: "ip6" instead of "ip4" for IPv6
-			"upf tdf ul table vrf 100 ip4 table-id 1001",
-			// NOTE: "ip6" instead of "ip4" for IPv6
-			"upf tdf ul enable ip4 host-access0",
-			// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
-			// For IPv6, ::/0 should be used as the subnet
-			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
-			"create upf application proxy name TST",
-			"upf application TST rule 3000 add l7 regex ^https?://theserver-.*",
-			// "set upf proxy mss 1250"
-		},
-	}
+func (f *Framework) UEIP() net.IP {
+	return f.VPPCfg.GetNamespaceAddress("ue").IP
 }
 
-func defaultPFCPConfig() *PFCPConfig {
-	return &PFCPConfig{
-		UNodeIP: MustParseIP("10.0.0.2"),
+func (f *Framework) ServerIP() net.IP {
+	return f.VPPCfg.GetNamespaceAddress("sgi").IP
+}
+
+func defaultPFCPConfig(vppCfg VPPConfig) PFCPConfig {
+	return PFCPConfig{
+		UNodeIP: vppCfg.GetVPPAddress("cp").IP,
+		CNodeIP: vppCfg.GetNamespaceAddress("cp").IP,
 		NodeID:  "pfcpstub",
-		UEIP:    DefaultUEIP,
 	}
 }
