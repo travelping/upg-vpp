@@ -185,7 +185,7 @@ func (vi *VPPInstance) StartVPP() error {
 			select {
 			case <-vi.Context.Done():
 			case <-sigchldCh:
-				<-time.After(500 * time.Millisecond)
+				time.Sleep(500 * time.Millisecond)
 				var s unix.WaitStatus
 				wpid, err := unix.Wait4(pid, &s, unix.WNOHANG, nil)
 				if err == nil && wpid == 0 {

@@ -230,7 +230,7 @@ func (tg *TrafficGen) startWebserver() error {
 				}
 				tg.recordStats(0, 0, len(chunk), 0)
 				if tg.cfg.ChunkDelay > 0 {
-					<-time.After(tg.cfg.ChunkDelay)
+					time.Sleep(tg.cfg.ChunkDelay)
 				}
 			}
 		}),
@@ -422,7 +422,7 @@ func (tg *TrafficGen) checkRedirect() error {
 			fallthrough
 		case err == nil:
 			if tg.cfg.ChunkDelay > 0 {
-				<-time.After(tg.cfg.ChunkDelay)
+				time.Sleep(tg.cfg.ChunkDelay)
 			}
 			continue
 		case !tg.cfg.Retry || !mayRetry:
@@ -493,7 +493,7 @@ func (tg *TrafficGen) udpPing() error {
 			tg.recordError("recv mismatch: response %q for request %q", string(recvBuf), string(sendBuf))
 		}
 		if tg.cfg.ChunkDelay > 0 {
-			<-time.After(tg.cfg.ChunkDelay)
+			time.Sleep(tg.cfg.ChunkDelay)
 		}
 	}
 
@@ -524,7 +524,7 @@ func (tg *TrafficGen) Run() error {
 	}
 	if err == nil && tg.cfg.FinalDelay != 0 {
 		// no immediate failure
-		<-time.After(tg.cfg.FinalDelay)
+		time.Sleep(tg.cfg.FinalDelay)
 	}
 
 	stats := tg.Stats()

@@ -92,7 +92,7 @@ func (f *Framework) AfterEach() {
 		}()
 		if f.PFCP != nil {
 			// FIXME: we need to make sure all PFCP packets are recorded
-			<-time.After(time.Second)
+			time.Sleep(time.Second)
 			ExpectNoError(f.PFCP.Stop(f.VPP.Context))
 			f.PFCP = nil
 		}
