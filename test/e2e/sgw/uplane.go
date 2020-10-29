@@ -3,8 +3,8 @@ package sgw
 import (
 	"context"
 	"encoding/binary"
-	"io"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -127,7 +127,11 @@ func (up *UserPlaneServer) Stop(err error) error {
 	default:
 	}
 
-	up.logger.WithError(err).Warnf("Stoping sgw-u server")
+	if err != nil {
+		up.logger.WithError(err).Warn("Stopping sgw-u server")
+	} else {
+		up.logger.WithError(err).Info("Stopping sgw-u server")
+	}
 
 	up.err = err
 	if up.s5uConn != nil {
@@ -135,7 +139,9 @@ func (up *UserPlaneServer) Stop(err error) error {
 	}
 	close(up.closeCh)
 
-	up.tunnel.Close()
+	if up.tunnel != nil {
+		up.tunnel.Close()
+	}
 
 	return up.err
 }
@@ -156,7 +162,8 @@ func (up *UserPlaneServer) listenRoutine(ctx context.Context) {
 			buffer := make([]byte, 9000)
 			n, src, err := listenConn.ReadFromUDP(buffer)
 			if err != nil {
-				if !errors.Is(err, io.EOF) {
+				// sadly even internal http2 lib parses these errors this way
+				if !strings.Contains(err.Error(), "use of closed network connection") {
 					up.logger.WithError(err).Error("Failed to read from UDP connection")
 				}
 				wrappedErr := errors.Wrapf(err, "Failed to read from UDP connection")

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"net"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/songgao/water"
@@ -120,7 +121,9 @@ func (tt *TunTunnel) tunnelIncomingRoutine(ctx context.Context) {
 		}
 		buf := make([]byte, 9000)
 		if n, err := tun.Read(buf); err != nil {
-			tt.up.logger.WithError(err).Error("Failed to read gtpu tun. Closing tunnel")
+			if !strings.Contains(err.Error(), "read tun: file already closed") {
+				tt.up.logger.WithError(err).Error("Failed to read gtpu tun. Closing tunnel")
+			}
 			tt.Close()
 			return
 		} else {
