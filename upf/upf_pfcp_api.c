@@ -854,7 +854,7 @@ process_teid_generation (upf_main_t * gtm, u8 chid, u32 flags,
   bool ok = false;
   do
     {
-      teid = random_u32 (&gtm->rand_base) & (UINT32_MAX ^ res->mask);
+      teid = random_u32 (&gtm->rand_base) & ~res->mask;
       if (!validate_teid (teid))
 	{
 	  retry_cnt--;
@@ -863,10 +863,13 @@ process_teid_generation (upf_main_t * gtm, u8 chid, u32 flags,
 
       gtm->rand_base = teid;
 
+      /* teid_v4/v6_lookup can be called even there is no ip4/ip6 address
+         present in a UPIP res. It will always return
+         UPF_GTPU_ERROR_NO_SUCH_TUNNEL for such cases
+       */
       ok =
-	((flags & F_TEID_V4) || (flags & F_TEID_V6)) &&
-	((teid_v4_lookup (gtm, teid, res) != 0) &&
-	 ((teid_v6_lookup (gtm, teid, res) != 0)));
+	(!(flags & F_TEID_V4) || teid_v4_lookup (gtm, teid, res) != 0) &&
+	(!(flags & F_TEID_V6) || teid_v6_lookup (gtm, teid, res) != 0);
 
       if (ok)
 	break;
@@ -1250,7 +1253,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
 	  {
 	    /* neither SDF, nor Application Id, generate a wildcard
-	      ACL to make ACL scanning simpler */
+	       ACL to make ACL scanning simpler */
 	    update->pdi.fields |= F_PDI_SDF_FILTER;
 	    vec_reset_length (update->pdi.acl);
 	    vec_add1 (update->pdi.acl, wildcard_acl);
