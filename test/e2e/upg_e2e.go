@@ -16,18 +16,22 @@ const (
 )
 
 var _ = ginkgo.Describe("TDF", func() {
-	f := framework.NewDefaultFramework(framework.UPGModeTDF)
-
-	describeMeasurement(f)
-	describePDRReplacement(f)
+	describeMode("IPv4", framework.UPGModeTDF, framework.UPGIPModeV4)
+	describeMode("IPv6", framework.UPGModeTDF, framework.UPGIPModeV6)
 })
 
 var _ = ginkgo.Describe("PGW", func() {
-	f := framework.NewDefaultFramework(framework.UPGModePGW)
-
-	describeMeasurement(f)
-	describePDRReplacement(f)
+	describeMode("IPv4", framework.UPGModePGW, framework.UPGIPModeV4)
+	describeMode("IPv6", framework.UPGModePGW, framework.UPGIPModeV6)
 })
+
+func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMode) {
+	ginkgo.Context(title, func() {
+		f := framework.NewDefaultFramework(mode, ipMode)
+		describeMeasurement(f)
+		describePDRReplacement(f)
+	})
+}
 
 func describeMeasurement(f *framework.Framework) {
 	ginkgo.Context("session measurement", func() {

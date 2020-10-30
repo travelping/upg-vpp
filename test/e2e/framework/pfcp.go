@@ -39,7 +39,7 @@ const (
 
 	AssociationTimeout          = 10 * time.Second
 	SessionEstablishmentTimeout = 10 * time.Second
-	SessionModificationTimeout  = 10 * time.Second
+	SessionModificationTimeout  = 15 * time.Second
 	PFCPStopTimeout             = 15 * time.Second
 
 	pfcpStateInitial              pfcpState = "INITIAL"
@@ -375,11 +375,8 @@ LOOP:
 				pc.rq.reschedule(nextRetransmitMsg, now)
 				continue
 			case retransmitTimer != nil:
-				if !retransmitTimer.Stop() {
-					<-retransmitTimer.C
-				}
-				retransmitTimer.Reset(ts.Sub(now))
-				retransmitCh = retransmitTimer.C
+				retransmitTimer.Stop()
+				fallthrough
 			default:
 				retransmitTimer = time.NewTimer(ts.Sub(now))
 				retransmitCh = retransmitTimer.C
@@ -719,9 +716,15 @@ func (pc *PFCPConnection) Stop(ctx context.Context) error {
 
 func (pc *PFCPConnection) EstablishSession(ctx context.Context, ies ...*ie.IE) (SEID, error) {
 	seid := pc.newSEID()
+	var fseid *ie.IE
+	if pc.cfg.CNodeIP.To4() == nil {
+		fseid = ie.NewFSEID(uint64(seid), nil, pc.cfg.CNodeIP, nil)
+	} else {
+		fseid = ie.NewFSEID(uint64(seid), pc.cfg.CNodeIP.To4(), nil, nil)
+	}
 	ies = append(ies,
 		// TODO: replace for IPv6
-		ie.NewFSEID(uint64(seid), pc.cfg.CNodeIP, nil, nil),
+		fseid,
 		ie.NewNodeID("", "", pc.cfg.NodeID))
 	pc.requestCh <- message.NewSessionEstablishmentRequest(0, 0, 0, 0, 0, ies...)
 	return seid, pc.waitForSessionState(ctx, seid, sessionStateEstablished, SessionEstablishmentTimeout)

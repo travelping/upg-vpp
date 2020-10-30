@@ -24,7 +24,7 @@ func (cfg SessionConfig) outerHeaderCreation() *ie.IE {
 		return ie.NewOuterHeaderCreation(OuterHeaderCreation_GTPUUDPIPV4, cfg.TEIDSGWs5u, ip4.String(), "", 0, 0, 0)
 	}
 
-	return ie.NewOuterHeaderCreation(OuterHeaderCreation_GTPUUDPIPV6, cfg.TEIDSGWs5u, cfg.SGWGRXIP.String(), "", 0, 0, 0)
+	return ie.NewOuterHeaderCreation(OuterHeaderCreation_GTPUUDPIPV6, cfg.TEIDSGWs5u, "", cfg.SGWGRXIP.String(), 0, 0, 0)
 }
 
 func (cfg SessionConfig) outerHeaderRemoval() *ie.IE {
@@ -86,10 +86,10 @@ func (cfg SessionConfig) reverseFAR(farID uint32) *ie.IE {
 func (cfg SessionConfig) ueIPAddress(flags uint8) *ie.IE {
 	ip4 := cfg.UEIP.To4()
 	if ip4 != nil {
-		return ie.NewUEIPAddress(flags|UEIPAddress_V4, cfg.UEIP.String(), "", 0)
+		return ie.NewUEIPAddress(flags|UEIPAddress_V4, ip4.String(), "", 0)
 	}
 
-	return ie.NewUEIPAddress(flags|UEIPAddress_V6, cfg.UEIP.String(), "", 0)
+	return ie.NewUEIPAddress(flags|UEIPAddress_V6, "", cfg.UEIP.String(), 0)
 }
 
 func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint32, appID string) *ie.IE {

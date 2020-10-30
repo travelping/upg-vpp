@@ -17,6 +17,7 @@ const (
 
 type Framework struct {
 	Mode    UPGMode
+	IPMode  UPGIPMode
 	VPPCfg  *VPPConfig
 	VPP     *VPPInstance
 	PFCPCfg *PFCPConfig
@@ -25,15 +26,16 @@ type Framework struct {
 	Context context.Context
 }
 
-func NewDefaultFramework(mode UPGMode) *Framework {
-	vppCfg := vppConfig(mode)
+func NewDefaultFramework(mode UPGMode, ipMode UPGIPMode) *Framework {
+	vppCfg := vppConfig(mode, ipMode)
 	pfcpCfg := defaultPFCPConfig(vppCfg)
-	return NewFramework(mode, &vppCfg, &pfcpCfg)
+	return NewFramework(mode, ipMode, &vppCfg, &pfcpCfg)
 }
 
-func NewFramework(mode UPGMode, vppCfg *VPPConfig, pfcpCfg *PFCPConfig) *Framework {
+func NewFramework(mode UPGMode, ipMode UPGIPMode, vppCfg *VPPConfig, pfcpCfg *PFCPConfig) *Framework {
 	f := &Framework{
 		Mode:    mode,
+		IPMode:  ipMode,
 		VPPCfg:  vppCfg,
 		PFCPCfg: pfcpCfg,
 	}

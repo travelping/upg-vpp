@@ -23,6 +23,7 @@ var (
 type NetNS struct {
 	ns.NetNS
 	cleanups []func()
+	ipv6     bool
 }
 
 func NewNS(name string) (*NetNS, error) {
@@ -53,6 +54,10 @@ func (netns *NetNS) Close() error {
 }
 
 func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
+	// FIXME: use better check
+	if address.IP.To4() == nil {
+		netns.ipv6 = true
+	}
 	return netns.Do(func() error {
 		veth, err := netlink.LinkByName(linkName)
 		if err != nil {
@@ -128,7 +133,11 @@ func (netns *NetNS) DialUDP(laddr, raddr *net.UDPAddr) (*net.UDPConn, error) {
 	var conn *net.UDPConn
 	err := netns.Do(func() error {
 		var innerErr error
-		conn, innerErr = net.DialUDP("udp", laddr, raddr)
+		network := "udp4"
+		if netns.ipv6 || raddr.IP.To4() == nil {
+			network = "udp6"
+		}
+		conn, innerErr = net.DialUDP(network, laddr, raddr)
 		return innerErr
 	})
 	return conn, err
@@ -138,7 +147,11 @@ func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
 	var l net.Listener
 	err := netns.Do(func() error {
 		var innerErr error
-		l, innerErr = net.Listen("tcp", address)
+		network := "tcp4"
+		if netns.ipv6 {
+			network = "tcp6"
+		}
+		l, innerErr = net.Listen(network, address)
 		return innerErr
 	})
 	return l, err
@@ -148,7 +161,11 @@ func (netns *NetNS) ListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
 	var c *net.UDPConn
 	err := netns.Do(func() error {
 		var innerErr error
-		c, innerErr = net.ListenUDP("udp", laddr)
+		network := "udp4"
+		if netns.ipv6 {
+			network = "udp6"
+		}
+		c, innerErr = net.ListenUDP(network, laddr)
 		return innerErr
 	})
 	return c, err

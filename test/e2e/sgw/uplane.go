@@ -64,6 +64,17 @@ func NewUserPlaneServer(cfg UserPlaneConfig, restartCounter uint8) (up *UserPlan
 		restartCounter:       restartCounter,
 	}
 
+	if cfg.S5uIP.To4() == nil {
+		// BUG: somehow, ListenUDP may fail if we try to pass
+		// it an IPv6 address. This has been observed while
+		// using separate network namespaces for SGW/UE:
+		// 'listen udp [2001:db8:13::3]:2152: bind: cannot assign requested address'
+		// despite [2001:db8:13::3]:2152 being available in that
+		// netns. With no IP provided, ListenUDP works as expected
+		// (listens on [::]:2152)
+		up.s5uAddr.IP = net.IPv6zero
+	}
+
 	up.cfg.SetDefaults()
 
 	up.grxHandle, err = netlink.NewHandleAt(cfg.GRXNetNS.Handle())

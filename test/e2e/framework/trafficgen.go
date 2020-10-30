@@ -24,7 +24,8 @@ const (
 	READ_TIMEOUT    = 3 * time.Second
 	MAX_ERRORS      = 16
 
-	FakeHostnamePrefix = "theserver-"
+	FakeHostnamePrefixV4 = "theserver4-"
+	FakeHostnamePrefixV6 = "theserver6-"
 )
 
 const (
@@ -169,7 +170,7 @@ func (tg *TrafficGen) startUDPServer() error {
 	}
 
 	uc, err := tg.cfg.ServerNS.ListenUDP(&net.UDPAddr{
-		IP:   net.IPv4zero,
+		IP:   nil,
 		Port: tg.cfg.UDPServerPort,
 	})
 	if err != nil {
@@ -236,7 +237,12 @@ func (tg *TrafficGen) startWebserver() error {
 		}),
 	}
 
-	l, err := tg.cfg.ServerNS.ListenTCP(fmt.Sprintf("0.0.0.0:%d", tg.cfg.WebServerListenPort))
+	listenAt := "0.0.0.0"
+	if tg.cfg.ServerIP.To4() == nil {
+		listenAt = "[::]"
+	}
+	listenAddr := fmt.Sprintf("%s:%d", listenAt, tg.cfg.WebServerListenPort)
+	l, err := tg.cfg.ServerNS.ListenTCP(listenAddr)
 	if err != nil {
 		return errors.Wrap(err, "ListenTCP")
 	}
@@ -255,7 +261,7 @@ func (tg *TrafficGen) startWebserver() error {
 }
 
 func (tg *TrafficGen) dialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	address = fakeHostnameToIP(address)
+	address = fakeHostnameToAddress(address)
 	conn, err := tg.cfg.ClientNS.DialContext(ctx, network, address)
 	if err != nil {
 		return nil, err
@@ -273,9 +279,14 @@ func (tg *TrafficGen) downloadURL() string {
 	if tg.cfg.WebServerPort != 80 {
 		portSuffix = fmt.Sprintf(":%d", tg.cfg.WebServerPort)
 	}
-	hostname := tg.cfg.ServerIP.String()
-	if tg.cfg.UseFakeHostname {
-		hostname = ipToFakeHostname(hostname)
+	var hostname string
+	switch {
+	case tg.cfg.UseFakeHostname:
+		hostname = ipToFakeHostname(tg.cfg.ServerIP)
+	case tg.cfg.ServerIP.To4() == nil:
+		hostname = fmt.Sprintf("[%s]", tg.cfg.ServerIP)
+	default:
+		hostname = tg.cfg.ServerIP.String()
 	}
 	return fmt.Sprintf("http://%s%s/dummy", hostname, portSuffix)
 }
@@ -506,8 +517,10 @@ func (tg *TrafficGen) Run() error {
 	case TrafficTypeHTTP:
 		if err := tg.startWebserver(); err != nil {
 			tg.recordError("starting webserver: %v", err)
-		} else if err = tg.simulateDownload(); err != nil {
-			tg.recordError("download error: %v", err)
+		} else {
+			if err = tg.simulateDownload(); err != nil {
+				tg.recordError("download error: %v", err)
+			}
 		}
 	case TrafficTypeUDP:
 		if err := tg.startUDPServer(); err != nil {
@@ -545,17 +558,28 @@ func (tg *TrafficGen) Start() chan error {
 	return errCh
 }
 
-func fakeHostnameToIP(s string) string {
-	// theserver-1-2-3-4 -> 1.2.3.4
+func fakeHostnameToAddress(s string) string {
+	// theserver4-1-2-3-4        -> 1.2.3.4
+	// theserver6-2001-db8-12--3 -> 2001:db8:12::3
 	// This trick is used to trigger app detection while not using real
 	// hostname resolution, while not tweaking net.Http too much
-	if strings.HasPrefix(s, FakeHostnamePrefix) {
-		return strings.ReplaceAll(s[len(FakeHostnamePrefix):], "-", ".")
+	switch {
+	case strings.HasPrefix(s, FakeHostnamePrefixV4):
+		return strings.ReplaceAll(s[len(FakeHostnamePrefixV4):], "-", ".")
+	case strings.HasPrefix(s, FakeHostnamePrefixV6):
+		parts := strings.Split(s, ":")
+		if len(parts) != 2 {
+			return s
+		}
+		return fmt.Sprintf("[%s]:%s", strings.ReplaceAll(parts[0][len(FakeHostnamePrefixV6):], "-", ":"), parts[1])
+	default:
+		return s
 	}
-
-	return s
 }
 
-func ipToFakeHostname(s string) string {
-	return FakeHostnamePrefix + strings.ReplaceAll(s, ".", "-")
+func ipToFakeHostname(ip net.IP) string {
+	if ip.To4() == nil {
+		return FakeHostnamePrefixV6 + strings.ReplaceAll(ip.String(), ":", "-")
+	}
+	return FakeHostnamePrefixV4 + strings.ReplaceAll(ip.String(), ".", "-")
 }

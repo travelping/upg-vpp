@@ -154,7 +154,11 @@ func (tt *TunTunnel) Close() error {
 func (tt *TunTunnel) RegisterSession(s Session) error {
 	s.SetTunnelRegistered(true)
 
-	return tt.addRouteAndIPAndRule(s.IPv4(), tt.TUNNetLink)
+	ip := s.IPv4()
+	if ip == nil {
+		ip = s.IPv6()
+	}
+	return tt.addRouteAndIPAndRule(ip, tt.TUNNetLink)
 }
 
 func (tt *TunTunnel) UnregisterSession(s Session) error {
@@ -163,5 +167,9 @@ func (tt *TunTunnel) UnregisterSession(s Session) error {
 	}
 	s.SetTunnelRegistered(false)
 
-	return tt.removeRouteAndIPAndRule(s.IPv4(), tt.TUNNetLink)
+	ip := s.IPv4()
+	if ip == nil {
+		ip = s.IPv6()
+	}
+	return tt.removeRouteAndIPAndRule(ip, tt.TUNNetLink)
 }
