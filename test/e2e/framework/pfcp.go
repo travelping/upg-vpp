@@ -408,7 +408,7 @@ LOOP:
 			pc.log.WithFields(logrus.Fields{
 				"messageType": msg.MessageTypeName(),
 				"seq":         msg.Sequence(),
-				"SEID":        fmt.Sprintf("%x016x", msg.SEID()),
+				"SEID":        fmt.Sprintf("%016x", msg.SEID()),
 			}).Debug("receive")
 			if ev, ok := peerMessageToEvent(msg); ok {
 				err = pc.event(ev, msg)
@@ -597,7 +597,7 @@ func (pc *PFCPConnection) send(m message.Message) error {
 	pc.log.WithFields(logrus.Fields{
 		"messageType": m.MessageTypeName(),
 		"seq":         m.Sequence(),
-		"SEID":        fmt.Sprintf("%x016x", m.SEID()),
+		"SEID":        fmt.Sprintf("%016x", m.SEID()),
 	}).Debug("send")
 	bs := make([]byte, m.MarshalLen())
 	if err := m.MarshalTo(bs); err != nil {
@@ -817,13 +817,13 @@ func (s *pfcpSession) event(event sessionEvent, m message.Message) error {
 	defer func() {
 		if oldState == s.state {
 			s.pc.log.WithFields(logrus.Fields{
-				"SEID":     fmt.Sprintf("%x016x", s.seid),
+				"SEID":     fmt.Sprintf("%016x", s.seid),
 				"oldState": oldState,
 				"event":    event,
 			}).Debug("session state machine event w/o transition")
 		} else {
 			s.pc.log.WithFields(logrus.Fields{
-				"SEID":     fmt.Sprintf("%x016x", s.seid),
+				"SEID":     fmt.Sprintf("%016x", s.seid),
 				"oldState": oldState,
 				"event":    event,
 				"newState": s.state,
