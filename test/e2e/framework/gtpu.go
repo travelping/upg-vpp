@@ -25,6 +25,19 @@ type GTPUConfig struct {
 	ParentContext context.Context
 }
 
+func (cfg GTPUConfig) ipv6() bool {
+	return cfg.UEIP.To4() == nil || cfg.SGWGRXIP.To4() == nil || cfg.PGWGRXIP.To4() == nil
+}
+
+func (cfg GTPUConfig) gtpuTunnelType() sgw.SGWGTPUTunnelType {
+	// TODO: autodetect kernel GTP-U support
+	if !cfg.ipv6() && os.Getenv("UPG_TEST_GTPU_KERNEL") != "" {
+		return sgw.SGWGTPUTunnelTypeKernel
+	}
+
+	return sgw.SGWGTPUTunnelTypeTun
+}
+
 func (cfg *GTPUConfig) SetDefaults() {
 	if cfg.MTU == 0 {
 		cfg.MTU = 1300
@@ -46,7 +59,7 @@ func NewGTPU(cfg GTPUConfig) (*GTPU, error) {
 	up, err := sgw.NewUserPlaneServer(sgw.UserPlaneConfig{
 		S5uIP: cfg.SGWGRXIP,
 		GTPUTunnel: sgw.SGWGTPUTunnel{
-			Type:          gtpuTunnelType(),
+			Type:          cfg.gtpuTunnelType(),
 			InterfaceName: cfg.LinkName,
 			MTU:           1300,
 		},
@@ -123,12 +136,4 @@ func (gtpu *GTPU) Stop() error {
 	}
 
 	return gtpu.up.Stop(nil)
-}
-
-func gtpuTunnelType() sgw.SGWGTPUTunnelType {
-	if os.Getenv("UPG_TEST_GTPU_KERNEL") != "" {
-		return sgw.SGWGTPUTunnelTypeKernel
-	}
-
-	return sgw.SGWGTPUTunnelTypeTun
 }

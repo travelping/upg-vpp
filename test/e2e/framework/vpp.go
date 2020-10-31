@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -28,7 +29,11 @@ import (
 const (
 	VPP_MAX_CONNECT_ATTEMPTS = 10
 	VPP_RECONNECT_INTERVAL   = time.Second
-	VPP_STARTUP_TIMEOUT      = 5 * time.Second
+	// the startup can get quite slow if too many tests are
+	// run in parallel without enough CPU cores available
+	VPP_STARTUP_TIMEOUT = 30 * time.Second
+	VPP_REPLY_TIMEOUT   = 5 * time.Second
+	NSENTER_CMD         = "nsenter"
 )
 
 type RouteConfig struct {
@@ -50,6 +55,7 @@ type VPPNetworkNamespace struct {
 }
 
 type VPPConfig struct {
+	BaseDir       string
 	Namespaces    []VPPNetworkNamespace
 	SetupCommands []string
 }
@@ -100,6 +106,9 @@ type VPPInstance struct {
 }
 
 func NewVPPInstance(cfg VPPConfig) *VPPInstance {
+	if cfg.BaseDir == "" {
+		panic("must specify BaseDir")
+	}
 	var startupCfg VPPStartupConfig
 	startupCfg.SetFromEnv()
 	context, cancel := context.WithCancel(context.Background())
@@ -130,25 +139,61 @@ func (vi *VPPInstance) VerifyVPPAlive() error {
 	return nil
 }
 
-func (vi *VPPInstance) StartVPP() error {
-	startupFile, err := ioutil.TempFile("", "startup-*.conf")
+func (vi *VPPInstance) vppFilePath(name string) string {
+	return filepath.Join(vi.cfg.BaseDir, name)
+}
+
+func (vi *VPPInstance) writeVPPFile(name, content string) (string, error) {
+	p := vi.vppFilePath(name)
+	if err := ioutil.WriteFile(p, []byte(content), 0666); err != nil {
+		return "", errors.Wrapf(err, "error writing %q", name)
+	}
+
+	return p, nil
+}
+
+func (vi *VPPInstance) prepareCommand() (*exec.Cmd, error) {
+	vi.startupCfg.CLISock = vi.vppFilePath("cli.sock")
+	vi.startupCfg.APISock = vi.vppFilePath("api.sock")
+	vi.startupCfg.StatsSock = vi.vppFilePath("stats.sock")
+	vi.startupCfg.VPPLog = vi.vppFilePath("vpp.log")
+
+	coreIndex, err := getCPU()
 	if err != nil {
-		return errors.Wrap(err, "error creating the startup conf file")
+		return nil, errors.Wrap(err, "sched_getcpu() failed")
 	}
-	defer os.Remove(startupFile.Name())
+	vi.startupCfg.MainCore = coreIndex
 
-	if _, err := startupFile.Write([]byte(vi.startupCfg.Get())); err != nil {
-		return errors.Wrap(err, "error writing the startup conf file")
+	startupFile, err := vi.writeVPPFile("startup.conf", vi.startupCfg.Get())
+	if err != nil {
+		return nil, errors.Wrap(err, "error writing startup file")
 	}
 
-	// FIXME: use proper temp file!!! or pass cmds to the gdb
-	ioutil.WriteFile("/tmp/foo", []byte("r\nbt 10\n"), 0700)
+	args := []string{"--net=" + vi.vppNS.Path()}
+	if vi.startupCfg.UseGDB {
+		gdbCmdsFile, err := vi.writeVPPFile("gdbcmds", "r\nbt 10\n")
+		if err != nil {
+			return nil, errors.Wrap(err, "error writing gdbcmds")
+		}
 
-	// TODO: check that the process is running
-	vi.cmd = exec.Command(
-		"nsenter", "--net="+vi.vppNS.Path(),
-		"gdb", "--batch", "-x", "/tmp/foo", "--args",
-		vi.startupCfg.BinaryPath, "-c", startupFile.Name())
+		args = append(args, "gdb", "--batch", "-x", gdbCmdsFile, "--args")
+	}
+	args = append(args, vi.startupCfg.BinaryPath, "-c", startupFile)
+
+	return exec.Command(NSENTER_CMD, args...), nil
+}
+
+func (vi *VPPInstance) StartVPP() error {
+	vi.log.WithFields(logrus.Fields{
+		"cliSocket": vi.startupCfg.CLISock,
+		"apiSocket": vi.startupCfg.APISock,
+	}).Info("starting VPP")
+
+	var err error
+	vi.cmd, err = vi.prepareCommand()
+	if err != nil {
+		return err
+	}
 
 	stdout, err := vi.cmd.StdoutPipe()
 	if err != nil {
@@ -170,12 +215,12 @@ func (vi *VPPInstance) StartVPP() error {
 	vi.copyPipeToLog(stderr, "stdout")
 
 	// wait for the file to appear so we don't get warnings from govpp
-	if err := WaitForFile(socketclient.DefaultSocketName, 100*time.Millisecond, VPP_STARTUP_TIMEOUT); err != nil {
+	if err := WaitForFile(vi.startupCfg.APISock, 100*time.Millisecond, VPP_STARTUP_TIMEOUT); err != nil {
 		return errors.Wrap(err, "error waiting for VPP to start")
 	}
 
 	conn, conev, err := govpp.AsyncConnect(
-		socketclient.DefaultSocketName,
+		vi.startupCfg.APISock,
 		VPP_MAX_CONNECT_ATTEMPTS,
 		VPP_RECONNECT_INTERVAL)
 
@@ -203,6 +248,7 @@ func (vi *VPPInstance) StartVPP() error {
 		vi.stopVPP()
 		return errors.Wrap(err, "NewAPIChannel")
 	}
+	vi.apiChannel.SetReplyTimeout(VPP_REPLY_TIMEOUT)
 
 	go func() {
 		defer signal.Stop(sigchldCh)
@@ -351,7 +397,7 @@ func (vi *VPPInstance) StartCapture() error {
 		captureCfg := CaptureConfig{
 			Iface: nsCfg.VPPLinkName,
 			// FIXME: store pcaps to the specified location not /tmp
-			PCAPPath: fmt.Sprintf("/tmp/%s.pcap", nsCfg.OtherLinkName),
+			PCAPPath: filepath.Join(vi.cfg.BaseDir, fmt.Sprintf("%s.pcap", nsCfg.OtherLinkName)),
 			Snaplen:  0,
 			TargetNS: vi.vppNS,
 		}
@@ -438,5 +484,3 @@ func (vi *VPPInstance) copyPipeToLog(pipe io.ReadCloser, what string) {
 		vi.pipeCopyWG.Done()
 	}()
 }
-
-// TODO: !!! separate log and socket paths for VPPs !!!

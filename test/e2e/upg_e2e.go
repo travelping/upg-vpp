@@ -49,7 +49,10 @@ func describeMeasurement(f *framework.Framework) {
 		}
 
 		verifyNonAppTraffic := func(trafficType framework.TrafficType) {
-			tg := trafficGen(f, trafficType, framework.TrafficGenConfig{})
+			tg := trafficGen(f, trafficType, framework.TrafficGenConfig{
+				// avoid having to deal with late TCP packets
+				NoLinger: true,
+			})
 			framework.ExpectNoError(tg.Run())
 			ms = deleteSession(f, seid)
 			verifyNonAppMeasurement(f, ms, trafficType)
@@ -57,6 +60,8 @@ func describeMeasurement(f *framework.Framework) {
 
 		verifyAppTraffic := func(trafficType framework.TrafficType) {
 			tg := trafficGen(f, trafficType, framework.TrafficGenConfig{
+				// avoid having to deal with late TCP packets
+				NoLinger: true,
 				// this triggers app detection
 				UseFakeHostname: true,
 			})
@@ -133,7 +138,8 @@ func describePDRReplacement(f *framework.Framework) {
 
 		verifyNonApp := func(trafficType framework.TrafficType, retry bool) {
 			tg := trafficGen(f, trafficType, framework.TrafficGenConfig{
-				Retry: retry,
+				Retry:    retry,
+				NoLinger: true,
 			})
 			tgDone := tg.Start()
 			pdrReplacementLoop(false, tgDone)
@@ -151,6 +157,7 @@ func describePDRReplacement(f *framework.Framework) {
 				// this triggers app detection
 				UseFakeHostname: true,
 				Retry:           retry,
+				NoLinger:        true,
 			})
 			framework.ExpectNoError(tg.Run())
 			ms = deleteSession(f, seid)

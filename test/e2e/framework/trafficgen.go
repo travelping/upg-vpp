@@ -22,7 +22,7 @@ type TrafficType int
 
 const (
 	READ_CHUNK_SIZE = 1000000
-	READ_TIMEOUT    = 3 * time.Second
+	READ_TIMEOUT    = 5 * time.Second
 	MAX_ERRORS      = 16
 
 	FakeHostnamePrefixV4 = "theserver4-"
@@ -592,7 +592,8 @@ func fakeHostnameToAddress(s string) string {
 		if len(parts) != 2 {
 			return s
 		}
-		return fmt.Sprintf("[%s]:%s", strings.ReplaceAll(parts[0][len(FakeHostnamePrefixV6):], "-", ":"), parts[1])
+		return net.JoinHostPort(strings.ReplaceAll(parts[0][len(FakeHostnamePrefixV6):], "-", ":"),
+			parts[1])
 	default:
 		return s
 	}

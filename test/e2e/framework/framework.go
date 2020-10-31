@@ -2,11 +2,14 @@ package framework
 
 import (
 	"context"
+	"io/ioutil"
 	"net"
+	"os"
 	"time"
 
 	"github.com/onsi/ginkgo"
 
+	"github.com/sirupsen/logrus"
 	"github.com/travelping/upg-vpp/test/e2e/sgw"
 )
 
@@ -47,6 +50,9 @@ func NewFramework(mode UPGMode, ipMode UPGIPMode, vppCfg *VPPConfig, pfcpCfg *PF
 func (f *Framework) BeforeEach() {
 	// TODO: forced cleanup for Ctrl-C
 	// https://github.com/kubernetes/kubernetes/blob/84096f02e9ecb1dd596d3e05b56238485e4ba051/test/e2e/framework/framework.go#L184-L168
+	d, err := ioutil.TempDir("", "upgtest")
+	ExpectNoError(err)
+	f.VPPCfg.BaseDir = d
 	f.VPP = NewVPPInstance(*f.VPPCfg)
 	ExpectNoError(f.VPP.SetupNamespaces())
 	// do GTP-U setup before we start the captures,
@@ -84,7 +90,6 @@ func (f *Framework) BeforeEach() {
 	} else {
 		f.PFCP = nil
 	}
-
 }
 
 func (f *Framework) AfterEach() {
@@ -105,7 +110,14 @@ func (f *Framework) AfterEach() {
 			ExpectNoError(f.GTPU.Stop())
 			f.GTPU = nil
 		}
+	}
 
+	if f.VPPCfg != nil && f.VPPCfg.BaseDir != "" {
+		if ginkgo.CurrentGinkgoTestDescription().Failed {
+			logrus.WithField("testDir", f.VPPCfg.BaseDir).Info("test artifacts for the failed testcase")
+		} else if f.VPPCfg.BaseDir != "" {
+			ExpectNoError(os.RemoveAll(f.VPPCfg.BaseDir))
+		}
 	}
 }
 
@@ -122,7 +134,7 @@ func (f *Framework) ServerIP() net.IP {
 // packet drops on GRX<->UE path. In this case, only GRX pcaps should
 // be used to validate traffic measurements
 func (f *Framework) SlowGTPU() bool {
-	return f.Mode == UPGModePGW && gtpuTunnelType() == sgw.SGWGTPUTunnelTypeTun
+	return f.Mode == UPGModePGW && f.GTPU.cfg.gtpuTunnelType() == sgw.SGWGTPUTunnelTypeTun
 }
 
 func defaultPFCPConfig(vppCfg VPPConfig) PFCPConfig {

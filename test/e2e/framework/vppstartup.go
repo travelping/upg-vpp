@@ -1,23 +1,29 @@
 package framework
 
 import (
+	"fmt"
 	"os"
 	"strings"
+	"sync/atomic"
 	"text/template"
 )
 
 var vppStartupTemplateStr = `
 unix {
   nodaemon
-  log /tmp/vpp.log
   coredump-size unlimited
   full-coredump
   interactive
-  cli-listen /run/vpp/cli.sock
+  cli-listen {{.CLISock}}
+  log {{.VPPLog}}
 }
 
 socksvr {
-  socket-name /run/vpp/api.sock
+  socket-name {{.APISock}}
+}
+
+api-segment {
+  prefix {{.APIPrefix}}
 }
 
 api-trace {
@@ -25,10 +31,12 @@ api-trace {
 }
 
 cpu {
+  main-core {{.MainCore}}
   workers 0
 }
 
 statseg {
+  socket-name {{.StatsSock}}
   size 512M
 }
 
@@ -45,6 +53,7 @@ plugins {
 // }
 
 var startupTemplate *template.Template
+var vppIndex int32
 
 func init() {
 	var err error
@@ -57,6 +66,13 @@ func init() {
 type VPPStartupConfig struct {
 	BinaryPath string
 	PluginPath string
+	CLISock    string
+	APISock    string
+	StatsSock  string
+	VPPLog     string
+	APIPrefix  string
+	MainCore   int
+	UseGDB     bool
 }
 
 func (cfg *VPPStartupConfig) SetFromEnv() {
@@ -68,6 +84,7 @@ func (cfg *VPPStartupConfig) SetFromEnv() {
 	if pluginPath != "" {
 		cfg.PluginPath = pluginPath
 	}
+	cfg.UseGDB = os.Getenv("VPP_NO_GDB") == ""
 	cfg.SetDefaults()
 }
 
@@ -77,6 +94,21 @@ func (cfg *VPPStartupConfig) SetDefaults() {
 	}
 	if cfg.PluginPath == "" {
 		cfg.PluginPath = "/usr/lib/x86_64-linux-gnu/vpp_plugins"
+	}
+	if cfg.CLISock == "" {
+		cfg.CLISock = "/run/vpp/cli.sock"
+	}
+	if cfg.APISock == "" {
+		cfg.APISock = "/run/vpp/api.sock"
+	}
+	if cfg.StatsSock == "" {
+		cfg.StatsSock = "/run/vpp/stats.sock"
+	}
+	if cfg.VPPLog == "" {
+		cfg.VPPLog = "/dev/null"
+	}
+	if cfg.APIPrefix == "" {
+		cfg.APIPrefix = fmt.Sprintf("vpp%d", atomic.AddInt32(&vppIndex, 1))
 	}
 }
 

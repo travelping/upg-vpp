@@ -9,7 +9,9 @@ RUN apt-get update && \
     add-apt-repository ppa:longsleep/golang-backports && \
     apt-get update && \
     apt-get install -y golang-go iproute2 gdb curl tcpdump iputils-ping \
-            libpcap-dev dumb-init
+    libpcap-dev dumb-init git && \
+    go get github.com/onsi/ginkgo/ginkgo && \
+    mv /root/go/bin/ginkgo /usr/local/bin
 
 ADD . /exttest
 
