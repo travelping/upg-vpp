@@ -1,14 +1,17 @@
 package framework
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"os/exec"
 	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -18,12 +21,14 @@ import (
 	"git.fd.io/govpp.git/api"
 	"git.fd.io/govpp.git/binapi/vpe"
 	"git.fd.io/govpp.git/core"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
 const (
 	VPP_MAX_CONNECT_ATTEMPTS = 10
 	VPP_RECONNECT_INTERVAL   = time.Second
+	VPP_STARTUP_TIMEOUT      = 5 * time.Second
 )
 
 type RouteConfig struct {
@@ -90,6 +95,8 @@ type VPPInstance struct {
 	Context    context.Context
 	cancel     context.CancelFunc
 	Captures   map[string]*Capture
+	log        *logrus.Entry
+	pipeCopyWG sync.WaitGroup
 }
 
 func NewVPPInstance(cfg VPPConfig) *VPPInstance {
@@ -103,6 +110,7 @@ func NewVPPInstance(cfg VPPConfig) *VPPInstance {
 		Captures:   make(map[string]*Capture),
 		Context:    context,
 		cancel:     cancel,
+		log:        logrus.NewEntry(logrus.StandardLogger()),
 	}
 }
 
@@ -141,12 +149,29 @@ func (vi *VPPInstance) StartVPP() error {
 		"nsenter", "--net="+vi.vppNS.Path(),
 		"gdb", "--batch", "-x", "/tmp/foo", "--args",
 		vi.startupCfg.BinaryPath, "-c", startupFile.Name())
-	vi.cmd.Stdout = os.Stdout
-	vi.cmd.Stderr = os.Stderr
+
+	stdout, err := vi.cmd.StdoutPipe()
+	if err != nil {
+		return errors.Wrap(err, "StdoutPipe")
+	}
+	stderr, err := vi.cmd.StderrPipe()
+	if err != nil {
+		return errors.Wrap(err, "StderrPipe")
+	}
 	sigchldCh := make(chan os.Signal, 1)
 	signal.Notify(sigchldCh, unix.SIGCHLD)
 	if err := vi.cmd.Start(); err != nil {
 		return errors.Wrapf(err, "error starting vpp (%q)", vi.startupCfg.BinaryPath)
+	}
+
+	pid := vi.cmd.Process.Pid
+	vi.log = logrus.WithField("pid", pid)
+	vi.copyPipeToLog(stdout, "stdout")
+	vi.copyPipeToLog(stderr, "stdout")
+
+	// wait for the file to appear so we don't get warnings from govpp
+	if err := WaitForFile(socketclient.DefaultSocketName, 100*time.Millisecond, VPP_STARTUP_TIMEOUT); err != nil {
+		return errors.Wrap(err, "error waiting for VPP to start")
 	}
 
 	conn, conev, err := govpp.AsyncConnect(
@@ -155,6 +180,7 @@ func (vi *VPPInstance) StartVPP() error {
 		VPP_RECONNECT_INTERVAL)
 
 	if err != nil {
+		vi.stopVPP()
 		return errors.Wrapf(err, "error connecting to vpp socket at %q", socketclient.DefaultSocketName)
 	}
 
@@ -172,13 +198,12 @@ func (vi *VPPInstance) StartVPP() error {
 	}
 
 	vi.conn = conn
-
 	vi.apiChannel, err = conn.NewAPIChannel()
 	if err != nil {
+		vi.stopVPP()
 		return errors.Wrap(err, "NewAPIChannel")
 	}
 
-	pid := vi.cmd.Process.Pid
 	go func() {
 		defer signal.Stop(sigchldCh)
 		for {
@@ -192,9 +217,9 @@ func (vi *VPPInstance) StartVPP() error {
 					continue
 				}
 				if err != nil {
-					fmt.Printf("* Wait4 error: %s\n", err)
+					vi.log.WithError(err).Warn("Wait4 error")
 				} else {
-					fmt.Printf("* VPP process has exited!\n")
+					vi.log.Info("VPP process has exited")
 				}
 				vi.cancel()
 				return
@@ -230,6 +255,7 @@ func (vi *VPPInstance) stopVPP() {
 	}
 
 	vi.cmd.Process.Kill()
+	vi.pipeCopyWG.Wait()
 	vi.cmd.Wait()
 }
 
@@ -254,14 +280,14 @@ func (vi *VPPInstance) TearDown() {
 
 func (vi *VPPInstance) Ctl(format string, args ...interface{}) error {
 	command := fmt.Sprintf(format, args...)
-	fmt.Printf(">>> %s\n", command)
+	vi.log.Debugf(">>> %s", command)
 	req := &vpe.CliInband{Cmd: command}
 	reply := new(vpe.CliInbandReply)
 	if err := vi.apiChannel.SendRequest(req).ReceiveReply(reply); err != nil {
 		return errors.Wrap(err, "binapi request failed:")
 	}
 	if reply.Reply != "" {
-		fmt.Println(reply.Reply)
+		vi.log.Debugf("<<< %s", reply.Reply)
 	}
 	return nil
 }
@@ -274,7 +300,7 @@ func (vi *VPPInstance) SetupNamespaces() error {
 		vi.closeNamespaces()
 		return errors.Wrap(err, "VppNS")
 	}
-	fmt.Printf("VPP ns: %s\n", vi.vppNS.Path())
+	vi.log.WithField("nsPath", vi.vppNS.Path()).Info("VPP netns created")
 
 	for _, nsCfg := range vi.cfg.Namespaces {
 		ns, err := NewNS(nsCfg.Name)
@@ -296,9 +322,18 @@ func (vi *VPPInstance) SetupNamespaces() error {
 					return errors.Wrapf(err, "route for ns %s", nsCfg.Name)
 				}
 			}
-			fmt.Printf("%s ns: %s; (vpp) %s <--> (other) %s\n", nsCfg.Name, ns.Path(), *nsCfg.VPPIP, *nsCfg.OtherIP)
+			vi.log.WithFields(logrus.Fields{
+				"netns":   nsCfg.Name,
+				"nsPath":  ns.Path(),
+				"VPPIP":   *nsCfg.VPPIP,
+				"OtherIP": *nsCfg.OtherIP,
+			}).Info("netns created")
 		} else {
-			fmt.Printf("%s ns: %s; (other) %s\n", nsCfg.Name, ns.Path(), *nsCfg.OtherIP)
+			vi.log.WithFields(logrus.Fields{
+				"netns":   nsCfg.Name,
+				"nsPath":  ns.Path(),
+				"OtherIP": *nsCfg.OtherIP,
+			}).Info("netns created")
 		}
 
 		vi.namespaces[nsCfg.Name] = ns
@@ -381,6 +416,27 @@ func (vi *VPPInstance) Configure() error {
 	}
 	allCmds = append(allCmds, vi.cfg.SetupCommands...)
 	return vi.runCmds(allCmds...)
+}
+
+func (vi *VPPInstance) copyPipeToLog(pipe io.ReadCloser, what string) {
+	log := vi.log.WithField("what", what)
+	vi.pipeCopyWG.Add(1)
+
+	go func() {
+		scanner := bufio.NewScanner(pipe)
+		for scanner.Scan() {
+			log.Infof("VPP: %s", scanner.Text())
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.WithError(err).Error("log scanner error")
+		}
+
+		if err := pipe.Close(); err != nil {
+			log.WithError(err).Error("error closing the pipe")
+		}
+		vi.pipeCopyWG.Done()
+	}()
 }
 
 // TODO: !!! separate log and socket paths for VPPs !!!

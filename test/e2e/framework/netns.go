@@ -22,6 +22,7 @@ var (
 
 type NetNS struct {
 	ns.NetNS
+	Name     string
 	cleanups []func()
 	ipv6     bool
 }
@@ -33,6 +34,7 @@ func NewNS(name string) (*NetNS, error) {
 	}
 	return &NetNS{
 		NetNS: innerNS,
+		Name:  name,
 	}, nil
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/sirupsen/logrus"
 	"github.com/wmnsk/go-pfcp/ie"
 	"github.com/wmnsk/go-pfcp/message"
 )
@@ -249,6 +250,7 @@ type PFCPConnection struct {
 	stopCh    chan struct{}
 	messageCh chan message.Message
 	requestCh chan message.Message
+	log       *logrus.Entry
 }
 
 type PFCPReport struct {
@@ -285,6 +287,7 @@ func NewPFCPConnection(cfg PFCPConfig) *PFCPConnection {
 	cfg.setDefaults()
 	return &PFCPConnection{
 		cfg: cfg,
+		log: logrus.WithField("NodeID", cfg.NodeID),
 	}
 }
 
@@ -309,18 +312,21 @@ func (pc *PFCPConnection) wakeup() {
 	}
 }
 
-func (pc *PFCPConnection) log(format string, args ...interface{}) {
-	fmt.Printf(" * "+format+"\n", args...)
-}
-
 func (pc *PFCPConnection) event(event pfcpEvent, m message.Message) error {
 	pc.Lock()
 	oldState := pc.state
 	defer func() {
 		if oldState == pc.state {
-			pc.log("%s: %s", oldState, event)
+			pc.log.WithFields(logrus.Fields{
+				"oldState": oldState,
+				"event":    event,
+			}).Debug("PFCP state machine event w/o transition")
 		} else {
-			pc.log("%s: %s -> %s", oldState, event, pc.state)
+			pc.log.WithFields(logrus.Fields{
+				"oldState": oldState,
+				"event":    event,
+				"newState": pc.state,
+			}).Debug("PFCP state machine transition")
 		}
 		pc.Unlock()
 		pc.wakeup()
@@ -370,7 +376,8 @@ LOOP:
 				// ok, no retransmits for now
 				break RETRANS_LOOP
 			case !ts.After(now):
-				pc.log("retransmit %s", nextRetransmitMsg.MessageTypeName())
+				pc.log.WithField("messageType", nextRetransmitMsg.MessageTypeName()).
+					Warn("retransmit")
 				pc.send(nextRetransmitMsg)
 				pc.rq.reschedule(nextRetransmitMsg, now)
 				continue
@@ -398,7 +405,11 @@ LOOP:
 				break LOOP
 			}
 		case msg := <-pc.messageCh:
-			pc.log("RECEIVE: %s seq %d SEID %016x", msg.MessageTypeName(), msg.Sequence(), msg.SEID())
+			pc.log.WithFields(logrus.Fields{
+				"messageType": msg.MessageTypeName(),
+				"seq":         msg.Sequence(),
+				"SEID":        fmt.Sprintf("%x016x", msg.SEID()),
+			}).Debug("receive")
 			if ev, ok := peerMessageToEvent(msg); ok {
 				err = pc.event(ev, msg)
 			} else {
@@ -419,7 +430,7 @@ LOOP:
 				break LOOP
 			}
 		case err = <-pc.listenErrCh:
-			pc.log("* Listener error: %v", err)
+			pc.log.WithError(err).Error("listener error")
 			break LOOP
 		}
 	}
@@ -583,7 +594,11 @@ func (pc *PFCPConnection) sendRequest(m message.Message) error {
 }
 
 func (pc *PFCPConnection) send(m message.Message) error {
-	pc.log("SEND: %s seq %d SEID %016x", m.MessageTypeName(), m.Sequence(), m.SEID())
+	pc.log.WithFields(logrus.Fields{
+		"messageType": m.MessageTypeName(),
+		"seq":         m.Sequence(),
+		"SEID":        fmt.Sprintf("%x016x", m.SEID()),
+	}).Debug("send")
 	bs := make([]byte, m.MarshalLen())
 	if err := m.MarshalTo(bs); err != nil {
 		return errors.Wrap(err, "marshal pfcp message")
@@ -598,8 +613,11 @@ func (pc *PFCPConnection) send(m message.Message) error {
 
 func (pc *PFCPConnection) acceptResponse(m message.Message) (bool, error) {
 	if !pc.rq.remove(m) {
-		pc.log("WARNING: skipping %s with wrong seq (%d instead of %d)",
-			m.MessageTypeName(), m.Sequence(), pc.seq)
+		pc.log.WithFields(logrus.Fields{
+			"messageType":  m.MessageTypeName(),
+			"wrong_seq":    m.Sequence(),
+			"expected_seq": pc.seq,
+		}).Warn("skipping a message with wrong seq")
 		return false, nil
 	}
 	if err := verifyCause(m); err != nil {
@@ -798,9 +816,18 @@ func (s *pfcpSession) event(event sessionEvent, m message.Message) error {
 	oldState := s.state
 	defer func() {
 		if oldState == s.state {
-			s.pc.log("Session %016x: %s: %s", s.seid, oldState, event)
+			s.pc.log.WithFields(logrus.Fields{
+				"SEID":     fmt.Sprintf("%x016x", s.seid),
+				"oldState": oldState,
+				"event":    event,
+			}).Debug("session state machine event w/o transition")
 		} else {
-			s.pc.log("Session %016x: %s: %s -> %s", s.seid, oldState, event, s.state)
+			s.pc.log.WithFields(logrus.Fields{
+				"SEID":     fmt.Sprintf("%x016x", s.seid),
+				"oldState": oldState,
+				"event":    event,
+				"newState": s.state,
+			}).Debug("session state machine transition")
 		}
 	}()
 	tk := sessionTransitionKey{state: s.state, event: event}
@@ -890,7 +917,11 @@ func (s *pfcpSession) postMeasurement(m message.Message) error {
 			r.Duration = &duration
 		}
 
-		s.pc.log("%s: urrID %d %s", m.MessageTypeName(), urrid, r)
+		s.pc.log.WithFields(logrus.Fields{
+			"messageType": m.MessageTypeName(),
+			"urrID":       urrid,
+			"report":      r.String(),
+		}).Debug("posting measurement")
 		ms.Reports[urrid] = r
 	}
 	s.modCh <- &ms

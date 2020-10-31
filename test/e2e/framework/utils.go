@@ -16,12 +16,14 @@ package framework
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -264,4 +266,24 @@ func RunningInLinuxkit() bool {
 	}
 
 	return strings.Contains(string(uname.Release[:]), "linuxkit")
+}
+
+func WaitForFile(path string, interval, timeout time.Duration) error {
+	timeoutCh := time.After(timeout)
+	for {
+		switch _, err := os.Stat(path); {
+		case err == nil:
+			return nil
+		case os.IsNotExist(err):
+			// ok, let's wait a bit more
+		default:
+			return errors.Wrapf(err, "error waiting for %q", path)
+		}
+		select {
+		case <-time.After(interval):
+			continue
+		case <-timeoutCh:
+			return errors.Errorf("timed out waiting for %q", path)
+		}
+	}
 }

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type TrafficType int
@@ -33,6 +34,19 @@ const (
 	TrafficTypeHTTPRedirect
 	TrafficTypeUDP
 )
+
+func (t TrafficType) String() string {
+	switch t {
+	case TrafficTypeHTTP:
+		return "HTTP"
+	case TrafficTypeHTTPRedirect:
+		return "HTTPRedirect"
+	case TrafficTypeUDP:
+		return "UDP"
+	default:
+		return "<unknown>"
+	}
+}
 
 type TrafficGenConfig struct {
 	ClientNS            *NetNS
@@ -95,12 +109,14 @@ type TrafficGen struct {
 	uc     *net.UDPConn
 	errors []string
 	stats  TrafficGenStats
+	log    *logrus.Entry
 }
 
 func NewTrafficGen(cfg TrafficGenConfig) *TrafficGen {
 	cfg.setDefaults()
 	return &TrafficGen{
 		cfg: cfg,
+		log: logrus.WithField("trafficType", cfg.Type.String()),
 	}
 }
 
@@ -307,7 +323,8 @@ func (tg *TrafficGen) httpClient() *http.Client {
 
 func (tg *TrafficGen) simulateDownload() error {
 	url := tg.downloadURL()
-	fmt.Printf("*** downloading from %s\n", url)
+	log := tg.log.WithField("url", url)
+	log.Info("downloading")
 	c := tg.httpClient()
 
 	var ts time.Time
@@ -324,7 +341,7 @@ OUTER:
 		resp, err := c.Do(req)
 		if err != nil {
 			if tg.cfg.Retry && tg.cfg.Context.Err() == nil {
-				fmt.Printf("* HTTP GET failed: %v\n", err)
+				log.WithError(err).Error("HTTP GET failed")
 				retry = true
 				break
 			}
@@ -350,7 +367,7 @@ OUTER:
 			}
 			if err != nil {
 				if tg.cfg.Retry && tg.cfg.Context.Err() == nil {
-					fmt.Printf("* failed: %v\n", err)
+					log.WithError(err).Warn("HTTP GET failed")
 					retry = true
 					break
 				}
@@ -360,9 +377,11 @@ OUTER:
 	}
 
 	elapsed := time.Since(ts)
-	fmt.Printf("*** downloaded %d bytes in %s (~%g Mbps)\n",
-		total, elapsed,
-		float64(total)*8.0*float64(time.Second)/(1000000.*float64(elapsed)))
+	log.WithFields(logrus.Fields{
+		"total":   total,
+		"elapsed": elapsed,
+		"Mbps":    float64(total) * 8.0 * float64(time.Second) / (1000000. * float64(elapsed)),
+	}).Info("download finished")
 
 	// the point is that if the connection fails, it must be possible to retry afterwards
 	if retry && !retrySucceeded {
@@ -374,7 +393,8 @@ OUTER:
 
 func (tg *TrafficGen) checkRedirectOnce() (mayRetry bool, err error) {
 	url := tg.downloadURL()
-	fmt.Printf("*** accessing url %s (expecting redirect)\n", url)
+	log := tg.log.WithField("url", url)
+	log.Info("accessing URL expecting redirect")
 	c := tg.httpClient()
 	// https://stackoverflow.com/a/38150816
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -412,7 +432,7 @@ func (tg *TrafficGen) checkRedirectOnce() (mayRetry bool, err error) {
 		return false, errors.Wrap(err, "error getting response location")
 	}
 
-	fmt.Printf("*** redirect: %s -> %s\n", url, loc)
+	log.WithField("location", loc).Info("got redirect")
 
 	if tg.cfg.RedirectLocationSubstr != "" &&
 		!strings.Contains(loc.String(), tg.cfg.RedirectLocationSubstr) {
@@ -439,7 +459,7 @@ func (tg *TrafficGen) checkRedirect() error {
 		case !tg.cfg.Retry || !mayRetry:
 			return err
 		default:
-			fmt.Printf("* retryable checkRedirect error: %v\n", err)
+			tg.log.WithError(err).Warn("retryable checkRedirect error")
 			retry = true
 		}
 	}
@@ -541,11 +561,12 @@ func (tg *TrafficGen) Run() error {
 	}
 
 	stats := tg.Stats()
-	fmt.Printf("* Stats (bytes): client sent: %d, client received: %d, server sent: %d, server received %d\n",
-		stats.ClientSent,
-		stats.ClientReceived,
-		stats.ServerSent,
-		stats.ServerReceived)
+	tg.log.WithFields(logrus.Fields{
+		"clientSent":     stats.ClientSent,
+		"clientReceived": stats.ClientReceived,
+		"serverSent":     stats.ServerSent,
+		"serverReceived": stats.ServerReceived,
+	})
 
 	return tg.Verify()
 }

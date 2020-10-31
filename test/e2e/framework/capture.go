@@ -15,6 +15,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/pcapgo"
+	"github.com/sirupsen/logrus"
 )
 
 type CaptureConfig struct {
@@ -46,6 +47,7 @@ type Capture struct {
 	Stats         CaptureStats
 	stopCh        chan struct{}
 	trafficCounts map[FiveTuple]uint64
+	log           *logrus.Entry
 }
 
 func NewCapture(cfg CaptureConfig) *Capture {
@@ -53,6 +55,10 @@ func NewCapture(cfg CaptureConfig) *Capture {
 	return &Capture{
 		cfg:           cfg,
 		trafficCounts: make(map[FiveTuple]uint64),
+		log: logrus.WithFields(logrus.Fields{
+			"ns":    cfg.TargetNS.Name,
+			"iface": cfg.Iface,
+		}),
 	}
 }
 
@@ -88,7 +94,7 @@ func (c *Capture) Start() error {
 		return nil
 	}
 
-	fmt.Printf("* starting capture for %s to %s\n", c.cfg.Iface, c.cfg.PCAPPath)
+	c.log.WithField("pcapPath", c.cfg.PCAPPath).Info("starting capture")
 	f, err := os.Create(c.cfg.PCAPPath)
 	if err != nil {
 		return errors.Wrapf(err, "error creating pcap file %q", c.cfg.PCAPPath)
@@ -138,7 +144,6 @@ func (c *Capture) Start() error {
 	source.NoCopy = true
 	source.DecodeStreamsAsDatagrams = true
 
-	fmt.Println("* Starting to read packets")
 	c.Stats = CaptureStats{
 		Start:      time.Now(),
 		LayerTypes: make(map[gopacket.LayerType]int64),
@@ -166,7 +171,7 @@ func (c *Capture) Start() error {
 					c.Unlock()
 				}
 				if err := w.WritePacket(packet.Metadata().CaptureInfo, packet.Data()); err != nil {
-					fmt.Printf("Error writing packet: %s\n", err)
+					c.log.WithError(err).Error("error writing a packet")
 					return
 				}
 			case <-stopCh:

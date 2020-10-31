@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo"
+	ginkgoconfig "github.com/onsi/ginkgo/config"
 	"github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var pause = flag.Bool("pause", false, "Pause upon failure")
@@ -27,5 +29,10 @@ func TestUPG(t *testing.T) {
 	} else {
 		gomega.RegisterFailHandler(ginkgo.Fail)
 	}
+	logrus.SetOutput(ginkgo.GinkgoWriter)
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{
+		ForceColors: !ginkgoconfig.DefaultReporterConfig.NoColor,
+	})
 	ginkgo.RunSpecs(t, "UPG Suite")
 }

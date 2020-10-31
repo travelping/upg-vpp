@@ -17,7 +17,7 @@ unix {
 }
 
 socksvr {
-  default
+  socket-name /run/vpp/api.sock
 }
 
 api-trace {
