@@ -63,6 +63,9 @@ type NetNS interface {
 	// Cleans up this instance of the network namespace; if this instance
 	// is the last user the namespace will be destroyed
 	Close() error
+
+	// Equal returns true if this network namespace is the same as the other one
+	Equal(other NetNS) (bool, error)
 }
 
 type netNS struct {
@@ -235,4 +238,31 @@ func (ns *netNS) Unmount() error {
 	}
 
 	return nil
+}
+
+func (ns *netNS) inode() (uint64, error) {
+	var s unix.Stat_t
+	if err := unix.Fstat(int(ns.Fd()), &s); err != nil {
+		return 0, err
+	}
+	return s.Ino, nil
+}
+
+func (ns *netNS) Equal(other NetNS) (bool, error) {
+	otherNS, ok := other.(*netNS)
+	if !ok {
+		return false, fmt.Errorf("wrong netns type %T", other)
+	}
+
+	i1, err := ns.inode()
+	if err != nil {
+		return false, fmt.Errorf("failed to get inode number: %v", err)
+	}
+
+	i2, err := otherNS.inode()
+	if err != nil {
+		return false, fmt.Errorf("failed to get inode number: %v", err)
+	}
+
+	return i1 == i2, nil
 }

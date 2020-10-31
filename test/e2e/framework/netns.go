@@ -4,9 +4,12 @@ import (
 	"context"
 	"net"
 	"regexp"
+	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	nns "github.com/vishvananda/netns"
 	"github.com/travelping/upg-vpp/test/e2e/ns"
@@ -107,6 +110,62 @@ func (netns *NetNS) SetupVethPair(thisLinkName string, thisAddress *net.IPNet, o
 	return nil
 }
 
+func (netns *NetNS) control(network, address string, c syscall.RawConn) error {
+	log := logrus.WithFields(logrus.Fields{
+		"netns":   netns.Name,
+		"network": network,
+		"address": address,
+	})
+	log.Debug("dial invoked")
+	curns, err := ns.GetCurrentNS()
+	if err != nil {
+		return errors.Wrap(err, "error getting current netns")
+	}
+
+	eq, err := netns.Equal(curns)
+	if err != nil {
+		return errors.Wrap(err, "error comparing the network namespaces")
+	}
+
+	if eq {
+		return nil
+	}
+
+	// Too bad! We've hit another goroutine,
+	// need to switch netns, and we will have to keep
+	// this goroutine under LockOSThread(), so it will
+	// be disposed of by the runtime afterwards.
+	// That's because Control is not a wrapper
+	// around the system call, but is rather called
+	// before invoking it
+	log.Debug("correcting netns")
+	runtime.LockOSThread()
+	if err := netns.Set(); err != nil {
+		return errors.Wrap(err, "error setting network namespace")
+	}
+
+	return nil
+}
+
+// dialer retuns a net.Dialer that ensures that the actual system call
+// is performed from within the correct namespace
+func (netns *NetNS) dialer(laddr net.Addr) *net.Dialer {
+	return &net.Dialer{
+		LocalAddr: laddr,
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		Control:   netns.control,
+	}
+}
+
+// listenConfig retuns a net.ListenConfig that ensures that the actual system call
+// is performed from within the correct namespace
+func (netns *NetNS) listenConfig() *net.ListenConfig {
+	return &net.ListenConfig{
+		Control: netns.control,
+	}
+}
+
 func (netns *NetNS) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	// TODO: Right now, it's important to pass a single IPv4 /
 	// IPv6 address here, otherwise DialContext will try multiple
@@ -122,27 +181,32 @@ func (netns *NetNS) DialContext(ctx context.Context, network, address string) (n
 	var conn net.Conn
 	err := netns.Do(func() error {
 		var innerErr error
-		conn, innerErr = (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext(ctx, network, address)
+		conn, innerErr = netns.dialer(nil).DialContext(ctx, network, address)
 		return innerErr
 	})
 	return conn, err
 }
 
 func (netns *NetNS) DialUDP(laddr, raddr *net.UDPAddr) (*net.UDPConn, error) {
-	var conn *net.UDPConn
+	var conn net.Conn
 	err := netns.Do(func() error {
 		var innerErr error
 		network := "udp4"
 		if netns.ipv6 || raddr.IP.To4() == nil {
 			network = "udp6"
 		}
-		conn, innerErr = net.DialUDP(network, laddr, raddr)
+		var la net.Addr
+		if laddr != nil {
+			// pass proper nil (not interface value)
+			la = laddr
+		}
+		conn, innerErr = netns.dialer(la).Dial(network, raddr.String())
 		return innerErr
 	})
-	return conn, err
+	if err != nil {
+		return nil, err
+	}
+	return conn.(*net.UDPConn), err
 }
 
 func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
@@ -153,24 +217,27 @@ func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
 		if netns.ipv6 {
 			network = "tcp6"
 		}
-		l, innerErr = net.Listen(network, address)
+		l, innerErr = netns.listenConfig().Listen(context.Background(), network, address)
 		return innerErr
 	})
 	return l, err
 }
 
 func (netns *NetNS) ListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
-	var c *net.UDPConn
+	var c net.PacketConn
 	err := netns.Do(func() error {
 		var innerErr error
 		network := "udp4"
 		if netns.ipv6 {
 			network = "udp6"
 		}
-		c, innerErr = net.ListenUDP(network, laddr)
+		c, innerErr = netns.listenConfig().ListenPacket(context.Background(), network, laddr.String())
 		return innerErr
 	})
-	return c, err
+	if err != nil {
+		return nil, err
+	}
+	return c.(*net.UDPConn), err
 }
 
 func (netns *NetNS) addCleanup(toCall func()) {
