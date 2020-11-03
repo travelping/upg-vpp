@@ -64,6 +64,7 @@ class IPv4Mixin(object):
     non_app_rule_ip_2 = NON_APP_RULE_IP_2_V4
     non_app_rule_ip_3 = NON_APP_RULE_IP_3_V4
     extra_sdf_ip = EXTRA_SDF_IP_V4
+    app_rule_ip = APP_RULE_IP_V4
 
     @classmethod
     def setup_tables(cls):
@@ -91,9 +92,8 @@ class IPv4Mixin(object):
             "create upf application proxy name TST",
             "upf application TST rule 3000 add l7 regex " +
             r"^https?://(.*\\.)*(example)\\.com/",
-            # TODO: uncomment when IP rules are implemented
-            # "upf application TST rule 3001 add ipfilter " +
-            # "permit out ip from %s to assigned" % APP_RULE_IP_V4,
+            "upf application TST rule 3001 add ipfilter " +
+            "permit out ip from %s to assigned" % APP_RULE_IP_V4,
         ]
 
     @classmethod
@@ -193,6 +193,7 @@ class IPv6Mixin(object):
     non_app_rule_ip_2 = NON_APP_RULE_IP_2_V6
     non_app_rule_ip_3 = NON_APP_RULE_IP_3_V6
     extra_sdf_ip = EXTRA_SDF_IP_V6
+    app_rule_ip = APP_RULE_IP_V6
 
     @classmethod
     def setup_tables(cls):
@@ -220,9 +221,8 @@ class IPv6Mixin(object):
             "create upf application proxy name TST",
             "upf application TST rule 3000 add l7 regex " +
             r"^https?://(.*\\.)*(example)\\.com/",
-            # TODO: uncomment when IP rules are implemented
-            # "upf application TST rule 3001 add ipfilter " +
-            # "permit out ip from %s to assigned" % APP_RULE_IP_V6,
+            "upf application TST rule 3001 add ipfilter " +
+            "permit out ip from %s to assigned" % APP_RULE_IP_V6,
         ]
 
     @classmethod
@@ -688,12 +688,10 @@ class TestTDFBase(PFCPHelper):
             IE_CreatePDR(IE_list=[
                 IE_FAR_Id(id=2),
                 IE_PDI(IE_list=[
-                    # FIXME: this currently appears not to work
-                    # (to be fixed in ip-rules branch)
-                    # IE_SDF_Filter(
-                    #     FD=1,
-                    #     flow_description="permit out ip from %s to assigned"
-                    #     % self.extra_sdf_ip),
+                    IE_SDF_Filter(
+                         FD=1,
+                         flow_description="permit out ip from %s to assigned"
+                         % self.extra_sdf_ip),
                     IE_ApplicationId(id="TST"),
                     IE_NetworkInstance(instance="sgi"),
                     IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
@@ -967,9 +965,8 @@ class TestTDFBase(PFCPHelper):
     def verify_app_reporting(self):
         self.verify_app_reporting_http()
         self.verify_app_reporting_tls()
-        # TODO: enable this when IP rules are added
-        # self.verify_app_reporting_ip(ip=APP_RULE_IP_V4)
-        # self.verify_app_reporting_ip(ip=EXTRA_SDF_IP_V4)
+        self.verify_app_reporting_ip(ip=self.app_rule_ip)
+        self.verify_app_reporting_ip(ip=self.extra_sdf_ip)
 
 
 class TestPGWBase(PFCPHelper):

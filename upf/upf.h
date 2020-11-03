@@ -727,6 +727,7 @@ typedef struct
 {
   u32 id;			/* bit 31 == 1 indicates PFD from CP */
   regex_t regex;
+  acl_rule_t acl_rule;
 } upf_adr_t;
 
 typedef struct

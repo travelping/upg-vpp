@@ -59,10 +59,10 @@ static void vl_api_upf_app_ip_rule_add_del_t_handler
   int rv = 0;
   u8 *app = format (0, "%s", mp->app);
 
-  // TODO: ip rules aren't implemented yet
+  // TODO: parse & pass the ACL rule
   rv =
     upf_rule_add_del (sm, app, clib_net_to_host_u32 (mp->id),
-		      (int) (mp->is_add), NULL);
+		      (int) (mp->is_add), NULL, NULL);
 
   vec_free (app);
   REPLY_MACRO (VL_API_UPF_APP_IP_RULE_ADD_DEL_REPLY);
@@ -79,7 +79,7 @@ static void vl_api_upf_app_l7_rule_add_del_t_handler
 
   rv =
     upf_rule_add_del (sm, app, clib_net_to_host_u32 (mp->id),
-		      (int) (mp->is_add), regex);
+		      (int) (mp->is_add), regex, NULL);
 
   vec_free (app);
   vec_free (regex);
