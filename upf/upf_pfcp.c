@@ -41,6 +41,7 @@
 #include "upf_pfcp.h"
 #include "upf_pfcp_api.h"
 #include "upf_pfcp_server.h"
+#include "upf_ipfilter.h"
 
 #if CLIB_DEBUG > 2
 #define upf_debug clib_warning
@@ -740,7 +741,6 @@ pfcp_make_pending_pdr (upf_session_t * sx)
       {
 	upf_pdr_t *pdr = vec_elt_at_index (pending->pdr, i);
 
-	pdr->pdi.adr.db_id = upf_adf_get_adr_db (pdr->pdi.adr.application_id);
 	pdr->pdi.acl = vec_dup (vec_elt (active->pdr, i).pdi.acl);
 	pdr->urr_ids = vec_dup (vec_elt (active->pdr, i).urr_ids);
 	pdr->qer_ids = vec_dup (vec_elt (active->pdr, i).qer_ids);
