@@ -62,7 +62,7 @@ func (kt *KernelTunnel) Start(ctx context.Context) error {
 		return errors.Wrapf(err, "Failed to set MTU for device: %s", kt.GTPLink.Name)
 	}
 
-	kt.up.logger.WithField("GTPLink", kt.GTPLink.Name).Debug("created GTPLink %q in grx netns")
+	kt.up.logger.WithField("GTPLink", kt.GTPLink.Name).Debug("created GTPLink in grx netns")
 
 	return nil
 }

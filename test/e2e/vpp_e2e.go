@@ -10,6 +10,8 @@ import (
 	"github.com/onsi/ginkgo"
 
 	"github.com/travelping/upg-vpp/test/e2e/framework"
+	"github.com/travelping/upg-vpp/test/e2e/traffic"
+	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
 const (
@@ -18,8 +20,8 @@ const (
 )
 
 var _ = ginkgo.Describe("VPP", func() {
-	f := framework.NewFramework(framework.UPGModeNone, framework.UPGIPModeNone, &framework.VPPConfig{
-		Namespaces: []framework.VPPNetworkNamespace{
+	f := framework.NewFramework(framework.UPGModeNone, framework.UPGIPModeNone, &vpp.VPPConfig{
+		Namespaces: []vpp.VPPNetworkNamespace{
 			{
 				Name:          "client",
 				VPPMac:        framework.MustParseMAC("fa:8a:78:4d:18:01"),
@@ -57,26 +59,24 @@ var _ = ginkgo.Describe("VPP", func() {
 		// (should be prealloc-fifos)
 		f.VPP.Ctl("http static server www-root %s uri tcp://0.0.0.0/80 cache-size 2m fifo-size %d debug 2",
 			wsDir, VPP_WS_FIFO_SIZE_KiB)
-		tg := framework.NewTrafficGen(framework.TrafficGenConfig{
-			ClientNS: f.VPP.GetNS("client"),
-			ServerNS: f.VPP.GetNS("server"),
+		tg := traffic.NewTrafficGen(&traffic.HTTPConfig{
 			ServerIP: framework.MustParseIP("10.0.0.2"),
-			Context:  f.VPP.Context,
-		})
-		framework.ExpectNoError(tg.Run())
+		}, &traffic.SimpleTrafficRec{})
+		clientNS := f.VPP.GetNS("client")
+		serverNS := f.VPP.GetNS("server")
+		framework.ExpectNoError(tg.Run(f.Context, clientNS, serverNS))
 	})
 
 	ginkgo.It("should be able to proxy TCP with its proxy plugin", func() {
 		f.VPP.Ctl("test proxy server server-uri tcp://10.0.0.2/555 client-uri tcp://10.0.1.3/777 fifo-size 41943040 max-fifo-size 41943040 rcv-buf-size 41943040")
-		tg := framework.NewTrafficGen(framework.TrafficGenConfig{
-			ClientNS:            f.VPP.GetNS("client"),
-			ServerNS:            f.VPP.GetNS("server"),
-			ServerIP:            framework.MustParseIP("10.0.0.2"),
-			WebServerPort:       555,
-			WebServerListenPort: 777,
-			Context:             f.VPP.Context,
-		})
-		framework.ExpectNoError(tg.Run())
+		tg := traffic.NewTrafficGen(&traffic.HTTPConfig{
+			ServerIP:   framework.MustParseIP("10.0.0.2"),
+			ClientPort: 555,
+			ServerPort: 777,
+		}, &traffic.PreciseTrafficRec{})
+		clientNS := f.VPP.GetNS("client")
+		serverNS := f.VPP.GetNS("server")
+		framework.ExpectNoError(tg.Run(f.Context, clientNS, serverNS))
 	})
 })
 

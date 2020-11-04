@@ -1,4 +1,4 @@
-package framework
+package network
 
 import (
 	"context"
@@ -187,7 +187,7 @@ func (netns *NetNS) DialContext(ctx context.Context, network, address string) (n
 	return conn, err
 }
 
-func (netns *NetNS) DialUDP(laddr, raddr *net.UDPAddr) (*net.UDPConn, error) {
+func (netns *NetNS) DialUDP(ctx context.Context, laddr, raddr *net.UDPAddr) (*net.UDPConn, error) {
 	var conn net.Conn
 	err := netns.Do(func() error {
 		var innerErr error
@@ -200,7 +200,7 @@ func (netns *NetNS) DialUDP(laddr, raddr *net.UDPAddr) (*net.UDPConn, error) {
 			// pass proper nil (not interface value)
 			la = laddr
 		}
-		conn, innerErr = netns.dialer(la).Dial(network, raddr.String())
+		conn, innerErr = netns.dialer(la).DialContext(ctx, network, raddr.String())
 		return innerErr
 	})
 	if err != nil {
@@ -209,7 +209,7 @@ func (netns *NetNS) DialUDP(laddr, raddr *net.UDPAddr) (*net.UDPConn, error) {
 	return conn.(*net.UDPConn), err
 }
 
-func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
+func (netns *NetNS) ListenTCP(ctx context.Context, address string) (net.Listener, error) {
 	var l net.Listener
 	err := netns.Do(func() error {
 		var innerErr error
@@ -223,7 +223,7 @@ func (netns *NetNS) ListenTCP(address string) (net.Listener, error) {
 	return l, err
 }
 
-func (netns *NetNS) ListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
+func (netns *NetNS) ListenUDP(ctx context.Context, laddr *net.UDPAddr) (*net.UDPConn, error) {
 	var c net.PacketConn
 	err := netns.Do(func() error {
 		var innerErr error
@@ -231,7 +231,7 @@ func (netns *NetNS) ListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
 		if netns.ipv6 {
 			network = "udp6"
 		}
-		c, innerErr = netns.listenConfig().ListenPacket(context.Background(), network, laddr.String())
+		c, innerErr = netns.listenConfig().ListenPacket(ctx, network, laddr.String())
 		return innerErr
 	})
 	if err != nil {
@@ -240,7 +240,7 @@ func (netns *NetNS) ListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
 	return c.(*net.UDPConn), err
 }
 
-func (netns *NetNS) addCleanup(toCall func()) {
+func (netns *NetNS) AddCleanup(toCall func()) {
 	netns.cleanups = append(netns.cleanups, toCall)
 }
 

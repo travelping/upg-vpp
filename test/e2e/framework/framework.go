@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo"
-
 	"github.com/sirupsen/logrus"
+
+	"github.com/travelping/upg-vpp/test/e2e/pfcp"
 	"github.com/travelping/upg-vpp/test/e2e/sgw"
+	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
 const (
@@ -21,10 +23,10 @@ const (
 type Framework struct {
 	Mode    UPGMode
 	IPMode  UPGIPMode
-	VPPCfg  *VPPConfig
-	VPP     *VPPInstance
-	PFCPCfg *PFCPConfig
-	PFCP    *PFCPConnection
+	VPPCfg  *vpp.VPPConfig
+	VPP     *vpp.VPPInstance
+	PFCPCfg *pfcp.PFCPConfig
+	PFCP    *pfcp.PFCPConnection
 	GTPU    *GTPU
 	Context context.Context
 }
@@ -35,7 +37,7 @@ func NewDefaultFramework(mode UPGMode, ipMode UPGIPMode) *Framework {
 	return NewFramework(mode, ipMode, &vppCfg, &pfcpCfg)
 }
 
-func NewFramework(mode UPGMode, ipMode UPGIPMode, vppCfg *VPPConfig, pfcpCfg *PFCPConfig) *Framework {
+func NewFramework(mode UPGMode, ipMode UPGIPMode, vppCfg *vpp.VPPConfig, pfcpCfg *pfcp.PFCPConfig) *Framework {
 	f := &Framework{
 		Mode:    mode,
 		IPMode:  ipMode,
@@ -53,7 +55,7 @@ func (f *Framework) BeforeEach() {
 	d, err := ioutil.TempDir("", "upgtest")
 	ExpectNoError(err)
 	f.VPPCfg.BaseDir = d
-	f.VPP = NewVPPInstance(*f.VPPCfg)
+	f.VPP = vpp.NewVPPInstance(*f.VPPCfg)
 	ExpectNoError(f.VPP.SetupNamespaces())
 	// do GTP-U setup before we start the captures,
 	// as it creates the ue's link
@@ -85,7 +87,7 @@ func (f *Framework) BeforeEach() {
 
 	if f.PFCPCfg != nil {
 		f.PFCPCfg.Namespace = f.VPP.GetNS("cp")
-		f.PFCP = NewPFCPConnection(*f.PFCPCfg)
+		f.PFCP = pfcp.NewPFCPConnection(*f.PFCPCfg)
 		ExpectNoError(f.PFCP.Start(f.VPP.Context))
 	} else {
 		f.PFCP = nil
@@ -137,8 +139,8 @@ func (f *Framework) SlowGTPU() bool {
 	return f.Mode == UPGModePGW && f.GTPU.cfg.gtpuTunnelType() == sgw.SGWGTPUTunnelTypeTun
 }
 
-func defaultPFCPConfig(vppCfg VPPConfig) PFCPConfig {
-	return PFCPConfig{
+func defaultPFCPConfig(vppCfg vpp.VPPConfig) pfcp.PFCPConfig {
+	return pfcp.PFCPConfig{
 		UNodeIP: vppCfg.GetVPPAddress("cp").IP,
 		CNodeIP: vppCfg.GetNamespaceAddress("cp").IP,
 		NodeID:  "pfcpstub",

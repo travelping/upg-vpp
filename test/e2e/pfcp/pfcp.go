@@ -1,4 +1,4 @@
-package framework
+package pfcp
 
 import (
 	"context"
@@ -13,6 +13,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/wmnsk/go-pfcp/ie"
 	"github.com/wmnsk/go-pfcp/message"
+
+	"github.com/travelping/upg-vpp/test/e2e/network"
 )
 
 type pfcpState string
@@ -213,7 +215,7 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 }
 
 type PFCPConfig struct {
-	Namespace        *NetNS
+	Namespace        *network.NetNS
 	CNodeIP          net.IP
 	UNodeIP          net.IP
 	NodeID           string
@@ -544,6 +546,9 @@ func (pc *PFCPConnection) waitForSessionModification(ctx context.Context, seid S
 func (pc *PFCPConnection) dial() error {
 	var err error
 	pc.conn, err = pc.cfg.Namespace.DialUDP(
+		// We use IPs not hostnames in the tests, so no real
+		// need for context here atm
+		context.TODO(),
 		&net.UDPAddr{
 			Port: PFCP_PORT,
 		},

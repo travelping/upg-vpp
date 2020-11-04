@@ -1,4 +1,4 @@
-package framework
+package network
 
 import (
 	"fmt"
@@ -16,6 +16,10 @@ import (
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/pcapgo"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	FinalIdleDuraton = 3 * time.Second
 )
 
 type CaptureConfig struct {
@@ -46,6 +50,7 @@ type Capture struct {
 	cfg           CaptureConfig
 	Stats         CaptureStats
 	stopCh        chan struct{}
+	doneCh        chan struct{}
 	trafficCounts map[FiveTuple]uint64
 	log           *logrus.Entry
 }
@@ -86,6 +91,7 @@ func (c *Capture) Stop() {
 	if c.stopCh != nil {
 		close(c.stopCh)
 		c.stopCh = nil
+		<-c.doneCh
 	}
 }
 
@@ -149,17 +155,22 @@ func (c *Capture) Start() error {
 		LayerTypes: make(map[gopacket.LayerType]int64),
 	}
 	c.stopCh = make(chan struct{})
+	c.doneCh = make(chan struct{})
+	doneCh := c.doneCh
 	stopCh := c.stopCh
 	if c.cfg.TargetNS != nil {
-		c.cfg.TargetNS.addCleanup(c.Stop)
+		c.cfg.TargetNS.AddCleanup(c.Stop)
 	}
 
 	go func() {
 		defer func() {
 			f.Close()
 			handle.Close()
+			close(doneCh)
 		}()
 
+		var finalIdleTimer *time.Timer
+		var finalIdleCh <-chan time.Time
 		for {
 			select {
 			case packet := <-source.Packets():
@@ -174,7 +185,18 @@ func (c *Capture) Start() error {
 					c.log.WithError(err).Error("error writing a packet")
 					return
 				}
+				if finalIdleTimer != nil {
+					finalIdleTimer.Stop()
+					finalIdleTimer = time.NewTimer(FinalIdleDuraton)
+					finalIdleCh = finalIdleTimer.C
+				}
 			case <-stopCh:
+				if finalIdleTimer == nil {
+					finalIdleTimer = time.NewTimer(FinalIdleDuraton)
+					finalIdleCh = finalIdleTimer.C
+				}
+				stopCh = nil
+			case <-finalIdleCh:
 				return
 			}
 		}

@@ -9,12 +9,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/travelping/upg-vpp/test/e2e/network"
 	"github.com/travelping/upg-vpp/test/e2e/sgw"
 )
 
 type GTPUConfig struct {
-	GRXNS         *NetNS
-	UENS          *NetNS
+	GRXNS         *network.NetNS
+	UENS          *network.NetNS
 	UEIP          net.IP
 	SGWGRXIP      net.IP
 	PGWGRXIP      net.IP
@@ -119,7 +120,7 @@ func (gtpu *GTPU) Start() error {
 	}
 
 	gtpu.session = session
-	gtpu.cfg.GRXNS.addCleanup(func() { gtpu.Stop() })
+	gtpu.cfg.GRXNS.AddCleanup(func() { gtpu.Stop() })
 
 	return nil
 }

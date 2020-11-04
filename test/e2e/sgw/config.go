@@ -1,6 +1,7 @@
 package sgw
 
 import (
+	"context"
 	"net"
 
 	"github.com/vishvananda/netns"
@@ -16,7 +17,7 @@ const (
 
 type NetNS interface {
 	Handle() netns.NsHandle
-	ListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error)
+	ListenUDP(ctx context.Context, laddr *net.UDPAddr) (*net.UDPConn, error)
 	Do(toCall func() error) error
 }
 
@@ -53,7 +54,10 @@ type defaultNetNS struct{}
 
 func (ns defaultNetNS) Handle() netns.NsHandle { return netns.None() }
 
-func (ns defaultNetNS) ListenUDP(laddr *net.UDPAddr) (*net.UDPConn, error) {
+func (ns defaultNetNS) ListenUDP(ctx context.Context, laddr *net.UDPAddr) (*net.UDPConn, error) {
+	// We could use net.ListenConfig's ListenPacket() here to
+	// actually use the context, but it only uses the context for
+	// laddr lookup which doesn't change things much for us
 	return net.ListenUDP("udp", laddr)
 }
 

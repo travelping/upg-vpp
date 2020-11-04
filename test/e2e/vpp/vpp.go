@@ -1,4 +1,4 @@
-package framework
+package vpp
 
 import (
 	"bufio"
@@ -24,6 +24,8 @@ import (
 	"git.fd.io/govpp.git/core"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+
+	"github.com/travelping/upg-vpp/test/e2e/network"
 )
 
 const (
@@ -96,11 +98,11 @@ type VPPInstance struct {
 	conn       *core.Connection
 	apiChannel api.Channel
 	cmd        *exec.Cmd
-	vppNS      *NetNS
-	namespaces map[string]*NetNS
+	vppNS      *network.NetNS
+	namespaces map[string]*network.NetNS
 	Context    context.Context
 	cancel     context.CancelFunc
-	Captures   map[string]*Capture
+	Captures   map[string]*network.Capture
 	log        *logrus.Entry
 	pipeCopyWG sync.WaitGroup
 }
@@ -115,15 +117,15 @@ func NewVPPInstance(cfg VPPConfig) *VPPInstance {
 	return &VPPInstance{
 		cfg:        cfg,
 		startupCfg: startupCfg,
-		namespaces: make(map[string]*NetNS),
-		Captures:   make(map[string]*Capture),
+		namespaces: make(map[string]*network.NetNS),
+		Captures:   make(map[string]*network.Capture),
 		Context:    context,
 		cancel:     cancel,
 		log:        logrus.NewEntry(logrus.StandardLogger()),
 	}
 }
 
-func (vi *VPPInstance) GetNS(name string) *NetNS {
+func (vi *VPPInstance) GetNS(name string) *network.NetNS {
 	ns, ok := vi.namespaces[name]
 	if !ok {
 		log.Panicf("namespace %q not found", name)
@@ -215,7 +217,7 @@ func (vi *VPPInstance) StartVPP() error {
 	vi.copyPipeToLog(stderr, "stdout")
 
 	// wait for the file to appear so we don't get warnings from govpp
-	if err := WaitForFile(vi.startupCfg.APISock, 100*time.Millisecond, VPP_STARTUP_TIMEOUT); err != nil {
+	if err := waitForFile(vi.startupCfg.APISock, 100*time.Millisecond, VPP_STARTUP_TIMEOUT); err != nil {
 		return errors.Wrap(err, "error waiting for VPP to start")
 	}
 
@@ -306,9 +308,18 @@ func (vi *VPPInstance) stopVPP() {
 }
 
 func (vi *VPPInstance) closeNamespaces() {
+	// Stopping captures may block for a few seconds, so let's
+	// stop them in parallel and wait for their Stop() calls to
+	// complete
+	var wg sync.WaitGroup
 	for _, c := range vi.Captures {
-		c.Stop()
+		wg.Add(1)
+		go func(cap *network.Capture) {
+			cap.Stop()
+			wg.Done()
+		}(c)
 	}
+	wg.Wait()
 	for _, ns := range vi.namespaces {
 		ns.Close()
 	}
@@ -341,7 +352,7 @@ func (vi *VPPInstance) Ctl(format string, args ...interface{}) error {
 func (vi *VPPInstance) SetupNamespaces() error {
 	var err error
 
-	vi.vppNS, err = NewNS("vpp")
+	vi.vppNS, err = network.NewNS("vpp")
 	if err != nil {
 		vi.closeNamespaces()
 		return errors.Wrap(err, "VppNS")
@@ -349,7 +360,7 @@ func (vi *VPPInstance) SetupNamespaces() error {
 	vi.log.WithField("nsPath", vi.vppNS.Path()).Info("VPP netns created")
 
 	for _, nsCfg := range vi.cfg.Namespaces {
-		ns, err := NewNS(nsCfg.Name)
+		ns, err := network.NewNS(nsCfg.Name)
 		if err != nil {
 			return errors.Wrapf(err, "NewNS: %s", nsCfg.Name)
 		}
@@ -394,7 +405,7 @@ func (vi *VPPInstance) StartCapture() error {
 		if !found {
 			panic("bad namespace name: " + nsCfg.Name)
 		}
-		captureCfg := CaptureConfig{
+		captureCfg := network.CaptureConfig{
 			Iface: nsCfg.VPPLinkName,
 			// FIXME: store pcaps to the specified location not /tmp
 			PCAPPath: filepath.Join(vi.cfg.BaseDir, fmt.Sprintf("%s.pcap", nsCfg.OtherLinkName)),
@@ -412,7 +423,7 @@ func (vi *VPPInstance) StartCapture() error {
 				captureCfg.LayerType = "IPv4"
 			}
 		}
-		c := NewCapture(captureCfg)
+		c := network.NewCapture(captureCfg)
 		if err := c.Start(); err != nil {
 			return errors.Wrapf(err, "capture for %s (link %s)", nsCfg.Name, captureCfg.Iface)
 		}
@@ -483,4 +494,24 @@ func (vi *VPPInstance) copyPipeToLog(pipe io.ReadCloser, what string) {
 		}
 		vi.pipeCopyWG.Done()
 	}()
+}
+
+func waitForFile(path string, interval, timeout time.Duration) error {
+	timeoutCh := time.After(timeout)
+	for {
+		switch _, err := os.Stat(path); {
+		case err == nil:
+			return nil
+		case os.IsNotExist(err):
+			// ok, let's wait a bit more
+		default:
+			return errors.Wrapf(err, "error waiting for %q", path)
+		}
+		select {
+		case <-time.After(interval):
+			continue
+		case <-timeoutCh:
+			return errors.Errorf("timed out waiting for %q", path)
+		}
+	}
 }

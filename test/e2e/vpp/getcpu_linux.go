@@ -1,6 +1,6 @@
 // +build linux
 
-package framework
+package vpp
 
 import (
 	"github.com/pkg/errors"

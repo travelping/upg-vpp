@@ -1,5 +1,9 @@
 package framework
 
+import (
+	"github.com/travelping/upg-vpp/test/e2e/vpp"
+)
+
 type UPGMode int
 
 const (
@@ -21,7 +25,7 @@ type upgModeKey struct {
 	UPGIPMode
 }
 
-type upgModeFunc func() VPPConfig
+type upgModeFunc func() vpp.VPPConfig
 
 var upgModeTable = map[upgModeKey]upgModeFunc{
 	{UPGModePGW, UPGIPModeV4}: pgwVPPConfigIPv4,
@@ -30,7 +34,7 @@ var upgModeTable = map[upgModeKey]upgModeFunc{
 	{UPGModeTDF, UPGIPModeV6}: tdfVPPConfigIPv6,
 }
 
-func vppConfig(mode UPGMode, ipMode UPGIPMode) VPPConfig {
+func vppConfig(mode UPGMode, ipMode UPGIPMode) vpp.VPPConfig {
 	k := upgModeKey{mode, ipMode}
 	modeFunc, found := upgModeTable[k]
 	if !found {
@@ -39,9 +43,9 @@ func vppConfig(mode UPGMode, ipMode UPGIPMode) VPPConfig {
 	return modeFunc()
 }
 
-func pgwVPPConfigIPv4() VPPConfig {
-	return VPPConfig{
-		Namespaces: []VPPNetworkNamespace{
+func pgwVPPConfigIPv4() vpp.VPPConfig {
+	return vpp.VPPConfig{
+		Namespaces: []vpp.VPPNetworkNamespace{
 			{
 				Name:          "cp",
 				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
@@ -78,7 +82,7 @@ func pgwVPPConfigIPv4() VPPConfig {
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
-				NSRoutes: []RouteConfig{
+				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("10.0.1.0/24"),
 						Gw:  MustParseIP("10.0.2.2"),
@@ -104,9 +108,9 @@ func pgwVPPConfigIPv4() VPPConfig {
 	}
 }
 
-func pgwVPPConfigIPv6() VPPConfig {
-	return VPPConfig{
-		Namespaces: []VPPNetworkNamespace{
+func pgwVPPConfigIPv6() vpp.VPPConfig {
+	return vpp.VPPConfig{
+		Namespaces: []vpp.VPPNetworkNamespace{
 			{
 				Name:          "cp",
 				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
@@ -153,7 +157,7 @@ func pgwVPPConfigIPv6() VPPConfig {
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
-				NSRoutes: []RouteConfig{
+				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("2001:db8:11::/64"),
 						Gw:  MustParseIP("2001:db8:12::2"),
@@ -180,9 +184,9 @@ func pgwVPPConfigIPv6() VPPConfig {
 	}
 }
 
-func tdfVPPConfigIPv4() VPPConfig {
-	return VPPConfig{
-		Namespaces: []VPPNetworkNamespace{
+func tdfVPPConfigIPv4() vpp.VPPConfig {
+	return vpp.VPPConfig{
+		Namespaces: []vpp.VPPNetworkNamespace{
 			{
 				Name:          "cp",
 				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
@@ -200,7 +204,7 @@ func tdfVPPConfigIPv4() VPPConfig {
 				VPPLinkName:   "access0",
 				OtherLinkName: "access1",
 				Table:         100,
-				NSRoutes: []RouteConfig{
+				NSRoutes: []vpp.RouteConfig{
 					{
 						Gw: MustParseIP("10.0.1.2"),
 					},
@@ -214,7 +218,7 @@ func tdfVPPConfigIPv4() VPPConfig {
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
-				NSRoutes: []RouteConfig{
+				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("10.0.1.0/24"),
 						Gw:  MustParseIP("10.0.2.2"),
@@ -242,9 +246,9 @@ func tdfVPPConfigIPv4() VPPConfig {
 	}
 }
 
-func tdfVPPConfigIPv6() VPPConfig {
-	return VPPConfig{
-		Namespaces: []VPPNetworkNamespace{
+func tdfVPPConfigIPv6() vpp.VPPConfig {
+	return vpp.VPPConfig{
+		Namespaces: []vpp.VPPNetworkNamespace{
 			{
 				Name:          "cp",
 				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
@@ -272,7 +276,7 @@ func tdfVPPConfigIPv6() VPPConfig {
 				VPPLinkName:   "access0",
 				OtherLinkName: "access1",
 				Table:         100,
-				NSRoutes: []RouteConfig{
+				NSRoutes: []vpp.RouteConfig{
 					{
 						Gw: MustParseIP("2001:db8:11::2"),
 					},
@@ -286,7 +290,7 @@ func tdfVPPConfigIPv6() VPPConfig {
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
-				NSRoutes: []RouteConfig{
+				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("2001:db8:11::/64"),
 						Gw:  MustParseIP("2001:db8:12::2"),

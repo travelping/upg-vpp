@@ -1,4 +1,4 @@
-package framework
+package pfcp
 
 import (
 	"container/heap"

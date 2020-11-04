@@ -101,7 +101,7 @@ func NewUserPlaneServer(cfg UserPlaneConfig, restartCounter uint8) (up *UserPlan
 }
 
 func (up *UserPlaneServer) Start(ctx context.Context) error {
-	conn, err := up.cfg.GRXNetNS.ListenUDP(&up.s5uAddr)
+	conn, err := up.cfg.GRXNetNS.ListenUDP(context.Background(), &up.s5uAddr)
 	if err != nil {
 		return err
 	}

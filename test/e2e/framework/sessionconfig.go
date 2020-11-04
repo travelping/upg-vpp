@@ -4,6 +4,8 @@ import (
 	"net"
 
 	"github.com/wmnsk/go-pfcp/ie"
+
+	"github.com/travelping/upg-vpp/test/e2e/pfcp"
 )
 
 type SessionConfig struct {
@@ -21,18 +23,18 @@ type SessionConfig struct {
 func (cfg SessionConfig) outerHeaderCreation() *ie.IE {
 	ip4 := cfg.SGWGRXIP.To4()
 	if ip4 != nil {
-		return ie.NewOuterHeaderCreation(OuterHeaderCreation_GTPUUDPIPV4, cfg.TEIDSGWs5u, ip4.String(), "", 0, 0, 0)
+		return ie.NewOuterHeaderCreation(pfcp.OuterHeaderCreation_GTPUUDPIPV4, cfg.TEIDSGWs5u, ip4.String(), "", 0, 0, 0)
 	}
 
-	return ie.NewOuterHeaderCreation(OuterHeaderCreation_GTPUUDPIPV6, cfg.TEIDSGWs5u, "", cfg.SGWGRXIP.String(), 0, 0, 0)
+	return ie.NewOuterHeaderCreation(pfcp.OuterHeaderCreation_GTPUUDPIPV6, cfg.TEIDSGWs5u, "", cfg.SGWGRXIP.String(), 0, 0, 0)
 }
 
 func (cfg SessionConfig) outerHeaderRemoval() *ie.IE {
 	if cfg.PGWGRXIP.To4() != nil {
-		return ie.NewOuterHeaderRemoval(OuterHeaderRemoval_GTPUUDPIPV4, 0)
+		return ie.NewOuterHeaderRemoval(pfcp.OuterHeaderRemoval_GTPUUDPIPV4, 0)
 	}
 
-	return ie.NewOuterHeaderRemoval(OuterHeaderRemoval_GTPUUDPIPV6, 0)
+	return ie.NewOuterHeaderRemoval(pfcp.OuterHeaderRemoval_GTPUUDPIPV6, 0)
 }
 
 func (cfg SessionConfig) ieFTEID() *ie.IE {
@@ -55,7 +57,7 @@ func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 	}
 	return ie.NewCreateFAR(
 		ie.NewFARID(farID),
-		ie.NewApplyAction(ApplyAction_FORW),
+		ie.NewApplyAction(pfcp.ApplyAction_FORW),
 		ie.NewForwardingParameters(fwParams...))
 }
 
@@ -79,17 +81,17 @@ func (cfg SessionConfig) reverseFAR(farID uint32) *ie.IE {
 
 	return ie.NewCreateFAR(
 		ie.NewFARID(farID),
-		ie.NewApplyAction(ApplyAction_FORW),
+		ie.NewApplyAction(pfcp.ApplyAction_FORW),
 		ie.NewForwardingParameters(fwParams...))
 }
 
 func (cfg SessionConfig) ueIPAddress(flags uint8) *ie.IE {
 	ip4 := cfg.UEIP.To4()
 	if ip4 != nil {
-		return ie.NewUEIPAddress(flags|UEIPAddress_V4, ip4.String(), "", 0)
+		return ie.NewUEIPAddress(flags|pfcp.UEIPAddress_V4, ip4.String(), "", 0)
 	}
 
-	return ie.NewUEIPAddress(flags|UEIPAddress_V6, "", cfg.UEIP.String(), 0)
+	return ie.NewUEIPAddress(flags|pfcp.UEIPAddress_V6, "", cfg.UEIP.String(), 0)
 }
 
 func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint32, appID string) *ie.IE {
@@ -145,7 +147,7 @@ func (cfg SessionConfig) reversePDR(pdrID uint16, farID, urrID, precedence uint3
 	pdiIEs = append(pdiIEs,
 		ie.NewNetworkInstance(EncodeAPN("sgi")),
 		ie.NewSourceInterface(ie.SrcInterfaceSGiLANN6LAN),
-		cfg.ueIPAddress(UEIPAddress_SD))
+		cfg.ueIPAddress(pfcp.UEIPAddress_SD))
 
 	ies := []*ie.IE{
 		ie.NewPDRID(pdrID),

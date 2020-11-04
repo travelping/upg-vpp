@@ -1,6 +1,6 @@
 // +build linux
 
-package framework
+package network
 
 import (
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
