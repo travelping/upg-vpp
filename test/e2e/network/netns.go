@@ -23,6 +23,8 @@ var (
 	ethFeatureRx = regexp.MustCompile("^[rt]x-(checksum.*|.*segmentation|.*fragmentation|scatter-gather.*|gro)$")
 )
 
+type NetemAttrs netlink.NetemQdiscAttrs
+
 type NetNS struct {
 	ns.NetNS
 	Name     string
@@ -116,7 +118,7 @@ func (netns *NetNS) control(network, address string, c syscall.RawConn) error {
 		"network": network,
 		"address": address,
 	})
-	log.Debug("dial invoked")
+	log.Trace("dial invoked")
 	curns, err := ns.GetCurrentNS()
 	if err != nil {
 		return errors.Wrap(err, "error getting current netns")

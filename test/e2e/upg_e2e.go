@@ -1,6 +1,7 @@
 package exttest
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/gopacket/layers"
@@ -78,6 +79,14 @@ func describeMeasurement(f *framework.Framework) {
 					UseFakeHostname: true,
 				})
 				verifyAppMeasurement(f, ms, layers.IPProtocolTCP)
+			})
+
+			ginkgo.It("can handle a big number of HTTP connections at once", func() {
+				verifyConnFlood(f, false)
+			})
+
+			ginkgo.It("can handle a big number of HTTP connections at once [netem]", func() {
+				verifyConnFlood(f, true)
 			})
 		})
 
@@ -277,6 +286,58 @@ func newTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffi
 
 func runTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffic.TrafficRec) {
 	tg, clientNS, serverNS := newTrafficGen(f, cfg, rec)
+	framework.ExpectNoError(tg.Run(f.Context, clientNS, serverNS))
+}
+
+func verifyConnFlood(f *framework.Framework, netem bool) {
+	rec := &traffic.SimpleTrafficRec{}
+	tg, clientNS, serverNS := newTrafficGen(f, &traffic.HTTPConfig{
+		SimultaneousCount: 5000,
+		Persist:           true,
+		ChunkDelay:        -1, // no delay
+	}, rec)
+
+	ueLink := "access"
+	if f.Mode == framework.UPGModeTDF {
+		ueLink = "access1" // FIXME
+	}
+
+	if netem {
+		framework.ExpectNoError(clientNS.SetNetem(ueLink, network.NetemAttrs{
+			// TODO: different numbers
+			Latency:   500000,
+			Loss:      30,
+			Duplicate: 10,
+		}))
+	}
+
+	ctx, cancel := context.WithCancel(f.Context)
+	defer cancel()
+	tgDone := tg.Start(ctx, clientNS, serverNS)
+	select {
+	case <-f.Context.Done():
+		// FIXME (this always gives an error, just fail)
+		framework.ExpectNoError(f.Context.Err())
+	case err := <-tgDone:
+		// FIXME (this always gives an error, just fail)
+		framework.ExpectNoError(err)
+	case <-time.After(40 * time.Second):
+		rec.Verify()
+	}
+	cancel()
+
+	if netem {
+		found, err := clientNS.DelNetem(ueLink)
+		framework.ExpectNoError(err)
+		gomega.Expect(found).To(gomega.BeTrue())
+	}
+
+	// make sure UPG and the session are still alive after the stress test
+	rec = &traffic.SimpleTrafficRec{}
+	tg, clientNS, serverNS = newTrafficGen(f, &traffic.UDPPingConfig{
+		PacketCount: 3,
+		Retry:       true,
+	}, rec)
 	framework.ExpectNoError(tg.Run(f.Context, clientNS, serverNS))
 }
 

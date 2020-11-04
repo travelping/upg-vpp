@@ -12,9 +12,12 @@ const (
 	MAX_ERRORS = 16
 )
 
+// SimpleTrafficRec records stats and errors, but only verifies there
+// are no errors
 type SimpleTrafficRec struct {
 	sync.Mutex
 	errors []string
+	stats  TrafficStats
 }
 
 var _ TrafficRec = &SimpleTrafficRec{}
@@ -31,7 +34,14 @@ func (tr *SimpleTrafficRec) RecordError(format string, args ...interface{}) {
 	tr.recordErrorUnlocked(format, args...)
 }
 
-func (tr *SimpleTrafficRec) RecordStats(stats TrafficStats) {}
+func (tr *SimpleTrafficRec) RecordStats(stats TrafficStats) {
+	tr.Lock()
+	defer tr.Unlock()
+	tr.stats.ClientSent += stats.ClientSent
+	tr.stats.ClientReceived += stats.ClientReceived
+	tr.stats.ServerSent += stats.ServerSent
+	tr.stats.ServerReceived += stats.ServerReceived
+}
 
 func (tr *SimpleTrafficRec) verifyUnlocked() error {
 	if len(tr.errors) == 0 {
@@ -47,24 +57,17 @@ func (tr *SimpleTrafficRec) Verify() error {
 }
 
 func (tr *SimpleTrafficRec) Stats() TrafficStats {
-	return TrafficStats{}
+	tr.Lock()
+	defer tr.Unlock()
+	return tr.stats
 }
 
+// PreciseTrafficrec records stats and errors and verifies both
 type PreciseTrafficRec struct {
 	SimpleTrafficRec
-	stats TrafficStats
 }
 
 var _ TrafficRec = &PreciseTrafficRec{}
-
-func (tr *PreciseTrafficRec) RecordStats(stats TrafficStats) {
-	tr.Lock()
-	defer tr.Unlock()
-	tr.stats.ClientSent += stats.ClientSent
-	tr.stats.ClientReceived += stats.ClientReceived
-	tr.stats.ServerSent += stats.ServerSent
-	tr.stats.ServerReceived += stats.ServerReceived
-}
 
 func (tr *PreciseTrafficRec) Verify() error {
 	tr.Lock()
@@ -81,10 +84,4 @@ func (tr *PreciseTrafficRec) Verify() error {
 	}
 
 	return tr.verifyUnlocked()
-}
-
-func (tr *PreciseTrafficRec) Stats() TrafficStats {
-	tr.Lock()
-	defer tr.Unlock()
-	return tr.stats
 }
