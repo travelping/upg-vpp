@@ -201,7 +201,8 @@ func (up *UDPPing) Run(ctx context.Context, ns *network.NetNS) error {
 				up.rec.RecordError("recv length mismatch: %d instead of %d bytes: %q", n, len(sendBuf), string(recvBuf[:n]))
 				continue
 			}
-			if recvBuf[0] != '<' || string(recvBuf[1:]) != string(sendBuf[1:]) {
+			// in case if retries are enabled
+			if !up.cfg.Retry && (recvBuf[0] != '<' || string(recvBuf[1:]) != string(sendBuf[1:])) {
 				up.rec.RecordError("recv mismatch: response %q for request %q", string(recvBuf), string(sendBuf))
 			}
 		}
