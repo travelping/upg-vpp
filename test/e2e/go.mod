@@ -4,9 +4,13 @@ go 1.13
 
 replace github.com/wmnsk/go-pfcp => github.com/ivan4th/go-pfcp v0.0.7-0.20201007115118-38811fc30094
 
+// TODO: https://github.com/go-ping/ping/pull/116
+replace github.com/go-ping/ping => github.com/ivan4th/ping v0.0.0-20201105224649-bfa92e2c3093
+
 require (
 	git.fd.io/govpp.git v0.3.6-0.20201023094155-cb540dc166c1
 	github.com/containernetworking/plugins v0.8.7
+	github.com/go-ping/ping v0.0.0-20201022122018-3977ed72668a
 	github.com/google/gopacket v1.1.18
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3

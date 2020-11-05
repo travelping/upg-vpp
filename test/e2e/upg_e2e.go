@@ -66,6 +66,15 @@ func describeMeasurement(f *framework.Framework) {
 				verify(&traffic.UDPPingConfig{})
 				verifyNonAppMeasurement(f, ms, layers.IPProtocolUDP)
 			})
+
+			ginkgo.It("passes pings", func() {
+				verify(&traffic.ICMPPingConfig{})
+				proto := layers.IPProtocolICMPv4
+				if f.IPMode == framework.UPGIPModeV6 {
+					proto = layers.IPProtocolICMPv6
+				}
+				verifyNonAppMeasurement(f, ms, proto)
+			})
 		})
 
 		sessionContext("[proxy]", framework.SessionConfig{AppPDR: true}, func() {
