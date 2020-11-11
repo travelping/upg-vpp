@@ -70,7 +70,6 @@ flowtable_init_cpu (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
   flow_entry_t *f;
   clib_error_t *error = 0;
   dlist_elt_t *timer_slot;
-  upf_main_t *gtm = &upf_main;
 
   /* init hashtable */
   BV (clib_bihash_init) (&fmt->flows_ht, "flow hash table",
@@ -82,14 +81,6 @@ flowtable_init_cpu (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
   /* alloc TIMER_MAX_LIFETIME heads from the timers pool and fill them with defaults */
   pool_validate_index (fmt->timers, TIMER_MAX_LIFETIME - 1);
   upf_debug ("POOL SIZE %u", pool_elts (fmt->timers));
-
-  /* Init flows counter per cpu */
-  upf_counter_lock (gtm);
-  vlib_validate_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
-				fmt - fm->per_cpu);
-  vlib_zero_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
-			    fmt - fm->per_cpu);
-  upf_counter_unlock (gtm);
 
   /* *INDENT-OFF* */
   pool_foreach (timer_slot, fmt->timers,
@@ -126,6 +117,7 @@ flowtable_init (vlib_main_t * vm)
   clib_error_t *error = 0;
   flowtable_main_t *fm = &flowtable_main;
   vlib_thread_main_t *tm = vlib_get_thread_main ();
+  upf_main_t *gtm = &upf_main;
 
   fm->vlib_main = vm;
 
@@ -139,6 +131,11 @@ flowtable_init (vlib_main_t * vm)
        i < FT_TIMEOUT_TYPE_MAX; i++)
     fm->timer_lifetime[i] = TIMER_DEFAULT_LIFETIME;
   fm->timer_max_lifetime = TIMER_MAX_LIFETIME;
+
+  /* Init flows counter per cpu */
+  vlib_validate_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
+				0);
+  vlib_zero_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER], 0);
 
   vec_validate (fm->per_cpu, tm->n_vlib_mains - 1);
   for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)
