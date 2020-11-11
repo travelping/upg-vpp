@@ -616,6 +616,26 @@ VLIB_CLI_COMMAND (upf_spec_release_command, static) = {
 /* *INDENT-ON* */
 
 static clib_error_t *
+upf_show_spec_release_command_fn (vlib_main_t * vm,
+				  unformat_input_t * main_input,
+				  vlib_cli_command_t * cmd)
+{
+  upf_main_t *gtm = &upf_main;
+  vlib_cli_output (vm, "PFCP version: %u", gtm->pfcp_spec_version);
+  return NULL;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_show_spec_release_command, static) =
+{
+  .path = "show upf specification release",
+  .short_help =
+  "show upf specification release",
+  .function = upf_show_spec_release_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
 upf_gtpu_endpoint_add_del_command_fn (vlib_main_t * vm,
 				      unformat_input_t * main_input,
 				      vlib_cli_command_t * cmd)
