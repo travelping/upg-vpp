@@ -15,7 +15,7 @@ ci-build: vpp
 	hack/ci-build.sh
 
 ensure-build-image: vpp
-	bash -x hack/ensure-build-image.sh
+	hack/ensure-build-image.sh
 
 update-build-image-tag: vpp
 	hack/update-build-image-tag.sh
@@ -46,5 +46,15 @@ retest-release:
 	hack/buildenv.sh make retest TEST=test_upf V=$(TEST_VERBOSITY) \
 	  EXTERN_TESTS=../../upf/test
 
+e2e-debug:
+	UPG_BUILDENV_PRIVILEGED=1 \
+	E2E_TARGET=debug \
+	hack/buildenv.sh ../hack/e2e.sh
+
+e2e-release:
+	UPG_BUILDENV_PRIVILEGED=1 \
+	E2E_TARGET=release \
+	hack/buildenv.sh ../hack/e2e.sh
+
 buildenv:
-	hack/buildenv.sh
+	UPG_BUILDENV_PRIVILEGED=1 hack/buildenv.sh
