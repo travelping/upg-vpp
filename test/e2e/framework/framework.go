@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -19,6 +21,12 @@ const (
 	TEIDPGWs5u = 1000000000
 	TEIDSGWs5u = 1000000001
 )
+
+var artifactsDir string
+
+func SetArtifactsDirectory(dir string) {
+	artifactsDir = dir
+}
 
 type Framework struct {
 	Mode    UPGMode
@@ -117,8 +125,18 @@ func (f *Framework) AfterEach() {
 	}
 
 	if f.VPPCfg != nil && f.VPPCfg.BaseDir != "" {
-		if ginkgo.CurrentGinkgoTestDescription().Failed {
-			logrus.WithField("testDir", f.VPPCfg.BaseDir).Info("test artifacts for the failed testcase")
+		if artifactsDir != "" && ginkgo.CurrentGinkgoTestDescription().Failed {
+			ExpectNoError(os.MkdirAll(artifactsDir, os.ModePerm))
+			targetDir := filepath.Join(artifactsDir, toFilename(ginkgo.CurrentGinkgoTestDescription().TestText))
+			ExpectNoError(os.RemoveAll(targetDir))
+			// FIXME
+			ExpectNoError(exec.Command("mv", f.VPPCfg.BaseDir, targetDir).Run())
+			matches, err := filepath.Glob(filepath.Join(targetDir, "*.sock"))
+			ExpectNoError(err)
+			for _, filename := range matches {
+				os.Remove(filename)
+			}
+			logrus.WithField("testDir", targetDir).Info("test artifacts for the failed testcase")
 		} else if f.VPPCfg.BaseDir != "" {
 			ExpectNoError(os.RemoveAll(f.VPPCfg.BaseDir))
 		}

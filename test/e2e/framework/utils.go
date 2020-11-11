@@ -3,6 +3,7 @@ package framework
 import (
 	"log"
 	"net"
+	"regexp"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -49,4 +50,11 @@ func RunningInLinuxkit() bool {
 	}
 
 	return strings.Contains(string(uname.Release[:]), "linuxkit")
+}
+
+var invalidFilenameCharsRx = regexp.MustCompile(`[^-\w.]`)
+
+func toFilename(s string) string {
+	s = strings.ReplaceAll(strings.TrimSpace(s), " ", "_")
+	return invalidFilenameCharsRx.ReplaceAllString(s, "")
 }
