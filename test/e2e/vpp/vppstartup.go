@@ -43,6 +43,7 @@ statseg {
 plugins {
   path {{.PluginPath}}
   plugin dpdk_plugin.so { disable }
+  plugin gtpu_plugin.so { disable }
 }
 
 `

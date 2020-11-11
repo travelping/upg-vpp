@@ -29,6 +29,7 @@ type Framework struct {
 	PFCP    *pfcp.PFCPConnection
 	GTPU    *GTPU
 	Context context.Context
+	GTPUMTU int
 }
 
 func NewDefaultFramework(mode UPGMode, ipMode UPGIPMode) *Framework {
@@ -71,6 +72,7 @@ func (f *Framework) BeforeEach() {
 			TEIDSGWs5u:    TEIDSGWs5u,
 			LinkName:      f.VPPCfg.GetNamespaceLinkName("ue"),
 			ParentContext: f.VPP.Context,
+			MTU:           f.GTPUMTU,
 		})
 		ExpectNoError(err)
 		ExpectNoError(f.GTPU.Start())

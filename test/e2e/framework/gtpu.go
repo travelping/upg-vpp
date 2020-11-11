@@ -62,7 +62,7 @@ func NewGTPU(cfg GTPUConfig) (*GTPU, error) {
 		GTPUTunnel: sgw.SGWGTPUTunnel{
 			Type:          cfg.gtpuTunnelType(),
 			InterfaceName: cfg.LinkName,
-			MTU:           1300,
+			MTU:           cfg.MTU,
 		},
 		GRXNetNS: cfg.GRXNS,
 		UENetNS:  cfg.UENS,

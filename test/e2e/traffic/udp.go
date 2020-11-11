@@ -16,13 +16,14 @@ const (
 )
 
 type UDPPingConfig struct {
-	ServerIP    net.IP
-	Port        int
-	PacketSize  int
-	PacketCount int
-	Timeout     time.Duration
-	Retry       bool
-	Delay       time.Duration
+	ServerIP       net.IP
+	Port           int
+	PacketSize     int
+	PacketCount    int
+	Timeout        time.Duration
+	Retry          bool
+	Delay          time.Duration
+	NoMTUDiscovery bool
 }
 
 var _ TrafficConfig = &UDPPingConfig{}
@@ -85,6 +86,13 @@ func (us *UDPServer) Start(ctx context.Context, ns *network.NetNS) error {
 	})
 	if err != nil {
 		return errors.Wrap(err, "ListenTCP")
+	}
+
+	if us.cfg.NoMTUDiscovery {
+		uc, err = noMTUDiscovery(uc)
+		if err != nil {
+			return errors.Wrap(err, "disabling MTU discovery")
+		}
 	}
 
 	childCtx, cancel := context.WithCancel(ctx)
@@ -166,6 +174,13 @@ func (up *UDPPing) Run(ctx context.Context, ns *network.NetNS) error {
 		})
 	if err != nil {
 		return errors.Wrap(err, "DialUDP")
+	}
+
+	if up.cfg.NoMTUDiscovery {
+		c, err = noMTUDiscovery(c)
+		if err != nil {
+			return errors.Wrap(err, "disabling MTU discovery")
+		}
 	}
 
 	childCtx, cancel := context.WithCancel(ctx)

@@ -54,6 +54,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "cp0",
 				OtherLinkName: "cp1",
 				Table:         0,
+				MTU:           1500,
 			},
 			{
 				Name:          "ue",
@@ -73,6 +74,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "grx0",
 				OtherLinkName: "grx1",
 				Table:         100,
+				MTU:           1500,
 			},
 			{
 				Name:          "sgi",
@@ -82,6 +84,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
+				MTU:           1500,
 				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("10.0.1.0/24"),
@@ -103,6 +106,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
+			// TODO: optional trace
 			"set upf proxy mss 1250",
 		},
 	}

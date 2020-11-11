@@ -33,6 +33,10 @@ func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMo
 		f := framework.NewDefaultFramework(mode, ipMode)
 		describeMeasurement(f)
 		describePDRReplacement(f)
+		// TODO: fix these test cases for IPv6
+		if ipMode == framework.UPGIPModeV4 {
+			describeMTU(mode, ipMode)
+		}
 	})
 }
 
@@ -256,6 +260,54 @@ func describePDRReplacement(f *framework.Framework) {
 				}, &traffic.PreciseTrafficRec{}, true)
 			})
 		})
+	})
+}
+
+func describeMTU(mode framework.UPGMode, ipMode framework.UPGIPMode) {
+	ginkgo.Context("[MTU corner cases]", func() {
+		var seid pfcp.SEID
+
+		// TODO: framework should have Clone() method
+		// that makes deep copy of the configs (or re-generates them)
+		f := framework.NewDefaultFramework(mode, ipMode)
+		for i := range f.VPPCfg.Namespaces {
+			f.VPPCfg.Namespaces[i].MTU = 1500
+		}
+		f.GTPUMTU = 9000
+
+		ginkgo.BeforeEach(func() {
+			seid = startMeasurementSession(f, &framework.SessionConfig{})
+		})
+
+		ginkgo.JustAfterEach(func() {
+			deleteSession(f, seid)
+		})
+
+		ginkgo.It("passes UDP traffic [8000 byte datagrams]", func() {
+			// TODO: verify 'too large' error w/o setsockopt
+			runTrafficGen(f, &traffic.UDPPingConfig{
+				// fragmented after GTP-U encap
+				PacketSize: 8000,
+				// clear DF bit
+				NoMTUDiscovery: true,
+			}, &traffic.PreciseTrafficRec{})
+			// FIXME: capture analyzer should be able to reassemble the
+			// fragments
+			// verifyNonAppMeasurement(f, ms, layers.IPProtocolUDP)
+		})
+
+		ginkgo.It("passes UDP traffic [10000 byte datagrams]", func() {
+			runTrafficGen(f, &traffic.UDPPingConfig{
+				// fragmented before & after GTP-U encap
+				PacketSize: 10000,
+				// No need for NoMTUDiscovery here as
+				// the packets are larger than UE's MTU
+			}, &traffic.PreciseTrafficRec{})
+			// FIXME: capture analyzer should be able to reassemble the
+			// fragments
+			// verifyNonAppMeasurement(f, ms, layers.IPProtocolUDP)
+		})
+		// TODO: verify 'too large' error w/o setsockopt
 	})
 }
 

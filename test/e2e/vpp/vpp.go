@@ -36,6 +36,7 @@ const (
 	VPP_STARTUP_TIMEOUT = 30 * time.Second
 	VPP_REPLY_TIMEOUT   = 5 * time.Second
 	NSENTER_CMD         = "nsenter"
+	DEFAULT_MTU         = 9000
 )
 
 type RouteConfig struct {
@@ -54,6 +55,7 @@ type VPPNetworkNamespace struct {
 	NSRoutes      []RouteConfig
 	SkipVPPConfig bool
 	L3Capture     bool
+	MTU           int
 }
 
 type VPPConfig struct {
@@ -331,6 +333,7 @@ func (vi *VPPInstance) closeNamespaces() {
 }
 
 func (vi *VPPInstance) TearDown() {
+	vi.Ctl("show trace")
 	vi.stopVPP()
 	vi.closeNamespaces()
 }
@@ -370,7 +373,11 @@ func (vi *VPPInstance) SetupNamespaces() error {
 		}
 
 		if nsCfg.VPPLinkName != "" {
-			if err := vi.vppNS.SetupVethPair(nsCfg.VPPLinkName, nil, ns, nsCfg.OtherLinkName, nsCfg.OtherIP); err != nil {
+			mtu := nsCfg.MTU
+			if mtu == 0 {
+				mtu = DEFAULT_MTU
+			}
+			if err := vi.vppNS.SetupVethPair(nsCfg.VPPLinkName, nil, ns, nsCfg.OtherLinkName, nsCfg.OtherIP, mtu); err != nil {
 				return errors.Wrap(err, "SetupVethPair (client)")
 			}
 
@@ -457,12 +464,17 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 		cmds = append(cmds,
 			fmt.Sprintf("%s table add %d", ipCmd, nsCfg.Table))
 	}
+	mtu := nsCfg.MTU
+	if mtu == 0 {
+		mtu = DEFAULT_MTU
+	}
 	return append(cmds,
 		fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName),
 		fmt.Sprintf("set interface mac address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
 		fmt.Sprintf("set interface %s table host-%s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
 		fmt.Sprintf("set interface ip address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),
 		fmt.Sprintf("set interface state host-%s up", nsCfg.VPPLinkName),
+		fmt.Sprintf("set interface mtu %d host-%s", mtu, nsCfg.VPPLinkName),
 	)
 }
 

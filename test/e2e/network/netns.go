@@ -15,10 +15,6 @@ import (
 	"github.com/travelping/upg-vpp/test/e2e/ns"
 )
 
-const (
-	MTU = 9000
-)
-
 var (
 	ethFeatureRx = regexp.MustCompile("^[rt]x-(checksum.*|.*segmentation|.*fragmentation|scatter-gather.*|gro)$")
 )
@@ -37,6 +33,7 @@ func NewNS(name string) (*NetNS, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &NetNS{
 		NetNS: innerNS,
 		Name:  name,
@@ -79,9 +76,9 @@ func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
 	})
 }
 
-func (netns *NetNS) SetupVethPair(thisLinkName string, thisAddress *net.IPNet, other *NetNS, otherLinkName string, otherAddress *net.IPNet) error {
+func (netns *NetNS) SetupVethPair(thisLinkName string, thisAddress *net.IPNet, other *NetNS, otherLinkName string, otherAddress *net.IPNet, mtu int) error {
 	if err := netns.Do(func() error {
-		if _, _, err := SetupVethWithName(thisLinkName, otherLinkName, MTU, other); err != nil {
+		if _, _, err := SetupVethWithName(thisLinkName, otherLinkName, mtu, other); err != nil {
 			return errors.Wrap(err, "creating veth pair")
 		}
 		return nil
