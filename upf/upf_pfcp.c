@@ -2630,6 +2630,20 @@ format_pfcp_session (u8 * s, va_list * args)
 	      vlib_time_now (gtm->vlib_main) - sx->last_ul_traffic,
 	      rules->inactivity_timer.handle);
 
+  if (gtm->pfcp_spec_version == 16)
+    {
+      u16 idx = 1;
+      s = format (s, "  TEID assignment per choose ID\n");
+      for (idx = 0; idx < 256 /* U8_MAX limits value of CHID */ ; idx++)
+	{
+	  u32 teid = *sparse_vec_elt_at_index (sx->teid_by_chid, idx);
+	  if (teid)
+	    s = format (s, "    %3u: %u (0x%08x)\n", idx, teid, teid);
+
+	  idx += 1;
+	}
+    }
+
   vec_foreach (pdr, rules->pdr)
   {
     upf_nwi_t *nwi = NULL;
