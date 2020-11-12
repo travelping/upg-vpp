@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -442,8 +443,17 @@ func (vi *VPPInstance) StartCapture() error {
 
 func (vi *VPPInstance) runCmds(cmds ...string) error {
 	for _, cmd := range cmds {
+		canFail := false
+		if strings.HasPrefix(cmd, "?") {
+			cmd = cmd[1:]
+			canFail = true
+		}
 		if err := vi.Ctl("%s", cmd); err != nil {
-			return errors.Wrapf(err, "vpp command %q", cmd)
+			if canFail {
+				vi.log.WithField("cmd", cmd).WithError(err).Warn("command failed")
+			} else {
+				return errors.Wrapf(err, "vpp command %q", cmd)
+			}
 		}
 	}
 

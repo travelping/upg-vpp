@@ -107,7 +107,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
 			// TODO: optional trace
-			"set upf proxy mss 1250",
+			"?set upf proxy mss 1250",
 		},
 	}
 }
@@ -183,7 +183,7 @@ func pgwVPPConfigIPv6() vpp.VPPConfig {
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
-			"set upf proxy mss 1250",
+			"?set upf proxy mss 1250",
 		},
 	}
 }
@@ -245,7 +245,7 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
-			"set upf proxy mss 1250",
+			"?set upf proxy mss 1250",
 		},
 	}
 }
@@ -315,7 +315,7 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
-			"set upf proxy mss 1250",
+			"?set upf proxy mss 1250",
 		},
 	}
 }
