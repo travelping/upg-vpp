@@ -147,7 +147,7 @@ test:release:
   # TODO: nightly run without E2E_QUICK
   # TODO: get rid of E2E_FLAKE_ATTEMPTS. The tests need to be less flaky.
   - |
-    if ! make ${TEST_TARGET} E2E_RETEST=y E2E_ARTIFACTS_DIR=$PWD/artifacts E2E_JUNIT_DIR=$PWD/junit-output E2E_PARALLEL=y E2E_PARALLEL_NODES=2 E2E_QUICK=y E2E_FLAKE_ATTEMPTS=3; then
+    if ! make ${TEST_TARGET} E2E_RETEST=y E2E_ARTIFACTS_DIR=$PWD/artifacts E2E_JUNIT_DIR=$PWD/junit-output E2E_PARALLEL=y E2E_PARALLEL_NODES=2 E2E_QUICK=y; then
       mkdir test-out
       tar -cvzf test-out/vpp-test.tar.gz artifacts || true
       ls -l test-out/

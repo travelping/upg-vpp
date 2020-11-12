@@ -360,9 +360,11 @@ func verifyConnFlood(f *framework.Framework, netem bool) {
 	rec := &traffic.SimpleTrafficRec{}
 	tg, clientNS, serverNS := newTrafficGen(f, &traffic.HTTPConfig{
 		Retry:             true,
-		SimultaneousCount: 5000,
+		SimultaneousCount: 400, // TODO: 5000 works with bigger chunks but takes up too much memory
 		Persist:           true,
-		ChunkDelay:        -1, // no delay
+		ChunkDelay:        -1,  // no delay
+		ChunkSize:         100, // use small chunks to avoid using up too much memory
+		ChunkCount:        1000,
 	}, rec)
 
 	ueLink := "access"
@@ -414,9 +416,11 @@ func verifySessionDeletionLoop(f *framework.Framework, seid *pfcp.SEID) {
 	rec := &traffic.SimpleTrafficRec{}
 	tg, clientNS, serverNS := newTrafficGen(f, &traffic.HTTPConfig{
 		Retry:             true,
-		SimultaneousCount: 5000,
+		SimultaneousCount: 400, // TODO: 5000 works with bigger chunks but takes up too much memory
 		Persist:           true,
-		ChunkDelay:        -1, // no delay
+		ChunkDelay:        -1,  // no delay
+		ChunkSize:         100, // use small chunks to avoid using up too much memory
+		ChunkCount:        1000,
 	}, rec)
 
 	ctx, cancel := context.WithCancel(f.Context)
