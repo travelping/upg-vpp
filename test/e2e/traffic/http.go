@@ -201,9 +201,13 @@ func (hc *HTTPClient) download(ctx context.Context, ns *network.NetNS, url strin
 			resp, err := c.Do(req)
 			if err != nil {
 				if hc.cfg.Retry && ctx.Err() == nil {
-					log.WithError(err).Error("HTTP GET failed")
+					log.WithError(err).Trace("HTTP GET failed")
 					retry = true
 					return true, nil
+				}
+				if hc.cfg.Persist {
+					// context cancelled
+					return false, nil
 				}
 				return false, errors.Wrap(err, "HTTP GET")
 			}
@@ -224,9 +228,13 @@ func (hc *HTTPClient) download(ctx context.Context, ns *network.NetNS, url strin
 				}
 				if err != nil {
 					if hc.cfg.Retry && ctx.Err() == nil {
-						log.WithError(err).Warn("HTTP GET failed")
+						log.WithError(err).Trace("HTTP GET failed")
 						retry = true
 						return true, nil
+					}
+					if hc.cfg.Persist {
+						// context cancelled
+						return false, nil
 					}
 					return false, errors.Wrap(err, "error reading HTTP response")
 				}
@@ -241,7 +249,7 @@ func (hc *HTTPClient) download(ctx context.Context, ns *network.NetNS, url strin
 	}
 
 	// the point is that if the connection fails, it must be possible to retry afterwards
-	if retry && !retrySucceeded {
+	if retry && !retrySucceeded && !hc.cfg.Persist {
 		return errors.New("retries were attempted, but none succeeded")
 	}
 
