@@ -71,7 +71,7 @@ func describeMeasurement(f *framework.Framework) {
 				verifyNonAppMeasurement(f, ms, layers.IPProtocolUDP)
 			})
 
-			ginkgo.It("passes pings", func() {
+			ginkgo.It("counts ICMP echo requests and responses", func() {
 				verify(&traffic.ICMPPingConfig{})
 				proto := layers.IPProtocolICMPv4
 				if f.IPMode == framework.UPGIPModeV6 {
