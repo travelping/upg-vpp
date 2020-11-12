@@ -13,6 +13,16 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_TARGET:=debug}"
 : "${E2E_ARTIFACTS_DIR:=}"
 : "${E2E_JUNIT_DIR:=}"
+: "${E2E_QUICK:=}"
+
+if grep -q '^gtp ' /proc/modules; then
+  echo >&2 "* Using kernel GTP-U support for IPv4 PGW tests"
+  export UPG_TEST_GTPU_KERNEL=1
+else
+  echo >&2 "* Kernel GTP-U support not available, using userspace GTP-U only"
+fi
+
+export UPG_TEST_QUICK="${E2E_QUICK}"
 
 case ${E2E_TARGET} in
   debug)

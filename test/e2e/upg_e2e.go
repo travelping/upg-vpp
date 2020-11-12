@@ -62,7 +62,7 @@ func describeMeasurement(f *framework.Framework) {
 
 		sessionContext("[no proxy]", framework.SessionConfig{}, func() {
 			ginkgo.It("counts plain HTTP traffic", func() {
-				verify(&traffic.HTTPConfig{})
+				verify(smallVolumeHTTPConfig(nil))
 				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
 			})
 
@@ -83,14 +83,14 @@ func describeMeasurement(f *framework.Framework) {
 
 		sessionContext("[proxy]", framework.SessionConfig{AppPDR: true}, func() {
 			ginkgo.It("counts plain HTTP traffic (no app hit)", func() {
-				verify(&traffic.HTTPConfig{})
+				verify(smallVolumeHTTPConfig(nil))
 				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
 			})
 
 			ginkgo.It("counts traffic for app detection hit on plain HTTP", func() {
-				verify(&traffic.HTTPConfig{
+				verify(smallVolumeHTTPConfig(&traffic.HTTPConfig{
 					UseFakeHostname: true,
-				})
+				}))
 				verifyAppMeasurement(f, ms, layers.IPProtocolTCP)
 			})
 
@@ -168,7 +168,7 @@ func describePDRReplacement(f *framework.Framework) {
 
 		sessionContext("[no proxy]", framework.SessionConfig{}, func() {
 			ginkgo.It("doesn't affect plain HTTP traffic accounting", func() {
-				verify(&traffic.HTTPConfig{}, &traffic.PreciseTrafficRec{}, false)
+				verify(smallVolumeHTTPConfig(nil), &traffic.PreciseTrafficRec{}, false)
 				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
 			})
 
@@ -180,14 +180,14 @@ func describePDRReplacement(f *framework.Framework) {
 
 		sessionContext("[proxy]", framework.SessionConfig{AppPDR: true}, func() {
 			ginkgo.It("doesn't affect plain HTTP traffic accounting (no app hit)", func() {
-				verify(&traffic.HTTPConfig{}, &traffic.PreciseTrafficRec{}, false)
+				verify(smallVolumeHTTPConfig(nil), &traffic.PreciseTrafficRec{}, false)
 				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
 			})
 
 			ginkgo.It("doesn't affect traffic accounting with app detection hit on plain HTTP", func() {
-				verify(&traffic.HTTPConfig{
+				verify(smallVolumeHTTPConfig(&traffic.HTTPConfig{
 					UseFakeHostname: true,
-				}, &traffic.PreciseTrafficRec{}, false)
+				}), &traffic.PreciseTrafficRec{}, false)
 				verifyAppMeasurement(f, ms, layers.IPProtocolTCP)
 			})
 		})
@@ -204,16 +204,16 @@ func describePDRReplacement(f *framework.Framework) {
 
 		sessionContext("[proxy on-off]", framework.SessionConfig{AppPDR: true}, func() {
 			ginkgo.It("doesn't affect plain HTTP traffic accounting (no app hit)", func() {
-				verify(&traffic.HTTPConfig{}, &traffic.PreciseTrafficRec{}, true)
+				verify(smallVolumeHTTPConfig(nil), &traffic.PreciseTrafficRec{}, true)
 				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
 			})
 
 			ginkgo.It("doesn't disrupt traffic with app detection hit on plain HTTP", func() {
 				// accounting is obviously disturbed in this case
 				// (could be still verified, but harder to do so)
-				verify(&traffic.HTTPConfig{
+				verify(smallVolumeHTTPConfig(&traffic.HTTPConfig{
 					UseFakeHostname: true,
-				}, &traffic.PreciseTrafficRec{}, true)
+				}), &traffic.PreciseTrafficRec{}, true)
 			})
 		})
 
@@ -236,18 +236,18 @@ func describePDRReplacement(f *framework.Framework) {
 				// but actually it may lose some connections
 				// and the accounting may be off by a packet or so, e.g.:
 				// bad uplink volume: reported 83492, actual 83440
-				verify(&traffic.HTTPConfig{
+				verify(smallVolumeHTTPConfig(&traffic.HTTPConfig{
 					Retry: true,
-				}, &traffic.PreciseTrafficRec{}, true)
+				}), &traffic.PreciseTrafficRec{}, true)
 			})
 
 			ginkgo.It("doesn't permanently disrupt traffic with app detection hit on plain HTTP", func() {
 				// accounting is obviously disturbed in this case
 				// (could be still verified, but harder to do so)
-				verify(&traffic.HTTPConfig{
+				verify(smallVolumeHTTPConfig(&traffic.HTTPConfig{
 					Retry:           true,
 					UseFakeHostname: true,
-				}, &traffic.PreciseTrafficRec{}, true)
+				}), &traffic.PreciseTrafficRec{}, true)
 			})
 		})
 
@@ -525,4 +525,14 @@ func verifyMainReport(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto la
 	r := validateReport(ms, urrId)
 	framework.ExpectEqual(ul, *r.UplinkVolume, "uplink volume for urr %d", urrId)
 	framework.ExpectEqual(dl, *r.DownlinkVolume, "downlink volume for urr %d", urrId)
+}
+
+func smallVolumeHTTPConfig(base *traffic.HTTPConfig) *traffic.HTTPConfig {
+	if base == nil {
+		base = &traffic.HTTPConfig{}
+	}
+
+	base.ChunkSize = 1000
+
+	return base
 }
