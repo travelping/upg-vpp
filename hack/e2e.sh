@@ -14,6 +14,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_ARTIFACTS_DIR:=}"
 : "${E2E_JUNIT_DIR:=}"
 : "${E2E_QUICK:=}"
+: "${E2E_FLAKE_ATTEMPTS:=}"
 
 if grep -q '^gtp ' /proc/modules; then
   echo >&2 "* Using kernel GTP-U support for IPv4 PGW tests"
@@ -56,6 +57,10 @@ fi
 
 if [[ ${E2E_FOCUS} ]]; then
   ginkgo_args+=(-focus "${E2E_FOCUS}")
+fi
+
+if [[ ${E2E_FLAKE_ATTEMPTS} ]]; then
+  ginkgo_args+=(--flakeAttempts ${E2E_FLAKE_ATTEMPTS})
 fi
 
 ginkgo_args+=(--)

@@ -35,6 +35,7 @@ else
          -e E2E_ARTIFACTS_DIR="${E2E_ARTIFACTS_DIR:-}" \
          -e E2E_JUNIT_DIR="${E2E_JUNIT_DIR:-}" \
          -e E2E_QUICK="${E2E_QUICK:-}" \
+         -e E2E_FLAKE_ATTEMPTS="${E2E_FLAKE_ATTEMPTS:-}" \
          -w /src/vpp \
          "${build_image}" \
          "$@"
