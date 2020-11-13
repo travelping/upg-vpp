@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"gopkg.in/tomb.v2"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -49,10 +50,9 @@ type Capture struct {
 	sync.Mutex
 	cfg           CaptureConfig
 	Stats         CaptureStats
-	stopCh        chan struct{}
-	doneCh        chan struct{}
 	trafficCounts map[FiveTuple]uint64
 	log           *logrus.Entry
+	t             *tomb.Tomb
 }
 
 func NewCapture(cfg CaptureConfig) *Capture {
@@ -87,16 +87,18 @@ func (c *Capture) makeHandle() (*pcap.Handle, error) {
 	}
 }
 
-func (c *Capture) Stop() {
-	if c.stopCh != nil {
-		close(c.stopCh)
-		c.stopCh = nil
-		<-c.doneCh
+func (c *Capture) Stop() error {
+	if c.t == nil {
+		return nil
 	}
+	c.t.Kill(nil)
+	err := c.t.Wait()
+	c.t = nil
+	return err
 }
 
 func (c *Capture) Start() error {
-	if c.stopCh != nil {
+	if c.t != nil {
 		return nil
 	}
 
@@ -154,23 +156,23 @@ func (c *Capture) Start() error {
 		Start:      time.Now(),
 		LayerTypes: make(map[gopacket.LayerType]int64),
 	}
-	c.stopCh = make(chan struct{})
-	c.doneCh = make(chan struct{})
-	doneCh := c.doneCh
-	stopCh := c.stopCh
+	c.t = &tomb.Tomb{}
 	if c.cfg.TargetNS != nil {
-		c.cfg.TargetNS.AddCleanup(c.Stop)
+		c.cfg.TargetNS.AddCleanup(func() {
+			if err := c.Stop(); err != nil {
+				c.log.WithError(err).Error("error capturing packets")
+			}
+		})
 	}
 
-	go func() {
+	c.t.Go(func() error {
 		defer func() {
 			f.Close()
-			handle.Close()
-			close(doneCh)
 		}()
 
 		var finalIdleTimer *time.Timer
 		var finalIdleCh <-chan time.Time
+		dying := c.t.Dying()
 		for {
 			select {
 			case packet := <-source.Packets():
@@ -182,25 +184,24 @@ func (c *Capture) Start() error {
 					c.Unlock()
 				}
 				if err := w.WritePacket(packet.Metadata().CaptureInfo, packet.Data()); err != nil {
-					c.log.WithError(err).Error("error writing a packet")
-					return
+					return errors.Wrap(err, "error writing captured packet")
 				}
 				if finalIdleTimer != nil {
 					finalIdleTimer.Stop()
 					finalIdleTimer = time.NewTimer(FinalIdleDuraton)
 					finalIdleCh = finalIdleTimer.C
 				}
-			case <-stopCh:
+			case <-dying:
+				dying = nil
 				if finalIdleTimer == nil {
 					finalIdleTimer = time.NewTimer(FinalIdleDuraton)
 					finalIdleCh = finalIdleTimer.C
 				}
-				stopCh = nil
 			case <-finalIdleCh:
-				return
+				return nil
 			}
 		}
-	}()
+	})
 
 	return nil
 }

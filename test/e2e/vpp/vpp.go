@@ -25,6 +25,7 @@ import (
 	"git.fd.io/govpp.git/core"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+	"gopkg.in/tomb.v2"
 
 	"github.com/travelping/upg-vpp/test/e2e/network"
 )
@@ -103,11 +104,11 @@ type VPPInstance struct {
 	cmd        *exec.Cmd
 	vppNS      *network.NetNS
 	namespaces map[string]*network.NetNS
-	Context    context.Context
 	cancel     context.CancelFunc
 	Captures   map[string]*network.Capture
 	log        *logrus.Entry
 	pipeCopyWG sync.WaitGroup
+	t          tomb.Tomb
 }
 
 func NewVPPInstance(cfg VPPConfig) *VPPInstance {
@@ -116,16 +117,17 @@ func NewVPPInstance(cfg VPPConfig) *VPPInstance {
 	}
 	var startupCfg VPPStartupConfig
 	startupCfg.SetFromEnv()
-	context, cancel := context.WithCancel(context.Background())
 	return &VPPInstance{
 		cfg:        cfg,
 		startupCfg: startupCfg,
 		namespaces: make(map[string]*network.NetNS),
 		Captures:   make(map[string]*network.Capture),
-		Context:    context,
-		cancel:     cancel,
 		log:        logrus.NewEntry(logrus.StandardLogger()),
 	}
+}
+
+func (vi *VPPInstance) Context(parent context.Context) context.Context {
+	return vi.t.Context(parent)
 }
 
 func (vi *VPPInstance) GetNS(name string) *network.NetNS {
@@ -208,6 +210,7 @@ func (vi *VPPInstance) StartVPP() error {
 	if err != nil {
 		return errors.Wrap(err, "StderrPipe")
 	}
+
 	sigchldCh := make(chan os.Signal, 1)
 	signal.Notify(sigchldCh, unix.SIGCHLD)
 	if err := vi.cmd.Start(); err != nil {
@@ -230,7 +233,7 @@ func (vi *VPPInstance) StartVPP() error {
 		VPP_RECONNECT_INTERVAL)
 
 	if err != nil {
-		vi.stopVPP()
+		vi.killVPP()
 		return errors.Wrapf(err, "error connecting to vpp socket at %q", socketclient.DefaultSocketName)
 	}
 
@@ -250,47 +253,56 @@ func (vi *VPPInstance) StartVPP() error {
 	vi.conn = conn
 	vi.apiChannel, err = conn.NewAPIChannel()
 	if err != nil {
-		vi.stopVPP()
+		vi.killVPP()
+		vi.conn.Disconnect()
+		vi.conn = nil
 		return errors.Wrap(err, "NewAPIChannel")
 	}
 	vi.apiChannel.SetReplyTimeout(VPP_REPLY_TIMEOUT)
 
-	go func() {
-		defer signal.Stop(sigchldCh)
-		for {
-			select {
-			case <-vi.Context.Done():
-			case <-sigchldCh:
-				time.Sleep(500 * time.Millisecond)
-				var s unix.WaitStatus
-				wpid, err := unix.Wait4(pid, &s, unix.WNOHANG, nil)
-				if err == nil && wpid == 0 {
-					continue
-				}
-				if err != nil {
-					vi.log.WithError(err).Warn("Wait4 error")
-				} else {
-					vi.log.Info("VPP process has exited")
-				}
-				vi.cancel()
-				return
-			case e := <-conev:
-				if e.State == core.Failed {
-					vi.cancel()
-					return
-				}
-			}
-		}
-	}()
+	vi.t.Go(func() error { return vi.run(sigchldCh, conev) })
 
 	return nil
 }
 
-func (vi *VPPInstance) stopVPP() {
-	if vi.cancel != nil {
-		vi.cancel()
-	}
+func (vi *VPPInstance) killVPP() {
+	vi.cmd.Process.Kill()
+	vi.pipeCopyWG.Wait()
+	vi.cmd.Wait()
+}
 
+func (vi *VPPInstance) run(sigchldCh chan os.Signal, conev chan core.ConnectionEvent) error {
+	pid := vi.cmd.Process.Pid
+	defer signal.Stop(sigchldCh)
+	for {
+		select {
+		case <-vi.t.Dying():
+			vi.killVPP()
+			return nil
+		case <-sigchldCh:
+			time.Sleep(500 * time.Millisecond)
+			var s unix.WaitStatus
+			wpid, err := unix.Wait4(pid, &s, unix.WNOHANG, nil)
+			if err == nil && wpid == 0 {
+				continue
+			}
+			if err != nil {
+				vi.log.WithError(err).Warn("Wait4 error")
+			} else {
+				vi.log.Info("VPP process has exited")
+			}
+			vi.cancel()
+			return nil
+		case e := <-conev:
+			if e.State == core.Failed {
+				vi.cancel()
+				return errors.New("VPP API connection failed")
+			}
+		}
+	}
+}
+
+func (vi *VPPInstance) stopVPP() error {
 	if vi.apiChannel != nil {
 		vi.apiChannel.Close()
 		vi.apiChannel = nil
@@ -301,13 +313,8 @@ func (vi *VPPInstance) stopVPP() {
 		vi.conn = nil
 	}
 
-	if vi.cmd == nil {
-		return
-	}
-
-	vi.cmd.Process.Kill()
-	vi.pipeCopyWG.Wait()
-	vi.cmd.Wait()
+	vi.t.Kill(nil)
+	return vi.t.Wait()
 }
 
 func (vi *VPPInstance) closeNamespaces() {
@@ -335,7 +342,9 @@ func (vi *VPPInstance) closeNamespaces() {
 
 func (vi *VPPInstance) TearDown() {
 	vi.Ctl("show trace")
-	vi.stopVPP()
+	if err := vi.stopVPP(); err != nil {
+		vi.log.WithError(err).Error("error stopping VPP")
+	}
 	vi.closeNamespaces()
 }
 

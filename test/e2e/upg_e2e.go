@@ -154,7 +154,7 @@ func describePDRReplacement(f *framework.Framework) {
 					sessionCfg.AppPDR = !sessionCfg.AppPDR
 				}
 				ies = append(ies, sessionCfg.CreatePDRs()...)
-				_, err := f.PFCP.ModifySession(f.VPP.Context, seid, ies...)
+				_, err := f.PFCP.ModifySession(f.VPP.Context(context.Background()), seid, ies...)
 				framework.ExpectNoError(err)
 			}
 		}

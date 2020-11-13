@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/wmnsk/go-gtp/gtpv1/message"
+	"gopkg.in/tomb.v2"
 )
 
 const (
@@ -44,12 +45,12 @@ type UserPlaneServer struct {
 
 	restartCounter uint8
 
-	logger  *logrus.Entry
-	closeCh chan struct{}
-	err     error
+	logger *logrus.Entry
 
 	grxHandle *netlink.Handle
 	ueHandle  *netlink.Handle
+
+	t *tomb.Tomb
 }
 
 func NewUserPlaneServer(cfg UserPlaneConfig, restartCounter uint8) (up *UserPlaneServer, err error) {
@@ -57,7 +58,6 @@ func NewUserPlaneServer(cfg UserPlaneConfig, restartCounter uint8) (up *UserPlan
 		cfg:                  cfg,
 		s5uAddr:              net.UDPAddr{IP: cfg.S5uIP, Port: GTPU_PORT},
 		logger:               logrus.WithField("sgwuip", cfg.S5uIP),
-		closeCh:              make(chan struct{}),
 		sgwUTEIDtoSessionMap: make(map[uint32]Session),
 		ueIPv4toSessionMap:   make(map[uint32]Session),
 		ueIPv6toSessionMap:   make(map[uint64]Session),
@@ -101,6 +101,10 @@ func NewUserPlaneServer(cfg UserPlaneConfig, restartCounter uint8) (up *UserPlan
 }
 
 func (up *UserPlaneServer) Start(ctx context.Context) error {
+	if up.t != nil {
+		return nil
+	}
+
 	conn, err := up.cfg.GRXNetNS.ListenUDP(context.Background(), &up.s5uAddr)
 	if err != nil {
 		return err
@@ -113,7 +117,8 @@ func (up *UserPlaneServer) Start(ctx context.Context) error {
 		}
 	}
 
-	go up.listenRoutine(ctx)
+	up.t, _ = tomb.WithContext(ctx)
+	up.t.Go(up.listenLoop)
 	return nil
 }
 
@@ -128,47 +133,37 @@ func (up *UserPlaneServer) handlePacket(buf []byte, src *net.UDPAddr) {
 	}
 }
 
-func (up *UserPlaneServer) Stop(err error) error {
-	up.mu.Lock()
-	defer up.mu.Unlock()
-
-	select {
-	case <-up.closeCh:
-		return up.err
-	default:
+func (up *UserPlaneServer) Stop() error {
+	if up.t == nil {
+		return nil
 	}
 
-	if err != nil {
-		up.logger.WithError(err).Warn("Stopping sgw-u server")
-	} else {
-		up.logger.WithError(err).Info("Stopping sgw-u server")
-	}
+	up.logger.Info("Stopping sgw-u server")
 
-	up.err = err
+	up.t.Kill(nil)
 	if up.s5uConn != nil {
 		up.s5uConn.Close()
 	}
-	close(up.closeCh)
 
 	if up.tunnel != nil {
 		up.tunnel.Close()
 	}
-
-	return up.err
+	err := up.t.Wait()
+	up.t = nil
+	return err
 }
 
-func (up *UserPlaneServer) listenRoutine(ctx context.Context) {
-	up.logger.Warn("Listening on s5u interface")
+func (up *UserPlaneServer) listenLoop() error {
+	up.logger.Info("Listening on s5u interface")
+	defer up.logger.Info("SGW-U server stopped")
 
 	listenConn := up.s5uConn
 	defer listenConn.Close()
 
 	for {
 		select {
-		case <-up.closeCh:
-			return
-		case <-ctx.Done():
-			return
+		case <-up.t.Dying():
+			return nil
 		default:
 			buffer := make([]byte, 9000)
 			n, src, err := listenConn.ReadFromUDP(buffer)
@@ -176,18 +171,15 @@ func (up *UserPlaneServer) listenRoutine(ctx context.Context) {
 				// sadly even internal http2 lib parses these errors this way
 				if !strings.Contains(err.Error(), "use of closed network connection") {
 					up.logger.WithError(err).Error("Failed to read from UDP connection")
+					return errors.Wrap(err, "Failed to read from UDP connection")
 				}
-				wrappedErr := errors.Wrapf(err, "Failed to read from UDP connection")
-				up.Stop(wrappedErr)
-				return
+				return nil
 			}
 
 			up.handlePacket(buffer[:n], src)
 		}
 	}
 }
-
-func (up *UserPlaneServer) Done() <-chan struct{} { return up.closeCh }
 
 func upIpv4KeyForSession(s Session) uint32 { return binary.LittleEndian.Uint32(s.IPv4().To4()) }
 func upIpv6KeyForSession(s Session) uint64 { return binary.LittleEndian.Uint64(s.IPv6()[8:]) }
@@ -337,4 +329,11 @@ func (up *UserPlaneServer) moveLinkFromUEToGRX(link netlink.Link) (netlink.Link,
 	}
 
 	return movedLink, nil
+}
+
+func (up *UserPlaneServer) Context(parent context.Context) context.Context {
+	if up.t == nil {
+		panic("UserPlaneServer not started")
+	}
+	return up.t.Context(parent)
 }

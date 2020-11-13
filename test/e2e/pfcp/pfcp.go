@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"gopkg.in/tomb.v2"
 
 	"github.com/sirupsen/logrus"
 	"github.com/wmnsk/go-pfcp/ie"
@@ -83,6 +84,7 @@ const (
 var (
 	errUnexpected       = errors.New("unexpected pfcp message")
 	errHeartbeatTimeout = errors.New("heartbeat timeout")
+	errHardStop         = errors.New("hard stop")
 )
 
 type pfcpTransitionFunc func(pc *PFCPConnection, m message.Message) error
@@ -244,15 +246,12 @@ type PFCPConnection struct {
 	listenErrCh chan error
 	done        bool
 	wakeupCh    chan struct{}
-	errCh       chan error
-	Running     bool
 	sessions    map[SEID]*pfcpSession
-
 	// TODO: use a single event channel instead of these 3
-	stopCh    chan struct{}
 	messageCh chan message.Message
 	requestCh chan message.Message
 	log       *logrus.Entry
+	t         *tomb.Tomb
 }
 
 type PFCPReport struct {
@@ -360,6 +359,7 @@ func (pc *PFCPConnection) run() error {
 	}
 
 	var retransmitTimer *time.Timer
+	dying := pc.t.Dying()
 LOOP:
 	for !pc.done {
 		var timerCh <-chan time.Time
@@ -394,6 +394,15 @@ LOOP:
 		}
 
 		select {
+		case <-dying:
+			dying = nil
+			if pc.t.Err() == errHardStop {
+				break LOOP
+			}
+			if err = pc.event(pfcpEventActStop, nil); err != nil {
+				err = errors.Wrapf(err, "stop in state %s", pc.state)
+				break LOOP
+			}
 		case <-retransmitCh:
 			// proceed to next iteration to handle the retransmits
 		case msg := <-pc.requestCh:
@@ -426,11 +435,6 @@ LOOP:
 				err = errors.Wrapf(err, "timeout in state %s", pc.state)
 				break LOOP
 			}
-		case <-pc.stopCh:
-			if err = pc.event(pfcpEventActStop, nil); err != nil {
-				err = errors.Wrapf(err, "stop in state %s", pc.state)
-				break LOOP
-			}
 		case err = <-pc.listenErrCh:
 			pc.log.WithError(err).Error("listener error")
 			break LOOP
@@ -459,10 +463,10 @@ func (pc *PFCPConnection) waitForState(ctx context.Context, state pfcpState, tim
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timer.C:
-			pc.Stop(ctx)
+			pc.HardStop()
 			return errors.New("session setup timeout")
-		case err := <-pc.errCh:
-			if err != nil {
+		case <-pc.t.Dying():
+			if err := pc.t.Err(); err != nil {
 				return err
 			} else {
 				return errors.New("PFCPConnection stopped prematurely (?)")
@@ -493,10 +497,10 @@ func (pc *PFCPConnection) waitForSessionState(ctx context.Context, seid SEID, st
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timer.C:
-			pc.Stop(ctx)
+			pc.HardStop()
 			return errors.New("session setup timeout")
-		case err := <-pc.errCh:
-			if err != nil {
+		case <-pc.t.Dying():
+			if err := pc.t.Err(); err != nil {
 				return err
 			} else {
 				return errors.New("PFCPConnection stopped prematurely (?)")
@@ -532,8 +536,8 @@ func (pc *PFCPConnection) waitForSessionModification(ctx context.Context, seid S
 		return nil, ctx.Err()
 	case <-timer.C:
 		return nil, errors.Errorf("session modification timed out for %016x", seid)
-	case err := <-pc.errCh:
-		if err != nil {
+	case <-pc.t.Dead():
+		if err := pc.t.Err(); err != nil {
 			return nil, err
 		} else {
 			return nil, errors.New("PFCPConnection stopped prematurely (?)")
@@ -689,7 +693,7 @@ func (pc *PFCPConnection) newSEID() SEID {
 }
 
 func (pc *PFCPConnection) Start(ctx context.Context) error {
-	if pc.Running {
+	if pc.t != nil {
 		return nil
 	}
 
@@ -705,36 +709,30 @@ func (pc *PFCPConnection) Start(ctx context.Context) error {
 	pc.state = pfcpStateInitial
 	pc.sessions = make(map[SEID]*pfcpSession)
 
-	pc.Running = true
-	pc.stopCh = make(chan struct{})
 	pc.wakeupCh = make(chan struct{}, 10000)
-	pc.errCh = make(chan error)
-	go func() {
-		pc.errCh <- pc.run()
-	}()
+	pc.t = &tomb.Tomb{}
+	pc.t.Go(pc.run)
 
 	return pc.waitForState(ctx, pfcpStateAssociated, AssociationTimeout)
 }
 
-func (pc *PFCPConnection) Stop(ctx context.Context) error {
-	if !pc.Running {
+func (pc *PFCPConnection) stop(err error) error {
+	if pc.t == nil {
 		return nil
 	}
-	if pc.stopCh == nil {
-		panic("Start() not called")
-	}
-	close(pc.stopCh)
-	pc.stopCh = nil
-	pc.Running = true
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(PFCPStopTimeout):
-		return errors.New("timed out stopping PFCPConnection")
-	case err := <-pc.errCh:
-		return err
-	}
+	pc.t.Kill(nil)
+	err = pc.t.Wait()
+	pc.t = nil
+	return err
+}
+
+func (pc *PFCPConnection) Stop() error {
+	return pc.stop(nil)
+}
+
+func (pc *PFCPConnection) HardStop() {
+	pc.stop(errHardStop)
 }
 
 func (pc *PFCPConnection) EstablishSession(ctx context.Context, ies ...*ie.IE) (SEID, error) {

@@ -24,4 +24,5 @@ require (
 	github.com/wmnsk/go-gtp v0.7.13
 	github.com/wmnsk/go-pfcp v0.0.6
 	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
+	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 )

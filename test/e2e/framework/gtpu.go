@@ -14,16 +14,15 @@ import (
 )
 
 type GTPUConfig struct {
-	GRXNS         *network.NetNS
-	UENS          *network.NetNS
-	UEIP          net.IP
-	SGWGRXIP      net.IP
-	PGWGRXIP      net.IP
-	TEIDPGWs5u    uint32
-	TEIDSGWs5u    uint32
-	LinkName      string
-	MTU           int
-	ParentContext context.Context
+	GRXNS      *network.NetNS
+	UENS       *network.NetNS
+	UEIP       net.IP
+	SGWGRXIP   net.IP
+	PGWGRXIP   net.IP
+	TEIDPGWs5u uint32
+	TEIDSGWs5u uint32
+	LinkName   string
+	MTU        int
 }
 
 func (cfg GTPUConfig) ipv6() bool {
@@ -43,16 +42,12 @@ func (cfg *GTPUConfig) SetDefaults() {
 	if cfg.MTU == 0 {
 		cfg.MTU = 1300
 	}
-	if cfg.ParentContext == nil {
-		cfg.ParentContext = context.Background()
-	}
 }
 
 type GTPU struct {
 	cfg     GTPUConfig
 	up      *sgw.UserPlaneServer
 	session *sgw.SimpleSession
-	Context context.Context
 }
 
 func NewGTPU(cfg GTPUConfig) (*GTPU, error) {
@@ -76,7 +71,7 @@ func NewGTPU(cfg GTPUConfig) (*GTPU, error) {
 	}, nil
 }
 
-func (gtpu *GTPU) Start() error {
+func (gtpu *GTPU) Start(ctx context.Context) error {
 	if gtpu.session != nil {
 		return nil
 	}
@@ -90,16 +85,9 @@ func (gtpu *GTPU) Start() error {
 
 	logrus.SetLevel(logrus.DebugLevel)
 
-	if err := gtpu.up.Start(gtpu.cfg.ParentContext); err != nil {
+	if err := gtpu.up.Start(ctx); err != nil {
 		return errors.Wrap(err, "error starting GTPU")
 	}
-
-	var cancel context.CancelFunc
-	gtpu.Context, cancel = context.WithCancel(gtpu.cfg.ParentContext)
-	go func() {
-		<-gtpu.up.Done()
-		cancel()
-	}()
 
 	session := sgw.NewSimpleSession(sgw.SimpleSessionConfig{
 		UNodeAddr: &net.UDPAddr{
@@ -115,7 +103,7 @@ func (gtpu *GTPU) Start() error {
 	})
 
 	if err := gtpu.up.RegisterSession(session); err != nil {
-		gtpu.up.Stop(nil)
+		gtpu.up.Stop()
 		return errors.Wrap(err, "failed to register GTPU session")
 	}
 
@@ -132,9 +120,13 @@ func (gtpu *GTPU) Stop() error {
 
 	if err := gtpu.up.UnRegisterSession(gtpu.session); err != nil {
 
-		gtpu.up.Stop(nil)
+		gtpu.up.Stop()
 		return errors.Wrap(err, "error unregistering the session")
 	}
 
-	return gtpu.up.Stop(nil)
+	return gtpu.up.Stop()
+}
+
+func (gtpu *GTPU) Context(parent context.Context) context.Context {
+	return gtpu.up.Context(parent)
 }

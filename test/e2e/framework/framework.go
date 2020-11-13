@@ -71,23 +71,22 @@ func (f *Framework) BeforeEach() {
 	if f.Mode == UPGModePGW {
 		var err error
 		f.GTPU, err = NewGTPU(GTPUConfig{
-			GRXNS:         f.VPP.GetNS("grx"),
-			UENS:          f.VPP.GetNS("ue"),
-			UEIP:          f.VPPCfg.GetNamespaceAddress("ue").IP,
-			SGWGRXIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
-			PGWGRXIP:      f.VPPCfg.GetVPPAddress("grx").IP,
-			TEIDPGWs5u:    TEIDPGWs5u,
-			TEIDSGWs5u:    TEIDSGWs5u,
-			LinkName:      f.VPPCfg.GetNamespaceLinkName("ue"),
-			ParentContext: f.VPP.Context,
-			MTU:           f.GTPUMTU,
+			GRXNS:      f.VPP.GetNS("grx"),
+			UENS:       f.VPP.GetNS("ue"),
+			UEIP:       f.VPPCfg.GetNamespaceAddress("ue").IP,
+			SGWGRXIP:   f.VPPCfg.GetNamespaceAddress("grx").IP,
+			PGWGRXIP:   f.VPPCfg.GetVPPAddress("grx").IP,
+			TEIDPGWs5u: TEIDPGWs5u,
+			TEIDSGWs5u: TEIDSGWs5u,
+			LinkName:   f.VPPCfg.GetNamespaceLinkName("ue"),
+			MTU:        f.GTPUMTU,
 		})
 		ExpectNoError(err)
-		ExpectNoError(f.GTPU.Start())
-		f.Context = f.GTPU.Context
+		ExpectNoError(f.GTPU.Start(f.VPP.Context(context.Background())))
+		f.Context = f.GTPU.Context(context.Background())
 	} else {
 		f.GTPU = nil
-		f.Context = f.VPP.Context
+		f.Context = f.VPP.Context(context.Background())
 	}
 	ExpectNoError(f.VPP.StartCapture())
 	ExpectNoError(f.VPP.StartVPP())
@@ -98,7 +97,7 @@ func (f *Framework) BeforeEach() {
 	if f.PFCPCfg != nil {
 		f.PFCPCfg.Namespace = f.VPP.GetNS("cp")
 		f.PFCP = pfcp.NewPFCPConnection(*f.PFCPCfg)
-		ExpectNoError(f.PFCP.Start(f.VPP.Context))
+		ExpectNoError(f.PFCP.Start(f.VPP.Context(context.Background())))
 	} else {
 		f.PFCP = nil
 	}
@@ -114,7 +113,7 @@ func (f *Framework) AfterEach() {
 		if f.PFCP != nil {
 			// FIXME: we need to make sure all PFCP packets are recorded
 			time.Sleep(time.Second)
-			ExpectNoError(f.PFCP.Stop(f.VPP.Context))
+			ExpectNoError(f.PFCP.Stop())
 			f.PFCP = nil
 		}
 
