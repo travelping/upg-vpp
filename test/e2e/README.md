@@ -1,38 +1,44 @@
-# UPG External tests
+# UPG End-to-End tests
 
-The tests don't need Docker to run, but dockerized environment is
-provided to make it easier to run them.
+UPG End-to-End (E2E) tests run VPP with UPG plugin as a subprocess in a
+separate network namespace, making it pass traffic between other
+network namespaces while trying to break it in different ways.
 
-In order to run the tests, first build the image. Instead of
-`upg:release`, you need to specify the base U-Node image you want to
-use.
+The tests are written in Go to provide acceptable performance for
+timing-sensitive tests while still being easy enough to maintain.
 
-```console
-$ docker build -t exttest-dev -f Dockerfile.dev --build-arg BASE=upg:release .
-```
+The following packages need to be present in the system
+(Ubuntu/Debian) to run E2E tests, unless dockerized environment is
+used:
 
-Then start the environment. `-v $PWD:/exttest` is optional and is only
-needed if you plan to modify the tests:
+* gdb
+* golang-go (preferably 1.15, e.g. from [golang-backports](https://launchpad.net/~longsleep/+archive/ubuntu/golang-backports))
+* libpcap-dev
 
-```console
-$ docker run -it --rm --privileged -v $PWD:/exttest \
-             --privileged --shm-size 1024m \
-             --name exttest exttest-dev
-```
+The tests are invoked from the top project directory using either
+`make e2e-debug` or `make e2e-release` commands.
 
-Inside the environment, you can start the tests like that:
+The make commands accept following variables:
 
-```console
-$ go test -count=1 -ginkgo.v
-```
+* `E2E_RETEST`: if non-empty, don't build UPG before starting the tests
+* `E2E_PARALLEL`: if non-empty, run tests in parallel
+* `E2E_PARALLEL_NODES`: specify the number of parallel processes (nodes) for parallel testing
+* `E2E_FOCUS`: an optional regexp for selecting a subset of tests by name
+* `E2E_ARTIFACTS_DIR`: target directory for test artifacts (note, must
+  start with /src in case of Docker env, where `/src` corresponds to
+  the project root)
+* `E2E_JUNIT_DIR`: target directory for test reports in JUnit XML format
+* `E2E_QUICK`: do shorter tests (pass less traffic)
+* `E2E_FLAKE_ATTEMPTS`: retry failed tests specified amount of times
 
-Or, you can take a shortcut and start the tests immediately (again,
-`-v $PWD:/exttest` is optional and is only needed if you plan to
-modify the tests):
+An example with multiple flags:
 
-```console
-$ docker run -it --rm --privileged -v $PWD:/exttest \
-             --privileged --shm-size 1024m \
-             --name exttest exttest-dev \
-             go test -count=1 -ginkgo.v
+```sh
+make e2e-debug \
+    E2E_QUICK=1 \
+    E2E_ARTIFACTS_DIR=/src/artifacts \
+    E2E_JUNIT_DIR=/src/junit \
+    E2E_PARALLEL=y \
+    E2E_PARALLEL_NODES=4 \
+    E2E_FOCUS=PGW
 ```

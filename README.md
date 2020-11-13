@@ -112,6 +112,9 @@ The following `make` commands are supported:
 * `make update-vpp` re-clones VPP into `vpp/` directory
 * `make buildenv` runs an interactive shell inside the build
   environment with UPG and VPP sources mounted into the container
+* `make e2e-debug` and `make e2e-release` build UPG in debug and
+  release mode respectively and run E2E tests for it. For more information,
+  see [E2E test documentation](test/e2e/README.md)
 
 If docker is used, one should set the following environment variable
 to enable wrapping the internally run commands in a docker container:
