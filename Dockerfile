@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:experimental
 # the following is updated automatically by make update-build-image-tag
-FROM quay.io/travelping/upg-build:3ba60fbb1e5584fac28ff8351b37c8e6 AS build-stage
+FROM quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 AS build-stage
 
 ADD vpp /src/vpp
 ADD upf /src/upf
