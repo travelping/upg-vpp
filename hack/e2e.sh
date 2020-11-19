@@ -10,6 +10,8 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_PARALLEL:=}"
 : "${E2E_PARALLEL_NODES:=10}"
 : "${E2E_FOCUS:=}"
+: "${E2E_SKIP:=}"
+: "${E2E_VERBOSE:=}"
 : "${E2E_TARGET:=debug}"
 : "${E2E_ARTIFACTS_DIR:=}"
 : "${E2E_JUNIT_DIR:=}"
@@ -51,12 +53,20 @@ cd test/e2e
 
 ginkgo_args=(-trace -progress -reportPassed)
 
+if [[ ${E2E_VERBOSE} ]]; then
+  ginkgo_args+=(-v)
+fi
+
 if [[ ${E2E_PARALLEL} ]]; then
   ginkgo_args+=(-nodes "${E2E_PARALLEL_NODES}")
 fi
 
 if [[ ${E2E_FOCUS} ]]; then
   ginkgo_args+=(-focus "${E2E_FOCUS}")
+fi
+
+if [[ ${E2E_SKIP} ]]; then
+  ginkgo_args+=(-skip "${E2E_SKIP}")
 fi
 
 if [[ ${E2E_FLAKE_ATTEMPTS} ]]; then

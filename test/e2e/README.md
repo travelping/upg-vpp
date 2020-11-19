@@ -21,9 +21,11 @@ The tests are invoked from the top project directory using either
 The make commands accept following variables:
 
 * `E2E_RETEST`: if non-empty, don't build UPG before starting the tests
+* `E2E_VERBOSE`: if non-empty, enable verbose output for the tests
 * `E2E_PARALLEL`: if non-empty, run tests in parallel
 * `E2E_PARALLEL_NODES`: specify the number of parallel processes (nodes) for parallel testing
-* `E2E_FOCUS`: an optional regexp for selecting a subset of tests by name
+* `E2E_FOCUS`: an optional regexp for selecting a subset of tests to run by name
+* `E2E_SKIP`: an optional regexp for selecting a subset of tests to skip by name
 * `E2E_ARTIFACTS_DIR`: target directory for test artifacts (note, must
   start with /src in case of Docker env, where `/src` corresponds to
   the project root)
