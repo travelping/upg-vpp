@@ -522,7 +522,7 @@ handle_association_setup_request (pfcp_msg_t * req,
        * PFCP Association Setup Response message.
        *
        */
-      upf_pfcp_server_deferred_release_association (n - gtm->nodes);
+      pfcp_release_association (n);
     }
 
   n =
