@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -29,20 +30,22 @@ func SetArtifactsDirectory(dir string) {
 }
 
 type Framework struct {
-	Mode    UPGMode
-	IPMode  UPGIPMode
-	VPPCfg  *vpp.VPPConfig
-	VPP     *vpp.VPPInstance
-	PFCPCfg *pfcp.PFCPConfig
-	PFCP    *pfcp.PFCPConnection
-	GTPU    *GTPU
-	Context context.Context
-	GTPUMTU int
+	Mode             UPGMode
+	IPMode           UPGIPMode
+	VPPCfg           *vpp.VPPConfig
+	VPP              *vpp.VPPInstance
+	PFCPCfg          *pfcp.PFCPConfig
+	PFCP             *pfcp.PFCPConnection
+	GTPU             *GTPU
+	Context          context.Context
+	GTPUMTU          int
+	numExtraCNodeIPs byte
+	numExtraUEIPs    byte
 }
 
 func NewDefaultFramework(mode UPGMode, ipMode UPGIPMode) *Framework {
 	vppCfg := vppConfig(mode, ipMode)
-	pfcpCfg := defaultPFCPConfig(vppCfg)
+	pfcpCfg := DefaultPFCPConfig(vppCfg)
 	return NewFramework(mode, ipMode, &vppCfg, &pfcpCfg)
 }
 
@@ -61,6 +64,8 @@ func NewFramework(mode UPGMode, ipMode UPGIPMode, vppCfg *vpp.VPPConfig, pfcpCfg
 func (f *Framework) BeforeEach() {
 	// TODO: forced cleanup for Ctrl-C
 	// https://github.com/kubernetes/kubernetes/blob/84096f02e9ecb1dd596d3e05b56238485e4ba051/test/e2e/framework/framework.go#L184-L168
+	f.numExtraCNodeIPs = 0
+	f.numExtraUEIPs = 0
 	d, err := ioutil.TempDir("", "upgtest")
 	ExpectNoError(err)
 	f.VPPCfg.BaseDir = d
@@ -90,7 +95,8 @@ func (f *Framework) BeforeEach() {
 	}
 	ExpectNoError(f.VPP.StartCapture())
 	ExpectNoError(f.VPP.StartVPP())
-	ExpectNoError(f.VPP.Ctl("show version"))
+	_, err = f.VPP.Ctl("show version")
+	ExpectNoError(err)
 	ExpectNoError(f.VPP.Configure())
 	ExpectNoError(f.VPP.VerifyVPPAlive())
 
@@ -110,6 +116,7 @@ func (f *Framework) AfterEach() {
 			f.VPP.TearDown()
 			f.VPP = nil
 		}()
+
 		if f.PFCP != nil {
 			// FIXME: we need to make sure all PFCP packets are recorded
 			time.Sleep(time.Second)
@@ -126,7 +133,8 @@ func (f *Framework) AfterEach() {
 	if f.VPPCfg != nil && f.VPPCfg.BaseDir != "" {
 		if artifactsDir != "" && ginkgo.CurrentGinkgoTestDescription().Failed {
 			ExpectNoError(os.MkdirAll(artifactsDir, os.ModePerm))
-			targetDir := filepath.Join(artifactsDir, toFilename(ginkgo.CurrentGinkgoTestDescription().TestText))
+			/// XXXXXX: use proper test desc
+			targetDir := filepath.Join(artifactsDir, toFilename(ginkgo.CurrentGinkgoTestDescription().FullTestText))
 			ExpectNoError(os.RemoveAll(targetDir))
 			// FIXME
 			ExpectNoError(exec.Command("mv", f.VPPCfg.BaseDir, targetDir).Run())
@@ -150,6 +158,37 @@ func (f *Framework) ServerIP() net.IP {
 	return f.VPPCfg.GetNamespaceAddress("sgi").IP
 }
 
+func (f *Framework) addIP(nsName string, n byte) net.IP {
+	f.numExtraCNodeIPs++
+	mainAddr := f.VPPCfg.GetNamespaceAddress(nsName)
+	ipNet := &net.IPNet{
+		Mask: mainAddr.Mask,
+	}
+	if ip4 := mainAddr.IP.To4(); ip4 != nil {
+		ipNet.IP = make(net.IP, net.IPv4len)
+		copy(ipNet.IP, ip4)
+		ipNet.IP[3] += f.numExtraCNodeIPs
+	} else {
+		ipNet.IP = make(net.IP, net.IPv6len)
+		copy(ipNet.IP, mainAddr.IP)
+		ipNet.IP[15] += f.numExtraCNodeIPs
+	}
+	linkName := f.VPPCfg.GetNamespaceLinkName(nsName)
+	ginkgo.By(fmt.Sprintf("Adding %s IP in netns %s: %v", linkName, nsName, ipNet))
+	ExpectNoError(f.VPP.GetNS(nsName).AddAddress(linkName, ipNet))
+	return ipNet.IP
+}
+
+func (f *Framework) AddCNodeIP() net.IP {
+	f.numExtraCNodeIPs++
+	return f.addIP("cp", f.numExtraCNodeIPs)
+}
+
+func (f *Framework) AddUEIP() net.IP {
+	f.numExtraUEIPs++
+	return f.addIP("ue", f.numExtraUEIPs)
+}
+
 // SlowGTPU returns true if UPG runs in PGW mode, and userspace GTP-U
 // tunneling is being used, which may be not fast enough, causing some
 // packet drops on GRX<->UE path. In this case, only GRX pcaps should
@@ -158,7 +197,7 @@ func (f *Framework) SlowGTPU() bool {
 	return f.Mode == UPGModePGW && f.GTPU.cfg.gtpuTunnelType() == sgw.SGWGTPUTunnelTypeTun
 }
 
-func defaultPFCPConfig(vppCfg vpp.VPPConfig) pfcp.PFCPConfig {
+func DefaultPFCPConfig(vppCfg vpp.VPPConfig) pfcp.PFCPConfig {
 	return pfcp.PFCPConfig{
 		UNodeIP: vppCfg.GetVPPAddress("cp").IP,
 		CNodeIP: vppCfg.GetNamespaceAddress("cp").IP,

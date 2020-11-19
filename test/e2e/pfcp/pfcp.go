@@ -119,6 +119,11 @@ type pfcpTransitionKey struct {
 
 var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	{pfcpStateInitial, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, m message.Message) error {
+		if pc.cfg.IgnoreHeartbeatRequests {
+			// ignore heartbeat requests, so UPG will drop
+			// this association eventually
+			return nil
+		}
 		return pc.sendHeartbeatResponse(m.(*message.HeartbeatRequest))
 	},
 
@@ -128,6 +133,9 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	},
 
 	{pfcpStateAssociating, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, m message.Message) error {
+		if pc.cfg.IgnoreHeartbeatRequests {
+			return nil
+		}
 		return pc.sendHeartbeatResponse(m.(*message.HeartbeatRequest))
 	},
 
@@ -164,6 +172,9 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	},
 
 	{pfcpStateAssociated, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, m message.Message) error {
+		if pc.cfg.IgnoreHeartbeatRequests {
+			return nil
+		}
 		pc.setTimeout(pc.cfg.HeartbeatTimeout)
 		return pc.sendHeartbeatResponse(m.(*message.HeartbeatRequest))
 	},
@@ -201,6 +212,9 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	{pfcpStateReleasingAssociation, pfcpEventActStop}: pfcpIgnore,
 
 	{pfcpStateReleasingAssociation, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, m message.Message) error {
+		if pc.cfg.IgnoreHeartbeatRequests {
+			return nil
+		}
 		return pc.sendHeartbeatResponse(m.(*message.HeartbeatRequest))
 	},
 
@@ -223,6 +237,9 @@ type PFCPConfig struct {
 	NodeID           string
 	RequestTimeout   time.Duration
 	HeartbeatTimeout time.Duration
+	// IgnoreHeartbeatRequests makes PFCPConnection ignore incoming
+	// PFCP Heartbeat Requests, thus simulating a faulty CP.
+	IgnoreHeartbeatRequests bool
 }
 
 func (cfg *PFCPConfig) setDefaults() {
@@ -252,6 +269,7 @@ type PFCPConnection struct {
 	requestCh chan message.Message
 	log       *logrus.Entry
 	t         *tomb.Tomb
+	skipMsgs  int
 }
 
 type PFCPReport struct {
@@ -321,13 +339,13 @@ func (pc *PFCPConnection) event(event pfcpEvent, m message.Message) error {
 			pc.log.WithFields(logrus.Fields{
 				"oldState": oldState,
 				"event":    event,
-			}).Debug("PFCP state machine event w/o transition")
+			}).Trace("PFCP state machine event w/o transition")
 		} else {
 			pc.log.WithFields(logrus.Fields{
 				"oldState": oldState,
 				"event":    event,
 				"newState": pc.state,
-			}).Debug("PFCP state machine transition")
+			}).Trace("PFCP state machine transition")
 		}
 		pc.Unlock()
 		pc.wakeup()
@@ -380,7 +398,10 @@ LOOP:
 			case !ts.After(now):
 				pc.log.WithField("messageType", nextRetransmitMsg.MessageTypeName()).
 					Warn("retransmit")
-				pc.send(nextRetransmitMsg)
+				if err := pc.send(nextRetransmitMsg); err != nil {
+					pc.log.WithError(err).WithField("messageType", nextRetransmitMsg.MessageTypeName()).Error("retransmit failed")
+					pc.t.Kill(errors.Wrap(err, "retransmit failed"))
+				}
 				pc.rq.reschedule(nextRetransmitMsg, now)
 				continue
 			case retransmitTimer != nil:
@@ -420,7 +441,7 @@ LOOP:
 				"messageType": msg.MessageTypeName(),
 				"seq":         msg.Sequence(),
 				"SEID":        fmt.Sprintf("%016x", msg.SEID()),
-			}).Debug("receive")
+			}).Trace("receive")
 			if ev, ok := peerMessageToEvent(msg); ok {
 				err = pc.event(ev, msg)
 			} else {
@@ -547,6 +568,23 @@ func (pc *PFCPConnection) waitForSessionModification(ctx context.Context, seid S
 	}
 }
 
+func (pc *PFCPConnection) shouldSkipMessage() bool {
+	pc.Lock()
+	defer pc.Unlock()
+	if pc.skipMsgs > 0 {
+		pc.skipMsgs--
+		return true
+	}
+
+	return false
+}
+
+func (pc *PFCPConnection) SkipMessages(n int) {
+	pc.Lock()
+	defer pc.Unlock()
+	pc.skipMsgs = n
+}
+
 func (pc *PFCPConnection) dial() error {
 	var err error
 	pc.conn, err = pc.cfg.Namespace.DialUDP(
@@ -554,6 +592,7 @@ func (pc *PFCPConnection) dial() error {
 		// need for context here atm
 		context.TODO(),
 		&net.UDPAddr{
+			IP:   pc.cfg.CNodeIP,
 			Port: PFCP_PORT,
 		},
 		&net.UDPAddr{
@@ -564,22 +603,29 @@ func (pc *PFCPConnection) dial() error {
 		return errors.Wrapf(err, "Dial UDP %s", pc.cfg.UNodeIP)
 	}
 
+	conn := pc.conn
+	listenErrCh := pc.listenErrCh
+	messageCh := pc.messageCh
 	go func() {
 		buf := make([]byte, PFCP_BUF_SIZE)
 		for {
-			n, addr, err := pc.conn.ReadFrom(buf)
+			n, addr, err := conn.ReadFrom(buf)
 			if err != nil {
-				pc.listenErrCh <- errors.Wrap(err, "ReadFrom")
+				listenErrCh <- errors.Wrap(err, "ReadFrom")
 				break
 			}
 
 			msg, err := message.Parse(buf[:n])
 			if err != nil {
-				pc.listenErrCh <- errors.Wrapf(err, "error decoding message from %s", addr)
+				listenErrCh <- errors.Wrapf(err, "error decoding message from %s", addr)
 				break
 			}
 
-			pc.messageCh <- msg
+			if !pc.shouldSkipMessage() {
+				messageCh <- msg
+			} else {
+				pc.log.WithField("messageType", msg.MessageTypeName()).Info("forced skip")
+			}
 		}
 	}()
 
@@ -607,7 +653,7 @@ func (pc *PFCPConnection) send(m message.Message) error {
 		"messageType": m.MessageTypeName(),
 		"seq":         m.Sequence(),
 		"SEID":        fmt.Sprintf("%016x", m.SEID()),
-	}).Debug("send")
+	}).Trace("send")
 	bs := make([]byte, m.MarshalLen())
 	if err := m.MarshalTo(bs); err != nil {
 		return errors.Wrap(err, "marshal pfcp message")
@@ -709,7 +755,7 @@ func (pc *PFCPConnection) Start(ctx context.Context) error {
 	pc.state = pfcpStateInitial
 	pc.sessions = make(map[SEID]*pfcpSession)
 
-	pc.wakeupCh = make(chan struct{}, 10000)
+	pc.wakeupCh = make(chan struct{}, 100000)
 	pc.t = &tomb.Tomb{}
 	pc.t.Go(pc.run)
 
@@ -823,14 +869,14 @@ func (s *pfcpSession) event(event sessionEvent, m message.Message) error {
 				"SEID":     fmt.Sprintf("%016x", s.seid),
 				"oldState": oldState,
 				"event":    event,
-			}).Debug("session state machine event w/o transition")
+			}).Trace("session state machine event w/o transition")
 		} else {
 			s.pc.log.WithFields(logrus.Fields{
 				"SEID":     fmt.Sprintf("%016x", s.seid),
 				"oldState": oldState,
 				"event":    event,
 				"newState": s.state,
-			}).Debug("session state machine transition")
+			}).Trace("session state machine transition")
 		}
 	}()
 	tk := sessionTransitionKey{state: s.state, event: event}
@@ -924,7 +970,7 @@ func (s *pfcpSession) postMeasurement(m message.Message) error {
 			"messageType": m.MessageTypeName(),
 			"urrID":       urrid,
 			"report":      r.String(),
-		}).Debug("posting measurement")
+		}).Trace("posting measurement")
 		ms.Reports[urrid] = r
 	}
 	s.modCh <- &ms

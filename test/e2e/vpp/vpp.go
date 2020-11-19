@@ -104,7 +104,6 @@ type VPPInstance struct {
 	cmd        *exec.Cmd
 	vppNS      *network.NetNS
 	namespaces map[string]*network.NetNS
-	cancel     context.CancelFunc
 	Captures   map[string]*network.Capture
 	log        *logrus.Entry
 	pipeCopyWG sync.WaitGroup
@@ -139,7 +138,7 @@ func (vi *VPPInstance) GetNS(name string) *network.NetNS {
 }
 
 func (vi *VPPInstance) VerifyVPPAlive() error {
-	if err := vi.Ctl("show version"); err != nil {
+	if _, err := vi.Ctl("show version"); err != nil {
 		return errors.Wrap(err, "VPP is not alive: error executing 'show upf version'")
 	}
 
@@ -289,13 +288,12 @@ func (vi *VPPInstance) run(sigchldCh chan os.Signal, conev chan core.ConnectionE
 			if err != nil {
 				vi.log.WithError(err).Warn("Wait4 error")
 			} else {
+				vi.pipeCopyWG.Wait()
 				vi.log.Info("VPP process has exited")
 			}
-			vi.cancel()
 			return nil
 		case e := <-conev:
 			if e.State == core.Failed {
-				vi.cancel()
 				return errors.New("VPP API connection failed")
 			}
 		}
@@ -348,18 +346,18 @@ func (vi *VPPInstance) TearDown() {
 	vi.closeNamespaces()
 }
 
-func (vi *VPPInstance) Ctl(format string, args ...interface{}) error {
+func (vi *VPPInstance) Ctl(format string, args ...interface{}) (string, error) {
 	command := fmt.Sprintf(format, args...)
 	vi.log.Debugf(">>> %s", command)
 	req := &vpe.CliInband{Cmd: command}
 	reply := new(vpe.CliInbandReply)
 	if err := vi.apiChannel.SendRequest(req).ReceiveReply(reply); err != nil {
-		return errors.Wrap(err, "binapi request failed:")
+		return "", errors.Wrap(err, "binapi request failed:")
 	}
 	if reply.Reply != "" {
 		vi.log.Debugf("<<< %s", reply.Reply)
 	}
-	return nil
+	return reply.Reply, nil
 }
 
 func (vi *VPPInstance) SetupNamespaces() error {
@@ -457,7 +455,7 @@ func (vi *VPPInstance) runCmds(cmds ...string) error {
 			cmd = cmd[1:]
 			canFail = true
 		}
-		if err := vi.Ctl("%s", cmd); err != nil {
+		if _, err := vi.Ctl("%s", cmd); err != nil {
 			if canFail {
 				vi.log.WithField("cmd", cmd).WithError(err).Warn("command failed")
 			} else {
