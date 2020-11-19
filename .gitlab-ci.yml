@@ -101,7 +101,7 @@ build:debug:
   - export LC_ALL=C.UTF-8
   - export LANG=C.UTF-8
   - |
-    if ! make -C vpp -j8 ${TEST_TARGET} TEST=test_upf V=1; then
+    if ! make -C vpp -j8 ${TEST_TARGET} TEST=test_upf V=1 EXTERN_TESTS=../../upf/test; then
       tar -C /tmp -cvzf test-out/vpp-test.tar.gz . || true
       ls -l test-out/
       exit 1
