@@ -253,6 +253,7 @@ func (cfg *PFCPConfig) setDefaults() {
 
 type PFCPConnection struct {
 	sync.Mutex
+	stateCond   *sync.Cond
 	cfg         PFCPConfig
 	conn        *net.UDPConn
 	seq         uint32
@@ -262,7 +263,6 @@ type PFCPConnection struct {
 	rq          *requestQueue
 	listenErrCh chan error
 	done        bool
-	wakeupCh    chan struct{}
 	sessions    map[SEID]*pfcpSession
 	// TODO: use a single event channel instead of these 3
 	messageCh chan message.Message
@@ -304,10 +304,12 @@ type PFCPMeasurement struct {
 
 func NewPFCPConnection(cfg PFCPConfig) *PFCPConnection {
 	cfg.setDefaults()
-	return &PFCPConnection{
+	pc := &PFCPConnection{
 		cfg: cfg,
 		log: logrus.WithField("NodeID", cfg.NodeID),
 	}
+	pc.stateCond = sync.NewCond(&pc.Mutex)
+	return pc
 }
 
 func (pc *PFCPConnection) setState(newState pfcpState) {
@@ -321,14 +323,6 @@ func (pc *PFCPConnection) setTimeout(d time.Duration) {
 	// create a new timer so there's no need to drain its channel
 	// before Reset()
 	pc.timer = time.NewTimer(d)
-}
-
-func (pc *PFCPConnection) wakeup() {
-	select {
-	case pc.wakeupCh <- struct{}{}:
-	default:
-		panic("wakeup channel full")
-	}
 }
 
 func (pc *PFCPConnection) event(event pfcpEvent, m message.Message) error {
@@ -347,8 +341,8 @@ func (pc *PFCPConnection) event(event pfcpEvent, m message.Message) error {
 				"newState": pc.state,
 			}).Trace("PFCP state machine transition")
 		}
+		pc.stateCond.Broadcast()
 		pc.Unlock()
-		pc.wakeup()
 	}()
 	tk := pfcpTransitionKey{state: pc.state, event: event}
 	tf, found := pfcpTransitions[tk]
@@ -469,17 +463,32 @@ func (pc *PFCPConnection) notifyDone() {
 	pc.done = true
 }
 
-func (pc *PFCPConnection) inState(state pfcpState) bool {
-	pc.Lock()
-	defer pc.Unlock()
-	return pc.state == state
-}
-
 func (pc *PFCPConnection) waitForState(ctx context.Context, state pfcpState, timeout time.Duration) error {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
-	for !pc.inState(state) {
+	done := false
+	doneCh := make(chan struct{})
+	go func() {
+		pc.Lock()
+		defer func() {
+			pc.Unlock()
+			close(doneCh)
+		}()
+
+		for pc.state != state && !done {
+			pc.stateCond.Wait()
+		}
+	}()
+
+	defer func() {
+		pc.Lock()
+		defer pc.Unlock()
+		done = true
+		pc.stateCond.Broadcast()
+	}()
+
+	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -492,16 +501,13 @@ func (pc *PFCPConnection) waitForState(ctx context.Context, state pfcpState, tim
 			} else {
 				return errors.New("PFCPConnection stopped prematurely (?)")
 			}
-		case <-pc.wakeupCh:
+		case <-doneCh:
+			return nil
 		}
 	}
-
-	return nil
 }
 
 func (pc *PFCPConnection) sessionInState(seid SEID, state sessionState) bool {
-	pc.Lock()
-	defer pc.Unlock()
 	s, found := pc.sessions[seid]
 	if !found {
 		return false
@@ -513,7 +519,28 @@ func (pc *PFCPConnection) waitForSessionState(ctx context.Context, seid SEID, st
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
-	for !pc.sessionInState(seid, state) {
+	done := false
+	doneCh := make(chan struct{})
+	go func() {
+		pc.Lock()
+		defer func() {
+			pc.Unlock()
+			close(doneCh)
+		}()
+
+		for !pc.sessionInState(seid, state) && !done {
+			pc.stateCond.Wait()
+		}
+	}()
+
+	defer func() {
+		pc.Lock()
+		defer pc.Unlock()
+		done = true
+		pc.stateCond.Broadcast()
+	}()
+
+	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -526,11 +553,10 @@ func (pc *PFCPConnection) waitForSessionState(ctx context.Context, seid SEID, st
 			} else {
 				return errors.New("PFCPConnection stopped prematurely (?)")
 			}
-		case <-pc.wakeupCh:
+		case <-doneCh:
+			return nil
 		}
 	}
-
-	return nil
 }
 
 func (pc *PFCPConnection) getSessionModCh(seid SEID) chan *PFCPMeasurement {
@@ -755,7 +781,6 @@ func (pc *PFCPConnection) Start(ctx context.Context) error {
 	pc.state = pfcpStateInitial
 	pc.sessions = make(map[SEID]*pfcpSession)
 
-	pc.wakeupCh = make(chan struct{}, 100000)
 	pc.t = &tomb.Tomb{}
 	pc.t.Go(pc.run)
 
