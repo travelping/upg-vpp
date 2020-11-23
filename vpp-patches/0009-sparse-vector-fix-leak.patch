@@ -1,0 +1,40 @@
+From aa44336575dcf97bb9ce8277b045b96cafd67c3d Mon Sep 17 00:00:00 2001
+From: Sergey Matov <sergey.matov@travelping.com>
+Date: Mon, 23 Nov 2020 21:35:28 +0400
+Subject: [PATCH] vppinfra: Refactor sparse_vec_free
+
+Freeing of sparse vector does not flush header's specific
+entities. This may result to a leak.
+This commit improves vec_free logic for sparsed
+vector cleanup.
+
+Type: improvement
+
+Change-Id: Ied161a4408447d57cade5266cad4e1660e967a88
+Signed-off-by: Sergey Matov <sergey.matov@travelping.com>
+---
+
+diff --git a/src/vppinfra/sparse_vec.h b/src/vppinfra/sparse_vec.h
+index 54a92ce..7fd1aff 100644
+--- a/src/vppinfra/sparse_vec.h
++++ b/src/vppinfra/sparse_vec.h
+@@ -223,7 +223,18 @@
+   *i1_return = is_member1 + d1;
+ }
+ 
+-#define sparse_vec_free(v) vec_free(v)
++always_inline void
++sparse_vec_free (void *v) {
++  sparse_vec_header_t *h;
++
++  if (!v)
++    return;
++
++  h = sparse_vec_header (v);
++  vec_free (h->is_member_bitmap);
++  vec_free (h->member_counts);
++  vec_free_h (v, sizeof (h[0]));
++}
+ 
+ #define sparse_vec_elt_at_index(v,i) \
+   vec_elt_at_index ((v), sparse_vec_index ((v), (i)))
