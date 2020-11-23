@@ -1050,6 +1050,7 @@ pfcp_free_session (upf_session_t * sx)
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)
     pfcp_free_rules (sx, i);
 
+  vec_free_h (sx->teid_by_chid, sizeof (sparse_vec_header_t));
   clib_spinlock_free (&sx->lock);
   pool_put (gtm->sessions, sx);
 
