@@ -51,7 +51,7 @@ esac
 
 cd test/e2e
 
-ginkgo_args=(-trace -progress -reportPassed)
+ginkgo_args=(-trace -progress -reportPassed -debug)
 
 if [[ ${E2E_VERBOSE} ]]; then
   ginkgo_args+=(-v)
