@@ -2653,6 +2653,8 @@ out_send_resp:
   upf_pfcp_send_response (req, sess->cp_seid,
 			  PFCP_SESSION_ESTABLISHMENT_RESPONSE, &resp.grp);
 
+  vec_free (resp.created_pdr);
+
   if (r != 0)
     {
       if (pfcp_disable_session (sess, false) != 0)
@@ -2852,6 +2854,7 @@ out_send_resp:
   upf_pfcp_send_response (req, cp_seid, PFCP_SESSION_MODIFICATION_RESPONSE,
 			  &resp.grp);
 
+  vec_free (resp.created_pdr);
   return r;
 }
 
