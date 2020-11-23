@@ -3,6 +3,7 @@ package exttest
 import (
 	"context"
 	"fmt"
+	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -19,6 +20,7 @@ import (
 	"github.com/travelping/upg-vpp/test/e2e/network"
 	"github.com/travelping/upg-vpp/test/e2e/pfcp"
 	"github.com/travelping/upg-vpp/test/e2e/traffic"
+	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
 const (
@@ -64,7 +66,7 @@ func describeMeasurement(f *framework.Framework) {
 
 		verify := func(cfg traffic.TrafficConfig) {
 			runTrafficGen(f, cfg, &traffic.PreciseTrafficRec{})
-			ms = deleteSession(f, seid)
+			ms = deleteSession(f, seid, true)
 		}
 
 		sessionContext("[no proxy]", framework.SessionConfig{}, func() {
@@ -103,12 +105,12 @@ func describeMeasurement(f *framework.Framework) {
 
 			ginkgo.It("can handle a big number of HTTP connections at once", func() {
 				verifyConnFlood(f, false)
-				deleteSession(f, seid)
+				deleteSession(f, seid, true)
 			})
 
 			ginkgo.It("can handle a big number of HTTP connections at once [netem]", func() {
 				verifyConnFlood(f, true)
-				deleteSession(f, seid)
+				deleteSession(f, seid, true)
 			})
 
 			ginkgo.It("can survive session creation-deletion loop", func() {
@@ -169,7 +171,7 @@ func describePDRReplacement(f *framework.Framework) {
 		verify := func(cfg traffic.TrafficConfig, rec traffic.TrafficRec, toggleAppPDR bool) {
 			tgDone := startTrafficGen(f, cfg, rec)
 			pdrReplacementLoop(toggleAppPDR, tgDone)
-			ms = deleteSession(f, seid)
+			ms = deleteSession(f, seid, true)
 			framework.ExpectNoError(rec.Verify())
 		}
 
@@ -357,6 +359,53 @@ var _ = ginkgo.Describe("PFCP Association Release", func() {
 	})
 })
 
+var _ = ginkgo.Describe("PFCP Multiple Sessions", func() {
+	// FIXME: should be made compatible with PGW
+	// FIXME: crashes UPG in UPGIPModeV6
+	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+	ginkgo.It("should not leak memory", func() {
+		ginkgo.By("starting memory trace")
+		_, err := f.VPP.Ctl("memory-trace main-heap on")
+		framework.ExpectNoError(err)
+		var ueIPs []net.IP
+		for i := 0; i < 100; i++ {
+			ueIPs = append(ueIPs, f.AddUEIP())
+		}
+		for i := 0; i < 100; i++ {
+			ginkgo.By("creating 100 sessions")
+			var seids []pfcp.SEID
+			for j := 0; j < 100; j++ {
+				sessionCfg := &framework.SessionConfig{
+					IdBase: 1,
+					// TODO: using same UE IP multiple times crashes UPG
+					// (should be an error instead)
+					UEIP: ueIPs[j],
+					Mode: f.Mode,
+				}
+				seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+				framework.ExpectNoError(err)
+				seids = append(seids, seid)
+			}
+
+			ginkgo.By("deleting 100 sessions")
+			for _, seid := range seids {
+				deleteSession(f, seid, false)
+			}
+		}
+
+		ginkgo.By("Waiting 10 seconds for the queues to be emptied")
+		time.Sleep(10 * time.Second)
+
+		memTraceOut, err := f.VPP.Ctl("show memory main-heap")
+		framework.ExpectNoError(err)
+
+		parsed, err := vpp.ParseMemoryTrace(memTraceOut)
+		framework.ExpectNoError(err)
+		gomega.Expect(parsed.FindSuspectedLeak("pfcp_create_session", 2000)).To(gomega.BeFalse(),
+			"session-related memory leak detected")
+	})
+})
+
 func describeMTU(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 	ginkgo.Describe("[MTU corner cases]", func() {
 		var seid pfcp.SEID
@@ -374,7 +423,7 @@ func describeMTU(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 		})
 
 		ginkgo.JustAfterEach(func() {
-			deleteSession(f, seid)
+			deleteSession(f, seid, true)
 		})
 
 		ginkgo.It("passes UDP traffic [8000 byte datagrams]", func() {
@@ -427,9 +476,11 @@ func startMeasurementSession(f *framework.Framework, cfg *framework.SessionConfi
 	return seid
 }
 
-func deleteSession(f *framework.Framework, seid pfcp.SEID) *pfcp.PFCPMeasurement {
-	f.VPP.Ctl("show upf session")
-	f.VPP.Ctl("show upf flows")
+func deleteSession(f *framework.Framework, seid pfcp.SEID, showInfo bool) *pfcp.PFCPMeasurement {
+	if showInfo {
+		f.VPP.Ctl("show upf session")
+		f.VPP.Ctl("show upf flows")
+	}
 
 	ms, err := f.PFCP.DeleteSession(f.Context, seid)
 	framework.ExpectNoError(err)
@@ -528,7 +579,7 @@ LOOP:
 			if *seid == 0 {
 				*seid = startMeasurementSession(f, &framework.SessionConfig{})
 			} else {
-				deleteSession(f, *seid)
+				deleteSession(f, *seid, false)
 				*seid = 0
 			}
 		case <-f.Context.Done():
