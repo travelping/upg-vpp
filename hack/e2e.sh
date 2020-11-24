@@ -57,10 +57,6 @@ if [[ ${E2E_VERBOSE} ]]; then
   ginkgo_args+=(-v)
 fi
 
-if [[ ${E2E_VERBOSE} ]]; then
-  ginkgo_args+=(-v)
-fi
-
 if [[ ${E2E_PARALLEL} ]]; then
   ginkgo_args+=(-nodes "${E2E_PARALLEL_NODES}")
 fi
