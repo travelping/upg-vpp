@@ -2,11 +2,18 @@ package exttest
 
 import (
 	"context"
+	"fmt"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/gopacket/layers"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	"github.com/wmnsk/go-pfcp/ie"
 
 	"github.com/travelping/upg-vpp/test/e2e/framework"
 	"github.com/travelping/upg-vpp/test/e2e/network"
@@ -29,7 +36,7 @@ var _ = ginkgo.Describe("PGW", func() {
 })
 
 func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMode) {
-	ginkgo.Context(title, func() {
+	ginkgo.Describe(title, func() {
 		f := framework.NewDefaultFramework(mode, ipMode)
 		describeMeasurement(f)
 		describePDRReplacement(f)
@@ -41,7 +48,7 @@ func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMo
 }
 
 func describeMeasurement(f *framework.Framework) {
-	ginkgo.Context("session measurement", func() {
+	ginkgo.Describe("session measurement", func() {
 		var ms *pfcp.PFCPMeasurement
 		var seid pfcp.SEID
 
@@ -122,7 +129,7 @@ func describeMeasurement(f *framework.Framework) {
 }
 
 func describePDRReplacement(f *framework.Framework) {
-	ginkgo.Context("PDR replacement", func() {
+	ginkgo.Describe("PDR replacement", func() {
 		var ms *pfcp.PFCPMeasurement
 		var seid pfcp.SEID
 		var sessionCfg framework.SessionConfig
@@ -263,8 +270,95 @@ func describePDRReplacement(f *framework.Framework) {
 	})
 }
 
+var _ = ginkgo.Describe("PFCP Association Release", func() {
+	// TODO: test other modes (requires modifications)
+	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+	f.PFCPCfg.IgnoreHeartbeatRequests = true
+	ginkgo.It("should be handled properly upon heartbeat timeout", func() {
+		seids := []pfcp.SEID{
+			startMeasurementSession(f, &framework.SessionConfig{}),
+		}
+		var wg sync.WaitGroup
+		for i := 1; i <= 2; i++ {
+			time.Sleep(50 * time.Millisecond)
+			pfcpCfg := framework.DefaultPFCPConfig(*f.VPPCfg)
+			pfcpCfg.Namespace = f.VPP.GetNS("cp")
+			pfcpCfg.NodeID = fmt.Sprintf("node%d", i)
+			pfcpCfg.CNodeIP = f.AddCNodeIP()
+			// make UPG drop this association eventually
+			pfcpCfg.IgnoreHeartbeatRequests = true
+			pc := pfcp.NewPFCPConnection(pfcpCfg)
+			framework.ExpectNoError(pc.Start(f.Context))
+
+			sessionCfg := &framework.SessionConfig{
+				IdBase: 1,
+				// TODO: using same UE IP multiple times crashes UPG
+				// (should be an error instead)
+				UEIP: f.AddUEIP(),
+				Mode: f.Mode,
+			}
+			seid, err := pc.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					_, err := pc.ModifySession(f.VPP.Context(context.Background()), seid, ie.NewQueryURR(ie.NewURRID(1)))
+					if err != nil {
+						framework.Logf("ModifySession() failed (expected): %v", err)
+						pc.HardStop()
+						break
+					}
+				}
+			}()
+
+			seids = append(seids, seid)
+		}
+		verifyActiveSessions(f, seids)
+
+		listNodes := func() string {
+			var nodes []string
+			r, err := f.VPP.Ctl("show upf association")
+			framework.ExpectNoError(err)
+			for _, l := range strings.Split(r, "\n") {
+				if strings.HasPrefix(l, "Node: ") {
+					nodes = append(nodes, strings.TrimSpace(l[6:]))
+				}
+			}
+			sort.Strings(nodes)
+			return strings.Join(nodes, ",")
+		}
+
+		framework.ExpectEqual(listNodes(), "node1,node2,pfcpstub")
+
+		ginkgo.By("Waiting for the main PFCP association to drop while sending requests...")
+		stopAt := time.Now().Add(5 * time.Minute)
+		for time.Now().Before(stopAt) {
+			_, err := f.PFCP.ModifySession(f.VPP.Context(context.Background()), seids[0], ie.NewQueryURR(ie.NewURRID(1)))
+			if err != nil {
+				framework.Logf("ModifySession() failed (expected): %v", err)
+				f.PFCP.HardStop()
+				// don't try to stop the PFCPConnection normally
+				// in framework's AfterEach
+				f.PFCP = nil
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+
+		gomega.Eventually(listNodes, 2*time.Minute, 5*time.Second).Should(gomega.Equal("invalid,invalid,invalid"))
+
+		ginkgo.By("Waiting for the extra PFCP associations to drop")
+		wg.Wait()
+
+		ginkgo.By("Verifying that all of the active sessions are gone")
+		verifyActiveSessions(f, nil)
+	})
+})
+
 func describeMTU(mode framework.UPGMode, ipMode framework.UPGIPMode) {
-	ginkgo.Context("[MTU corner cases]", func() {
+	ginkgo.Describe("[MTU corner cases]", func() {
 		var seid pfcp.SEID
 
 		// TODO: framework should have Clone() method
@@ -539,4 +633,26 @@ func smallVolumeHTTPConfig(base *traffic.HTTPConfig) *traffic.HTTPConfig {
 	base.ChunkSize = 1000
 
 	return base
+}
+
+// "UP F-SEID: 0xb2f982ab509feeb7 (12896482680255803063) @ 10.0.0.2"
+var seidRx = regexp.MustCompile(`UP\s+F-SEID:\s+0x([0-9A-Fa-f]+)\s+`)
+
+func verifyActiveSessions(f *framework.Framework, expectedSEIDs []pfcp.SEID) {
+	// TODO: should be able to verify this via the API
+	var actualSEIDs []pfcp.SEID
+	out, err := f.VPP.Ctl("show upf session")
+	framework.ExpectNoError(err)
+	for _, m := range seidRx.FindAllStringSubmatch(out, -1) {
+		seid, err := strconv.ParseUint(m[1], 16, 64)
+		framework.ExpectNoError(err)
+		actualSEIDs = append(actualSEIDs, pfcp.SEID(seid))
+	}
+	sort.Slice(expectedSEIDs, func(i, j int) bool {
+		return expectedSEIDs[i] < expectedSEIDs[j]
+	})
+	sort.Slice(actualSEIDs, func(i, j int) bool {
+		return actualSEIDs[i] < actualSEIDs[j]
+	})
+	framework.ExpectEqual(actualSEIDs, expectedSEIDs, "active sessions")
 }

@@ -10,9 +10,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/travelping/upg-vpp/test/e2e/ns"
 	"github.com/vishvananda/netlink"
 	nns "github.com/vishvananda/netns"
-	"github.com/travelping/upg-vpp/test/e2e/ns"
 )
 
 var (
@@ -69,7 +69,7 @@ func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
 		}
 
 		if err := netlink.AddrAdd(veth, &netlink.Addr{IPNet: address}); err != nil {
-			return errors.Errorf("failed to set address for the bridge: %v", err)
+			return errors.Errorf("failed to set address for the veth: %v", err)
 		}
 
 		return nil
