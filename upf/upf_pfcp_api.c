@@ -677,7 +677,7 @@ process_teid_generation (upf_main_t * gtm, u8 chid, u32 flags,
 static int
 handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
 	       upf_pdr_t * process_pdr, pfcp_created_pdr_t ** created_pdr_vec,
-	       upf_upip_res_t * res, struct pfcp_group *grp, u8 create)
+	       upf_upip_res_t * res, u8 create)
 {
   pfcp_created_pdr_t *created_pdr;
   bool chosen = false;
@@ -728,7 +728,6 @@ handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
 	{
 	  vec_add2 (*created_pdr_vec, created_pdr, 1);
 	  memset (created_pdr, 0, sizeof (*created_pdr));
-	  SET_BIT (grp->fields, SESSION_ESTABLISHMENT_RESPONSE_CREATED_PDR);
 	  SET_BIT (created_pdr->grp.fields, CREATED_PDR_PDR_ID);
 	  SET_BIT (created_pdr->grp.fields, CREATED_PDR_F_TEID);
 	  created_pdr->pdr_id = process_pdr->id;
@@ -820,7 +819,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_F_TEID))
       {
 	if (handle_f_teid
-	    (sx, gtm, &pdr->pdi, create, created_pdr_vec, res, grp, 1) != 0)
+	    (sx, gtm, &pdr->pdi, create, created_pdr_vec, res, 1) != 0)
 	  {
 	    r = -1;
 	    upf_debug ("create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
@@ -1025,8 +1024,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_F_TEID))
       {
-	if (handle_f_teid
-	    (sx, gtm, &pdr->pdi, update, NULL, res, grp, 0) != 0)
+	if (handle_f_teid (sx, gtm, &pdr->pdi, update, NULL, res, 0) != 0)
 	  {
 	    r = -1;
 	    break;
@@ -2424,6 +2422,9 @@ handle_session_establishment_request (pfcp_msg_t * req,
 			  &resp.failed_rule_id)) != 0)
     goto out_send_resp;
 
+  if (vec_len (resp.created_pdr) > 0)
+    SET_BIT (resp.grp.fields, SESSION_ESTABLISHMENT_RESPONSE_CREATED_PDR);
+
   if ((r = handle_create_far (sess, msg->create_far, &resp.grp,
 			      SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
 			      &resp.failed_rule_id)) != 0)
@@ -2447,8 +2448,6 @@ out_send_resp:
 
   upf_pfcp_send_response (req, sess->cp_seid,
 			  PFCP_SESSION_ESTABLISHMENT_RESPONSE, &resp.grp);
-
-  vec_free (resp.created_pdr);
 
   if (r != 0)
     {
@@ -2536,6 +2535,9 @@ handle_session_modification_request (pfcp_msg_t * req,
 			      SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
 			      &resp.failed_rule_id)) != 0)
 	goto out_send_resp;
+
+      if (vec_len (resp.created_pdr) > 0)
+	SET_BIT (resp.grp.fields, SESSION_MODIFICATION_RESPONSE_CREATED_PDR);
 
       if ((r = handle_update_pdr (sess, msg->update_pdr, &resp.grp,
 				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
@@ -2649,7 +2651,6 @@ out_send_resp:
   upf_pfcp_send_response (req, cp_seid, PFCP_SESSION_MODIFICATION_RESPONSE,
 			  &resp.grp);
 
-  vec_free (resp.created_pdr);
   return r;
 }
 
