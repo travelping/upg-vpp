@@ -702,6 +702,9 @@ handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
 
       if (!chosen)
 	{
+	  if (!create)
+	    return -1;
+
 	  teid = process_teid_generation (gtm, pdi->f_teid.choose_id,
 					  pdi->f_teid.flags, res, sx);
 	  if (!teid)
@@ -732,7 +735,9 @@ handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
 	  SET_BIT (created_pdr->grp.fields, CREATED_PDR_F_TEID);
 	  created_pdr->pdr_id = process_pdr->id;
 	  created_pdr->f_teid = process_pdr->pdi.teid;
+
 	}
+
     }
   else
     {
@@ -1027,6 +1032,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	if (handle_f_teid (sx, gtm, &pdr->pdi, update, NULL, res, 0) != 0)
 	  {
 	    r = -1;
+	    upf_debug ("create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
+		       pdr->pdr_id);
 	    break;
 	  }
       }
