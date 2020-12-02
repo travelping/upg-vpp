@@ -771,7 +771,6 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 
   rules = pfcp_get_rules (sx, PFCP_PENDING);
   vec_alloc (rules->pdr, vec_len (create_pdr));
-  vec_alloc (*created_pdr_vec, vec_len (create_pdr));
 
   vec_foreach (pdr, create_pdr)
   {
