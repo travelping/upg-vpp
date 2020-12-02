@@ -22,6 +22,7 @@
 #include <vppinfra/clib.h>
 #include <vppinfra/mem.h>
 #include <vppinfra/pool.h>
+#include <vppinfra/sparse_vec.h>
 #include <vnet/ip/ip.h>
 #include <vnet/ip/format.h>
 #include <vnet/ip/ip6_hop_by_hop.h>
@@ -41,6 +42,7 @@
 #include "upf_pfcp.h"
 #include "upf_pfcp_api.h"
 #include "upf_pfcp_server.h"
+#include "upf_ipfilter.h"
 
 #if CLIB_DEBUG > 2
 #define upf_debug clib_warning
@@ -62,8 +64,8 @@ static void pfcp_add_del_v4_tdf (const void *tdf, void *si, int is_add);
 static void pfcp_add_del_v6_tdf (const void *tdf, void *si, int is_add);
 u8 *format_upf_acl (u8 * s, va_list * args);
 
-#define vec_bsearch(k, v, compar)				\
-	bsearch((k), (v), vec_len((v)), sizeof((v)[0]), compar)
+#define vec_bsearch(k, v, compar)                               \
+        bsearch((k), (v), vec_len((v)), sizeof((v)[0]), compar)
 
 static u8 *
 format_upf_device_name (u8 * s, va_list * args)
@@ -73,8 +75,8 @@ format_upf_device_name (u8 * s, va_list * args)
   upf_nwi_t *nwi;
 
   nwi = pool_elt_at_index (gtm->nwis, i);
-
   s = format (s, "upf-nwi-%U", format_network_instance, nwi->name);
+
   return s;
 }
 
@@ -388,6 +390,9 @@ pfcp_new_association (session_handle_t session_handle,
       break;
     }
 
+  vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
+				 vlib_get_thread_index (), 0, 1);
+
   return n;
 }
 
@@ -438,10 +443,14 @@ pfcp_release_association (upf_node_assoc_t * n)
       continue;
     hash_unset (psm->request_q, msg->seq_no);
     mhash_unset (&psm->response_q, msg->request_key, NULL);
-    upf_pfcp_server_stop_msg_timer (msg);
+    upf_pfcp_server_stop_timer (msg->timer);
     pfcp_msg_pool_put (psm, msg);
   }));
   /* *INDENT-ON* */
+
+  vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
+				 vlib_get_thread_index (), 0, 1);
+
 }
 
 static void
@@ -541,7 +550,15 @@ pfcp_create_session (upf_node_assoc_t * assoc,
   node_assoc_attach_session (assoc, sx);
   hash_set (gtm->session_by_id, cp_seid, sx - gtm->sessions);
 
+  /*Init TEID by choose_id hash lookup table */
+  sx->teid_by_chid =
+    sparse_vec_new ( /*elt bytes */ sizeof (u32), /*bits in index */ 8);
+
   vlib_worker_thread_barrier_release (vm);
+
+  vlib_increment_simple_counter (&gtm->upf_simple_counters
+				 [UPF_SESSIONS_COUNTER],
+				 vlib_get_thread_index (), 0, 1);
 
   return sx;
 }
@@ -740,7 +757,6 @@ pfcp_make_pending_pdr (upf_session_t * sx)
       {
 	upf_pdr_t *pdr = vec_elt_at_index (pending->pdr, i);
 
-	pdr->pdi.adr.db_id = upf_adf_get_adr_db (pdr->pdi.adr.application_id);
 	pdr->pdi.acl = vec_dup (vec_elt (active->pdr, i).pdi.acl);
 	pdr->urr_ids = vec_dup (vec_elt (active->pdr, i).urr_ids);
 	pdr->qer_ids = vec_dup (vec_elt (active->pdr, i).qer_ids);
@@ -1024,12 +1040,16 @@ pfcp_disable_session (upf_session_t * sx, int drop_msgs)
 
 	hash_unset (psm->request_q, msg->seq_no);
 	mhash_unset (&psm->response_q, msg->request_key, NULL);
-	upf_pfcp_server_stop_msg_timer (msg);
+	upf_pfcp_server_stop_timer (msg->timer);
 	pfcp_msg_pool_put (psm, msg);
       }));
       /* *INDENT-ON* */
 
     }
+
+  vlib_decrement_simple_counter (&gtm->upf_simple_counters
+				 [UPF_SESSIONS_COUNTER],
+				 vlib_get_thread_index (), 0, 1);
 
   return 0;
 }
@@ -1044,6 +1064,8 @@ pfcp_free_session (upf_session_t * sx)
 
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)
     pfcp_free_rules (sx, i);
+
+  sparse_vec_free (sx->teid_by_chid);
 
   clib_spinlock_free (&sx->lock);
   pool_put (gtm->sessions, sx);
@@ -2624,6 +2646,20 @@ format_pfcp_session (u8 * s, va_list * args)
 	      rules->inactivity_timer.period,
 	      vlib_time_now (gtm->vlib_main) - sx->last_ul_traffic,
 	      rules->inactivity_timer.handle);
+
+  if (gtm->pfcp_spec_version == 16)
+    {
+      u16 idx = 1;
+      s = format (s, "  TEID assignment per choose ID\n");
+      for (idx = 0; idx < 256 /* U8_MAX limits value of CHID */ ; idx++)
+	{
+	  u32 teid = *sparse_vec_elt_at_index (sx->teid_by_chid, idx);
+	  if (teid)
+	    s = format (s, "    %3u: %u (0x%08x)\n", idx, teid, teid);
+
+	  idx += 1;
+	}
+    }
 
   vec_foreach (pdr, rules->pdr)
   {

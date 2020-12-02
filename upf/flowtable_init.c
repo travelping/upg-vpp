@@ -20,6 +20,8 @@
 #include <vppinfra/types.h>
 #include <vppinfra/vec.h>
 
+#include "upf.h"
+
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -115,6 +117,7 @@ flowtable_init (vlib_main_t * vm)
   clib_error_t *error = 0;
   flowtable_main_t *fm = &flowtable_main;
   vlib_thread_main_t *tm = vlib_get_thread_main ();
+  upf_main_t *gtm = &upf_main;
 
   fm->vlib_main = vm;
 
@@ -128,6 +131,11 @@ flowtable_init (vlib_main_t * vm)
        i < FT_TIMEOUT_TYPE_MAX; i++)
     fm->timer_lifetime[i] = TIMER_DEFAULT_LIFETIME;
   fm->timer_max_lifetime = TIMER_MAX_LIFETIME;
+
+  /* Init flows counter per cpu */
+  vlib_validate_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
+				0);
+  vlib_zero_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER], 0);
 
   vec_validate (fm->per_cpu, tm->n_vlib_mains - 1);
   for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)

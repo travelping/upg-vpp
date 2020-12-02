@@ -285,6 +285,9 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 		flow_next (flow, FT_REVERSE) = FT_NEXT_CLASSIFY;
 		next = UPF_CLASSIFY_NEXT_PROCESS;
 	      }
+
+	    if (pdr->pdi.fields & F_PDI_APPLICATION_ID)
+	      flow->application_id = pdr->pdi.adr.application_id;
 	  }
 
 	upf_debug ("match PDR: %u, Proxy: %d, Redirect: %d\n",
@@ -318,18 +321,22 @@ upf_acl_classify_proxied (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
     if (upf_acl_classify_one
 	(vm, teid, flow, FT_REVERSE ^ flow->is_reverse, is_ip4, acl))
       {
+	upf_pdr_t *pdr;
+	pdr = vec_elt_at_index (active->pdr, acl->pdr_idx);
+
 	if (pdr_idx)
 	  *pdr_idx = acl->pdr_idx;
 	next = UPF_CLASSIFY_NEXT_FORWARD;
 
 	if (flow_pdr_id (flow, FT_REVERSE) == ~0)
 	  {
-	    upf_pdr_t *pdr;
 
 	    /* load the best matching ACL into the flow */
-	    pdr = vec_elt_at_index (active->pdr, acl->pdr_idx);
 	    flow_pdr_id (flow, FT_REVERSE) = pdr->id;
 	  }
+
+	if (pdr->pdi.fields & F_PDI_APPLICATION_ID)
+	  flow->application_id = pdr->pdi.adr.application_id;
 
 	upf_debug ("match PDR: %u, Proxy: %d, Redirect: %d\n",
 		   acl->pdr_idx, flow->is_l3_proxy, flow->is_redirect);
@@ -379,6 +386,9 @@ upf_acl_classify_return (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 	    flow_next (flow, FT_REVERSE) = FT_NEXT_PROCESS;
 	    next = UPF_CLASSIFY_NEXT_PROCESS;
 	  }
+
+	if (pdr->pdi.fields & F_PDI_APPLICATION_ID)
+	  flow->application_id = pdr->pdi.adr.application_id;
 
 	upf_debug ("match PDR: %u, Proxy: %d, Redirect: %d\n",
 		   acl->pdr_idx, flow->is_l3_proxy, flow->is_redirect);

@@ -32,6 +32,8 @@
 #include <vppinfra/types.h>
 #include <vppinfra/vec.h>
 #include <vppinfra/format.h>
+#include <vppinfra/random.h>
+#include <vppinfra/sparse_vec.h>
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/fib/ip6_fib.h>
 #include <vnet/ip/ip6_hop_by_hop.h>
@@ -41,6 +43,7 @@
 #include "upf_pfcp_server.h"
 #include "upf_pfcp_api.h"
 #include "upf_app_db.h"
+#include "upf_ipfilter.h"
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -142,222 +145,6 @@ upf_pfcp_handle_msg (pfcp_msg_t * msg)
   return -1;
 }
 
-/*************************************************************************/
-
-static uword
-unformat_ipfilter_address_port (unformat_input_t * i, va_list * args)
-{
-  acl_rule_t *acl = va_arg (*args, acl_rule_t *);
-  int field = va_arg (*args, int);
-  ipfilter_address_t *ip = &acl->address[field];
-  ipfilter_port_t *port = &acl->port[field];
-  int is_ip4;
-
-  ip->mask = ~0;
-  port->min = 0;
-  port->max = ~0;
-
-  if (unformat_check_input (i) == UNFORMAT_END_OF_INPUT)
-    return 0;
-
-  if (unformat (i, "any"))
-    {
-      *ip = ACL_ADDR_ANY;
-    }
-  else if (unformat (i, "assigned"))
-    {
-      *ip = ACL_ADDR_ASSIGNED;
-    }
-  else
-    if (unformat
-	(i, "%U", unformat_ip46_address, &ip->address, IP46_TYPE_ANY))
-    {
-      is_ip4 = ip46_address_is_ip4 (&ip->address);
-      acl->type = is_ip4 ? IPFILTER_IPV4 : IPFILTER_IPV6;
-      ip->mask = is_ip4 ? 32 : 128;
-
-      if (unformat_check_input (i) == UNFORMAT_END_OF_INPUT)
-	return 1;
-      if (unformat (i, "/%d", &ip->mask))
-	;
-    }
-  else
-    return 0;
-
-  if (unformat_check_input (i) == UNFORMAT_END_OF_INPUT)
-    return 1;
-  if (unformat (i, "%d-%d", &port->min, &port->max))
-    ;
-  else if (unformat (i, "%d", &port->min))
-    port->max = port->min;
-
-  return 1;
-}
-
-static uword
-unformat_ipfilter (unformat_input_t * i, acl_rule_t * acl)
-{
-  int step = 0;
-
-  acl->type = IPFILTER_WILDCARD;
-
-  /* action dir proto from src to dst [options] */
-  while (step < 5 && unformat_check_input (i) != UNFORMAT_END_OF_INPUT)
-    {
-      switch (step)
-	{
-	case 0:		/* action */
-	  if (unformat (i, "permit"))
-	    {
-	      acl->action = ACL_PERMIT;
-	    }
-	  else if (unformat (i, "deny"))
-	    {
-	      acl->action = ACL_DENY;
-	    }
-	  else
-	    return 0;
-
-	  break;
-
-	case 1:		/* dir */
-	  if (unformat (i, "in"))
-	    {
-	      acl->direction = ACL_IN;
-	    }
-	  else if (unformat (i, "out"))
-	    {
-	      acl->direction = ACL_OUT;
-	    }
-	  else
-	    return 0;
-
-	  break;
-
-	case 2:		/* proto */
-	  if (unformat (i, "ip"))
-	    {
-	      acl->proto = ~0;
-	    }
-	  else if (unformat (i, "%u", &acl->proto))
-	    ;
-	  else
-	    return 0;
-
-	  break;
-
-	case 3:		/* from src */
-	  if (unformat (i, "from %U", unformat_ipfilter_address_port,
-			acl, UPF_ACL_FIELD_SRC))
-	    ;
-	  else
-	    return 0;
-
-	  break;
-
-	case 4:
-	  if (unformat (i, "to %U", unformat_ipfilter_address_port,
-			acl, UPF_ACL_FIELD_DST))
-	    ;
-	  else
-	    return 0;
-
-	  break;
-
-	default:
-	  return 0;
-	}
-
-      step++;
-    }
-
-  return 1;
-}
-
-static u8 *
-format_ipfilter_address_port (u8 * s, va_list * args)
-{
-  acl_rule_t *acl = va_arg (*args, acl_rule_t *);
-  int field = va_arg (*args, int);
-  ipfilter_address_t *ip = &acl->address[field];
-  ipfilter_port_t *port = &acl->port[field];
-
-  if (acl_addr_is_any (ip))
-    {
-      s = format (s, "any");
-    }
-  else if (acl_addr_is_assigned (ip))
-    {
-      s = format (s, "assigned");
-    }
-  else
-    {
-      s = format (s, "%U", format_ip46_address, &ip->address, IP46_TYPE_ANY);
-      if (ip->mask != (ip46_address_is_ip4 (&ip->address) ? 32 : 128))
-	s = format (s, "/%u", ip->mask);
-    }
-
-  if (port->min != 0 || port->max != (u16) ~ 0)
-    {
-      s = format (s, " %d", port->min);
-      if (port->min != port->max)
-	s = format (s, "-%d", port->max);
-    }
-
-  return s;
-}
-
-u8 *
-format_ipfilter (u8 * s, va_list * args)
-{
-  acl_rule_t *acl = va_arg (*args, acl_rule_t *);
-
-  switch (acl->action)
-    {
-    case ACL_PERMIT:
-      s = format (s, "permit ");
-      break;
-
-    case ACL_DENY:
-      s = format (s, "deny ");
-      break;
-
-    default:
-      s = format (s, "action_%d ", acl->action);
-      break;
-    }
-
-  switch (acl->direction)
-    {
-    case ACL_IN:
-      s = format (s, "in ");
-      break;
-
-    case ACL_OUT:
-      s = format (s, "out ");
-      break;
-
-    default:
-      s = format (s, "direction_%d ", acl->direction);
-      break;
-    }
-
-  if (acl->proto == (u8) ~ 0)
-    s = format (s, "ip ");
-  else
-    s = format (s, "%d ", acl->proto);
-
-  s = format (s, "from %U ", format_ipfilter_address_port,
-	      acl, UPF_ACL_FIELD_SRC);
-  s =
-    format (s, "to %U ", format_ipfilter_address_port,
-	    acl, UPF_ACL_FIELD_DST);
-
-  return s;
-}
-
-/*************************************************************************/
-
 /* message helpers */
 
 static void
@@ -444,7 +231,7 @@ handle_heartbeat_response (pfcp_msg_t * req, pfcp_simple_response_t * msg)
   n = pool_elt_at_index (gtm->nodes, req->node);
 
   if (msg->response.recovery_time_stamp > n->recovery_time_stamp)
-    pfcp_release_association (n);
+    upf_pfcp_server_deferred_release_association (req->node);
   else if (msg->response.recovery_time_stamp < n->recovery_time_stamp)
     {
       /* 3GPP TS 23.007, Sect. 19A:
@@ -539,14 +326,18 @@ handle_association_setup_request (pfcp_msg_t * req,
 
   SET_BIT (resp.grp.fields, ASSOCIATION_SETUP_RESPONSE_UP_FUNCTION_FEATURES);
   resp.up_function_features |= F_UPFF_EMPU;
-  /* currently no optional features are supported */
-
-  build_user_plane_ip_resource_information
-    (&resp.user_plane_ip_resource_information);
-  if (vec_len (resp.user_plane_ip_resource_information) != 0)
-    SET_BIT (resp.grp.fields,
-	     ASSOCIATION_SETUP_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION);
-
+  if (gtm->pfcp_spec_version >= 16)
+    {
+      resp.up_function_features |= F_UPFF_FTUP;
+    }
+  else
+    {
+      build_user_plane_ip_resource_information
+	(&resp.user_plane_ip_resource_information);
+      if (vec_len (resp.user_plane_ip_resource_information) != 0)
+	SET_BIT (resp.grp.fields,
+		 ASSOCIATION_SETUP_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION);
+    }
   if (r == 0)
     {
       n->heartbeat_handle = upf_pfcp_server_start_timer
@@ -807,9 +598,165 @@ lookup_nwi (u8 * name)
   return pool_elt_at_index (gtm->nwis, p[0]);
 }
 
+static bool
+validate_teid (u32 teid)
+{
+  return ((teid != 0) && (teid != 0xffffffff));
+}
+
+static int
+teid_v4_lookup (upf_main_t * gtm, u32 teid, upf_upip_res_t * res)
+{
+  clib_bihash_kv_8_8_t kv, value;
+  gtpu4_tunnel_key_t key4;
+
+  key4.dst = res->ip4.as_u32;
+  key4.teid = teid;
+
+  kv.key = key4.as_u64;
+
+  if (PREDICT_FALSE
+      (clib_bihash_search_8_8 (&gtm->v4_tunnel_by_key, &kv, &value)))
+    return UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+
+  return 0;
+}
+
+static int
+teid_v6_lookup (upf_main_t * gtm, u32 teid, upf_upip_res_t * res)
+{
+  clib_bihash_kv_24_8_t kv, value;
+
+  kv.key[0] = res->ip6.as_u64[0];
+  kv.key[1] = res->ip6.as_u64[1];
+  kv.key[2] = teid;
+
+  if (PREDICT_FALSE
+      (clib_bihash_search_24_8 (&gtm->v6_tunnel_by_key, &kv, &value)))
+    return UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+
+  return 0;
+}
+
+static u32
+process_teid_generation (upf_main_t * gtm, u8 chid, u32 flags,
+			 upf_upip_res_t * res, upf_session_t * sx)
+{
+  u8 retry_cnt = 10;
+  u32 teid = 0;
+  bool ok = false;
+  do
+    {
+      teid = random_u32 (&gtm->rand_base) & ~res->mask;
+      if (!validate_teid (teid))
+	{
+	  retry_cnt--;
+	  continue;
+	}
+
+      gtm->rand_base = teid;
+
+      /* teid_v4/v6_lookup can be called even there is no ip4/ip6 address
+         present in a UPIP res. It will always return
+         UPF_GTPU_ERROR_NO_SUCH_TUNNEL for such cases
+       */
+      ok =
+	(!(flags & F_TEID_V4) || teid_v4_lookup (gtm, teid, res) != 0) &&
+	(!(flags & F_TEID_V6) || teid_v6_lookup (gtm, teid, res) != 0);
+
+      if (ok)
+	break;
+    }
+  while (retry_cnt > 0);
+
+  if (!ok)
+    /* can't generate unique for given UPIP resource */
+    return 0;
+
+  if ((flags & F_TEID_CHID))
+    {
+      u32 *n = sparse_vec_validate (sx->teid_by_chid, chid);
+      n[0] = teid;
+    }
+
+  return teid;
+}
+
+static int
+handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
+	       upf_pdr_t * process_pdr, pfcp_created_pdr_t ** created_pdr_vec,
+	       upf_upip_res_t * res, u8 create)
+{
+  pfcp_created_pdr_t *created_pdr;
+  bool chosen = false;
+  u32 teid = 0;
+
+  process_pdr->pdi.fields |= F_PDI_LOCAL_F_TEID;
+
+  // We only generate F_TEID if NWI is defined
+  if ((pdi->f_teid.flags & F_TEID_CH))
+    {
+      if (!res)
+	return -1;
+
+      if ((pdi->f_teid.flags & F_TEID_CHID))
+	{
+	  u8 chid = pdi->f_teid.choose_id;
+	  teid = sparse_vec_index (sx->teid_by_chid, chid);
+
+	  if (teid)
+	    chosen = true;
+	}
+
+      if (!chosen)
+	{
+	  teid = process_teid_generation (gtm, pdi->f_teid.choose_id,
+					  pdi->f_teid.flags, res, sx);
+	  if (!teid)
+	    return -1;
+	}
+
+      process_pdr->pdi.teid.teid = teid;
+
+      if ((!is_zero_ip4_address (&res->ip4))
+	  && (pdi->f_teid.flags & F_TEID_V4))
+	{
+	  process_pdr->pdi.teid.ip4 = res->ip4;
+	  process_pdr->pdi.teid.flags |= F_TEID_V4;
+	}
+
+      if ((!is_zero_ip6_address (&res->ip6))
+	  && (pdi->f_teid.flags & F_TEID_V6))
+	{
+	  process_pdr->pdi.teid.flags |= F_TEID_V6;
+	  process_pdr->pdi.teid.ip6 = res->ip6;
+	}
+
+      if (create)
+	{
+	  vec_add2 (*created_pdr_vec, created_pdr, 1);
+	  memset (created_pdr, 0, sizeof (*created_pdr));
+	  SET_BIT (created_pdr->grp.fields, CREATED_PDR_PDR_ID);
+	  SET_BIT (created_pdr->grp.fields, CREATED_PDR_F_TEID);
+	  created_pdr->pdr_id = process_pdr->id;
+	  created_pdr->f_teid = process_pdr->pdi.teid;
+	}
+    }
+  else
+    {
+      // CH == 0
+      process_pdr->pdi.teid = pdi->f_teid;
+    }
+
+  return 0;
+
+}
+
+
 static int
 handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 		   struct pfcp_group *grp,
+		   pfcp_created_pdr_t ** created_pdr_vec,
 		   int failed_rule_id_field,
 		   pfcp_failed_rule_id_t * failed_rule_id)
 {
@@ -827,10 +774,13 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 
   rules = pfcp_get_rules (sx, PFCP_PENDING);
   vec_alloc (rules->pdr, vec_len (create_pdr));
+  vec_alloc (*created_pdr_vec, vec_len (create_pdr));
 
   vec_foreach (pdr, create_pdr)
   {
+    upf_upip_res_t *res, *ip_res = NULL;
     upf_pdr_t *create;
+    upf_nwi_t *nwi = NULL;
 
     vec_add2 (rules->pdr, create, 1);
     memset (create, 0, sizeof (*create));
@@ -844,7 +794,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_NETWORK_INSTANCE))
       {
-	upf_nwi_t *nwi = lookup_nwi (pdr->pdi.network_instance);
+	nwi = lookup_nwi (pdr->pdi.network_instance);
 	if (!nwi)
 	  {
 	    upf_debug ("PDR: %d, PDI for unknown network instance\n",
@@ -861,11 +811,29 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	create->pdi.nwi_index = nwi - gtm->nwis;
       }
 
+    /* *INDENT-OFF* */
+    pool_foreach (ip_res, gtm->upip_res,
+    ({
+      if (ip_res->nwi_index == create->pdi.nwi_index)
+	{
+	  res = ip_res;
+          break;
+	}
+    }));
+    /* *INDENT-ON* */
+
     create->pdi.src_intf = pdr->pdi.source_interface;
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_F_TEID))
       {
-	create->pdi.fields |= F_PDI_LOCAL_F_TEID;
+	if (handle_f_teid
+	    (sx, gtm, &pdr->pdi, create, created_pdr_vec, res, 1) != 0)
+	  {
+	    r = -1;
+	    upf_debug ("create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
+		       pdr->pdr_id);
+	    break;
+	  }
 	/* TODO validate TEID and mask
 	   if (nwi->teid != (pdr->pdi.f_teid.teid & nwi->mask))
 	   {
@@ -876,7 +844,6 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	   break;
 	   }
 	 */
-	create->pdi.teid = pdr->pdi.f_teid;
       }
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_UE_IP_ADDRESS))
@@ -911,7 +878,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 				vec_len (sdf->flow));
 	  vec_add2 (create->pdi.acl, acl, 1);
 
-	  if (!unformat_ipfilter (&input, acl))
+	  if (!unformat (&input, "%U", unformat_ipfilter, acl))
 	    {
 	      unformat_free (&input);
 	      failed_rule_id->id = pdr->pdr_id;
@@ -929,6 +896,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
       {
 	upf_adf_app_t *app;
 	uword *p = NULL;
+	acl_rule_t *acl;
+
 	create->pdi.fields |= F_PDI_APPLICATION_ID;
 
 	p = hash_get_mem (gtm->upf_app_by_name, pdr->pdi.application_id);
@@ -946,8 +915,10 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	ASSERT (!pool_is_free_index (gtm->upf_apps, p[0]));
 	app = pool_elt_at_index (gtm->upf_apps, p[0]);
 	create->pdi.adr.application_id = p[0];
-	create->pdi.adr.db_id = upf_adf_get_adr_db (p[0]);
+	create->pdi.adr.db_id = upf_adf_get_adr_db (p[0], &acl);
 	create->pdi.adr.flags = app->flags;
+
+	vec_append (create->pdi.acl, acl);
 
 	upf_debug ("app: %v, ADR DB id %u", app->name, create->pdi.adr.db_id);
       }
@@ -1013,6 +984,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
   vec_foreach (pdr, update_pdr)
   {
     upf_pdr_t *update;
+    upf_upip_res_t *res, *ip_res = NULL;
+    upf_nwi_t *nwi = NULL;
 
     update = pfcp_get_pdr (sx, PFCP_PENDING, pdr->pdr_id);
     if (!update)
@@ -1028,7 +1001,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
       {
 	if (vec_len (pdr->pdi.network_instance) != 0)
 	  {
-	    upf_nwi_t *nwi = lookup_nwi (pdr->pdi.network_instance);
+	    nwi = lookup_nwi (pdr->pdi.network_instance);
 	    if (!nwi)
 	      {
 		upf_debug ("PDR: %d, PDI for unknown network instance\n",
@@ -1046,11 +1019,24 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
     update->precedence = pdr->precedence;
     update->pdi.src_intf = pdr->pdi.source_interface;
 
+    /* *INDENT-OFF* */
+    pool_foreach (ip_res, gtm->upip_res,
+    ({
+      if (ip_res->nwi_index == update->pdi.nwi_index)
+	{
+	  res = ip_res;
+          break;
+	}
+    }));
+    /* *INDENT-ON* */
+
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_F_TEID))
       {
-	update->pdi.fields |= F_PDI_LOCAL_F_TEID;
-	/* TODO validate TEID and mask */
-	update->pdi.teid = pdr->pdi.f_teid;
+	if (handle_f_teid (sx, gtm, &pdr->pdi, update, NULL, res, 0) != 0)
+	  {
+	    r = -1;
+	    break;
+	  }
       }
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_UE_IP_ADDRESS))
@@ -1087,7 +1073,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 				vec_len (sdf->flow));
 	  vec_add2 (update->pdi.acl, acl, 1);
 
-	  if (!unformat_ipfilter (&input, acl))
+	  if (!unformat (&input, "%U", unformat_ipfilter, acl))
 	    {
 	      unformat_free (&input);
 	      failed_rule_id->id = pdr->pdr_id;
@@ -1104,6 +1090,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
       {
 	upf_adf_app_t *app;
 	uword *p = NULL;
+	acl_rule_t *acl;
 
 	update->pdi.fields |= F_PDI_APPLICATION_ID;
 
@@ -1121,8 +1108,13 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	ASSERT (!pool_is_free_index (gtm->upf_apps, p[0]));
 	app = pool_elt_at_index (gtm->upf_apps, p[0]);
 	update->pdi.adr.application_id = p[0];
-	update->pdi.adr.db_id = upf_adf_get_adr_db (p[0]);
+	update->pdi.adr.db_id = upf_adf_get_adr_db (p[0], &acl);
 	update->pdi.adr.flags = app->flags;
+
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
+	  vec_reset_length (update->pdi.acl);
+
+	vec_append (update->pdi.acl, acl);
 
 	upf_debug ("app: %v, ADR DB id %u", app->name, update->pdi.adr.db_id);
       }
@@ -2437,10 +2429,14 @@ handle_session_establishment_request (pfcp_msg_t * req,
   resp.response.node_id.type = node_id.type;
   resp.response.node_id.ip = node_id.ip;
 
-  if ((r = handle_create_pdr (sess, msg->create_pdr, &resp.grp,
-			      SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
-			      &resp.failed_rule_id)) != 0)
+  if ((r =
+       handle_create_pdr (sess, msg->create_pdr, &resp.grp, &resp.created_pdr,
+			  SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
+			  &resp.failed_rule_id)) != 0)
     goto out_send_resp;
+
+  if (vec_len (resp.created_pdr) > 0)
+    SET_BIT (resp.grp.fields, SESSION_ESTABLISHMENT_RESPONSE_CREATED_PDR);
 
   if ((r = handle_create_far (sess, msg->create_far, &resp.grp,
 			      SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
@@ -2546,10 +2542,15 @@ handle_session_modification_request (pfcp_msg_t * req,
 	  pending->inactivity_timer.handle = ~0;
 	}
 
-      if ((r = handle_create_pdr (sess, msg->create_pdr, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r =
+	   handle_create_pdr (sess, msg->create_pdr, &resp.grp,
+			      &resp.created_pdr,
+			      SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
+			      &resp.failed_rule_id)) != 0)
 	goto out_send_resp;
+
+      if (vec_len (resp.created_pdr) > 0)
+	SET_BIT (resp.grp.fields, SESSION_MODIFICATION_RESPONSE_CREATED_PDR);
 
       if ((r = handle_update_pdr (sess, msg->update_pdr, &resp.grp,
 				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,

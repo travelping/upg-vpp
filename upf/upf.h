@@ -38,6 +38,7 @@
 #include <vnet/fib/fib_table.h>
 #include <vnet/policer/policer.h>
 #include <vnet/session/session_types.h>
+#include <vlib/vlib.h>
 
 #include "pfcp.h"
 #include "flowtable.h"
@@ -434,6 +435,14 @@ typedef struct
 #define URR_THRESHOLD_REACHED   BIT(1)
 #define URR_START_OF_TRAFFIC    BIT(2)
 
+typedef enum
+{
+  UPF_ASSOC_COUNTER = 0,
+  UPF_SESSIONS_COUNTER = 1,
+  UPF_FLOW_COUNTER = 2,
+  UPF_N_COUNTERS = 3,
+} upf_counters_type_t;
+
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */
 typedef struct
@@ -626,6 +635,9 @@ typedef struct
   /* DPO locks */
   u32 dpo_locks;
 
+  /* TEID table by choose_id */
+  u32 *teid_by_chid;
+
   f64 unix_time_start;
 
   u16 generation;
@@ -715,6 +727,7 @@ typedef struct
 {
   u32 id;			/* bit 31 == 1 indicates PFD from CP */
   regex_t regex;
+  acl_rule_t acl_rule;
 } upf_adr_t;
 
 typedef struct
@@ -799,6 +812,9 @@ typedef struct
   mhash_t node_index_by_ip;
   uword *node_index_by_fqdn;
 
+  /* upg-related counters */
+  vlib_simple_counter_main_t *upf_simple_counters;
+
 #if 0
   uword *vtep4;
   uword *vtep6;
@@ -821,6 +837,10 @@ typedef struct
   uword *upf_app_by_name;
   /* adf apps vector */
   upf_adf_app_t *upf_apps;
+
+  //TODO: Change to UPF flags?
+  u32 pfcp_spec_version;
+  u32 rand_base;
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;

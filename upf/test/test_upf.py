@@ -6,7 +6,7 @@ from random import getrandbits
 from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     IE_CreateFAR, IE_CreatePDR, IE_CreateURR, IE_DestinationInterface, \
     IE_DurationMeasurement, IE_EndTime, IE_EnterpriseSpecific, IE_FAR_Id, \
-    IE_ForwardingParameters, IE_FSEID, IE_MeasurementMethod, \
+    IE_ForwardingParameters, IE_FSEID, IE_MeasurementMethod, IE_CreatedPDR, \
     IE_NetworkInstance, IE_NodeId, IE_PDI, IE_PDR_Id, IE_Precedence, \
     IE_QueryURR, IE_RecoveryTimeStamp, IE_RedirectInformation, IE_ReportType, \
     IE_ReportingTriggers, IE_SDF_Filter, IE_SourceInterface, IE_StartTime, \
@@ -64,6 +64,7 @@ class IPv4Mixin(object):
     non_app_rule_ip_2 = NON_APP_RULE_IP_2_V4
     non_app_rule_ip_3 = NON_APP_RULE_IP_3_V4
     extra_sdf_ip = EXTRA_SDF_IP_V4
+    app_rule_ip = APP_RULE_IP_V4
 
     @classmethod
     def setup_tables(cls):
@@ -91,9 +92,8 @@ class IPv4Mixin(object):
             "create upf application proxy name TST",
             "upf application TST rule 3000 add l7 regex " +
             r"^https?://(.*\\.)*(example)\\.com/",
-            # TODO: uncomment when IP rules are implemented
-            # "upf application TST rule 3001 add ipfilter " +
-            # "permit out ip from %s to assigned" % APP_RULE_IP_V4,
+            "upf application TST rule 3001 add ipfilter " +
+            "permit out ip from %s to assigned" % APP_RULE_IP_V4,
         ]
 
     @classmethod
@@ -102,6 +102,7 @@ class IPv4Mixin(object):
             "upf nwi name cp vrf 0",
             "upf nwi name epc vrf 100",
             "upf nwi name sgi vrf 200",
+            "upf specification release 16",
             "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip4,
             "ip route add 0.0.0.0/0 table 200 via %s %s" %
             (cls.if_sgi.remote_ip4, cls.if_sgi.name),
@@ -139,6 +140,9 @@ class IPv4Mixin(object):
 
     def ie_fteid(self):
         return IE_FTEID(V4=1, TEID=self.UNODE_TEID, ipv4=self.if_grx.local_ip4)
+
+    def ie_fteid_ch(self):
+        return IE_FTEID(CH=1, CHID=1, choose_id=200, V4=1)
 
     def ie_ue_ip_address(self, SD=0):
         return IE_UE_IP_Address(ipv4=self.ue_ip, V4=1, SD=SD)
@@ -189,6 +193,7 @@ class IPv6Mixin(object):
     non_app_rule_ip_2 = NON_APP_RULE_IP_2_V6
     non_app_rule_ip_3 = NON_APP_RULE_IP_3_V6
     extra_sdf_ip = EXTRA_SDF_IP_V6
+    app_rule_ip = APP_RULE_IP_V6
 
     @classmethod
     def setup_tables(cls):
@@ -216,9 +221,8 @@ class IPv6Mixin(object):
             "create upf application proxy name TST",
             "upf application TST rule 3000 add l7 regex " +
             r"^https?://(.*\\.)*(example)\\.com/",
-            # TODO: uncomment when IP rules are implemented
-            # "upf application TST rule 3001 add ipfilter " +
-            # "permit out ip from %s to assigned" % APP_RULE_IP_V6,
+            "upf application TST rule 3001 add ipfilter " +
+            "permit out ip from %s to assigned" % APP_RULE_IP_V6,
         ]
 
     @classmethod
@@ -227,6 +231,7 @@ class IPv6Mixin(object):
             "upf nwi name cp vrf 0",
             "upf nwi name epc vrf 100",
             "upf nwi name sgi vrf 200",
+            "upf specification release 16",
             "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip6,
             "ip route add ::/0 table 200 via %s %s" %
             (cls.if_sgi.remote_ip6, cls.if_sgi.name),
@@ -264,6 +269,9 @@ class IPv6Mixin(object):
 
     def ie_fteid(self):
         return IE_FTEID(V6=1, TEID=self.UNODE_TEID, ipv6=self.if_grx.local_ip6)
+
+    def ie_fteid_ch(self):
+        return IE_FTEID(CH=1, CHID=1, choose_id=200, V6=1)
 
     def ie_ue_ip_address(self, SD=0):
         return IE_UE_IP_Address(ipv6=self.ue_ip, V6=1, SD=SD)
@@ -423,6 +431,9 @@ class PFCPHelper(object):
         self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
         self.verify_ie_fseid(resp[IE_FSEID])
         self.assertEqual(resp[IE_FSEID].seid, self.cur_seid)
+        if IE_CreatedPDR in resp:
+            self.teid = resp[IE_CreatedPDR][IE_FTEID].TEID
+            self.logger.info(self.teid)
 
     def extra_pdrs(self):
         return []
@@ -433,6 +444,73 @@ class PFCPHelper(object):
             IE_NodeId(id_type=2, id="ergw")
         ]), PFCPSessionDeletionResponse, seid=self.cur_seid)
         self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
+
+    def build_from_ue_to_sgi(self, payload=None, l4proto=UDP, ue_port=12345,
+                                remote_port=23456, remote_ip=None, **kwargs):
+        if remote_ip is None:
+            remote_ip = self.sgi_remote_ip
+        to_send = self.IP(src=self.ue_ip, dst=remote_ip) / \
+            l4proto(sport=ue_port, dport=remote_port, **kwargs)
+        if payload is not None:
+            to_send /= Raw(payload)
+        return to_send
+
+    def send_from_access_to_sgi(self, payload=None, l4proto=UDP, ue_port=12345,
+                                remote_port=23456, remote_ip=None, **kwargs):
+        if remote_ip is None:
+            remote_ip = self.sgi_remote_ip
+        to_send = Ether(src=self.if_access.remote_mac,
+                        dst=self.if_access.local_mac) / \
+            self.build_from_ue_to_sgi(payload,
+                        ue_port=ue_port, remote_port=remote_port,
+                        remote_ip=remote_ip, **kwargs)
+        self.if_access.add_stream(to_send)
+        self.pg_enable_capture(self.pg_interfaces)
+        self.pg_start()
+        return len(to_send[self.IP])
+
+    def assert_packet_sent_to_sgi(self, payload=None, l4proto=UDP,
+                                  ue_port=12345, remote_port=23456,
+                                  remote_ip=None):
+        if remote_ip is None:
+            remote_ip = self.sgi_remote_ip
+        pkt = self.if_sgi.get_capture(1)[0]
+        self.assertEqual(pkt[self.IP].src, self.ue_ip)
+        self.assertEqual(pkt[self.IP].dst, remote_ip)
+        self.assertEqual(pkt[l4proto].sport, ue_port)
+        self.assertEqual(pkt[l4proto].dport, remote_port)
+        if payload is not None:
+            self.assertEqual(pkt[Raw].load, payload)
+
+    def assert_packet_not_sent_to_sgi(self):
+        self.if_sgi.assert_nothing_captured()
+
+    def send_from_sgi_to_ue(self, payload=None, l4proto=UDP, ue_port=12345,
+                                remote_port=23456, remote_ip=None, **kwargs):
+        if remote_ip is None:
+            remote_ip = self.sgi_remote_ip
+        to_send = Ether(src=self.if_sgi.remote_mac,
+                        dst=self.if_sgi.local_mac) / \
+            self.IP(src=remote_ip, dst=self.ue_ip) / \
+            l4proto(sport=remote_port, dport=ue_port, **kwargs)
+        if payload is not None:
+            if isinstance(payload, bytes):
+                payload = Raw(payload)
+            to_send /= payload
+        self.if_sgi.add_stream(to_send)
+        self.pg_enable_capture(self.pg_interfaces)
+        self.pg_start()
+        return len(to_send[self.IP])
+
+    def verify_upg_counters(self, expected_assoc=0, expected_sessions=0,
+                            expected_flows=0):
+        flow_counter = self.statistics.dump(self.statistics.ls('/upf/total_flows'))
+        session_counter = self.statistics.dump(self.statistics.ls('/upf/total_sessions'))
+        association_counter = self.statistics.dump(self.statistics.ls('/upf/total_assoc'))
+        # Counter dir is implemented as a per-cpu vector of vectors
+        self.assertEqual(flow_counter['/upf/total_flows'][0][0], expected_flows)
+        self.assertEqual(session_counter['/upf/total_sessions'][0][0], expected_sessions)
+        self.assertEqual(association_counter['/upf/total_assoc'][0][0], expected_assoc)
 
 class TestTDFBase(PFCPHelper):
     """Base TDF Test"""
@@ -503,6 +581,7 @@ class TestTDFBase(PFCPHelper):
             self.verify_drop()
             # FIXME: the IP redirect is currently also handled by the proxy
             # self.verify_redirect()
+            self.verify_upg_counters(expected_flows=3, expected_assoc=1, expected_sessions=1)
             self.delete_session()
             self.verify_no_forwarding()
         finally:
@@ -609,12 +688,10 @@ class TestTDFBase(PFCPHelper):
             IE_CreatePDR(IE_list=[
                 IE_FAR_Id(id=2),
                 IE_PDI(IE_list=[
-                    # FIXME: this currently appears not to work
-                    # (to be fixed in ip-rules branch)
-                    # IE_SDF_Filter(
-                    #     FD=1,
-                    #     flow_description="permit out ip from %s to assigned"
-                    #     % self.extra_sdf_ip),
+                    IE_SDF_Filter(
+                         FD=1,
+                         flow_description="permit out ip from %s to assigned"
+                         % self.extra_sdf_ip),
                     IE_ApplicationId(id="TST"),
                     IE_NetworkInstance(instance="sgi"),
                     IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
@@ -632,54 +709,6 @@ class TestTDFBase(PFCPHelper):
         self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
         self.verify_ie_fseid(resp[IE_FSEID])
         self.assertEqual(resp[IE_FSEID].seid, self.cur_seid)
-
-    def send_from_access_to_sgi(self, payload=None, l4proto=UDP, ue_port=12345,
-                                remote_port=23456, remote_ip=None, **kwargs):
-        if remote_ip is None:
-            remote_ip = self.sgi_remote_ip
-        to_send = Ether(src=self.if_access.remote_mac,
-                        dst=self.if_access.local_mac) / \
-            self.IP(src=self.ue_ip, dst=remote_ip) / \
-            l4proto(sport=ue_port, dport=remote_port, **kwargs)
-        if payload is not None:
-            to_send /= Raw(payload)
-        self.if_access.add_stream(to_send)
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        return len(to_send[self.IP])
-
-    def assert_packet_sent_to_sgi(self, payload=None, l4proto=UDP,
-                                  ue_port=12345, remote_port=23456,
-                                  remote_ip=None):
-        if remote_ip is None:
-            remote_ip = self.sgi_remote_ip
-        pkt = self.if_sgi.get_capture(1)[0]
-        self.assertEqual(pkt[self.IP].src, self.ue_ip)
-        self.assertEqual(pkt[self.IP].dst, remote_ip)
-        self.assertEqual(pkt[l4proto].sport, ue_port)
-        self.assertEqual(pkt[l4proto].dport, remote_port)
-        if payload is not None:
-            self.assertEqual(pkt[Raw].load, payload)
-
-    def assert_packet_not_sent_to_sgi(self):
-        self.if_sgi.assert_nothing_captured()
-
-    def send_from_sgi_to_access(self, payload=None, l4proto=UDP, ue_port=12345,
-                                remote_port=23456, remote_ip=None, **kwargs):
-        if remote_ip is None:
-            remote_ip = self.sgi_remote_ip
-        to_send = Ether(src=self.if_sgi.remote_mac,
-                        dst=self.if_sgi.local_mac) / \
-            self.IP(src=remote_ip, dst=self.ue_ip) / \
-            l4proto(sport=remote_port, dport=ue_port, **kwargs)
-        if payload is not None:
-            if isinstance(payload, bytes):
-                payload = Raw(payload)
-            to_send /= payload
-        self.if_sgi.add_stream(to_send)
-        self.pg_enable_capture(self.pg_interfaces)
-        self.pg_start()
-        return len(to_send[self.IP])
 
     def assert_packet_sent_to_access(self, payload=None, l4proto=UDP,
                                      ue_port=12345, remote_port=23456,
@@ -702,7 +731,7 @@ class TestTDFBase(PFCPHelper):
         self.send_from_access_to_sgi(b"42")
         self.assert_packet_not_sent_to_sgi()
         # SGi -> Access
-        self.send_from_sgi_to_access(b"42")
+        self.send_from_sgi_to_ue(b"42")
         self.assert_packet_not_sent_to_access()
 
     def verify_forwarding(self):
@@ -710,7 +739,7 @@ class TestTDFBase(PFCPHelper):
         self.send_from_access_to_sgi(b"42")
         self.assert_packet_sent_to_sgi(b"42")
         # SGi -> Access
-        self.send_from_sgi_to_access(b"4242")
+        self.send_from_sgi_to_ue(b"4242")
         self.assert_packet_sent_to_access(b"4242")
 
     def verify_drop(self):
@@ -817,7 +846,7 @@ class TestTDFBase(PFCPHelper):
         #     l4proto=TCP,
         #     remote_ip=remote_ip, remote_port=remote_port)
 
-        # self.send_from_sgi_to_access(
+        # self.send_from_sgi_to_ue(
         #     l4proto=TCP,
         #     flags="SA",
         #     remote_ip=remote_ip, remote_port=remote_port,
@@ -850,7 +879,7 @@ class TestTDFBase(PFCPHelper):
             remote_port=80, remote_ip=self.non_app_rule_ip)
 
         http_resp = b"HTTP/1.1 200 OK\nContent-Type: text/plain\r\n\r\nfoo"
-        down_len = self.send_from_sgi_to_access(
+        down_len = self.send_from_sgi_to_ue(
             http_resp, l4proto=TCP, flags="A",
             remote_port=80, remote_ip=self.non_app_rule_ip,
             seq=s2+1, ack=s1+1+len(http_get))
@@ -902,7 +931,7 @@ class TestTDFBase(PFCPHelper):
         self.assert_packet_sent_to_sgi(
             l4proto=TCP, remote_port=443, remote_ip=self.non_app_rule_ip_2)
 
-        down_len = self.send_from_sgi_to_access(
+        down_len = self.send_from_sgi_to_ue(
             l4proto=TCP, flags="A",
             remote_port=443, remote_ip=self.non_app_rule_ip_2,
             seq=s2+1, ack=s1+1+len(tls))
@@ -918,7 +947,7 @@ class TestTDFBase(PFCPHelper):
         self.assert_packet_sent_to_sgi(b"42", remote_ip=ip)
 
         # SGi -> Access (IP rule)
-        down_len = self.send_from_sgi_to_access(b"4242", remote_ip=ip)
+        down_len = self.send_from_sgi_to_ue(b"4242", remote_ip=ip)
         self.assert_packet_sent_to_access(b"4242", remote_ip=ip)
 
         # the following packets aren't counted
@@ -926,7 +955,7 @@ class TestTDFBase(PFCPHelper):
             b"1234567", remote_ip=self.non_app_rule_ip_3)
         self.assert_packet_sent_to_sgi(
             b"1234567", remote_ip=self.non_app_rule_ip_3)
-        self.send_from_sgi_to_access(
+        self.send_from_sgi_to_ue(
             b"foobarbaz", remote_ip=self.non_app_rule_ip_3)
         self.assert_packet_sent_to_access(
             b"foobarbaz", remote_ip=self.non_app_rule_ip_3)
@@ -936,9 +965,8 @@ class TestTDFBase(PFCPHelper):
     def verify_app_reporting(self):
         self.verify_app_reporting_http()
         self.verify_app_reporting_tls()
-        # TODO: enable this when IP rules are added
-        # self.verify_app_reporting_ip(ip=APP_RULE_IP_V4)
-        # self.verify_app_reporting_ip(ip=EXTRA_SDF_IP_V4)
+        self.verify_app_reporting_ip(ip=self.app_rule_ip)
+        self.verify_app_reporting_ip(ip=self.extra_sdf_ip)
 
 
 class TestPGWBase(PFCPHelper):
@@ -961,6 +989,7 @@ class TestPGWBase(PFCPHelper):
             cls.if_cp = cls.interfaces[0]
             cls.if_grx = cls.interfaces[1]
             cls.if_sgi = cls.interfaces[2]
+            cls.teid = 1127415596
             for n, iface in enumerate(cls.interfaces):
                 iface.admin_up()
                 cls.config_interface(cls, iface, n)
@@ -990,7 +1019,6 @@ class TestPGWBase(PFCPHelper):
             IE_FAR_Id(id=1),
             self.ie_outer_header_removal(),
             IE_PDI(IE_list=[
-                self.ie_fteid(),
                 IE_NetworkInstance(instance="epc"),
                 IE_SDF_Filter(
                     FD=1,
@@ -998,10 +1026,11 @@ class TestPGWBase(PFCPHelper):
                     "any to assigned"),
                 IE_SourceInterface(interface="Access"),
                 self.ie_ue_ip_address(),
+                self.ie_fteid(),
             ]),
             IE_PDR_Id(id=1),
             IE_Precedence(precedence=200),
-            IE_URR_Id(id=1)
+            IE_URR_Id(id=1),
         ])
 
     def send_from_grx(self, pkt):
@@ -1048,6 +1077,39 @@ class TestPGWBase(PFCPHelper):
         self.send_from_grx(to_send)
         self.if_grx.assert_nothing_captured()
 
+    def assert_packet_sent_to_ue(self, payload=None, l4proto=UDP,
+                                  ue_port=12345, remote_port=23456,
+                                  remote_ip=None, expected_seq=42):
+        pkt = self.if_grx.get_capture(1)[0]
+        self.assertTrue(GTP_U_Header in pkt)
+        self.assertEqual(pkt[self.IP].src, self.grx_local_ip)
+        self.assertEqual(pkt[self.IP].dst, self.grx_remote_ip)
+        hdr = pkt[GTP_U_Header]
+        self.assertEqual(hdr.teid, self.CLIENT_TEID)
+        self.assertEqual(hdr.version, 1)
+        self.assertTrue(hdr.PT)
+        self.assertFalse(hdr.E)
+        self.assertFalse(hdr.PN)
+        self.assertEqual(hdr.length, self.expected_length)
+        self.assertEqual(hdr.gtp_type, 0xff) # GTP-encapsulated Plane Data Unit
+        self.assertFalse(hdr.S) # no Sequence number is expected fot GPDU
+        innerPacket = hdr.payload
+        self.assertEqual(innerPacket[self.IP].src, remote_ip)
+        self.assertEqual(innerPacket[self.IP].dst, self.ue_ip)
+        self.assertEqual(innerPacket[l4proto].sport, remote_port)
+        self.assertEqual(innerPacket[l4proto].dport, ue_port)
+        if payload is not None:
+            self.assertEqual(innerPacket[Raw].load, payload)
+
+    def verify_gtp_forwarding(self):
+        payload = self.build_from_ue_to_sgi(b"42", remote_ip = self.remote_ip)
+        # UE -> remote_ip
+        self.send_from_grx(GTP_U_Header(seq=42, teid=self.teid) / payload)
+        self.assert_packet_sent_to_sgi(b"42", remote_ip = self.remote_ip)
+        # remote_ip -> UE
+        self.send_from_sgi_to_ue(b"4242", remote_ip = self.remote_ip)
+        self.assert_packet_sent_to_ue(b"4242", remote_ip = self.remote_ip)
+
     def test_gtp_echo(self):
         try:
             self.associate()
@@ -1069,6 +1131,7 @@ class TestPGWBase(PFCPHelper):
             # Verify stripping IE (the IE is not relevant here)
             self.verify_gtp_echo(GTP_U_Header(seq=42) / GTPEchoRequest() /
                                  IE_SelectionMode())
+            self.verify_gtp_forwarding()
             self.delete_session()
         finally:
             self.vapi.cli("show error")
@@ -1092,18 +1155,93 @@ class TestPGWIPv4(IPv4Mixin, TestPGWBase, framework.VppTestCase):
 class TestPGWIPv4(IPv4Mixin, TestPGWBase, framework.VppTestCase):
     """IPv4 PGW Test"""
     UE_IP = "198.20.0.2"
+    expected_length = 32
 
     @property
     def ue_ip(self):
         return self.UE_IP
+
+    @property
+    def remote_ip(self):
+        return APP_RULE_IP_V4
 
 class TestPGWIPv6(IPv6Mixin, TestPGWBase, framework.VppTestCase):
     """IPv6 PGW Test"""
     UE_IP = "2001:db8:13::2"
+    expected_length = 52
 
     @property
     def ue_ip(self):
         return self.UE_IP
+
+    @property
+    def remote_ip(self):
+        return APP_RULE_IP_V6
+
+
+class TestPGWFTUPIP4(IPv4Mixin, TestPGWBase, framework.VppTestCase):
+    """IPv4 PGW Test"""
+    UE_IP = "198.20.0.2"
+    expected_length = 32
+
+    @property
+    def ue_ip(self):
+        return self.UE_IP
+
+    @property
+    def remote_ip(self):
+        return APP_RULE_IP_V4
+
+    def forward_pdr(self):
+        return IE_CreatePDR(IE_list=[
+            IE_FAR_Id(id=1),
+            self.ie_outer_header_removal(),
+            IE_PDI(IE_list=[
+                IE_NetworkInstance(instance="epc"),
+                IE_SDF_Filter(
+                    FD=1,
+                    flow_description="permit out ip from " +
+                    "any to assigned"),
+                IE_SourceInterface(interface="Access"),
+                self.ie_ue_ip_address(),
+                self.ie_fteid_ch(),
+            ]),
+            IE_PDR_Id(id=1),
+            IE_Precedence(precedence=200),
+            IE_URR_Id(id=1),
+        ])
+
+class TestPGWFTUPIP6(IPv6Mixin, TestPGWBase, framework.VppTestCase):
+    """IPv6 PGW Test"""
+    UE_IP = "2001:db8:13::2"
+    expected_length = 52
+
+    @property
+    def ue_ip(self):
+        return self.UE_IP
+
+    @property
+    def remote_ip(self):
+        return APP_RULE_IP_V6
+
+    def forward_pdr(self):
+        return IE_CreatePDR(IE_list=[
+            IE_FAR_Id(id=1),
+            self.ie_outer_header_removal(),
+            IE_PDI(IE_list=[
+                IE_NetworkInstance(instance="epc"),
+                IE_SDF_Filter(
+                    FD=1,
+                    flow_description="permit out ip from " +
+                    "any to assigned"),
+                IE_SourceInterface(interface="Access"),
+                self.ie_ue_ip_address(),
+                self.ie_fteid_ch(),
+            ]),
+            IE_PDR_Id(id=1),
+            IE_Precedence(precedence=200),
+            IE_URR_Id(id=1),
+        ])
 
 # TODO: send session report response
 # TODO: check for heartbeat requests from UPF

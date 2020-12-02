@@ -588,6 +588,59 @@ VLIB_CLI_COMMAND (upf_tdf_ul_enable_command, static) = {
 /* *INDENT-ON* */
 
 static clib_error_t *
+upf_spec_release_command_fn (vlib_main_t * vm,
+			     unformat_input_t * main_input,
+			     vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  upf_main_t *gtm = &upf_main;
+  u32 spec_version = 0;
+
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    return 0;
+
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "release %u", &spec_version))
+	break;
+      else
+	return 0;
+    }
+
+  gtm->pfcp_spec_version = spec_version;
+
+  return NULL;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_spec_release_command, static) = {
+    .path = "upf specification",
+    .short_help = "upf specification release [MAJOR.MINOR.PATCH]",
+    .function = upf_spec_release_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_show_spec_release_command_fn (vlib_main_t * vm,
+				  unformat_input_t * main_input,
+				  vlib_cli_command_t * cmd)
+{
+  upf_main_t *gtm = &upf_main;
+  vlib_cli_output (vm, "PFCP version: %u", gtm->pfcp_spec_version);
+  return NULL;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_show_spec_release_command, static) =
+{
+  .path = "show upf specification release",
+  .short_help =
+  "show upf specification release",
+  .function = upf_show_spec_release_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
 upf_gtpu_endpoint_add_del_command_fn (vlib_main_t * vm,
 				      unformat_input_t * main_input,
 				      vlib_cli_command_t * cmd)

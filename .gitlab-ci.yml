@@ -55,7 +55,7 @@ prepare:
 # build container image
 .build:
   stage: build
-  image: quay.io/travelping/upg-build:3ba60fbb1e5584fac28ff8351b37c8e6 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
   - |
     export REGISTRY_LOGIN=${QUAY_USER_ID}
@@ -91,7 +91,7 @@ build:debug:
 .test:
   stage: test
   # the following is updated automatically by make update-build-image-tag
-  image: quay.io/travelping/upg-build:3ba60fbb1e5584fac28ff8351b37c8e6 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
   - make update-vpp
   - tar -C vpp -xvzf ${TEST_ARCHIVE}
@@ -101,7 +101,7 @@ build:debug:
   - export LC_ALL=C.UTF-8
   - export LANG=C.UTF-8
   - |
-    if ! make -C vpp -j8 ${TEST_TARGET} TEST=test_upf V=1; then
+    if ! make -C vpp -j8 ${TEST_TARGET} TEST=test_upf V=1 EXTERN_TESTS=../../upf/test; then
       tar -C /tmp -cvzf test-out/vpp-test.tar.gz . || true
       ls -l test-out/
       exit 1
@@ -114,7 +114,7 @@ build:debug:
 test:patch-style:
   stage: test
   # the following is updated automatically by make update-build-image-tag
-  image: quay.io/travelping/upg-build:3ba60fbb1e5584fac28ff8351b37c8e6 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
   - hack/checkstyle.sh
 
@@ -134,108 +134,52 @@ test:release:
   dependencies:
   - build:release
 
-.test-ext:
+.test-e2e:
   stage: test
-  image: quay.io/travelping/upf-test:12b024a
-  services:
-  - docker:19.03.8-dind
+  variables:
+    SKIP_VPP_SOURCE_CHECK: "y"
+  # the following is updated automatically by make update-build-image-tag
+  image: quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
-  # https://github.com/docker/compose/issues/5696#issuecomment-377906769
-  - export COMPOSE_INTERACTIVE_NO_CLI=1
-  - IMAGE_VARIANT=debug
-  - IMAGE_BASE_NAME=${REGISTRY}/${IMAGE_NAME}
-  - |
-    . hack/version.sh
-    IMAGE_BASE_TAG=${UPG_IMAGE_TAG}
-  - IMAGE_FULL_NAME=${IMAGE_BASE_NAME}:${IMAGE_BASE_TAG}_${IMAGE_VARIANT}
-  - cd /test
-  # temporary workaround for the hugepages issue
+  - tar -C vpp -xvzf ${TEST_ARCHIVE}
   - sysctl vm.nr_hugepages=0
+  - mkdir artifacts junit-output
+  # TODO: nightly run without E2E_QUICK
+  # TODO: make UDP tests less flaky and reenable them for PGW
+  # TODO: make tests more stable on CI and remove E2E_FLAKE_ATTEMPTS
+  # TODO: before E2E_FLAKE_ATTEMPTS are removed, detect VPP crashes
+  # and always fail hard in this case, even if any retries could
+  # succeed
   - |
-    if bash -x scripts/test.sh "${IMAGE_FULL_NAME}" ${TEST_PROFILES}; then
-      r=0
-    else
-      r=1
+    if ! make ${TEST_TARGET} \
+              E2E_RETEST=y \
+              E2E_ARTIFACTS_DIR=$PWD/artifacts \
+              E2E_JUNIT_DIR=$PWD/junit-output \
+              E2E_PARALLEL=y \
+              E2E_PARALLEL_NODES=3 \
+              E2E_QUICK=y \
+              E2E_SKIP='PGW.*counts UDP' \
+              E2E_FLAKE_ATTEMPTS=3; then
+      mkdir test-out
+      tar -cvzf test-out/vpp-test.tar.gz artifacts test/e2e/ginkgo*.log || true
+      ls -l test-out/
+      exit 1
     fi
-    mv /test/pcaps "/builds/${CI_PROJECT_PATH}/pcaps"
-    ls -l "/builds/${CI_PROJECT_PATH}/pcaps"
-    exit ${r}
-  dependencies:
-  - build:debug
   artifacts:
     when: always
     paths:
-    - pcaps
+    - test-out
+    reports:
+      junit: junit-output/*.xml
 
-test:external-ipv4-ping:
-  extends: .test-ext
+test-e2e:debug:
+  extends: .test-e2e
   variables:
-    TEST_PROFILES: type-tdf dispatch-trace proxy ping gdb-batch
+    TEST_ARCHIVE: debug/testfiles.tar.gz
+    TEST_TARGET: e2e-debug
 
-test:external-ipv4-udp:
-  extends: .test-ext
+test-e2e:release:
+  extends: .test-e2e
   variables:
-    TEST_PROFILES: type-tdf dispatch-trace proxy udp gdb-batch
-
-test:external-ipv4-curl:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-tdf dispatch-trace proxy curl gdb-batch
-
-# FIXME: traffic volume mismatch
-# test:external-ipv4-app:
-#   extends: .test-ext
-#   variables:
-#     TEST_PROFILES: type-tdf dispatch-trace proxy app-detection gdb-batch
-
-test:external-ipv4-udp-pgw:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-pgw dispatch-trace proxy udp gdb-batch
-
-test:external-ipv4-curl-pgw:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-pgw dispatch-trace proxy curl gdb-batch
-
-# FIXME: traffic volume mismatch
-# test:external-ipv4-app-pgw:
-#   extends: .test-ext
-#   variables:
-#     TEST_PROFILES: type-pgw dispatch-trace proxy app-detection gdb-batch
-
-# TODO: match app
-test:external-ipv4-curl-noproxy:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-tdf dispatch-trace curl gdb-batch
-
-test:external-ipv6-udp:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-tdf dispatch-trace proxy udp gdb-batch ipv6
-
-test:external-proxy-crash:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-tdf dispatch-trace proxy wrk gdb-batch
-
-test:external-proxy-crash-pgw:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-pgw dispatch-trace proxy wrk gdb-batch
-
-test:external-proxy-crash-netem:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-tdf dispatch-trace proxy wrk netem gdb-batch
-
-test:external-proxy-crash-netem-40k:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-tdf dispatch-trace proxy wrk40k netem gdb-batch
-
-test:session-deletion:
-  extends: .test-ext
-  variables:
-    TEST_PROFILES: type-tdf dispatch-trace proxy repeat-session wrk gdb-batch
+    TEST_ARCHIVE: release/testfiles.tar.gz
+    TEST_TARGET: e2e-release

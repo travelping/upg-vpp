@@ -28,8 +28,6 @@
 
 int upf_pfcp_handle_msg (pfcp_msg_t * msg);
 
-u8 *format_ipfilter (u8 * s, va_list * args);
-
 typedef struct
 {
   pfcp_reporting_triggers_t triggers;

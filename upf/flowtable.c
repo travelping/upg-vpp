@@ -168,11 +168,16 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
     }
   else
     {
+      upf_main_t *gtm = &upf_main;
       upf_debug ("Flow Remove %p", f);
       pool_put (fmt->timers, e);
 
       /* hashtable unlink */
       flowtable_entry_remove (fmt, f);
+
+      vlib_decrement_simple_counter (&gtm->upf_simple_counters
+				     [UPF_FLOW_COUNTER],
+				     vlib_get_thread_index (), 0, 1);
 
       /* free to flow cache && pool (last) */
       flow_entry_free (fm, fmt, f);
@@ -272,6 +277,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
 {
   flow_entry_t *f;
   dlist_elt_t *timer_entry;
+  upf_main_t *gtm = &upf_main;
 
   if (PREDICT_FALSE
       (BV (clib_bihash_search_inline) (&fmt->flows_ht, kv) == 0))
@@ -320,6 +326,9 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   timer_entry->value = f - fm->flows;	/* index within the flow pool */
   f->timer_index = timer_entry - fmt->timers;	/* index within the timer pool */
   timer_wheel_insert_flow (fm, fmt, f);
+
+  vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
+				 vlib_get_thread_index (), 0, 1);
 
   /* insert in hash */
   kv->value = f - fm->flows;
