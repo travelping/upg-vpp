@@ -401,7 +401,7 @@ var _ = ginkgo.Describe("PFCP Multiple Sessions", func() {
 
 		parsed, err := vpp.ParseMemoryTrace(memTraceOut)
 		framework.ExpectNoError(err)
-		gomega.Expect(parsed.FindSuspectedLeak("pfcp_create_session", 2000)).To(gomega.BeFalse(),
+		gomega.Expect(parsed.FindSuspectedLeak("pfcp", 2000)).To(gomega.BeFalse(),
 			"session-related memory leak detected")
 	})
 })
