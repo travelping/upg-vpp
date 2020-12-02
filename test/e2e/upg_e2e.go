@@ -14,6 +14,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	"github.com/wmnsk/go-pfcp/ie"
 
 	"github.com/travelping/upg-vpp/test/e2e/framework"
@@ -359,50 +360,115 @@ var _ = ginkgo.Describe("PFCP Association Release", func() {
 	})
 })
 
-var _ = ginkgo.Describe("PFCP Multiple Sessions", func() {
-	// FIXME: should be made compatible with PGW
-	// FIXME: crashes UPG in UPGIPModeV6
-	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-	ginkgo.It("should not leak memory", func() {
-		ginkgo.By("starting memory trace")
-		_, err := f.VPP.Ctl("memory-trace main-heap on")
-		framework.ExpectNoError(err)
-		var ueIPs []net.IP
-		for i := 0; i < 100; i++ {
-			ueIPs = append(ueIPs, f.AddUEIP())
-		}
-		for i := 0; i < 100; i++ {
-			ginkgo.By("creating 100 sessions")
-			var seids []pfcp.SEID
-			for j := 0; j < 100; j++ {
-				sessionCfg := &framework.SessionConfig{
-					IdBase: 1,
-					// TODO: using same UE IP multiple times crashes UPG
-					// (should be an error instead)
-					UEIP: ueIPs[j],
-					Mode: f.Mode,
+var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
+	ginkgo.Context("[TDF]", func() {
+		// FIXME: these tests may crash UPG in UPGIPModeV6 (bad PFCP requests)
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("should not leak memory", func() {
+			ginkgo.By("starting memory trace")
+			_, err := f.VPP.Ctl("memory-trace main-heap on")
+			framework.ExpectNoError(err)
+			var ueIPs []net.IP
+			for i := 0; i < 100; i++ {
+				ueIPs = append(ueIPs, f.AddUEIP())
+			}
+			for i := 0; i < 100; i++ {
+				ginkgo.By("creating 100 sessions")
+				var seids []pfcp.SEID
+				for j := 0; j < 100; j++ {
+					sessionCfg := &framework.SessionConfig{
+						IdBase: 1,
+						UEIP:   ueIPs[j],
+						Mode:   f.Mode,
+					}
+					seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+					framework.ExpectNoError(err)
+					seids = append(seids, seid)
 				}
-				seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
-				framework.ExpectNoError(err)
-				seids = append(seids, seid)
+
+				ginkgo.By("deleting 100 sessions")
+				for _, seid := range seids {
+					deleteSession(f, seid, false)
+				}
 			}
 
-			ginkgo.By("deleting 100 sessions")
-			for _, seid := range seids {
-				deleteSession(f, seid, false)
+			ginkgo.By("Waiting 10 seconds for the queues to be emptied")
+			time.Sleep(10 * time.Second)
+
+			memTraceOut, err := f.VPP.Ctl("show memory main-heap")
+			framework.ExpectNoError(err)
+
+			parsed, err := vpp.ParseMemoryTrace(memTraceOut)
+			framework.ExpectNoError(err)
+			gomega.Expect(parsed.FindSuspectedLeak("pfcp", 2000)).To(gomega.BeFalse(),
+				"session-related memory leak detected")
+		})
+
+		ginkgo.It("should not be allowed to conflict on UE IPs", func() {
+			sessionCfg := &framework.SessionConfig{
+				IdBase: 1,
+				UEIP:   f.UEIP(),
+				Mode:   f.Mode,
 			}
-		}
+			seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+			// with older UPG versions, the duplicate session creation attempts
+			// succeed till some amount of sessions is reached (about 256), after
+			// which it crashes
+			unexpectedSuccess := false
+			for i := 0; i < 1000; i++ {
+				_, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+				if err == nil {
+					unexpectedSuccess = true
+				} else {
+					var serverErr *pfcp.PFCPServerError
+					gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
+					framework.ExpectEqual(serverErr.Cause, ie.CauseRuleCreationModificationFailure)
+					break
+				}
 
-		ginkgo.By("Waiting 10 seconds for the queues to be emptied")
-		time.Sleep(10 * time.Second)
+			}
+			gomega.Expect(unexpectedSuccess).To(gomega.BeFalse(), "EstablishSession succeeded unexpectedly")
+			deleteSession(f, seid, true)
+		})
+	})
 
-		memTraceOut, err := f.VPP.Ctl("show memory main-heap")
-		framework.ExpectNoError(err)
+	ginkgo.Context("[PGW]", func() {
+		f := framework.NewDefaultFramework(framework.UPGModePGW, framework.UPGIPModeV4)
+		ginkgo.It("should not be allowed to conflict on GTPU tunnels", func() {
+			sessionCfg := &framework.SessionConfig{
+				IdBase:     1,
+				UEIP:       f.UEIP(),
+				Mode:       f.Mode,
+				TEIDPGWs5u: framework.TEIDPGWs5u,
+				TEIDSGWs5u: framework.TEIDSGWs5u,
+				PGWGRXIP:   f.VPPCfg.GetVPPAddress("grx").IP,
+				SGWGRXIP:   f.VPPCfg.GetNamespaceAddress("grx").IP,
+			}
+			seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+			defer deleteSession(f, seid, true)
 
-		parsed, err := vpp.ParseMemoryTrace(memTraceOut)
-		framework.ExpectNoError(err)
-		gomega.Expect(parsed.FindSuspectedLeak("pfcp", 2000)).To(gomega.BeFalse(),
-			"session-related memory leak detected")
+			// Trying to create a conflicting session should cause an error
+			sessionCfg = &framework.SessionConfig{
+				IdBase:     1,
+				UEIP:       f.AddUEIP(),
+				Mode:       f.Mode,
+				TEIDPGWs5u: framework.TEIDPGWs5u,
+				TEIDSGWs5u: framework.TEIDSGWs5u,
+				PGWGRXIP:   f.VPPCfg.GetVPPAddress("grx").IP,
+				SGWGRXIP:   f.VPPCfg.GetNamespaceAddress("grx").IP,
+			}
+			_, err = f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			var serverErr *pfcp.PFCPServerError
+			gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
+			framework.ExpectEqual(serverErr.Cause, ie.CauseRuleCreationModificationFailure)
+
+			sessionCfg.TEIDPGWs5u += 10
+			seid1, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+			deleteSession(f, seid1, true)
+		})
 	})
 })
 

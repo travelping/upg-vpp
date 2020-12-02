@@ -9,11 +9,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"gopkg.in/tomb.v2"
-
 	"github.com/sirupsen/logrus"
 	"github.com/wmnsk/go-pfcp/ie"
 	"github.com/wmnsk/go-pfcp/message"
+	"gopkg.in/tomb.v2"
 
 	"github.com/travelping/upg-vpp/test/e2e/network"
 )
@@ -85,7 +84,38 @@ var (
 	errUnexpected       = errors.New("unexpected pfcp message")
 	errHeartbeatTimeout = errors.New("heartbeat timeout")
 	errHardStop         = errors.New("hard stop")
+	causes              = map[uint8]string{
+		ie.CauseRequestAccepted:                 "RequestAccepted",
+		ie.CauseRequestRejected:                 "RequestRejected",
+		ie.CauseSessionContextNotFound:          "SessionContextNotFound",
+		ie.CauseMandatoryIEMissing:              "MandatoryIEMissing",
+		ie.CauseConditionalIEMissing:            "ConditionalIEMissing",
+		ie.CauseInvalidLength:                   "InvalidLength",
+		ie.CauseMandatoryIEIncorrect:            "MandatoryIEIncorrect",
+		ie.CauseInvalidForwardingPolicy:         "InvalidForwardingPolicy",
+		ie.CauseInvalidFTEIDAllocationOption:    "InvalidFTEIDAllocationOption",
+		ie.CauseNoEstablishedPFCPAssociation:    "NoEstablishedPFCPAssociation",
+		ie.CauseRuleCreationModificationFailure: "RuleCreationModificationFailure",
+		ie.CausePFCPEntityInCongestion:          "PFCPEntityInCongestion",
+		ie.CauseNoResourcesAvailable:            "NoResourcesAvailable",
+		ie.CauseServiceNotSupported:             "ServiceNotSupported",
+		ie.CauseSystemFailure:                   "SystemFailure",
+		ie.CauseRedirectionRequested:            "RedirectionRequested",
+	}
 )
+
+type PFCPServerError struct {
+	Cause uint8
+}
+
+func (e *PFCPServerError) Error() string {
+	s, found := causes[e.Cause]
+	if !found {
+		return fmt.Sprintf("<bad cause value %d>", e.Cause)
+	}
+
+	return fmt.Sprintf("server error, cause: %s", s)
+}
 
 type pfcpTransitionFunc func(pc *PFCPConnection, m message.Message) error
 
@@ -103,7 +133,12 @@ func pfcpSessionRequest(event sessionEvent) pfcpTransitionFunc {
 func pfcpSessionResponse(event sessionEvent) pfcpTransitionFunc {
 	return func(pc *PFCPConnection, m message.Message) error {
 		if handled, err := pc.acceptResponse(m); err != nil {
-			return err
+			var serverErr *PFCPServerError
+			if errors.As(err, &serverErr) {
+				return pc.sessionError(serverErr, m)
+			} else {
+				return err
+			}
 		} else if handled {
 			return pc.sessionEvent(event, m)
 		}
@@ -507,12 +542,31 @@ func (pc *PFCPConnection) waitForState(ctx context.Context, state pfcpState, tim
 	}
 }
 
-func (pc *PFCPConnection) sessionInState(seid SEID, state sessionState) bool {
+func (pc *PFCPConnection) sessionInStateUnlocked(seid SEID, states ...sessionState) bool {
 	s, found := pc.sessions[seid]
 	if !found {
 		return false
 	}
-	return s.state == state
+	for _, state := range states {
+		if s.state == state {
+			return true
+		}
+	}
+	return false
+}
+
+func (pc *PFCPConnection) getSessionError(seid SEID) error {
+	pc.Lock()
+	defer pc.Unlock()
+	s, found := pc.sessions[seid]
+	switch {
+	case !found:
+		return errors.New("session not found")
+	case s.state == sessionStateFailed:
+		return s.err
+	default:
+		return nil
+	}
 }
 
 func (pc *PFCPConnection) waitForSessionState(ctx context.Context, seid SEID, state sessionState, timeout time.Duration) error {
@@ -528,7 +582,7 @@ func (pc *PFCPConnection) waitForSessionState(ctx context.Context, seid SEID, st
 			close(doneCh)
 		}()
 
-		for !pc.sessionInState(seid, state) && !done {
+		for !pc.sessionInStateUnlocked(seid, state, sessionStateFailed) && !done {
 			pc.stateCond.Wait()
 		}
 	}()
@@ -554,7 +608,7 @@ func (pc *PFCPConnection) waitForSessionState(ctx context.Context, seid SEID, st
 				return errors.New("PFCPConnection stopped prematurely (?)")
 			}
 		case <-doneCh:
-			return nil
+			return pc.getSessionError(seid)
 		}
 	}
 }
@@ -590,7 +644,7 @@ func (pc *PFCPConnection) waitForSessionModification(ctx context.Context, seid S
 			return nil, errors.New("PFCPConnection stopped prematurely (?)")
 		}
 	case ms := <-modCh:
-		return ms, nil
+		return ms, pc.getSessionError(seid)
 	}
 }
 
@@ -739,16 +793,33 @@ func (pc *PFCPConnection) createSession(seid SEID) error {
 	return nil
 }
 
-func (pc *PFCPConnection) sessionEvent(event sessionEvent, m message.Message) error {
+func (pc *PFCPConnection) sessionFromMessage(m message.Message) (*pfcpSession, error) {
 	if m.SEID() == 0 {
-		return errors.Errorf("no SEID in %s", m.MessageTypeName())
+		return nil, errors.Errorf("no SEID in %s", m.MessageTypeName())
 	}
 
 	s, found := pc.sessions[SEID(m.SEID())]
 	if !found {
-		return errors.Errorf("error looking up the session with SEID %016x", m.SEID())
+		return nil, errors.Errorf("error looking up the session with SEID %016x", m.SEID())
 	}
 
+	return s, nil
+}
+
+func (pc *PFCPConnection) sessionError(sessionErr error, m message.Message) error {
+	s, err := pc.sessionFromMessage(m)
+	if err != nil {
+		return err
+	}
+	s.error(sessionErr)
+	return nil
+}
+
+func (pc *PFCPConnection) sessionEvent(event sessionEvent, m message.Message) error {
+	s, err := pc.sessionFromMessage(m)
+	if err != nil {
+		return err
+	}
 	return s.event(event, m)
 }
 
@@ -880,10 +951,25 @@ type pfcpSession struct {
 	seid  SEID
 	state sessionState
 	modCh chan *PFCPMeasurement
+	err   error
 }
 
 func (s *pfcpSession) setState(newState sessionState) {
 	s.state = newState
+}
+
+func (s *pfcpSession) error(err error) error {
+	s.pc.log.WithFields(logrus.Fields{
+		"SEID":  fmt.Sprintf("%016x", s.seid),
+		"state": s.state,
+		"error": err,
+	}).Debug("session error")
+	if s.state != sessionStateFailed {
+		close(s.modCh)
+		s.state = sessionStateFailed
+	}
+	s.err = err
+	return err
 }
 
 func (s *pfcpSession) event(event sessionEvent, m message.Message) error {
@@ -907,13 +993,11 @@ func (s *pfcpSession) event(event sessionEvent, m message.Message) error {
 	tk := sessionTransitionKey{state: s.state, event: event}
 	tf, found := sessionTransitions[tk]
 	if !found {
-		s.state = sessionStateFailed
-		return errors.Errorf("Session %016x: can't handle event %s in state %s", s.seid, event, s.state)
+		return s.error(errors.Errorf("Session %016x: can't handle event %s in state %s", s.seid, event, s.state))
 	}
 
 	if err := tf(s, m); err != nil {
-		s.state = sessionStateFailed
-		return err
+		return s.error(err)
 	}
 
 	return nil
@@ -1002,25 +1086,6 @@ func (s *pfcpSession) postMeasurement(m message.Message) error {
 	return nil
 }
 
-var causes = map[uint8]string{
-	ie.CauseRequestAccepted:                 "RequestAccepted",
-	ie.CauseRequestRejected:                 "RequestRejected",
-	ie.CauseSessionContextNotFound:          "SessionContextNotFound",
-	ie.CauseMandatoryIEMissing:              "MandatoryIEMissing",
-	ie.CauseConditionalIEMissing:            "ConditionalIEMissing",
-	ie.CauseInvalidLength:                   "InvalidLength",
-	ie.CauseMandatoryIEIncorrect:            "MandatoryIEIncorrect",
-	ie.CauseInvalidForwardingPolicy:         "InvalidForwardingPolicy",
-	ie.CauseInvalidFTEIDAllocationOption:    "InvalidFTEIDAllocationOption",
-	ie.CauseNoEstablishedPFCPAssociation:    "NoEstablishedPFCPAssociation",
-	ie.CauseRuleCreationModificationFailure: "RuleCreationModificationFailure",
-	ie.CausePFCPEntityInCongestion:          "PFCPEntityInCongestion",
-	ie.CauseNoResourcesAvailable:            "NoResourcesAvailable",
-	ie.CauseServiceNotSupported:             "ServiceNotSupported",
-	ie.CauseSystemFailure:                   "SystemFailure",
-	ie.CauseRedirectionRequested:            "RedirectionRequested",
-}
-
 func getCauseIE(m message.Message) *ie.IE {
 	switch r := m.(type) {
 	case *message.AssociationSetupResponse:
@@ -1063,12 +1128,7 @@ func verifyCause(m message.Message) error {
 		return nil
 	}
 
-	s, found := causes[cause]
-	if !found {
-		return errors.Errorf("bad cause value %d", cause)
-	}
-
-	return errors.Errorf("failed, cause: %s", s)
+	return &PFCPServerError{Cause: cause}
 }
 
 func requestToEvent(m message.Message) (pfcpEvent, bool) {
