@@ -53,6 +53,8 @@
 #define TRAFFIC_TIMER_PERIOD 60
 
 extern char *vpe_version_string;
+// ADD NODE ID
+extern pfcp_node_id_t node_id;
 
 typedef struct
 {
@@ -503,6 +505,12 @@ handle_association_setup_request (pfcp_msg_t * req,
   vec_add (resp.tp_build_id, vpe_version_string, strlen (vpe_version_string));
 
   n = pfcp_get_association (&msg->request.node_id);
+
+  //ADD NODE ID
+  SET_BIT (resp.grp.fields, ASSOCIATION_SETUP_RESPONSE_NODE_ID);
+  resp.response.node_id.type = node_id.type;
+  resp.response.node_id.ip = node_id.ip;
+
   if (n)
     {
       /* 3GPP TS 23.007, Sect. 19A:
@@ -2423,6 +2431,11 @@ handle_session_establishment_request (pfcp_msg_t * req,
       pending->inactivity_timer.period = msg->user_plane_inactivity_timer;
       pending->inactivity_timer.handle = ~0;
     }
+
+  // ADD NODE ID
+  SET_BIT (resp.grp.fields, ASSOCIATION_SETUP_RESPONSE_NODE_ID);
+  resp.response.node_id.type = node_id.type;
+  resp.response.node_id.ip = node_id.ip;
 
   if ((r = handle_create_pdr (sess, msg->create_pdr, &resp.grp,
 			      SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
