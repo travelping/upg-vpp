@@ -874,6 +874,8 @@ typedef struct
   //TODO: Change to UPF flags?
   u32 pfcp_spec_version;
   u32 rand_base;
+
+  pfcp_node_id_t node_id;
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;
@@ -914,6 +916,8 @@ int vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
 				    int is_en);
 int vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto,
 				   u32 table_id, u8 add);
+
+int vnet_upf_node_id_set (const pfcp_node_id_t * node_id);
 
 void upf_session_dpo_add_or_lock (dpo_proto_t dproto, upf_session_t * sx,
 				  dpo_id_t * dpo);

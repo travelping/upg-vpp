@@ -100,6 +100,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 			"upf nwi name cp vrf 0",
 			"upf nwi name epc vrf 100",
 			"upf nwi name sgi vrf 200",
+			"upf node-id fqdn upg",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
 			"upf gtpu endpoint ip 10.0.2.2 nwi epc teid 0x80000000/2",
@@ -166,6 +167,7 @@ func pgwVPPConfigIPv6() vpp.VPPConfig {
 			"upf nwi name cp vrf 0",
 			"upf nwi name epc vrf 100",
 			"upf nwi name sgi vrf 200",
+			"upf node-id fqdn upg",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
 			// FIXME: zero udp checksum on Session Modification Responses
@@ -227,6 +229,7 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 			"upf nwi name cp vrf 0",
 			"upf nwi name access vrf 100",
 			"upf nwi name sgi vrf 200",
+			"upf node-id ip4 172.1.1.1",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			// NOTE: "ip6" instead of "ip4" for IPv6
 			"upf tdf ul table vrf 100 ip4 table-id 1001",
@@ -289,6 +292,7 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 			"upf nwi name cp vrf 0",
 			"upf nwi name access vrf 100",
 			"upf nwi name sgi vrf 200",
+			"upf node-id ip4 172.1.1.1",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			// FIXME: zero udp checksum on Session Modification Responses
 			// "upf pfcp endpoint ip 2001:db8:10::2 vrf 0",
