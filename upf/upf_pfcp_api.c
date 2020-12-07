@@ -596,38 +596,40 @@ validate_teid (u32 teid)
   return ((teid != 0) && (teid != 0xffffffff));
 }
 
-static int
-teid_v4_lookup (upf_main_t * gtm, u32 teid, upf_upip_res_t * res)
+static u32
+teid_v4_lookup_session_index (upf_main_t * gtm, u32 teid, ip4_address_t * ip4)
 {
   clib_bihash_kv_8_8_t kv, value;
   gtpu4_tunnel_key_t key4;
 
-  key4.dst = res->ip4.as_u32;
+  key4.dst = ip4->as_u32;
   key4.teid = teid;
 
   kv.key = key4.as_u64;
 
   if (PREDICT_FALSE
       (clib_bihash_search_8_8 (&gtm->v4_tunnel_by_key, &kv, &value)))
-    return UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+    return ~0;
 
-  return 0;
+  /* only lower 32 bits are used here */
+  return value.value;
 }
 
-static int
-teid_v6_lookup (upf_main_t * gtm, u32 teid, upf_upip_res_t * res)
+static u32
+teid_v6_lookup_session_index (upf_main_t * gtm, u32 teid, ip6_address_t * ip6)
 {
   clib_bihash_kv_24_8_t kv, value;
 
-  kv.key[0] = res->ip6.as_u64[0];
-  kv.key[1] = res->ip6.as_u64[1];
+  kv.key[0] = ip6->as_u64[0];
+  kv.key[1] = ip6->as_u64[1];
   kv.key[2] = teid;
 
   if (PREDICT_FALSE
       (clib_bihash_search_24_8 (&gtm->v6_tunnel_by_key, &kv, &value)))
-    return UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+    return ~0;
 
-  return 0;
+  /* only lower 32 bits are used here */
+  return value.value;
 }
 
 static u32
@@ -653,8 +655,10 @@ process_teid_generation (upf_main_t * gtm, u8 chid, u32 flags,
          UPF_GTPU_ERROR_NO_SUCH_TUNNEL for such cases
        */
       ok =
-	(!(flags & F_TEID_V4) || teid_v4_lookup (gtm, teid, res) != 0) &&
-	(!(flags & F_TEID_V6) || teid_v6_lookup (gtm, teid, res) != 0);
+	(!(flags & F_TEID_V4)
+	 || teid_v4_lookup_session_index (gtm, teid, &res->ip4) == ~0)
+	&& (!(flags & F_TEID_V6)
+	    || teid_v6_lookup_session_index (gtm, teid, &res->ip6) == ~0);
 
       if (ok)
 	break;
@@ -682,6 +686,7 @@ handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
   pfcp_created_pdr_t *created_pdr;
   bool chosen = false;
   u32 teid = 0;
+  u32 sidx = ~0;
 
   process_pdr->pdi.fields |= F_PDI_LOCAL_F_TEID;
 
@@ -741,12 +746,48 @@ handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
     }
   else
     {
-      // CH == 0
+      /* CH == 0, check for conflicts with other sessions */
+
+      if (pdi->f_teid.flags & F_TEID_V4)
+	sidx =
+	  teid_v4_lookup_session_index (gtm, pdi->f_teid.teid,
+					&pdi->f_teid.ip4);
+      else if (pdi->f_teid.flags & F_TEID_V6)
+	sidx =
+	  teid_v6_lookup_session_index (gtm, pdi->f_teid.teid,
+					&pdi->f_teid.ip6);
+      if (sidx != ~0 && sidx != sx - gtm->sessions)
+	return -1;
+
       process_pdr->pdi.teid = pdi->f_teid;
     }
 
   return 0;
 
+}
+
+static int
+validate_ue_ip (upf_session_t * sx, upf_nwi_t * nwi,
+		pfcp_ue_ip_address_t * ue_addr)
+{
+  upf_main_t *gtm = &upf_main;
+  const dpo_id_t *dpo;
+
+  if (ue_addr->flags & IE_UE_IP_ADDRESS_V4)
+    {
+      dpo = upf_get_session_dpo_ip4 (nwi, &ue_addr->ip4);
+      if (dpo && dpo->dpoi_index != sx - gtm->sessions)
+	return -1;
+    }
+
+  if (ue_addr->flags & IE_UE_IP_ADDRESS_V6)
+    {
+      dpo = upf_get_session_dpo_ip6 (nwi, &ue_addr->ip6);
+      if (dpo && dpo->dpoi_index != sx - gtm->sessions)
+	return -1;
+    }
+
+  return 0;
 }
 
 
@@ -942,6 +983,14 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	{
 	  vec_add1 (create->qer_ids, *qer_id);
 	}
+      }
+
+    if ((create->pdi.fields & F_PDI_UE_IP_ADDR) && nwi &&
+	validate_ue_ip (sx, nwi, &create->pdi.ue_addr))
+      {
+	r = -1;
+	upf_debug ("handle_create_pdr: duplicate UE IP");
+	break;
       }
 
     // CREATE_PDR_ACTIVATE_PREDEFINED_RULES
@@ -1142,6 +1191,14 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	{
 	  vec_add1 (update->qer_ids, *qer_id);
 	}
+      }
+
+    if ((update->pdi.fields & F_PDI_UE_IP_ADDR) && nwi &&
+	validate_ue_ip (sx, nwi, &update->pdi.ue_addr))
+      {
+	r = -1;
+	upf_debug ("handle_update_pdr: duplicate UE IP");
+	break;
       }
 
     // UPDATE_PDR_ACTIVATE_PREDEFINED_RULES

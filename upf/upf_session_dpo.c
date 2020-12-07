@@ -21,6 +21,7 @@
 #include <vnet/ip/ip.h>
 #include <vnet/ethernet/ethernet.h>
 #include <vnet/dpo/drop_dpo.h>
+#include <vnet/dpo/load_balance.h>
 #include <vnet/interface_output.h>
 
 #include <upf/upf.h>
@@ -79,6 +80,61 @@ upf_session_dpo_unlock (dpo_id_t * dpo)
 
   sx = upf_session_get_from_dpo (dpo);
   sx->dpo_locks--;
+}
+
+static const dpo_id_t *
+upf_get_session_dpo (upf_nwi_t * nwi, fib_prefix_t * pfx)
+{
+  fib_node_index_t fei;
+  const dpo_id_t *dpo, *next_dpo;
+  dpo_type_t session_dpo_type = upf_session_dpo_get_type ();
+  load_balance_t *lb;
+
+  if (!nwi)
+    return 0;
+
+  fei = fib_table_lookup_exact_match (nwi->fib_index[pfx->fp_proto], pfx);
+  if (fei == FIB_NODE_INDEX_INVALID)
+    return 0;
+
+  dpo = fib_entry_contribute_ip_forwarding (fei);
+  if (dpo->dpoi_type == session_dpo_type)
+    return dpo;
+
+  if (dpo->dpoi_type != DPO_LOAD_BALANCE)
+    return 0;
+
+  lb = load_balance_get (dpo->dpoi_index);
+  for (u16 i = 0; i < lb->lb_n_buckets; i++)
+    {
+      next_dpo = load_balance_get_bucket_i (lb, i);
+      if (next_dpo->dpoi_type == session_dpo_type)
+	return next_dpo;
+    }
+
+  return 0;
+}
+
+const dpo_id_t *
+upf_get_session_dpo_ip4 (upf_nwi_t * nwi, ip4_address_t * ip4)
+{
+  fib_prefix_t pfx;
+  memset (&pfx, 0, sizeof (pfx));
+  pfx.fp_addr.ip4.as_u32 = ip4->as_u32;
+  pfx.fp_len = 32;
+  pfx.fp_proto = FIB_PROTOCOL_IP4;
+  return upf_get_session_dpo (nwi, &pfx);
+}
+
+const dpo_id_t *
+upf_get_session_dpo_ip6 (upf_nwi_t * nwi, ip6_address_t * ip6)
+{
+  fib_prefix_t pfx;
+  memset (&pfx, 0, sizeof (pfx));
+  pfx.fp_addr.ip6.as_u64[0] = ip6->as_u64[0];
+  pfx.fp_addr.ip6.as_u64[1] = ip6->as_u64[1];
+  pfx.fp_len = 64;
+  return upf_get_session_dpo (nwi, &pfx);
 }
 
 /*
