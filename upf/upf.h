@@ -885,6 +885,14 @@ int vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto,
 void upf_session_dpo_add_or_lock (dpo_proto_t dproto, upf_session_t * sx,
 				  dpo_id_t * dpo);
 
+const dpo_id_t *upf_get_session_dpo_ip4 (upf_nwi_t * nwi,
+					 ip4_address_t * ip4);
+
+const dpo_id_t *upf_get_session_dpo_ip6 (upf_nwi_t * nwi,
+					 ip6_address_t * ip6);
+
+dpo_type_t upf_session_dpo_get_type (void);
+
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
 {
