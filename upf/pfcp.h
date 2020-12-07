@@ -2654,6 +2654,8 @@ u8 *format_redirect_information (u8 * s, va_list * args);
 u8 *format_node_id (u8 * s, va_list * args);
 u8 *format_outer_header_creation (u8 * s, va_list * args);
 
+void free_node_id (void *p);
+
 void cpy_redirect_information (pfcp_redirect_information_t * dst,
 			       pfcp_redirect_information_t * src);
 void free_redirect_information (void *p);

@@ -98,7 +98,12 @@ upf_pfcp_api_session_data_init (void *sxp, time_t start_time)
 static void
 init_response_node_id (pfcp_node_id_t * node_id)
 {
-  //TODO: need CLI/API to set local Node-Id.....
+  upf_main_t *gtm = &upf_main;
+  *node_id = gtm->node_id;
+  if (gtm->node_id.type == NID_FQDN)
+    {
+      node_id->fqdn = vec_dup (gtm->node_id.fqdn);
+    }
 }
 
 #define tp_error_report(r, fmt, ...)					\
@@ -2388,6 +2393,9 @@ handle_session_establishment_request (pfcp_msg_t * req,
   memset (&resp, 0, sizeof (resp));
   SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp.cause = PFCP_CAUSE_REQUEST_REJECTED;
+
+  SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_NODE_ID);
+  init_response_node_id (&resp.node_id);
 
   assoc = pfcp_get_association (&msg->request.node_id);
   if (!assoc)

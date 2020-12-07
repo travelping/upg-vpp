@@ -1845,7 +1845,7 @@ encode_node_id (void *p, u8 ** vec)
   return 0;
 }
 
-static void
+void
 free_node_id (void *p)
 {
   pfcp_node_id_t *v = p;

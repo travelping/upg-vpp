@@ -176,6 +176,24 @@ upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t * pfx,
   return 0;
 }
 
+int
+vnet_upf_node_id_set (const pfcp_node_id_t * node_id)
+{
+  upf_main_t *gtm = &upf_main;
+
+  switch (node_id->type)
+    {
+    case NID_IPv4:
+    case NID_IPv6:
+    case NID_FQDN:
+      free_node_id (&gtm->node_id);
+      gtm->node_id = *node_id;
+      return 0;
+    }
+
+  return VNET_API_ERROR_INVALID_ARGUMENT;
+}
+
 #if 0
 // TODO
 static int
@@ -381,6 +399,9 @@ upf_init (vlib_main_t * vm)
   sm->upf_simple_counters[UPF_FLOW_COUNTER].name = "total_flows";
   sm->upf_simple_counters[UPF_FLOW_COUNTER].stat_segment_name =
     "/upf/total_flows";
+
+  sm->node_id.type = NID_FQDN;
+  sm->node_id.fqdn = format (0, (char *) "\x03upg");
 
   error = flowtable_init (vm);
   if (error)

@@ -603,7 +603,6 @@ upf_spec_release_command_fn (vlib_main_t * vm,
     }
 
   gtm->pfcp_spec_version = spec_version;
-
   return NULL;
 }
 
@@ -632,6 +631,83 @@ VLIB_CLI_COMMAND (upf_show_spec_release_command, static) =
   .short_help =
   "show upf specification release",
   .function = upf_show_spec_release_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_node_id_command_fn (vlib_main_t * vm,
+			unformat_input_t * main_input,
+			vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  clib_error_t *error = NULL;
+  u8 *fqdn = 0;
+  pfcp_node_id_t node_id = {.type = (u8) ~ 0 };
+
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    return 0;
+
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "fqdn %_%v%_", &fqdn))
+	{
+	  node_id.type = NID_FQDN;
+	  node_id.fqdn = upf_name_to_labels (fqdn);
+	  vec_free (fqdn);
+	}
+      else if (unformat (line_input, "ip4 %U",
+			 unformat_ip46_address, &node_id.ip, IP46_TYPE_ANY))
+	{
+	  node_id.type = NID_IPv4;
+	}
+      else if (unformat (line_input, "ip6 %U",
+			 unformat_ip46_address, &node_id.ip, IP46_TYPE_ANY))
+	{
+	  node_id.type = NID_IPv6;
+	}
+      else
+	{
+	  error = unformat_parse_error (line_input);
+	  return error;
+	}
+    }
+
+  if ((u8) ~ 0 == node_id.type)
+    return clib_error_return (0, "A valid node id must be specified");
+
+  vnet_upf_node_id_set (&node_id);
+
+  return NULL;
+
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_node_id_command, static) = {
+    .path = "upf node-id",
+    .short_help = "upf node-id ( fqdn <fqdn> | ip4 <ip4-addr> | ip6 <ip6-addr> )",
+    .function = upf_node_id_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_show_node_id_command_fn (vlib_main_t * vm,
+			     unformat_input_t * main_input,
+			     vlib_cli_command_t * cmd)
+{
+  upf_main_t *gtm = &upf_main;
+  u8 *type = 0;
+  vec_reset_length (type);
+  vlib_cli_output (vm, "Node ID: %U", format_node_id, &gtm->node_id);
+  return NULL;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_show_node_id_command, static) =
+{
+  .path = "show upf node-id",
+  .short_help =
+  "show upf node-id",
+  .function = upf_show_node_id_command_fn,
 };
 /* *INDENT-ON* */
 

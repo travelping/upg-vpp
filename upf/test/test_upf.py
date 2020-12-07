@@ -84,6 +84,7 @@ class IPv4Mixin(object):
             "upf nwi name cp vrf 0",
             "upf nwi name access vrf 100",
             "upf nwi name sgi vrf 200",
+            "upf node-id ip4 %s" % cls.if_cp.local_ip4,
             "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip4,
             "upf tdf ul table vrf 100 ip4 table-id 1001",
             "upf tdf ul enable ip4 %s" % cls.if_access.name,
@@ -103,6 +104,7 @@ class IPv4Mixin(object):
             "upf nwi name epc vrf 100",
             "upf nwi name sgi vrf 200",
             "upf specification release 16",
+            "upf node-id fqdn upg",
             "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip4,
             "ip route add 0.0.0.0/0 table 200 via %s %s" %
             (cls.if_sgi.remote_ip4, cls.if_sgi.name),
@@ -213,6 +215,7 @@ class IPv6Mixin(object):
             "upf nwi name cp vrf 0",
             "upf nwi name access vrf 100",
             "upf nwi name sgi vrf 200",
+            "upf node-id ip6 %s" % cls.if_cp.local_ip6,
             "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip6,
             "upf tdf ul table vrf 100 ip6 table-id 1001",
             "upf tdf ul enable ip6 %s" % cls.if_access.name,
@@ -232,6 +235,7 @@ class IPv6Mixin(object):
             "upf nwi name epc vrf 100",
             "upf nwi name sgi vrf 200",
             "upf specification release 16",
+            "upf node-id ip6 %s" % cls.if_cp.local_ip6,
             "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip6,
             "ip route add ::/0 table 200 via %s %s" %
             (cls.if_sgi.remote_ip6, cls.if_sgi.name),
@@ -352,6 +356,13 @@ class PFCPHelper(object):
         ]), PFCPAssociationSetupResponse)
         self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
         self.assertIn(b"vpp", resp[IE_EnterpriseSpecific].data)
+        if IE_NodeId in resp:
+            if resp[IE_NodeId].id_type is 2:
+                self.assertEqual(resp[IE_NodeId].id, b"upg")
+            elif resp[IE_NodeId].id_type is 0:
+                self.assertEqual(resp[IE_NodeId].ipv4, self.if_cp.local_ip4)
+            elif resp[IE_NodeId].id_type is 1:
+                self.assertEqual(resp[IE_NodeId].ipv6, self.if_cp.local_ip6)
 
     def heartbeat(self):
         resp = self.chat(PFCPHeartbeatRequest(IE_list=[
@@ -434,6 +445,13 @@ class PFCPHelper(object):
         if IE_CreatedPDR in resp:
             self.teid = resp[IE_CreatedPDR][IE_FTEID].TEID
             self.logger.info(self.teid)
+        if IE_NodeId in resp:
+            if resp[IE_NodeId].id_type is 2:
+                self.assertEqual(resp[IE_NodeId].id, b"upg")
+            elif resp[IE_NodeId].id_type is 0:
+                self.assertEqual(resp[IE_NodeId].ipv4, self.if_cp.local_ip4)
+            elif resp[IE_NodeId].id_type is 1:
+                self.assertEqual(resp[IE_NodeId].ipv6, self.if_cp.local_ip6)
 
     def extra_pdrs(self):
         return []
