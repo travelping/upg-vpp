@@ -680,7 +680,6 @@ handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
 	       upf_upip_res_t * res, u8 create)
 {
   pfcp_created_pdr_t *created_pdr;
-  bool chosen = false;
   u32 teid = 0;
 
   process_pdr->pdi.fields |= F_PDI_LOCAL_F_TEID;
@@ -693,14 +692,13 @@ handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
 
       if ((pdi->f_teid.flags & F_TEID_CHID))
 	{
-	  u8 chid = pdi->f_teid.choose_id;
-	  teid = sparse_vec_index (sx->teid_by_chid, chid);
-
-	  if (teid)
-	    chosen = true;
+	  uword i =
+	    sparse_vec_index (sx->teid_by_chid, pdi->f_teid.choose_id);
+	  if (i)
+	    teid = vec_elt (sx->teid_by_chid, i);
 	}
 
-      if (!chosen)
+      if (!teid)
 	{
 	  if (!create)
 	    return -1;
