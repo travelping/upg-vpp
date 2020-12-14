@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:experimental
 # the following is updated automatically by make update-build-image-tag
-FROM quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 AS build-stage
+FROM quay.io/travelping/upg-build:6947526467d81757cf74ee880e518042 AS build-stage
 
 ADD vpp /src/vpp
 ADD upf /src/upf
@@ -17,17 +17,20 @@ FROM scratch as artifacts
 COPY --from=build-stage /out .
 
 # --- final image --------------------------------------------
-FROM ubuntu:bionic AS final-stage
+FROM ubuntu:focal AS final-stage
 WORKDIR /
+ENV VPP_INSTALL_SKIP_SYSCTL=1
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     --mount=target=/var/cache/apt,type=cache,sharing=private \
     apt-get update && apt-get dist-upgrade -yy && \
-    apt-get install --no-install-recommends -yy liblz4-tool tar \
-    libhyperscan4 libmbedcrypto1 libmbedtls10 libmbedx509-0 libpython-stdlib \
-    libpython2.7-minimal libpython2.7-stdlib libpython3-stdlib \
+    apt-get install --no-install-recommends -yy liblz4-tool tar gdb strace \
+    libhyperscan5 libmbedcrypto3 libmbedtls12 libmbedx509-0 apt-utils \
+    libpython2.7-minimal libpython2-stdlib libpython3-stdlib \
     python python-cffi python-cffi-backend python-ipaddress \
-    python-minimal python-ply python-pycparser python2.7 python2.7-minimal \
-    python3 python3-minimal python3.6 python3.6-minimal
+    python2-minimal python-ply python-pycparser python2.7 python2.7-minimal \
+    python3 python3-minimal python3.6 python3-minimal \
+    python3-cffi python3-cffi-backend && \
+    apt-get install -yy clang-9
 
 # TODO: add more packages above that are VPP deps
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \

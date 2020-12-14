@@ -1,11 +1,12 @@
 # syntax = docker/dockerfile:experimental
-FROM ubuntu:bionic AS build-stage
+FROM ubuntu:focal AS build-stage
 
 WORKDIR /
 
 ENV BUILDKIT_VERSION "v0.7.1"
 ENV BUILDCTL_SHA256 "a39e44735e9cdcbe27ef22179ef990de1024f2dc69665fed1c2a5431ff73ed9c"
 ENV INDENT_SHA256 "12185be748db620f8f7799ea839f0d10ce643b9f5ab1805c960e56eb27941236"
+ENV LIBC_SHA256 "9a8caf9f33448a8f2f526e94d00c70cdbdd735caec510df57b3283413df7882a"
 
 COPY vpp/Makefile /src/vpp/Makefile
 COPY vpp/build/external /src/vpp/build/external
@@ -16,6 +17,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     apt-get update && \
     apt-get dist-upgrade -yy && \
     apt-get install -y software-properties-common && \
+    apt-get install -y clang-9 && \
     add-apt-repository ppa:longsleep/golang-backports && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
