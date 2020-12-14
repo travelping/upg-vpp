@@ -21,6 +21,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_DISPATCH_TRACE:=}"
 : "${E2E_PAUSE_ON_ERROR:=}"
 : "${E2E_MULTICORE:=}"
+: "${E2E_XDP:=}"
 
 if grep -q '^gtp ' /proc/modules; then
   echo >&2 "* Using kernel GTP-U support for IPv4 PGW tests"
@@ -33,6 +34,7 @@ export UPG_TEST_QUICK="${E2E_QUICK}"
 export VPP_TRACE="${E2E_TRACE}"
 export VPP_DISPATCH_TRACE="${E2E_DISPATCH_TRACE}"
 export VPP_MULTICORE="${E2E_MULTICORE}"
+export VPP_XDP_SETUP="${E2E_XDP}"
 
 case ${E2E_TARGET} in
   debug)

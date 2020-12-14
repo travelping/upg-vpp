@@ -1,102 +1,49 @@
-From d9fa03eb175bde1066f8c14249d8bb487d8800e4 Mon Sep 17 00:00:00 2001
+From 7a1eef3b75a577718331b146d76c700e782c4f7e Mon Sep 17 00:00:00 2001
 From: Andreas Schultz <andreas.schultz@travelping.com>
 Date: Mon, 16 Mar 2020 17:00:29 +0100
-Subject: [PATCH 1/7] CI and build infrastructure adjustments
+Subject: [PATCH] CI and build infrastructure adjustments
 
 ---
- Makefile                        | 5 +++++
- build/external/Makefile         | 2 +-
- build/external/packages/dpdk.mk | 4 ++--
- src/pkg/debian/control.in       | 6 ++++--
- 4 files changed, 12 insertions(+), 5 deletions(-)
+ Makefile                  | 3 +++
+ src/pkg/debian/control.in | 6 ++++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile b/Makefile
-index cf4cfadec..a2eab953a 100644
+index 6b5f50a7a..a0e16649e 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -67,9 +67,12 @@ DEB_DEPENDS += libconfuse-dev git-review exuberant-ctags cscope pkg-config
- DEB_DEPENDS += lcov chrpath autoconf indent clang-format libnuma-dev
- DEB_DEPENDS += python3-all python3-setuptools check
- DEB_DEPENDS += libboost-all-dev libffi-dev python3-ply libmbedtls-dev
-+DEB_DEPENDS += liburcu-dev
- DEB_DEPENDS += cmake ninja-build uuid-dev python3-jsonschema python3-yaml
-+DEB_DEPENDS += cmake ninja-build uuid-dev python3-jsonschema python3-yaml yamllint
+@@ -71,6 +71,8 @@ DEB_DEPENDS += cmake ninja-build uuid-dev python3-jsonschema python3-yaml
  DEB_DEPENDS += python3-venv  # ensurepip
  DEB_DEPENDS += python3-dev   # needed for python3 -m pip install psutil
-+DEB_DEPENDS += libhyperscan-dev
  # python3.6 on 16.04 requires python36-dev
++DEB_DEPENDS += liburcu-dev yamllint
++DEB_DEPENDS += libhyperscan-dev
  
- LIBFFI=libffi6 # works on all but 20.04
-@@ -141,6 +144,7 @@ endif
+ LIBFFI=libffi6 # works on all but 20.04 and debian-testing
  
+@@ -141,6 +143,7 @@ endif
  # +ganglia-devel if building the ganglia plugin
  
-+RPM_DEPENDS += hyperscan-devel
  RPM_DEPENDS += chrpath libffi-devel rpm-build
++RPM_DEPENDS += hyperscan-devel
  
  RPM_DEPENDS_DEBUG  = glibc-debuginfo e2fsprogs-debuginfo
-@@ -155,6 +159,7 @@ RPM_SUSE_BUILDTOOLS_DEPS += clang cmake indent libtool make ninja python3-ply
- 
- RPM_SUSE_DEVEL_DEPS = glibc-devel-static libnuma-devel
- RPM_SUSE_DEVEL_DEPS += libopenssl-devel openssl-devel mbedtls-devel libuuid-devel
-+RPM_SUSE_DEVEL_DEPS += hyperscan-devel
- 
- RPM_SUSE_PYTHON_DEPS = python-devel python3-devel python-pip python3-pip
- RPM_SUSE_PYTHON_DEPS += python-rpm-macros python3-rpm-macros
-diff --git a/build/external/Makefile b/build/external/Makefile
-index b0e3cee4f..c2d94e5bd 100644
---- a/build/external/Makefile
-+++ b/build/external/Makefile
-@@ -20,7 +20,7 @@ MAKE_ARGS ?= -j
- BUILD_DIR        ?= $(CURDIR)/_build
- INSTALL_DIR      ?= $(CURDIR)/_install
- PKG_VERSION ?= $(shell git describe --abbrev=0 | cut -d- -f1 | cut -dv -f2 | cut -d. -f1,2)
--PKG_SUFFIX ?= $(shell git log --oneline v$(PKG_VERSION)-rc0.. . | wc -l)
-+PKG_SUFFIX ?= $(shell git log --oneline v$(PKG_VERSION)-rc0.. -- . | wc -l)
- JOBS := $(if $(shell [ -f /proc/cpuinfo ] && head /proc/cpuinfo),\
- 	$(shell grep -c ^processor /proc/cpuinfo), 2)
- 
-diff --git a/build/external/packages/dpdk.mk b/build/external/packages/dpdk.mk
-index beabf48e9..99a5d9f14 100644
---- a/build/external/packages/dpdk.mk
-+++ b/build/external/packages/dpdk.mk
-@@ -202,11 +202,12 @@ $(B)/custom-config: $(B)/.dpdk-patch.ok Makefile
- 	$(call set,RTE_LIBRTE_PMD_TAP,$(DPDK_TAP_PMD))
- 	$(call set,RTE_LIBRTE_GSO,$(DPDK_TAP_PMD))
- 	$(call set,RTE_LIBRTE_PMD_FAILSAFE,$(DPDK_FAILSAFE_PMD))
-+	@# required for UPF
-+	$(call set,RTE_LIBRTE_ACL,y)
- 	@# not needed
- 	$(call set,RTE_ETHDEV_RXTX_CALLBACKS,n)
- 	$(call set,RTE_LIBRTE_CFGFILE,n)
- 	$(call set,RTE_LIBRTE_LPM,n)
--	$(call set,RTE_LIBRTE_ACL,n)
- 	$(call set,RTE_LIBRTE_JOBSTATS,n)
- 	$(call set,RTE_LIBRTE_EFD,n)
- 	$(call set,RTE_LIBRTE_MEMBER,n)
-@@ -219,7 +220,6 @@ $(B)/custom-config: $(B)/.dpdk-patch.ok Makefile
- 	$(call set,RTE_LIBRTE_PIPELINE,n)
- 	$(call set,RTE_LIBRTE_PMD_SOFTNIC,n)
- 	$(call set,RTE_LIBRTE_FLOW_CLASSIFY,n)
--	$(call set,RTE_LIBRTE_ACL,n)
- 	$(call set,RTE_LIBRTE_GRO,n)
- 	$(call set,RTE_LIBRTE_KNI,n)
- 	$(call set,RTE_LIBRTE_BPF,n)
+ RPM_DEPENDS_DEBUG += krb5-debuginfo openssl-debuginfo
 diff --git a/src/pkg/debian/control.in b/src/pkg/debian/control.in
-index 0b0c621e5..2addf900e 100644
+index ef66682f8..d47aff25b 100644
 --- a/src/pkg/debian/control.in
 +++ b/src/pkg/debian/control.in
-@@ -51,7 +51,8 @@ Description: Vector Packet Processing--runtime libraries
- Package: vpp-plugin-core
- Architecture: any
- Depends: vpp (= ${source:Version}),
+@@ -54,7 +54,8 @@ Depends: vpp (= ${source:Version}),
+          libmbedtls12 | libmbedtls10,
+          libmbedx509-0,
+          libmbedcrypto3 | libmbedcrypto1 | libmbedcrypto0,
 -         ${shlibs:Depends}
 +         ${shlibs:Depends},
 +         ${misc:Depends}
  Description: Vector Packet Processing--runtime core plugins
   This package contains VPP core plugins
   .
-@@ -59,7 +60,8 @@ Description: Vector Packet Processing--runtime core plugins
+@@ -62,7 +63,8 @@ Description: Vector Packet Processing--runtime core plugins
  Package: vpp-plugin-dpdk
  Architecture: any
  Depends: vpp (= ${source:Version}),
@@ -107,5 +54,5 @@ index 0b0c621e5..2addf900e 100644
   This package contains the VPP dpdk plugin
   .
 -- 
-2.28.0
+2.24.3 (Apple Git-128)
 
