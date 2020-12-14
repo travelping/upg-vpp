@@ -68,6 +68,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				// using L3 capture because of tun
 				// (no Ethernet headers)
 				L3Capture: true,
+				MTU: vpp.ACCESS_MTU,
 				// the default route is added by gtpu (sgw) code here
 			},
 			{
@@ -88,7 +89,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
-				MTU:           1500,
+				MTU:           vpp.ACCESS_MTU,
 				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("10.1.0.0/16"),

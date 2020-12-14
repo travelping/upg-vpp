@@ -38,8 +38,9 @@ const (
 	VPP_STARTUP_TIMEOUT     = 30 * time.Second
 	VPP_REPLY_TIMEOUT       = 5 * time.Second
 	NSENTER_CMD             = "nsenter"
-	DEFAULT_MTU             = 9000
+	DEFAULT_MTU             = 1500
 	DISPATCH_TRACE_FILENAME = "dispatch-trace.pcap"
+	ACCESS_MTU	= 1460
 )
 
 type RouteConfig struct {
@@ -451,10 +452,10 @@ func (vi *VPPInstance) StartCapture() error {
 			Snaplen:  0,
 			TargetNS: vi.vppNS,
 		}
-		if nsCfg.VPPLinkName == "" {
-			captureCfg.Iface = nsCfg.OtherLinkName
-			captureCfg.TargetNS = ns
-		}
+
+		captureCfg.Iface = nsCfg.OtherLinkName
+		captureCfg.TargetNS = ns
+
 		if nsCfg.L3Capture {
 			if nsCfg.OtherIP.IP.To4() == nil {
 				captureCfg.LayerType = "IPv6"
@@ -509,6 +510,16 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 	if mtu == 0 {
 		mtu = DEFAULT_MTU
 	}
+	if os.Getenv("VPP_XDP") != "" {
+		return append(cmds,
+			fmt.Sprintf("create interface af_xdp host-if %s name host-%s", nsCfg.VPPLinkName, nsCfg.VPPLinkName),
+			fmt.Sprintf("set interface mac address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
+			fmt.Sprintf("set interface %s table host-%s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
+			fmt.Sprintf("set interface ip address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),
+			fmt.Sprintf("set interface state host-%s up", nsCfg.VPPLinkName),
+			//fmt.Sprintf("set interface mtu %d host-%s", mtu, nsCfg.VPPLinkName),
+		)
+	} else {
 	cmds = append(cmds,
 		fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName))
 
@@ -524,12 +535,14 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 	return append(cmds,
 		// TODO: add an option for interrupt mode
 		// fmt.Sprintf("set interface rx-mode host-%s interrupt", nsCfg.VPPLinkName),
+		fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName,),
 		fmt.Sprintf("set interface mac address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
 		fmt.Sprintf("set interface %s table host-%s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
 		fmt.Sprintf("set interface ip address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),
 		fmt.Sprintf("set interface state host-%s up", nsCfg.VPPLinkName),
 		fmt.Sprintf("set interface mtu %d host-%s", mtu, nsCfg.VPPLinkName),
-	)
+		)
+	}
 }
 
 func (vi *VPPInstance) setupDispatchTrace() error {
