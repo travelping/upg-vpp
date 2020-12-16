@@ -58,7 +58,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 			},
 			{
 				Name:          "ue",
-				OtherIP:       MustParseIPNet("10.0.1.3/24"),
+				OtherIP:       MustParseIPNet("10.1.0.3/16"),
 				OtherLinkName: "access",
 				SkipVPPConfig: true,
 				// using L3 capture because of tun
@@ -69,8 +69,8 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 			{
 				Name:          "grx",
 				VPPMac:        MustParseMAC("fa:8a:78:4d:42:01"),
-				VPPIP:         MustParseIPNet("10.0.3.2/24"),
-				OtherIP:       MustParseIPNet("10.0.3.3/24"),
+				VPPIP:         MustParseIPNet("10.0.2.2/24"),
+				OtherIP:       MustParseIPNet("10.0.2.3/24"),
 				VPPLinkName:   "grx0",
 				OtherLinkName: "grx1",
 				Table:         100,
@@ -79,16 +79,16 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 			{
 				Name:          "sgi",
 				VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
-				VPPIP:         MustParseIPNet("10.0.2.2/24"),
-				OtherIP:       MustParseIPNet("10.0.2.3/24"),
+				VPPIP:         MustParseIPNet("10.0.1.2/24"),
+				OtherIP:       MustParseIPNet("10.0.1.3/24"),
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
 				MTU:           1500,
 				NSRoutes: []vpp.RouteConfig{
 					{
-						Dst: MustParseIPNet("10.0.1.0/24"),
-						Gw:  MustParseIP("10.0.2.2"),
+						Dst: MustParseIPNet("10.1.0.0/16"),
+						Gw:  MustParseIP("10.0.1.2"),
 					},
 				},
 			},
@@ -124,16 +124,6 @@ func pgwVPPConfigIPv6() vpp.VPPConfig {
 				OtherLinkName: "cp1",
 				Table:         0,
 			},
-			// FIXME: zero udp checksum on Session Modification Responses
-			// {
-			// 	Name:          "cp",
-			// 	VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-			// 	VPPIP:         MustParseIPNet("2001:db8:10::2/64"),
-			// 	OtherIP:       MustParseIPNet("2001:db8:10::3/64"),
-			// 	VPPLinkName:   "cp0",
-			// 	OtherLinkName: "cp1",
-			// 	Table:         0,
-			// },
 			{
 				Name:          "ue",
 				OtherIP:       MustParseIPNet("2001:db8:11::3/64"),
@@ -203,29 +193,29 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 			{
 				Name:          "ue",
 				VPPMac:        MustParseMAC("fa:8a:78:4d:18:01"),
-				VPPIP:         MustParseIPNet("10.0.1.2/24"),
-				OtherIP:       MustParseIPNet("10.0.1.3/24"),
+				VPPIP:         MustParseIPNet("10.1.0.2/16"),
+				OtherIP:       MustParseIPNet("10.1.0.3/16"),
 				VPPLinkName:   "access0",
 				OtherLinkName: "access1",
 				Table:         100,
 				NSRoutes: []vpp.RouteConfig{
 					{
-						Gw: MustParseIP("10.0.1.2"),
+						Gw: MustParseIP("10.1.0.2"),
 					},
 				},
 			},
 			{
 				Name:          "sgi",
 				VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
-				VPPIP:         MustParseIPNet("10.0.2.2/24"),
-				OtherIP:       MustParseIPNet("10.0.2.3/24"),
+				VPPIP:         MustParseIPNet("10.0.1.2/24"),
+				OtherIP:       MustParseIPNet("10.0.1.3/24"),
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
 				NSRoutes: []vpp.RouteConfig{
 					{
-						Dst: MustParseIPNet("10.0.1.0/24"),
-						Gw:  MustParseIP("10.0.2.2"),
+						Dst: MustParseIPNet("10.1.0.0/16"),
+						Gw:  MustParseIP("10.0.1.2"),
 					},
 				},
 			},
@@ -262,16 +252,6 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 				OtherLinkName: "cp1",
 				Table:         0,
 			},
-			// FIXME: zero udp checksum on Session Modification Responses
-			// {
-			// 	Name:          "cp",
-			// 	VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-			// 	VPPIP:         MustParseIPNet("2001:db8:10::2/64"),
-			// 	OtherIP:       MustParseIPNet("2001:db8:10::3/64"),
-			// 	VPPLinkName:   "cp0",
-			// 	OtherLinkName: "cp1",
-			// 	Table:         0,
-			// },
 			{
 				Name:          "ue",
 				VPPMac:        MustParseMAC("fa:8a:78:4d:18:01"),

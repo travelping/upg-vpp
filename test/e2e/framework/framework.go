@@ -2,7 +2,6 @@ package framework
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -39,8 +38,8 @@ type Framework struct {
 	GTPU             *GTPU
 	Context          context.Context
 	GTPUMTU          int
-	numExtraCNodeIPs byte
-	numExtraUEIPs    byte
+	numExtraCNodeIPs uint32
+	numExtraUEIPs    uint32
 }
 
 func NewDefaultFramework(mode UPGMode, ipMode UPGIPMode) *Framework {
@@ -170,8 +169,7 @@ func (f *Framework) ServerIP() net.IP {
 	return f.VPPCfg.GetNamespaceAddress("sgi").IP
 }
 
-func (f *Framework) addIP(nsName string, n byte) net.IP {
-	f.numExtraCNodeIPs++
+func (f *Framework) addIP(nsName string, n uint32) net.IP {
 	mainAddr := f.VPPCfg.GetNamespaceAddress(nsName)
 	ipNet := &net.IPNet{
 		Mask: mainAddr.Mask,
@@ -179,14 +177,22 @@ func (f *Framework) addIP(nsName string, n byte) net.IP {
 	if ip4 := mainAddr.IP.To4(); ip4 != nil {
 		ipNet.IP = make(net.IP, net.IPv4len)
 		copy(ipNet.IP, ip4)
-		ipNet.IP[3] += f.numExtraCNodeIPs
 	} else {
 		ipNet.IP = make(net.IP, net.IPv6len)
 		copy(ipNet.IP, mainAddr.IP)
-		ipNet.IP[15] += f.numExtraCNodeIPs
 	}
+	for p := len(ipNet.IP) - 1; p >= 0 && n > 0; p-- {
+		n += uint32(ipNet.IP[p])
+		ipNet.IP[p] = byte(n)
+		n >>= 8
+	}
+
 	linkName := f.VPPCfg.GetNamespaceLinkName(nsName)
-	ginkgo.By(fmt.Sprintf("Adding %s IP in netns %s: %v", linkName, nsName, ipNet))
+	logrus.WithFields(logrus.Fields{
+		"linkName": linkName,
+		"nsName":   nsName,
+		"ipNet":    ipNet,
+	}).Trace("adding an IP address")
 	ExpectNoError(f.VPP.GetNS(nsName).AddAddress(linkName, ipNet))
 	return ipNet.IP
 }

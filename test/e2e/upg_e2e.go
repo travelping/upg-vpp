@@ -369,13 +369,13 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			_, err := f.VPP.Ctl("memory-trace main-heap on")
 			framework.ExpectNoError(err)
 			var ueIPs []net.IP
-			for i := 0; i < 100; i++ {
+			for i := 0; i < 10000; i++ {
 				ueIPs = append(ueIPs, f.AddUEIP())
 			}
-			for i := 0; i < 100; i++ {
-				ginkgo.By("creating 100 sessions")
+			for i := 0; i < 3; i++ {
+				ginkgo.By("creating 10000 sessions")
 				var seids []pfcp.SEID
-				for j := 0; j < 100; j++ {
+				for j := 0; j < 10000; j++ {
 					sessionCfg := &framework.SessionConfig{
 						IdBase: 1,
 						UEIP:   ueIPs[j],
@@ -386,14 +386,14 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 					seids = append(seids, seid)
 				}
 
-				ginkgo.By("deleting 100 sessions")
+				ginkgo.By("deleting 10000 sessions")
 				for _, seid := range seids {
 					deleteSession(f, seid, false)
 				}
 			}
 
-			ginkgo.By("Waiting 10 seconds for the queues to be emptied")
-			time.Sleep(10 * time.Second)
+			ginkgo.By("Waiting 40 seconds for the queues to be emptied")
+			time.Sleep(40 * time.Second)
 
 			memTraceOut, err := f.VPP.Ctl("show memory main-heap")
 			framework.ExpectNoError(err)
