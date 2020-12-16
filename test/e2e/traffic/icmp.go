@@ -67,6 +67,8 @@ func (p *ICMPPing) Run(ctx context.Context, ns *network.NetNS) error {
 		pinger.SetPrivileged(true)
 		pinger.Count = p.cfg.PacketCount
 		pinger.Size = p.cfg.PacketSize
+		pinger.Interval = 1 * time.Second
+		pinger.Timeout = time.Duration(pinger.Count)*pinger.Interval + 3*time.Second
 		pinger.OnSend = func(pkt *ping.Packet) {
 			p.rec.RecordStats(TrafficStats{ClientSent: pkt.Nbytes})
 		}
