@@ -145,11 +145,6 @@ test:release:
   - sysctl vm.nr_hugepages=0
   - mkdir artifacts junit-output
   # TODO: nightly run without E2E_QUICK
-  # TODO: make UDP tests less flaky and reenable them for PGW
-  # TODO: make tests more stable on CI and remove E2E_FLAKE_ATTEMPTS
-  # TODO: before E2E_FLAKE_ATTEMPTS are removed, detect VPP crashes
-  # and always fail hard in this case, even if any retries could
-  # succeed
   - |
     if ! make ${TEST_TARGET} \
               E2E_RETEST=y \
@@ -157,9 +152,7 @@ test:release:
               E2E_JUNIT_DIR=$PWD/junit-output \
               E2E_PARALLEL=y \
               E2E_PARALLEL_NODES=3 \
-              E2E_QUICK=y \
-              E2E_SKIP='PGW.*counts UDP' \
-              E2E_FLAKE_ATTEMPTS=3; then
+              E2E_QUICK=y; then
       mkdir test-out
       tar -cvzf test-out/vpp-test.tar.gz artifacts test/e2e/ginkgo*.log || true
       ls -l test-out/
