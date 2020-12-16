@@ -100,6 +100,18 @@ func (f *Framework) BeforeEach() {
 	ExpectNoError(f.VPP.Configure())
 	ExpectNoError(f.VPP.VerifyVPPAlive())
 
+	// TODO: use go-ping instead of 'ping'
+	for _, nsCfg := range f.VPPCfg.Namespaces {
+		if nsCfg.VPPIP == nil {
+			continue
+		}
+		ns := f.VPP.GetNS(nsCfg.Name)
+		cmd := exec.Command("nsenter", "--net="+ns.Path(), "ping", "-c", "3", nsCfg.VPPIP.IP.String())
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		ExpectNoError(cmd.Run())
+	}
+
 	if f.PFCPCfg != nil {
 		f.PFCPCfg.Namespace = f.VPP.GetNS("cp")
 		f.PFCP = pfcp.NewPFCPConnection(*f.PFCPCfg)
