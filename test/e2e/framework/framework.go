@@ -38,6 +38,7 @@ type Framework struct {
 	GTPU             *GTPU
 	Context          context.Context
 	GTPUMTU          int
+	TPDUHook         TPDUHook
 	numExtraCNodeIPs uint32
 	numExtraUEIPs    uint32
 }
@@ -84,6 +85,7 @@ func (f *Framework) BeforeEach() {
 			TEIDSGWs5u: TEIDSGWs5u,
 			LinkName:   f.VPPCfg.GetNamespaceLinkName("ue"),
 			MTU:        f.GTPUMTU,
+			TPDUHook:   f.TPDUHook,
 		})
 		ExpectNoError(err)
 		ExpectNoError(f.GTPU.Start(f.VPP.Context(context.Background())))

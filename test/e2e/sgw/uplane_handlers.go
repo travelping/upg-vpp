@@ -45,8 +45,11 @@ func (up *UserPlaneServer) handleErrorIndication(msg *message.ErrorIndication) e
 }
 
 func (up *UserPlaneServer) handleTPDU(msg *message.TPDU, src *net.UDPAddr) error {
-	teid := msg.TEID()
+	if up.cfg.TPDUHook != nil {
+		up.cfg.TPDUHook(msg, true)
+	}
 
+	teid := msg.TEID()
 	if s := up.getSessionBySTEID(teid); s == nil {
 		return errors.Errorf("Received TPDU for unknown session s5c_teid: 0x%.8x", teid)
 	} else {

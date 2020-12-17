@@ -106,7 +106,11 @@ func (tt *TunTunnel) handleTunnelIncoming(data []byte) {
 		return
 	}
 
-	if err := tt.up.WriteTo(s.UNodeAddr(), message.NewTPDU(s.TEIDPGWs5u(), data)); err != nil {
+	m := message.NewTPDU(s.TEIDPGWs5u(), data)
+	if tt.up.cfg.TPDUHook != nil {
+		tt.up.cfg.TPDUHook(m, false)
+	}
+	if err := tt.up.WriteTo(s.UNodeAddr(), m); err != nil {
 		tt.up.logger.WithError(err).Errorf("Failed to write TPDU message")
 	}
 }

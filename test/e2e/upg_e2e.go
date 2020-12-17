@@ -15,6 +15,7 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
+	gtpumessage "github.com/wmnsk/go-gtp/gtpv1/message"
 	"github.com/wmnsk/go-pfcp/ie"
 
 	"github.com/travelping/upg-vpp/test/e2e/framework"
@@ -36,6 +37,76 @@ var _ = ginkgo.Describe("TDF", func() {
 var _ = ginkgo.Describe("PGW", func() {
 	describeMode("IPv4", framework.UPGModePGW, framework.UPGIPModeV4)
 	describeMode("IPv6", framework.UPGModePGW, framework.UPGIPModeV6)
+	ginkgo.Context("[GTP-U extensions]", func() {
+		var seid pfcp.SEID
+		corruptTPDU := false
+		n := 0
+
+		f := framework.NewDefaultFramework(framework.UPGModePGW, framework.UPGIPModeV4)
+		f.TPDUHook = func(tpdu *gtpumessage.TPDU, fromPGW bool) {
+			defer ginkgo.GinkgoRecover()
+			if fromPGW {
+				// ext flag must be reset
+				framework.ExpectEqual((tpdu.Header.Flags>>2)&1, uint8(0))
+				return
+			}
+
+			// Add an extension to T-PDU
+			// GTP library doesn't support extensions, so some hacks are needed
+			// TODO: fix the library
+			var prepend []byte
+			if corruptTPDU {
+				n++
+				if n%13 != 0 {
+					// don't corrupt each datagram
+					return
+				}
+				prepend = []byte{
+					// TODO: try zeros
+					0x7e, // seq number hi (unused)
+					0xf0, // seq number lo (unused)
+					0x38, // N-PDU number (unused)
+					0xf7, // next extension type
+					0,    // ext header length (broken! must not be 0)
+				}
+			} else {
+				prepend = []byte{
+					0,    // seq number hi (unused)
+					0,    // seq number lo (unused)
+					0,    // N-PDU number (unused)
+					0x32, // next extension type
+					1,    // ext header length
+					0,    // ext content
+					0xff, // ext content
+					0,    // next ext type: no extension
+				}
+			}
+			tpdu.Header.Flags |= 4
+			tpdu.Payload = append(prepend, tpdu.Payload...)
+		}
+
+		ginkgo.BeforeEach(func() {
+			seid = startMeasurementSession(f, &framework.SessionConfig{AppPDR: true})
+			n = 0
+			corruptTPDU = false
+		})
+
+		ginkgo.It("should correctly handle the extensions", func() {
+			verifyConnFlood(f, false)
+			deleteSession(f, seid, true)
+		})
+
+		ginkgo.Context("[corrupt GTP-U]", func() {
+			ginkgo.BeforeEach(func() {
+				corruptTPDU = true
+			})
+
+			ginkgo.It("should not hang on corrupt GTP-U datagrams", func() {
+				verifyConnFlood(f, false)
+				deleteSession(f, seid, true)
+			})
+		})
+	})
 })
 
 func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMode) {

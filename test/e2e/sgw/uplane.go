@@ -89,6 +89,9 @@ func NewUserPlaneServer(cfg UserPlaneConfig, restartCounter uint8) (up *UserPlan
 
 	switch cfg.GTPUTunnel.Type {
 	case SGWGTPUTunnelTypeKernel:
+		if cfg.TPDUHook != nil {
+			return nil, errors.New("can't use TPDUHook in kernel mode")
+		}
 		up.tunnel = NewKernelTunnel(up, cfg.GTPUTunnel)
 	case SGWGTPUTunnelTypeTun:
 		up.tunnel = NewTunTunnel(up, cfg.GTPUTunnel)
