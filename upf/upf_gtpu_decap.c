@@ -319,6 +319,13 @@ upf_gtpu_input (vlib_main_t * vm,
 
 		  while ((u8 *) ext < end && ext->type != 0)
 		    {
+		      if (PREDICT_FALSE (!ext->len))
+			{
+			  error0 = UPF_GTPU_ERROR_LENGTH_ERROR;
+			  next0 = UPF_GTPU_INPUT_NEXT_DROP;
+			  goto trace0;
+			}
+
 		      /* gtpu_ext_header_t is 4 bytes and the len is in units of 4 */
 		      gtpu_hdr_len0 += ext->len * 4;
 		      ext += ext->len * 4 / sizeof (*ext);
@@ -499,6 +506,13 @@ upf_gtpu_input (vlib_main_t * vm,
 
 		  while ((u8 *) ext < end && ext->type != 0)
 		    {
+		      if (PREDICT_FALSE (!ext->len))
+			{
+			  error1 = UPF_GTPU_ERROR_LENGTH_ERROR;
+			  next1 = UPF_GTPU_INPUT_NEXT_DROP;
+			  goto trace1;
+			}
+
 		      /* gtpu_ext_header_t is 4 bytes and the len is in units of 4 */
 		      gtpu_hdr_len1 += ext->len * 4;
 		      ext += ext->len * 4 / sizeof (*ext);
@@ -731,6 +745,13 @@ upf_gtpu_input (vlib_main_t * vm,
 
 		  while ((u8 *) ext < end && ext->type != 0)
 		    {
+		      if (PREDICT_FALSE (!ext->len))
+			{
+			  error0 = UPF_GTPU_ERROR_LENGTH_ERROR;
+			  next0 = UPF_GTPU_INPUT_NEXT_DROP;
+			  goto trace00;
+			}
+
 		      /* gtpu_ext_header_t is 4 bytes and the len is in units of 4 */
 		      gtpu_hdr_len0 += ext->len * 4;
 		      ext += ext->len * 4 / sizeof (*ext);
