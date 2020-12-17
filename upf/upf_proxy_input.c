@@ -313,6 +313,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  n_left_to_next -= 1;
 
 	  b = vlib_get_buffer (vm, bi);
+          UPF_CHECK_INNER_NODE (b);
 
 	  error = 0;
 	  next = UPF_FORWARD_NEXT_DROP;

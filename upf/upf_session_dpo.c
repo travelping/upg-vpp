@@ -258,8 +258,9 @@ VLIB_INIT_FUNCTION (upf_session_dpo_module_init);
 #endif /* CLIB_MARCH_VARIANT */
 
 /* Statistics (not all errors) */
-#define foreach_upf_session_dpo_error    \
-_(SESSION_DPO, "good packets session_dpo")
+#define foreach_upf_session_dpo_error    	\
+  _(SESSION_DPO, "good packets session_dpo")	\
+  _(PROXY_LOOP, "proxy output loop detected")
 
 static char *upf_session_dpo_error_strings[] = {
 #define _(sym,string) string,
@@ -405,13 +406,26 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 	  ASSERT (!pool_is_free (gtm->sessions, gtm->sessions + sidx));
 
 	  ip0 = vlib_buffer_get_current (b);
+          /*
+           * Edge case: misdirected packet from upf-ip[46]-proxy-server-output
+           * This happens when a session is modified and the PDRs/FARs relevant
+           * for GTPU-U encapsulation are affected. This may cause the packets
+           * to loop back to session-dpo via ip[46]-input.
+           */
+          if ((b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED) && ip0->protocol == IP_PROTOCOL_TCP)
+            {
+              upf_debug("Proxy output loop detected: %U", format_ip4_header, ip0, b->current_length);
+              error0 = UPF_SESSION_DPO_ERROR_PROXY_LOOP;
+              next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
+              goto trace;
+            }
+
+          UPF_ENTER_SUBGRAPH (b);
 	  error0 = IP4_ERROR_NONE;
 	  next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
 	  upf_debug ("IP hdr: %U", format_ip4_header, ip0, b->current_length);
 
 	  ip4_ttl_and_checksum_check (b, ip0, &next, &error0);
-
-	  b->error = error_node->errors[error0];
 	  vnet_calc_checksums_inline
 	    (vm, b, 1 /* is_ip4 */ , 0 /* is_ip6 */ );
 
@@ -421,6 +435,8 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 	  upf_buffer_opaque (b)->gtpu.teid = 0;
 	  upf_buffer_opaque (b)->gtpu.flags = BUFFER_HAS_IP4_HDR;
 
+        trace:
+	  b->error = error_node->errors[error0];
 	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
 	    {
 	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
@@ -527,20 +543,36 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node) (vlib_main_t * vm,
 	  ASSERT (~0 != sidx);
 
 	  ip0 = vlib_buffer_get_current (b);
+          /*
+           * Edge case: misdirected packet from upf-ip[46]-proxy-server-output
+           * This happens when a session is modified and the PDRs/FARs relevant
+           * for GTPU-U encapsulation are affected. This may cause the packets
+           * to loop back to session-dpo via ip[46]-input.
+           */
+          if ((b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED) && ip0->protocol == IP_PROTOCOL_TCP)
+            {
+              upf_debug("Proxy output loop detected: %U", format_ip4_header, ip0, b->current_length);
+              error0 = UPF_SESSION_DPO_ERROR_PROXY_LOOP;
+              next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
+              goto trace;
+            }
+
+          UPF_ENTER_SUBGRAPH (b);
 	  error0 = IP6_ERROR_NONE;
 	  next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
 
 	  ip6_hop_limit_check (b, ip0, &next, &error0);
-
-	  b->error = error_node->errors[error0];
 	  vnet_calc_checksums_inline
 	    (vm, b, 0 /* is_ip4 */ , 1 /* is_ip6 */ );
 
 	  upf_buffer_opaque (b)->gtpu.session_index = sidx;
+	  upf_buffer_opaque (b)->gtpu.is_proxied = 0;
 	  upf_buffer_opaque (b)->gtpu.data_offset = 0;
 	  upf_buffer_opaque (b)->gtpu.teid = 0;
 	  upf_buffer_opaque (b)->gtpu.flags = BUFFER_HAS_IP6_HDR;
 
+        trace:
+	  b->error = error_node->errors[error0];
 	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
 	    {
 	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);

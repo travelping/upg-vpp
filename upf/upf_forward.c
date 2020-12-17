@@ -131,6 +131,7 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  n_left_to_next -= 1;
 
 	  b = vlib_get_buffer (vm, bi);
+          UPF_CHECK_INNER_NODE (b);
 
 	  /* Get next node index and adj index from tunnel next_dpo */
 	  sidx = upf_buffer_opaque (b)->gtpu.session_index;

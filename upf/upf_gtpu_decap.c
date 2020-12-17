@@ -162,7 +162,9 @@ upf_gtpu_input (vlib_main_t * vm,
 	  n_left_from -= 2;
 
 	  b0 = vlib_get_buffer (vm, bi0);
+	  UPF_ENTER_SUBGRAPH (b0);
 	  b1 = vlib_get_buffer (vm, bi1);
+	  UPF_ENTER_SUBGRAPH (b1);
 
 	  vnet_buffer (b0)->l4_hdr_offset = b0->current_data;
 	  vnet_buffer (b1)->l4_hdr_offset = b1->current_data;
@@ -603,6 +605,7 @@ upf_gtpu_input (vlib_main_t * vm,
 	  n_left_to_next -= 1;
 
 	  b0 = vlib_get_buffer (vm, bi0);
+	  UPF_ENTER_SUBGRAPH (b0);
 
 	  vnet_buffer (b0)->l4_hdr_offset = b0->current_data;
 
@@ -1055,6 +1058,7 @@ VLIB_NODE_FN (upf_gtp_error_ind_node) (vlib_main_t * vm,
       n_errors_left -= 1;
 
       b = vlib_get_buffer (vm, bi);
+      UPF_ENTER_SUBGRAPH (b);
       vlib_buffer_reset (b);
       vlib_buffer_advance (b, vnet_buffer (b)->l4_hdr_offset);
       gtpu = vlib_buffer_get_current (b);
@@ -1229,6 +1233,7 @@ VLIB_NODE_FN (upf_gtp_ip4_echo_req_node) (vlib_main_t * vm,
 	  n_left_to_next -= 1;
 
 	  p0 = vlib_get_buffer (vm, bi0);
+	  UPF_CHECK_INNER_NODE (p0);
 	  ip0 = vlib_buffer_get_current (p0);
 	  udp0 = ip4_next_header (ip0);
 
@@ -1378,6 +1383,7 @@ VLIB_NODE_FN (upf_gtp_ip6_echo_req_node) (vlib_main_t * vm,
 	  n_left_to_next -= 1;
 
 	  p0 = vlib_get_buffer (vm, bi0);
+	  UPF_CHECK_INNER_NODE (p0);
 	  ip0 = vlib_buffer_get_current (p0);
 	  udp0 = ip6_next_header (ip0);
 
@@ -1563,7 +1569,9 @@ ip_gtpu_upf_bypass_inline (vlib_main_t * vm,
 	  n_left_to_next -= 2;
 
 	  b0 = vlib_get_buffer (vm, bi0);
+	  UPF_ENTER_SUBGRAPH (b0);
 	  b1 = vlib_get_buffer (vm, bi1);
+	  UPF_ENTER_SUBGRAPH (b1);
 	  if (is_ip4)
 	    {
 	      ip40 = vlib_buffer_get_current (b0);

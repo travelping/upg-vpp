@@ -230,6 +230,11 @@ upf_encap_inline (vlib_main_t * vm,
 	  b2 = vlib_get_buffer (vm, bi2);
 	  b3 = vlib_get_buffer (vm, bi3);
 
+          UPF_CHECK_INNER_NODE (b0);
+          UPF_CHECK_INNER_NODE (b1);
+          UPF_CHECK_INNER_NODE (b2);
+          UPF_CHECK_INNER_NODE (b3);
+
 	  flow_hash0 = vnet_l2_compute_flow_hash (b0);
 	  flow_hash1 = vnet_l2_compute_flow_hash (b1);
 	  flow_hash2 = vnet_l2_compute_flow_hash (b2);
@@ -612,6 +617,7 @@ upf_encap_inline (vlib_main_t * vm,
 	  n_left_to_next -= 1;
 
 	  b0 = vlib_get_buffer (vm, bi0);
+          UPF_CHECK_INNER_NODE (b0);
 
 	  flow_hash0 = vnet_l2_compute_flow_hash (b0);
 
