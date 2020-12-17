@@ -13,6 +13,8 @@ import (
 	"github.com/travelping/upg-vpp/test/e2e/sgw"
 )
 
+type TPDUHook sgw.TPDUHook
+
 type GTPUConfig struct {
 	GRXNS      *network.NetNS
 	UENS       *network.NetNS
@@ -23,6 +25,7 @@ type GTPUConfig struct {
 	TEIDSGWs5u uint32
 	LinkName   string
 	MTU        int
+	TPDUHook   TPDUHook
 }
 
 func (cfg GTPUConfig) ipv6() bool {
@@ -30,8 +33,9 @@ func (cfg GTPUConfig) ipv6() bool {
 }
 
 func (cfg GTPUConfig) gtpuTunnelType() sgw.SGWGTPUTunnelType {
+	// if TPDUHook is used, we must use userspace GTP-U
 	// TODO: autodetect kernel GTP-U support
-	if !cfg.ipv6() && os.Getenv("UPG_TEST_GTPU_KERNEL") != "" {
+	if cfg.TPDUHook == nil && !cfg.ipv6() && os.Getenv("UPG_TEST_GTPU_KERNEL") != "" {
 		return sgw.SGWGTPUTunnelTypeKernel
 	}
 
@@ -61,6 +65,7 @@ func NewGTPU(cfg GTPUConfig) (*GTPU, error) {
 		},
 		GRXNetNS: cfg.GRXNS,
 		UENetNS:  cfg.UENS,
+		TPDUHook: sgw.TPDUHook(cfg.TPDUHook),
 	}, 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating the user plane server")

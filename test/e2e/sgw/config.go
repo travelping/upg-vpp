@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/vishvananda/netns"
+	"github.com/wmnsk/go-gtp/gtpv1/message"
 )
 
 type SGWGTPUTunnelType string
@@ -27,12 +28,18 @@ type SGWGTPUTunnel struct {
 	MTU           int               `yaml:"mtu",default:"1300"`
 }
 
+type TPDUHook func(tpdu *message.TPDU, fromPGW bool)
+
 type UserPlaneConfig struct {
 	S5uIP      net.IP
 	GTPUTunnel SGWGTPUTunnel
 	GRXNetNS   NetNS
 	UENetNS    NetNS
 	AddRule    bool
+	// Specify a hook function to run on ougtoing and incoming
+	// encapsulated T-PDUs. If this hook is non-nil, userspace
+	// GTP mode must always be used
+	TPDUHook TPDUHook
 }
 
 func (cfg *UserPlaneConfig) SetDefaults() {
