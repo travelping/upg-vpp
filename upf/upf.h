@@ -75,6 +75,33 @@ STATIC_ASSERT (sizeof (upf_buffer_opaque_t) <=
   ((upf_buffer_opaque_t *)((u8 *)((b)->opaque2) +       \
 STRUCT_OFFSET_OF (vnet_buffer_opaque_t, unused)))
 
+#if CLIB_DEBUG > 0
+
+/*
+ * For debug builds, we add a flag to each buffer when we initialize
+ * GTPU metadata when the buffer is processed by one of the UPF
+ * entry nodes (upf-gtpu[46]-input, upf-ip[46]-session-dpo,
+ * upf-ip[46]-proxy-server-output)
+ */
+#define UPF_BUFFER_F_GTPU_INITIALIZED VNET_BUFFER_F_AVAIL1
+#define UPF_ENTER_SUBGRAPH(b)					\
+  do {								\
+    ASSERT (!(b->flags & UPF_BUFFER_F_GTPU_INITIALIZED));	\
+    b->flags |= UPF_BUFFER_F_GTPU_INITIALIZED;			\
+    upf_buffer_opaque (b)->gtpu.hdr_flags = 0;			\
+  } while (0)
+#define UPF_CHECK_INNER_NODE(b) ASSERT (b->flags & UPF_BUFFER_F_GTPU_INITIALIZED)
+
+#else
+
+#define UPF_ENTER_SUBGRAPH(b)			\
+  do {						\
+    upf_buffer_opaque (b)->gtpu.hdr_flags = 0;	\
+  } while (0)
+#define UPF_CHECK_INNER_NODE(b)
+
+#endif
+
 #define BUFFER_HAS_GTP_HDR  (1<<4)
 #define BUFFER_HAS_UDP_HDR  (1<<5)
 #define BUFFER_HAS_IP4_HDR  (1<<6)

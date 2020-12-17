@@ -215,6 +215,7 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
       n_left_from -= 1;
 
       b = vlib_get_buffer (vm, bi);
+      UPF_CHECK_INNER_NODE (b);
 
       flow_id = upf_buffer_opaque (b)->gtpu.flow_id;
       upf_debug ("flow_id: 0x%08x", flow_id);

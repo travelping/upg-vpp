@@ -162,7 +162,9 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  bi0 = to_next[0] = from[0];
 	  bi1 = to_next[1] = from[1];
 	  b0 = vlib_get_buffer (vm, bi0);
+          UPF_CHECK_INNER_NODE (b0);
 	  b1 = vlib_get_buffer (vm, bi1);
+          UPF_CHECK_INNER_NODE (b1);
 
 	  created0 = created1 = 0;
 	  is_reverse0 = is_reverse1 = 0;
@@ -325,6 +327,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  bi0 = to_next[0] = from[0];
 	  b0 = vlib_get_buffer (vm, bi0);
+          UPF_CHECK_INNER_NODE (b0);
 
 	  if (PREDICT_FALSE
 	      (pool_is_free_index
