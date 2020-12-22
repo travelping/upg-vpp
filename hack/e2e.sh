@@ -18,6 +18,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_QUICK:=}"
 : "${E2E_FLAKE_ATTEMPTS:=}"
 : "${E2E_DISPATCH_TRACE:=}"
+: "${E2E_PAUSE_ON_ERROR:=}"
 
 if grep -q '^gtp ' /proc/modules; then
   echo >&2 "* Using kernel GTP-U support for IPv4 PGW tests"
@@ -83,6 +84,10 @@ fi
 
 if [[ ${E2E_JUNIT_DIR} ]]; then
   ginkgo_args+=(-junit-output "${E2E_JUNIT_DIR}")
+fi
+
+if [[ ${E2E_PAUSE_ON_ERROR} ]]; then
+  ginkgo_args+=(-pause)
 fi
 
 ginkgo "${ginkgo_args[@]}"

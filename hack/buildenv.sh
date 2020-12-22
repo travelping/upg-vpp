@@ -39,6 +39,7 @@ else
          -e E2E_QUICK="${E2E_QUICK:-}" \
          -e E2E_FLAKE_ATTEMPTS="${E2E_FLAKE_ATTEMPTS:-}" \
          -e E2E_DISPATCH_TRACE="${E2E_DISPATCH_TRACE:-}" \
+         -e E2E_PAUSE_ON_ERROR="${E2E_PAUSE_ON_ERROR:-}" \
          -w /src/vpp \
          "${build_image}" \
          "$@"
