@@ -32,6 +32,7 @@ The make commands accept following variables:
 * `E2E_JUNIT_DIR`: target directory for test reports in JUnit XML format
 * `E2E_QUICK`: do shorter tests (pass less traffic)
 * `E2E_FLAKE_ATTEMPTS`: retry failed tests specified amount of times
+* `E2E_TRACE`: enable VPP trace
 * `E2E_DISPATCH_TRACE`: store the VPP dispatch trace as `dispatch-trace.pcap` in the test dir
 * `E2E_PAUSE_ON_ERROR`: pause on error for interactive debugging
 

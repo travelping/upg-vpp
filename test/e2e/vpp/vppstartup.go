@@ -74,6 +74,7 @@ type VPPStartupConfig struct {
 	APIPrefix     string
 	MainCore      int
 	UseGDB        bool
+	Trace         bool
 	DispatchTrace bool
 }
 
@@ -87,6 +88,7 @@ func (cfg *VPPStartupConfig) SetFromEnv() {
 		cfg.PluginPath = pluginPath
 	}
 	cfg.UseGDB = os.Getenv("VPP_NO_GDB") == ""
+	cfg.Trace = os.Getenv("VPP_TRACE") != ""
 	cfg.DispatchTrace = os.Getenv("VPP_DISPATCH_TRACE") != ""
 	cfg.SetDefaults()
 }

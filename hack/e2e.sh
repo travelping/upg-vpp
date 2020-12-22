@@ -17,6 +17,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_JUNIT_DIR:=}"
 : "${E2E_QUICK:=}"
 : "${E2E_FLAKE_ATTEMPTS:=}"
+: "${E2E_TRACE:=}"
 : "${E2E_DISPATCH_TRACE:=}"
 : "${E2E_PAUSE_ON_ERROR:=}"
 
@@ -28,6 +29,7 @@ else
 fi
 
 export UPG_TEST_QUICK="${E2E_QUICK}"
+export VPP_TRACE="${E2E_TRACE}"
 export VPP_DISPATCH_TRACE="${E2E_DISPATCH_TRACE}"
 
 case ${E2E_TARGET} in

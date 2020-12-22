@@ -356,7 +356,9 @@ func (vi *VPPInstance) stopDispatchTrace() {
 }
 
 func (vi *VPPInstance) TearDown() {
-	vi.Ctl("show trace")
+	if vi.startupCfg.Trace {
+		vi.Ctl("show trace")
+	}
 	vi.stopDispatchTrace()
 	if err := vi.stopVPP(); err != nil {
 		vi.log.WithError(err).Error("error stopping VPP")
@@ -544,6 +546,9 @@ func (vi *VPPInstance) Configure() error {
 		allCmds = append(allCmds, vi.interfaceCmds(nsCfg)...)
 	}
 	allCmds = append(allCmds, vi.cfg.SetupCommands...)
+	if vi.startupCfg.Trace {
+		allCmds = append(allCmds, "trace add af-packet-input 10000")
+	}
 	return vi.runCmds(allCmds...)
 }
 
