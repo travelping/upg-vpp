@@ -146,7 +146,6 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  n_left_to_next -= 1;
 
 	  b = vlib_get_buffer (vm, bi);
-          UPF_ENTER_SUBGRAPH (b);
 
 	  error = 0;
 
@@ -184,15 +183,11 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      goto stats;
 	    }
 
-	  upf_buffer_opaque (b)->gtpu.session_index = flow->session_index;
+	  UPF_ENTER_SUBGRAPH (b, flow->session_index, is_ip4);
 	  upf_buffer_opaque (b)->gtpu.flow_id = flow_id;
 	  upf_buffer_opaque (b)->gtpu.is_reverse =
 	    direction ^ flow->is_reverse;
 	  upf_buffer_opaque (b)->gtpu.is_proxied = 1;
-	  upf_buffer_opaque (b)->gtpu.data_offset = 0;
-	  upf_buffer_opaque (b)->gtpu.teid = 0;
-	  upf_buffer_opaque (b)->gtpu.flags =
-	    is_ip4 ? BUFFER_HAS_IP4_HDR : BUFFER_HAS_IP6_HDR;
 
 	  /* mostly borrowed from vnet/interface_output.c calc_checksums */
 	  if (is_ip4)
