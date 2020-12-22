@@ -65,15 +65,16 @@ func init() {
 }
 
 type VPPStartupConfig struct {
-	BinaryPath string
-	PluginPath string
-	CLISock    string
-	APISock    string
-	StatsSock  string
-	VPPLog     string
-	APIPrefix  string
-	MainCore   int
-	UseGDB     bool
+	BinaryPath    string
+	PluginPath    string
+	CLISock       string
+	APISock       string
+	StatsSock     string
+	VPPLog        string
+	APIPrefix     string
+	MainCore      int
+	UseGDB        bool
+	DispatchTrace bool
 }
 
 func (cfg *VPPStartupConfig) SetFromEnv() {
@@ -86,6 +87,7 @@ func (cfg *VPPStartupConfig) SetFromEnv() {
 		cfg.PluginPath = pluginPath
 	}
 	cfg.UseGDB = os.Getenv("VPP_NO_GDB") == ""
+	cfg.DispatchTrace = os.Getenv("VPP_DISPATCH_TRACE") != ""
 	cfg.SetDefaults()
 }
 

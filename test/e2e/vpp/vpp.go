@@ -35,10 +35,11 @@ const (
 	VPP_RECONNECT_INTERVAL   = time.Second
 	// the startup can get quite slow if too many tests are
 	// run in parallel without enough CPU cores available
-	VPP_STARTUP_TIMEOUT = 30 * time.Second
-	VPP_REPLY_TIMEOUT   = 5 * time.Second
-	NSENTER_CMD         = "nsenter"
-	DEFAULT_MTU         = 9000
+	VPP_STARTUP_TIMEOUT     = 30 * time.Second
+	VPP_REPLY_TIMEOUT       = 5 * time.Second
+	NSENTER_CMD             = "nsenter"
+	DEFAULT_MTU             = 9000
+	DISPATCH_TRACE_FILENAME = "dispatch-trace.pcap"
 )
 
 type RouteConfig struct {
@@ -97,17 +98,18 @@ func (cfg VPPConfig) GetNamespaceLinkName(namespace string) string {
 }
 
 type VPPInstance struct {
-	cfg        VPPConfig
-	startupCfg VPPStartupConfig
-	conn       *core.Connection
-	apiChannel api.Channel
-	cmd        *exec.Cmd
-	vppNS      *network.NetNS
-	namespaces map[string]*network.NetNS
-	Captures   map[string]*network.Capture
-	log        *logrus.Entry
-	pipeCopyWG sync.WaitGroup
-	t          tomb.Tomb
+	cfg                   VPPConfig
+	startupCfg            VPPStartupConfig
+	conn                  *core.Connection
+	apiChannel            api.Channel
+	cmd                   *exec.Cmd
+	vppNS                 *network.NetNS
+	namespaces            map[string]*network.NetNS
+	Captures              map[string]*network.Capture
+	log                   *logrus.Entry
+	pipeCopyWG            sync.WaitGroup
+	t                     tomb.Tomb
+	dispatchTraceFileName string
 }
 
 func NewVPPInstance(cfg VPPConfig) *VPPInstance {
@@ -338,8 +340,24 @@ func (vi *VPPInstance) closeNamespaces() {
 	vi.namespaces = nil
 }
 
+func (vi *VPPInstance) stopDispatchTrace() {
+	if vi.dispatchTraceFileName == "" {
+		return
+	}
+
+	if _, err := vi.Ctl("pcap dispatch trace off"); err != nil {
+		vi.log.WithError(err).Error("error writing dispatch trace")
+	}
+
+	targetPath := vi.vppFilePath(DISPATCH_TRACE_FILENAME)
+	if err := os.Rename(vi.dispatchTraceFileName, targetPath); err != nil {
+		vi.log.WithError(err).Error("error moving dispatch trace file")
+	}
+}
+
 func (vi *VPPInstance) TearDown() {
 	vi.Ctl("show trace")
+	vi.stopDispatchTrace()
 	if err := vi.stopVPP(); err != nil {
 		vi.log.WithError(err).Error("error stopping VPP")
 	}
@@ -495,7 +513,32 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 	)
 }
 
+func (vi *VPPInstance) setupDispatchTrace() error {
+	tmpFile, err := ioutil.TempFile("/tmp", "vppcapture-*")
+	if err != nil {
+		return errors.Wrap(err, "error creating vppcapture temp file")
+	}
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpFile.Name())
+		return errors.Wrap(err, "error creating vppcapture temp file (closing)")
+	}
+
+	_, err = vi.Ctl("pcap dispatch trace on max 100000 file %s", filepath.Base(tmpFile.Name()))
+	if err != nil {
+		return errors.Wrap(err, "error turning on the dispatch trace")
+	}
+
+	vi.dispatchTraceFileName = tmpFile.Name()
+	return nil
+}
+
 func (vi *VPPInstance) Configure() error {
+	if vi.startupCfg.DispatchTrace {
+		if err := vi.setupDispatchTrace(); err != nil {
+			return err
+		}
+	}
+
 	var allCmds []string
 	for _, nsCfg := range vi.cfg.Namespaces {
 		allCmds = append(allCmds, vi.interfaceCmds(nsCfg)...)

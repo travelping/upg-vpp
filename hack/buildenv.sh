@@ -38,6 +38,7 @@ else
          -e E2E_JUNIT_DIR="${E2E_JUNIT_DIR:-}" \
          -e E2E_QUICK="${E2E_QUICK:-}" \
          -e E2E_FLAKE_ATTEMPTS="${E2E_FLAKE_ATTEMPTS:-}" \
+         -e E2E_DISPATCH_TRACE="${E2E_DISPATCH_TRACE:-}" \
          -w /src/vpp \
          "${build_image}" \
          "$@"
