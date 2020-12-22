@@ -126,8 +126,10 @@ func (f *Framework) AfterEach() {
 	if f.VPP != nil {
 		ExpectNoError(f.VPP.VerifyVPPAlive())
 		defer func() {
-			f.VPP.TearDown()
-			f.VPP = nil
+			if f.VPP != nil {
+				f.VPP.TearDown()
+				f.VPP = nil
+			}
 		}()
 
 		if f.PFCP != nil {
@@ -141,6 +143,8 @@ func (f *Framework) AfterEach() {
 			ExpectNoError(f.GTPU.Stop())
 			f.GTPU = nil
 		}
+		f.VPP.TearDown()
+		f.VPP = nil
 	}
 
 	if f.VPPCfg != nil && f.VPPCfg.BaseDir != "" {
