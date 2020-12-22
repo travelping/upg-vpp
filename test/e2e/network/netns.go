@@ -5,6 +5,7 @@ import (
 	"net"
 	"regexp"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -213,7 +214,7 @@ func (netns *NetNS) ListenTCP(ctx context.Context, address string) (net.Listener
 	err := netns.Do(func() error {
 		var innerErr error
 		network := "tcp4"
-		if netns.ipv6 {
+		if netns.ipv6 || strings.HasPrefix(address, "[") {
 			network = "tcp6"
 		}
 		l, innerErr = netns.listenConfig().Listen(context.Background(), network, address)
@@ -258,4 +259,8 @@ func (netns *NetNS) AddRoute(dst *net.IPNet, gw net.IP) error {
 
 		return nil
 	})
+}
+
+func (netns *NetNS) SetIPv6() {
+	netns.ipv6 = true
 }
