@@ -426,6 +426,10 @@ func (vi *VPPInstance) SetupNamespaces() error {
 				"nsPath":  ns.Path(),
 				"OtherIP": *nsCfg.OtherIP,
 			}).Info("netns created")
+
+			if nsCfg.OtherIP != nil && nsCfg.OtherIP.IP.To4() == nil {
+				ns.SetIPv6()
+			}
 		}
 
 		vi.namespaces[nsCfg.Name] = ns

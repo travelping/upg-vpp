@@ -9,47 +9,61 @@ import (
 )
 
 type SessionConfig struct {
-	IdBase     uint16
-	UEIP       net.IP
-	PGWGRXIP   net.IP
-	SGWGRXIP   net.IP
-	AppPDR     bool
-	Redirect   bool
-	Mode       UPGMode
-	TEIDPGWs5u uint32
-	TEIDSGWs5u uint32
+	IdBase          uint16
+	UEIP            net.IP
+	PGWIP           net.IP
+	SGWIP           net.IP
+	AppPDR          bool
+	Redirect        bool
+	Mode            UPGMode
+	TEIDPGWs5u      uint32
+	TEIDSGWs5u      uint32
+	ProxyAccessIP   net.IP
+	ProxyCoreIP     net.IP
+	ProxyAccessTEID uint32
+	ProxyCoreTEID   uint32
 }
 
-func (cfg SessionConfig) outerHeaderCreation() *ie.IE {
-	ip4 := cfg.SGWGRXIP.To4()
+func (cfg SessionConfig) sgwOuterHeaderCreation() *ie.IE {
+	ip4 := cfg.SGWIP.To4()
 	if ip4 != nil {
 		return ie.NewOuterHeaderCreation(pfcp.OuterHeaderCreation_GTPUUDPIPV4, cfg.TEIDSGWs5u, ip4.String(), "", 0, 0, 0)
 	}
 
-	return ie.NewOuterHeaderCreation(pfcp.OuterHeaderCreation_GTPUUDPIPV6, cfg.TEIDSGWs5u, "", cfg.SGWGRXIP.String(), 0, 0, 0)
+	return ie.NewOuterHeaderCreation(pfcp.OuterHeaderCreation_GTPUUDPIPV6, cfg.TEIDSGWs5u, "", cfg.SGWIP.String(), 0, 0, 0)
+}
+
+func (cfg SessionConfig) coreOuterHeaderCreation() *ie.IE {
+	ip4 := cfg.PGWIP.To4()
+	if ip4 != nil {
+		return ie.NewOuterHeaderCreation(pfcp.OuterHeaderCreation_GTPUUDPIPV4, cfg.TEIDPGWs5u, ip4.String(), "", 0, 0, 0)
+	}
+
+	return ie.NewOuterHeaderCreation(pfcp.OuterHeaderCreation_GTPUUDPIPV6, cfg.TEIDPGWs5u, "", cfg.PGWIP.String(), 0, 0, 0)
 }
 
 func (cfg SessionConfig) outerHeaderRemoval() *ie.IE {
-	if cfg.PGWGRXIP.To4() != nil {
+	if cfg.PGWIP.To4() != nil {
 		return ie.NewOuterHeaderRemoval(pfcp.OuterHeaderRemoval_GTPUUDPIPV4, 0)
 	}
 
 	return ie.NewOuterHeaderRemoval(pfcp.OuterHeaderRemoval_GTPUUDPIPV6, 0)
 }
 
-func (cfg SessionConfig) ieFTEID() *ie.IE {
-	ip4 := cfg.PGWGRXIP.To4()
-	if ip4 != nil {
-		return ie.NewFTEID(cfg.TEIDPGWs5u, ip4, nil, nil)
-	}
-
-	return ie.NewFTEID(cfg.TEIDPGWs5u, nil, cfg.PGWGRXIP, nil)
-}
-
 func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
-	fwParams := []*ie.IE{
-		ie.NewDestinationInterface(ie.DstInterfaceSGiLANN6LAN),
-		ie.NewNetworkInstance(EncodeAPN("sgi")),
+	var fwParams []*ie.IE
+	switch cfg.Mode {
+	case UPGModeTDF, UPGModePGW:
+		fwParams = []*ie.IE{
+			ie.NewDestinationInterface(ie.DstInterfaceSGiLANN6LAN),
+			ie.NewNetworkInstance(EncodeAPN("sgi")),
+		}
+	case UPGModeGTPProxy:
+		fwParams = []*ie.IE{
+			ie.NewDestinationInterface(ie.DstInterfaceCore),
+			ie.NewNetworkInstance(EncodeAPN("core")),
+			cfg.coreOuterHeaderCreation(),
+		}
 	}
 	if cfg.Redirect {
 		fwParams = append(fwParams,
@@ -73,7 +87,13 @@ func (cfg SessionConfig) reverseFAR(farID uint32) *ie.IE {
 		fwParams = []*ie.IE{
 			ie.NewDestinationInterface(ie.DstInterfaceAccess),
 			ie.NewNetworkInstance(EncodeAPN("epc")),
-			cfg.outerHeaderCreation(),
+			cfg.sgwOuterHeaderCreation(),
+		}
+	case UPGModeGTPProxy:
+		fwParams = []*ie.IE{
+			ie.NewDestinationInterface(ie.DstInterfaceAccess),
+			ie.NewNetworkInstance(EncodeAPN("access")),
+			cfg.sgwOuterHeaderCreation(),
 		}
 	default:
 		panic("bad UPGMode")
@@ -110,12 +130,22 @@ func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint3
 	switch cfg.Mode {
 	case UPGModeTDF:
 		pdiIEs = append(pdiIEs,
-			ie.NewNetworkInstance(EncodeAPN("access")))
+			ie.NewNetworkInstance(EncodeAPN("access")),
+			ie.NewSourceInterface(ie.SrcInterfaceAccess),
+			cfg.ueIPAddress(0))
 	case UPGModePGW:
 		ies = append(ies, cfg.outerHeaderRemoval())
 		pdiIEs = append(pdiIEs,
-			cfg.ieFTEID(),
-			ie.NewNetworkInstance(EncodeAPN("epc")))
+			fteid(cfg.TEIDPGWs5u, cfg.PGWIP),
+			ie.NewNetworkInstance(EncodeAPN("epc")),
+			ie.NewSourceInterface(ie.SrcInterfaceAccess),
+			cfg.ueIPAddress(0))
+	case UPGModeGTPProxy:
+		ies = append(ies, cfg.outerHeaderRemoval())
+		pdiIEs = append(pdiIEs,
+			fteid(cfg.ProxyAccessTEID, cfg.ProxyAccessIP),
+			ie.NewNetworkInstance(EncodeAPN("access")),
+			ie.NewSourceInterface(ie.SrcInterfaceAccess))
 	default:
 		panic("bad UPGMode")
 	}
@@ -124,9 +154,6 @@ func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint3
 		pdiIEs = append(pdiIEs,
 			ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0))
 	}
-	pdiIEs = append(pdiIEs,
-		ie.NewSourceInterface(ie.SrcInterfaceAccess),
-		cfg.ueIPAddress(0))
 	ies = append(ies, ie.NewPDI(pdiIEs...))
 	if urrID != 0 {
 		ies = append(ies, ie.NewURRID(urrID))
@@ -136,26 +163,37 @@ func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint3
 }
 
 func (cfg SessionConfig) reversePDR(pdrID uint16, farID, urrID, precedence uint32, appID string) *ie.IE {
+	ies := []*ie.IE{
+		ie.NewPDRID(pdrID),
+		ie.NewFARID(farID),
+		ie.NewPrecedence(precedence),
+	}
+
 	var pdiIEs []*ie.IE
 
 	if appID != "" {
 		pdiIEs = append(pdiIEs, ie.NewApplicationID(appID))
-	} else {
-		pdiIEs = append(pdiIEs, ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0))
 	}
 
-	pdiIEs = append(pdiIEs,
-		ie.NewNetworkInstance(EncodeAPN("sgi")),
-		ie.NewSourceInterface(ie.SrcInterfaceSGiLANN6LAN),
-		cfg.ueIPAddress(pfcp.UEIPAddress_SD))
-
-	ies := []*ie.IE{
-		ie.NewPDRID(pdrID),
-		ie.NewFARID(farID),
-		ie.NewPDI(pdiIEs...),
-		ie.NewPrecedence(precedence),
+	switch cfg.Mode {
+	case UPGModeTDF, UPGModePGW:
+		pdiIEs = append(pdiIEs,
+			ie.NewNetworkInstance(EncodeAPN("sgi")),
+			ie.NewSourceInterface(ie.SrcInterfaceSGiLANN6LAN),
+			cfg.ueIPAddress(pfcp.UEIPAddress_SD))
+	case UPGModeGTPProxy:
+		ies = append(ies, cfg.outerHeaderRemoval())
+		pdiIEs = append(pdiIEs,
+			fteid(cfg.ProxyCoreTEID, cfg.ProxyCoreIP),
+			ie.NewNetworkInstance(EncodeAPN("core")),
+			ie.NewSourceInterface(ie.SrcInterfaceCore))
 	}
 
+	if appID == "" {
+		pdiIEs = append(pdiIEs,
+			ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0))
+	}
+	ies = append(ies, ie.NewPDI(pdiIEs...))
 	if urrID != 0 {
 		ies = append(ies, ie.NewURRID(urrID))
 	}
@@ -204,4 +242,13 @@ func (cfg SessionConfig) DeletePDRs() []*ie.IE {
 			ie.NewRemovePDR(ie.NewPDRID(cfg.IdBase+3)))
 	}
 	return ies
+}
+
+func fteid(teid uint32, ip net.IP) *ie.IE {
+	ip4 := ip.To4()
+	if ip4 != nil {
+		return ie.NewFTEID(teid, ip4, nil, nil)
+	}
+
+	return ie.NewFTEID(teid, nil, ip, nil) // IPv6
 }

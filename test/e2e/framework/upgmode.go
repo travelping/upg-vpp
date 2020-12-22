@@ -10,6 +10,7 @@ const (
 	UPGModeNone UPGMode = iota
 	UPGModePGW
 	UPGModeTDF
+	UPGModeGTPProxy
 )
 
 type UPGIPMode int
@@ -28,10 +29,12 @@ type upgModeKey struct {
 type upgModeFunc func() vpp.VPPConfig
 
 var upgModeTable = map[upgModeKey]upgModeFunc{
-	{UPGModePGW, UPGIPModeV4}: pgwVPPConfigIPv4,
-	{UPGModePGW, UPGIPModeV6}: pgwVPPConfigIPv6,
-	{UPGModeTDF, UPGIPModeV4}: tdfVPPConfigIPv4,
-	{UPGModeTDF, UPGIPModeV6}: tdfVPPConfigIPv6,
+	{UPGModePGW, UPGIPModeV4}:      pgwVPPConfigIPv4,
+	{UPGModePGW, UPGIPModeV6}:      pgwVPPConfigIPv6,
+	{UPGModeTDF, UPGIPModeV4}:      tdfVPPConfigIPv4,
+	{UPGModeTDF, UPGIPModeV6}:      tdfVPPConfigIPv6,
+	{UPGModeGTPProxy, UPGIPModeV4}: gtpProxyVPPConfigIPv4,
+	{UPGModeGTPProxy, UPGIPModeV6}: gtpProxyVPPConfigIPv6,
 }
 
 func vppConfig(mode UPGMode, ipMode UPGIPMode) vpp.VPPConfig {
@@ -99,7 +102,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 			"upf nwi name sgi vrf 200",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
-			"upf gtpu endpoint ip 10.0.3.2 nwi epc teid 0x80000000/2",
+			"upf gtpu endpoint ip 10.0.2.2 nwi epc teid 0x80000000/2",
 			// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
 			// For IPv6, ::/0 should be used as the subnet
 			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
@@ -295,6 +298,148 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
+			"?set upf proxy mss 1250",
+		},
+	}
+}
+
+func gtpProxyVPPConfigIPv4() vpp.VPPConfig {
+	return vpp.VPPConfig{
+		Namespaces: []vpp.VPPNetworkNamespace{
+			{
+				Name:          "cp",
+				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
+				VPPIP:         MustParseIPNet("10.0.0.2/24"),
+				OtherIP:       MustParseIPNet("10.0.0.3/24"),
+				VPPLinkName:   "cp0",
+				OtherLinkName: "cp1",
+				Table:         0,
+				MTU:           1500,
+			},
+			{
+				Name:          "ue",
+				OtherIP:       MustParseIPNet("10.1.0.3/16"),
+				OtherLinkName: "access",
+				SkipVPPConfig: true,
+				// using L3 capture because of tun
+				// (no Ethernet headers)
+				L3Capture: true,
+				// the default route is added by gtpu (sgw) code here
+			},
+			{
+				Name:          "access",
+				VPPMac:        MustParseMAC("fa:8a:78:4d:42:01"),
+				VPPIP:         MustParseIPNet("10.0.2.2/24"),
+				OtherIP:       MustParseIPNet("10.0.2.3/24"),
+				VPPLinkName:   "access0",
+				OtherLinkName: "access1",
+				Table:         100,
+				MTU:           1500,
+			},
+			{
+				Name:          "core",
+				VPPMac:        MustParseMAC("fa:8a:78:4d:99:01"),
+				VPPIP:         MustParseIPNet("10.0.3.2/24"),
+				OtherIP:       MustParseIPNet("10.0.3.3/24"),
+				VPPLinkName:   "core0",
+				OtherLinkName: "core1",
+				Table:         200,
+				MTU:           1500,
+			},
+			{
+				Name:          "srv",
+				OtherIP:       MustParseIPNet("10.0.1.3/24"),
+				OtherLinkName: "srv1",
+				SkipVPPConfig: true,
+				// using L3 capture because of tun
+				// (no Ethernet headers)
+				L3Capture: true,
+				// the default route is added by gtpu (sgw) code here
+			},
+		},
+		SetupCommands: []string{
+			"upf nwi name cp vrf 0",
+			"upf nwi name access vrf 100",
+			"upf nwi name core vrf 200",
+			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
+			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
+			"upf gtpu endpoint ip 10.0.2.2 nwi access teid 0x80000000/2",
+			"upf gtpu endpoint ip 10.0.3.2 nwi core teid 0x80000000/2",
+			"create upf application proxy name TST",
+			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
+			// TODO: make stitching optional and verify it
+			// TODO: optional trace
+			"?set upf proxy mss 1250",
+		},
+	}
+}
+
+func gtpProxyVPPConfigIPv6() vpp.VPPConfig {
+	return vpp.VPPConfig{
+		Namespaces: []vpp.VPPNetworkNamespace{
+			{
+				Name:          "cp",
+				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
+				VPPIP:         MustParseIPNet("10.0.0.2/24"),
+				OtherIP:       MustParseIPNet("10.0.0.3/24"),
+				VPPLinkName:   "cp0",
+				OtherLinkName: "cp1",
+				Table:         0,
+				MTU:           1500,
+			},
+			{
+				Name:          "ue",
+				OtherIP:       MustParseIPNet("2001:db8:11::3/64"),
+				OtherLinkName: "access",
+				SkipVPPConfig: true,
+				// using L3 capture because of tun
+				// (no Ethernet headers)
+				L3Capture: true,
+				// the default route is added by gtpu (sgw) code here
+			},
+			{
+				Name:          "access",
+				VPPMac:        MustParseMAC("fa:8a:78:4d:42:01"),
+				VPPIP:         MustParseIPNet("2001:db8:13::2/64"),
+				OtherIP:       MustParseIPNet("2001:db8:13::3/64"),
+				VPPLinkName:   "access0",
+				OtherLinkName: "access1",
+				Table:         100,
+				MTU:           1500,
+			},
+			{
+				Name:          "core",
+				VPPMac:        MustParseMAC("fa:8a:78:4d:99:01"),
+				VPPIP:         MustParseIPNet("2001:db8:14::2/64"),
+				OtherIP:       MustParseIPNet("2001:db8:14::3/64"),
+				VPPLinkName:   "core0",
+				OtherLinkName: "core1",
+				Table:         200,
+				MTU:           1500,
+			},
+			{
+				Name:          "srv",
+				OtherIP:       MustParseIPNet("2001:db8:12::3/64"),
+				OtherLinkName: "srv1",
+				SkipVPPConfig: true,
+				// using L3 capture because of tun
+				// (no Ethernet headers)
+				L3Capture: true,
+				// the default route is added by gtpu (sgw) code here
+			},
+		},
+		SetupCommands: []string{
+			"upf nwi name cp vrf 0",
+			"upf nwi name access vrf 100",
+			"upf nwi name core vrf 200",
+			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
+			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
+			"upf gtpu endpoint ip6 2001:db8:13::2 nwi access teid 0x80000000/2",
+			"upf gtpu endpoint ip6 2001:db8:14::2 nwi core teid 0x80000000/2",
+			"create upf application proxy name TST",
+			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
+			// TODO: make stitching optional and verify it
+			// TODO: optional trace
 			"?set upf proxy mss 1250",
 		},
 	}

@@ -19,8 +19,8 @@ type GTPUConfig struct {
 	GRXNS      *network.NetNS
 	UENS       *network.NetNS
 	UEIP       net.IP
-	SGWGRXIP   net.IP
-	PGWGRXIP   net.IP
+	SGWIP      net.IP
+	PGWIP      net.IP
 	TEIDPGWs5u uint32
 	TEIDSGWs5u uint32
 	LinkName   string
@@ -29,7 +29,7 @@ type GTPUConfig struct {
 }
 
 func (cfg GTPUConfig) ipv6() bool {
-	return cfg.UEIP.To4() == nil || cfg.SGWGRXIP.To4() == nil || cfg.PGWGRXIP.To4() == nil
+	return cfg.UEIP.To4() == nil || cfg.SGWIP.To4() == nil || cfg.PGWIP.To4() == nil
 }
 
 func (cfg GTPUConfig) gtpuTunnelType() sgw.SGWGTPUTunnelType {
@@ -57,7 +57,7 @@ type GTPU struct {
 func NewGTPU(cfg GTPUConfig) (*GTPU, error) {
 	cfg.SetDefaults()
 	up, err := sgw.NewUserPlaneServer(sgw.UserPlaneConfig{
-		S5uIP: cfg.SGWGRXIP,
+		S5uIP: cfg.SGWIP,
 		GTPUTunnel: sgw.SGWGTPUTunnel{
 			Type:          cfg.gtpuTunnelType(),
 			InterfaceName: cfg.LinkName,
@@ -96,7 +96,7 @@ func (gtpu *GTPU) Start(ctx context.Context) error {
 
 	session := sgw.NewSimpleSession(sgw.SimpleSessionConfig{
 		UNodeAddr: &net.UDPAddr{
-			IP:   gtpu.cfg.PGWGRXIP,
+			IP:   gtpu.cfg.PGWIP,
 			Port: sgw.GTPU_PORT,
 		},
 		TEIDPGWs5u: gtpu.cfg.TEIDPGWs5u,

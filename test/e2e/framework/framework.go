@@ -18,8 +18,10 @@ import (
 )
 
 const (
-	TEIDPGWs5u = 1000000000
-	TEIDSGWs5u = 1000000001
+	TEIDPGWs5u      = 1000000000
+	TEIDSGWs5u      = 1000000001
+	ProxyAccessTEID = 1000000002
+	ProxyCoreTEID   = 1000000003
 )
 
 var artifactsDir string
@@ -35,7 +37,7 @@ type Framework struct {
 	VPP              *vpp.VPPInstance
 	PFCPCfg          *pfcp.PFCPConfig
 	PFCP             *pfcp.PFCPConnection
-	GTPU             *GTPU
+	GTPUs            []*GTPU
 	Context          context.Context
 	GTPUMTU          int
 	TPDUHook         TPDUHook
@@ -73,14 +75,17 @@ func (f *Framework) BeforeEach() {
 	ExpectNoError(f.VPP.SetupNamespaces())
 	// do GTP-U setup before we start the captures,
 	// as it creates the ue's link
-	if f.Mode == UPGModePGW {
-		var err error
-		f.GTPU, err = NewGTPU(GTPUConfig{
+	switch f.Mode {
+	case UPGModeNone, UPGModeTDF:
+		f.GTPUs = nil
+		f.Context = f.VPP.Context(context.Background())
+	case UPGModePGW:
+		gtpu, err := NewGTPU(GTPUConfig{
 			GRXNS:      f.VPP.GetNS("grx"),
 			UENS:       f.VPP.GetNS("ue"),
 			UEIP:       f.VPPCfg.GetNamespaceAddress("ue").IP,
-			SGWGRXIP:   f.VPPCfg.GetNamespaceAddress("grx").IP,
-			PGWGRXIP:   f.VPPCfg.GetVPPAddress("grx").IP,
+			SGWIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
+			PGWIP:      f.VPPCfg.GetVPPAddress("grx").IP,
 			TEIDPGWs5u: TEIDPGWs5u,
 			TEIDSGWs5u: TEIDSGWs5u,
 			LinkName:   f.VPPCfg.GetNamespaceLinkName("ue"),
@@ -88,11 +93,47 @@ func (f *Framework) BeforeEach() {
 			TPDUHook:   f.TPDUHook,
 		})
 		ExpectNoError(err)
-		ExpectNoError(f.GTPU.Start(f.VPP.Context(context.Background())))
-		f.Context = f.GTPU.Context(context.Background())
-	} else {
-		f.GTPU = nil
-		f.Context = f.VPP.Context(context.Background())
+		ExpectNoError(gtpu.Start(f.VPP.Context(context.Background())))
+		f.Context = gtpu.Context(context.Background())
+		f.GTPUs = []*GTPU{gtpu}
+	case UPGModeGTPProxy:
+		// For the purpose of GTPUConfig, VPP is always "PGW",
+		// "SGW" being the side of the target test namespace
+		accessGTPU, err := NewGTPU(GTPUConfig{
+			GRXNS:      f.VPP.GetNS("access"),
+			UENS:       f.VPP.GetNS("ue"),
+			UEIP:       f.VPPCfg.GetNamespaceAddress("ue").IP,
+			SGWIP:      f.VPPCfg.GetNamespaceAddress("access").IP,
+			PGWIP:      f.VPPCfg.GetVPPAddress("access").IP,
+			TEIDPGWs5u: ProxyAccessTEID,
+			TEIDSGWs5u: TEIDSGWs5u,
+			LinkName:   f.VPPCfg.GetNamespaceLinkName("ue"),
+			MTU:        f.GTPUMTU,
+			TPDUHook:   f.TPDUHook,
+		})
+		ExpectNoError(err)
+		ExpectNoError(accessGTPU.Start(f.VPP.Context(context.Background())))
+		f.Context = accessGTPU.Context(context.Background())
+
+		// "Inverted" GTP-U on the Core side
+		// (FIXME: stop using SGW/PGW in the field names here)
+		coreGTPU, err := NewGTPU(GTPUConfig{
+			GRXNS:      f.VPP.GetNS("core"),
+			UENS:       f.VPP.GetNS("srv"),
+			UEIP:       f.VPPCfg.GetNamespaceAddress("srv").IP,
+			SGWIP:      f.VPPCfg.GetNamespaceAddress("core").IP,
+			PGWIP:      f.VPPCfg.GetVPPAddress("core").IP,
+			TEIDPGWs5u: ProxyCoreTEID,
+			TEIDSGWs5u: TEIDPGWs5u,
+			LinkName:   f.VPPCfg.GetNamespaceLinkName("srv"),
+			MTU:        f.GTPUMTU,
+			TPDUHook:   f.TPDUHook,
+		})
+		ExpectNoError(err)
+		ExpectNoError(coreGTPU.Start(f.VPP.Context(context.Background())))
+		f.Context = coreGTPU.Context(f.Context)
+
+		f.GTPUs = []*GTPU{accessGTPU, coreGTPU}
 	}
 	ExpectNoError(f.VPP.StartCapture())
 	ExpectNoError(f.VPP.StartVPP())
@@ -139,10 +180,11 @@ func (f *Framework) AfterEach() {
 			f.PFCP = nil
 		}
 
-		if f.GTPU != nil {
-			ExpectNoError(f.GTPU.Stop())
-			f.GTPU = nil
+		for _, gtpu := range f.GTPUs {
+			ExpectNoError(gtpu.Stop())
 		}
+		f.GTPUs = nil
+
 		f.VPP.TearDown()
 		f.VPP = nil
 	}
@@ -172,7 +214,11 @@ func (f *Framework) UEIP() net.IP {
 }
 
 func (f *Framework) ServerIP() net.IP {
-	return f.VPPCfg.GetNamespaceAddress("sgi").IP
+	if f.Mode == UPGModeGTPProxy {
+		return f.VPPCfg.GetNamespaceAddress("srv").IP
+	} else {
+		return f.VPPCfg.GetNamespaceAddress("sgi").IP
+	}
 }
 
 func (f *Framework) addIP(nsName string, n uint32) net.IP {
@@ -218,7 +264,7 @@ func (f *Framework) AddUEIP() net.IP {
 // packet drops on GRX<->UE path. In this case, only GRX pcaps should
 // be used to validate traffic measurements
 func (f *Framework) SlowGTPU() bool {
-	return f.Mode == UPGModePGW && f.GTPU.cfg.gtpuTunnelType() == sgw.SGWGTPUTunnelTypeTun
+	return len(f.GTPUs) > 0 && f.GTPUs[0].cfg.gtpuTunnelType() == sgw.SGWGTPUTunnelTypeTun
 }
 
 func DefaultPFCPConfig(vppCfg vpp.VPPConfig) pfcp.PFCPConfig {

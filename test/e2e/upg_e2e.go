@@ -513,8 +513,8 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				Mode:       f.Mode,
 				TEIDPGWs5u: framework.TEIDPGWs5u,
 				TEIDSGWs5u: framework.TEIDSGWs5u,
-				PGWGRXIP:   f.VPPCfg.GetVPPAddress("grx").IP,
-				SGWGRXIP:   f.VPPCfg.GetNamespaceAddress("grx").IP,
+				PGWIP:      f.VPPCfg.GetVPPAddress("grx").IP,
+				SGWIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
 			}
 			seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)
@@ -527,8 +527,8 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				Mode:       f.Mode,
 				TEIDPGWs5u: framework.TEIDPGWs5u,
 				TEIDSGWs5u: framework.TEIDSGWs5u,
-				PGWGRXIP:   f.VPPCfg.GetVPPAddress("grx").IP,
-				SGWGRXIP:   f.VPPCfg.GetNamespaceAddress("grx").IP,
+				PGWIP:      f.VPPCfg.GetVPPAddress("grx").IP,
+				SGWIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
 			}
 			_, err = f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
 			var serverErr *pfcp.PFCPServerError
@@ -591,6 +591,80 @@ func describeMTU(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 	})
 }
 
+var _ = ginkgo.Describe("GTP Proxy", func() {
+	describeGTPProxy("[IPv4]", framework.UPGIPModeV4)
+	describeGTPProxy("[IPv6]", framework.UPGIPModeV6)
+})
+
+func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
+	ginkgo.Context(title, func() {
+		var seid pfcp.SEID
+		f := framework.NewDefaultFramework(framework.UPGModeGTPProxy, ipMode)
+
+		ginkgo.BeforeEach(func() {
+			ginkgo.By("starting a PFCP session")
+			cfg := &framework.SessionConfig{
+				IdBase:          1,
+				UEIP:            f.UEIP(),
+				Mode:            framework.UPGModeGTPProxy,
+				TEIDPGWs5u:      framework.TEIDPGWs5u,
+				TEIDSGWs5u:      framework.TEIDSGWs5u,
+				PGWIP:           f.VPPCfg.GetNamespaceAddress("core").IP,
+				SGWIP:           f.VPPCfg.GetNamespaceAddress("access").IP,
+				ProxyAccessTEID: framework.ProxyAccessTEID,
+				ProxyCoreTEID:   framework.ProxyCoreTEID,
+				ProxyAccessIP:   f.VPPCfg.GetVPPAddress("access").IP,
+				ProxyCoreIP:     f.VPPCfg.GetVPPAddress("core").IP,
+			}
+			var err error
+			seid, err = f.PFCP.EstablishSession(f.Context, cfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+		})
+
+		shouldPassTheTraffic := func() {
+			runTrafficGen(f, smallVolumeHTTPConfig(nil), &traffic.PreciseTrafficRec{})
+			deleteSession(f, seid, true)
+		}
+
+		ginkgo.It("should pass the traffic", shouldPassTheTraffic)
+
+		ginkgo.Context("[GTP-U extensions]", func() {
+			f.TPDUHook = func(tpdu *gtpumessage.TPDU, fromPGW bool) {
+				defer ginkgo.GinkgoRecover()
+				prepend := []byte{
+					0,    // seq number hi (unused)
+					0,    // seq number lo (unused)
+					0,    // N-PDU number (unused)
+					0x32, // next extension type
+					1,    // ext header length
+					0xaa, // ext content
+					0xbb, // ext content
+					0,    // next ext type: no extension
+				}
+				switch tpdu.TEID() {
+				case framework.ProxyAccessTEID:
+					// add an extension on the way towards the GTP proxy
+					tpdu.Header.Flags |= 4
+					tpdu.Payload = append(prepend, tpdu.Payload...)
+				case framework.TEIDPGWs5u:
+					// ext flag must still be set on the packets going towards
+					// the PGW, after the proxy
+					framework.ExpectEqual((tpdu.Header.Flags>>2)&1, uint8(1))
+					// FIXME: fix go-gtp, the extension shouldn't be a part of the payload
+					gomega.Expect(len(tpdu.Payload)).To(gomega.BeNumerically(">", len(prepend)))
+					framework.ExpectEqual(tpdu.Payload[:len(prepend)], prepend)
+					// remove the extension as go-gtp can't parse it atm
+					tpdu.Header.Flags &^= 4
+					tpdu.Payload = tpdu.Payload[len(prepend):]
+					tpdu.SetLength()
+				}
+			}
+
+			ginkgo.It("should pass the extensions as-is", shouldPassTheTraffic)
+		})
+	})
+}
+
 type measurementCfg struct {
 	appPDR       bool
 	fakeHostname bool
@@ -605,8 +679,8 @@ func startMeasurementSession(f *framework.Framework, cfg *framework.SessionConfi
 	if cfg.Mode == framework.UPGModePGW {
 		cfg.TEIDPGWs5u = framework.TEIDPGWs5u
 		cfg.TEIDSGWs5u = framework.TEIDSGWs5u
-		cfg.PGWGRXIP = f.VPPCfg.GetVPPAddress("grx").IP
-		cfg.SGWGRXIP = f.VPPCfg.GetNamespaceAddress("grx").IP
+		cfg.PGWIP = f.VPPCfg.GetVPPAddress("grx").IP
+		cfg.SGWIP = f.VPPCfg.GetNamespaceAddress("grx").IP
 	}
 	seid, err := f.PFCP.EstablishSession(f.Context, cfg.SessionIEs()...)
 	framework.ExpectNoError(err)
@@ -629,7 +703,12 @@ func newTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffi
 	cfg.SetNoLinger(true)
 	cfg.SetServerIP(f.ServerIP())
 	clientNS := f.VPP.GetNS("ue")
-	serverNS := f.VPP.GetNS("sgi")
+	var serverNS *network.NetNS
+	if f.Mode == framework.UPGModeGTPProxy {
+		serverNS = f.VPP.GetNS("srv")
+	} else {
+		serverNS = f.VPP.GetNS("sgi")
+	}
 	return traffic.NewTrafficGen(cfg, rec), clientNS, serverNS
 }
 
