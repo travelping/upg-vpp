@@ -387,6 +387,7 @@ static void
 request_t1_expired (u32 seq_no)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
+  upf_main_t *gtm = &upf_main;
   pfcp_msg_t *msg;
   uword *p;
 
@@ -417,8 +418,12 @@ request_t1_expired (u32 seq_no)
       hash_unset (psm->request_q, msg->seq_no);
       pfcp_msg_pool_put (psm, msg);
 
-      if (type == PFCP_HEARTBEAT_REQUEST)
-	upf_pfcp_server_deferred_release_association (msg->node);
+      if (type == PFCP_HEARTBEAT_REQUEST 
+ 	  && !pool_is_free_index (gtm->nodes, msg->node))
+	{
+	  upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, msg->node);
+	  pfcp_release_association (n);
+	}
     }
 }
 
@@ -1052,19 +1057,16 @@ u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds)
 			      interval);
 }
 
-void upf_pfcp_server_deferred_release_association (u32 node)
+void upf_pfcp_server_deferred_free_msgs_by_node (u32 node)
 {
-  upf_main_t *gtm = &upf_main;
   pfcp_server_main_t *psm = &pfcp_server_main;
+  hash_set (psm->free_msgs_by_node, node, 1);
+}
 
-  if (!pool_is_free_index (gtm->nodes, node))
-    {
-      /*
-       * Delay releasing the association till the end of the loop
-       * to avoid problems with stopping just expired timers
-       */
-      vec_add1 (psm->release_node_assoc, node);
-    }
+void upf_pfcp_server_deferred_free_msgs_by_sidx (u32 sidx)
+{
+  pfcp_server_main_t *psm = &pfcp_server_main;
+  hash_set (psm->free_msgs_by_sidx, sidx, 1);
 }
 
 void upf_server_send_heartbeat (u32 node_idx)
@@ -1105,7 +1107,7 @@ static uword
   upf_main_t *gtm = &upf_main;
   u32 *expired = NULL;
   u32 last_expired;
-  u32 *node;
+  pfcp_msg_t *msg;
 
   pfcp_msg_pool_init (psm);
   psm->timer.last_run_time = psm->now = unix_time_now ();
@@ -1257,24 +1259,32 @@ static uword
 	}
 
       /*
-       * Release node associations after the loop, because this may
+       * Free messages that must be freed after the loop, because this may
        * involve stopping timers which already have fired, so they're
        * currently collected in the 'expired' vector. If handlers for
        * these timers are invoked, they may end up handling messages
        * that were freed (put to the msg_pool).
        */
-      vec_foreach (node, psm->release_node_assoc)
-      {
-	if (!pool_is_free_index (gtm->nodes, *node))
-	  {
-	    upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, *node);
-	    pfcp_release_association (n);
-	  }
-      }
+
+      /* *INDENT-OFF* */
+      pool_foreach (msg, psm->msg_pool,
+      ({
+	if (!msg->is_valid_pool_item ||
+	    (!hash_get(psm->free_msgs_by_node, msg->node) &&
+	     !hash_get(psm->free_msgs_by_sidx, msg->session_index)))
+	  continue;
+
+	hash_unset (psm->request_q, msg->seq_no);
+	mhash_unset (&psm->response_q, msg->request_key, NULL);
+	upf_pfcp_server_stop_timer (msg->timer);
+	pfcp_msg_pool_put (psm, msg);
+      }));
+      /* *INDENT-ON* */
 
       vec_reset_length (expired);
       vec_reset_length (event_data);
-      vec_reset_length (psm->release_node_assoc);
+      hash_free (psm->free_msgs_by_node);
+      hash_free (psm->free_msgs_by_sidx);
 
 #if CLIB_DEBUG > 10
       upf_validate_session_timers ();

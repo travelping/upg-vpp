@@ -71,6 +71,10 @@ typedef struct
   u32 t1;
   u8 is_valid_pool_item;
 
+#if CLIB_DEBUG > 0
+  char pool_put_loc[128];
+#endif
+
   union
   {
     u8 *data;
@@ -102,7 +106,8 @@ typedef struct
 
   vlib_main_t *vlib_main;
 
-  u32 *release_node_assoc;
+  uword *free_msgs_by_node;
+  uword *free_msgs_by_sidx;
 } pfcp_server_main_t;
 
 typedef struct
@@ -131,7 +136,8 @@ void upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t,
 
 u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds);
 void upf_pfcp_server_stop_timer (u32 handle);
-void upf_pfcp_server_deferred_release_association (u32 node);
+void upf_pfcp_server_deferred_free_msgs_by_node (u32 node);
+void upf_pfcp_server_deferred_free_msgs_by_sidx (u32 sidx);
 
 int upf_pfcp_send_request (upf_session_t * sx, u8 type,
 			   struct pfcp_group *grp);
@@ -209,11 +215,23 @@ pfcp_msg_pool_add (pfcp_server_main_t * psm, pfcp_msg_t * m)
   msg = pfcp_msg_pool_get (psm);
   clib_memcpy_fast (msg, m, sizeof (*m));
   msg->is_valid_pool_item = 1;
+#if CLIB_DEBUG > 0
+  msg->pool_put_loc[0] = 0;
+#endif
   return msg;
 }
 
+#if CLIB_DEBUG > 0
+#define pfcp_msg_pool_put(psm, m) do {							\
+    snprintf((m)->pool_put_loc, 128, "%s:%d %s", __FILE__, __LINE__, __FUNCTION__);	\
+    _pfcp_msg_pool_put(psm, m);								\
+  } while (0)
+#else
+#define pfcp_msg_pool_put(psm, m) _pfcp_msg_pool_put(psm, m);
+#endif
+
 static inline void
-pfcp_msg_pool_put (pfcp_server_main_t * psm, pfcp_msg_t * m)
+_pfcp_msg_pool_put (pfcp_server_main_t * psm, pfcp_msg_t * m)
 {
   ASSERT (m->is_valid_pool_item);
 
@@ -237,7 +255,13 @@ static inline pfcp_msg_t *
 pfcp_msg_pool_elt_at_index (pfcp_server_main_t * psm, u32 index)
 {
   pfcp_msg_t *m = pool_elt_at_index (psm->msg_pool, index);
-  ASSERT (m->is_valid_pool_item);
+#if CLIB_DEBUG > 0
+  if (!m->is_valid_pool_item)
+    {
+      clib_warning("ERROR: accessing a PFCP msg that was freed at: %s", m->pool_put_loc);
+      ASSERT (0);
+    }
+#endif
   return m;
 }
 
