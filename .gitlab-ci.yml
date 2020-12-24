@@ -151,7 +151,7 @@ test:release:
               E2E_ARTIFACTS_DIR=$PWD/artifacts \
               E2E_JUNIT_DIR=$PWD/junit-output \
               E2E_PARALLEL=y \
-              E2E_PARALLEL_NODES=3 \
+              E2E_PARALLEL_NODES=5 \
               E2E_QUICK=y; then
       mkdir test-out
       tar -cvzf test-out/vpp-test.tar.gz artifacts test/e2e/ginkgo*.log || true
