@@ -344,90 +344,110 @@ func describePDRReplacement(f *framework.Framework) {
 	})
 }
 
-var _ = ginkgo.Describe("PFCP Association Release", func() {
-	// TODO: test other modes (requires modifications)
-	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-	f.PFCPCfg.IgnoreHeartbeatRequests = true
-	ginkgo.It("should be handled properly upon heartbeat timeout", func() {
-		seids := []pfcp.SEID{
-			startMeasurementSession(f, &framework.SessionConfig{}),
-		}
-		var wg sync.WaitGroup
-		for i := 1; i <= 2; i++ {
-			time.Sleep(50 * time.Millisecond)
-			pfcpCfg := framework.DefaultPFCPConfig(*f.VPPCfg)
-			pfcpCfg.Namespace = f.VPP.GetNS("cp")
-			pfcpCfg.NodeID = fmt.Sprintf("node%d", i)
-			pfcpCfg.CNodeIP = f.AddCNodeIP()
-			// make UPG drop this association eventually
-			pfcpCfg.IgnoreHeartbeatRequests = true
-			pc := pfcp.NewPFCPConnection(pfcpCfg)
-			framework.ExpectNoError(pc.Start(f.Context))
-
-			sessionCfg := &framework.SessionConfig{
-				IdBase: 1,
-				// TODO: using same UE IP multiple times crashes UPG
-				// (should be an error instead)
-				UEIP: f.AddUEIP(),
-				Mode: f.Mode,
-			}
-			seid, err := pc.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
-			framework.ExpectNoError(err)
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for {
-					_, err := pc.ModifySession(f.VPP.Context(context.Background()), seid, ie.NewQueryURR(ie.NewURRID(1)))
+var _ = ginkgo.Describe("Clearing message queue", func() {
+	ginkgo.Context("during session deletion", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("should work correctly for sessions being deleted", func() {
+			for i := 0; i < 10; i++ {
+				seid := startMeasurementSession(f, &framework.SessionConfig{})
+				stopAt := time.Now().Add(35 * time.Second)
+				for time.Now().Before(stopAt) {
+					_, err := f.PFCP.ModifySession(f.VPP.Context(context.Background()), seid, ie.NewQueryURR(ie.NewURRID(1)))
 					if err != nil {
 						framework.Logf("ModifySession() failed (expected): %v", err)
-						pc.HardStop()
-						break
+					}
+					// time.Sleep(10 * time.Millisecond)
+				}
+				ginkgo.By("deleting the PFCP session")
+				deleteSession(f, seid, false)
+			}
+		})
+	})
+
+	ginkgo.Context("during PFCP Association Release upon timeout", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		f.PFCPCfg.IgnoreHeartbeatRequests = true
+		ginkgo.It("should work correcty", func() {
+			seids := []pfcp.SEID{
+				startMeasurementSession(f, &framework.SessionConfig{}),
+			}
+			var wg sync.WaitGroup
+			for i := 1; i <= 2; i++ {
+				time.Sleep(50 * time.Millisecond)
+				pfcpCfg := framework.DefaultPFCPConfig(*f.VPPCfg)
+				pfcpCfg.Namespace = f.VPP.GetNS("cp")
+				pfcpCfg.NodeID = fmt.Sprintf("node%d", i)
+				pfcpCfg.CNodeIP = f.AddCNodeIP()
+				// make UPG drop this association eventually
+				pfcpCfg.IgnoreHeartbeatRequests = true
+				pc := pfcp.NewPFCPConnection(pfcpCfg)
+				framework.ExpectNoError(pc.Start(f.Context))
+
+				sessionCfg := &framework.SessionConfig{
+					IdBase: 1,
+					// TODO: using same UE IP multiple times crashes UPG
+					// (should be an error instead)
+					UEIP: f.AddUEIP(),
+					Mode: f.Mode,
+				}
+				seid, err := pc.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+				framework.ExpectNoError(err)
+
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for {
+						_, err := pc.ModifySession(f.VPP.Context(context.Background()), seid, ie.NewQueryURR(ie.NewURRID(1)))
+						if err != nil {
+							framework.Logf("ModifySession() failed (expected): %v", err)
+							pc.HardStop()
+							break
+						}
+					}
+				}()
+
+				seids = append(seids, seid)
+			}
+			verifyActiveSessions(f, seids)
+
+			listNodes := func() string {
+				var nodes []string
+				r, err := f.VPP.Ctl("show upf association")
+				framework.ExpectNoError(err)
+				for _, l := range strings.Split(r, "\n") {
+					if strings.HasPrefix(l, "Node: ") {
+						nodes = append(nodes, strings.TrimSpace(l[6:]))
 					}
 				}
-			}()
+				sort.Strings(nodes)
+				return strings.Join(nodes, ",")
+			}
 
-			seids = append(seids, seid)
-		}
-		verifyActiveSessions(f, seids)
+			framework.ExpectEqual(listNodes(), "node1,node2,pfcpstub")
 
-		listNodes := func() string {
-			var nodes []string
-			r, err := f.VPP.Ctl("show upf association")
-			framework.ExpectNoError(err)
-			for _, l := range strings.Split(r, "\n") {
-				if strings.HasPrefix(l, "Node: ") {
-					nodes = append(nodes, strings.TrimSpace(l[6:]))
+			ginkgo.By("Waiting for the main PFCP association to drop while sending requests...")
+			stopAt := time.Now().Add(5 * time.Minute)
+			for time.Now().Before(stopAt) {
+				_, err := f.PFCP.ModifySession(f.VPP.Context(context.Background()), seids[0], ie.NewQueryURR(ie.NewURRID(1)))
+				if err != nil {
+					framework.Logf("ModifySession() failed (expected): %v", err)
+					f.PFCP.HardStop()
+					// don't try to stop the PFCPConnection normally
+					// in framework's AfterEach
+					f.PFCP = nil
+					break
 				}
+				time.Sleep(10 * time.Millisecond)
 			}
-			sort.Strings(nodes)
-			return strings.Join(nodes, ",")
-		}
 
-		framework.ExpectEqual(listNodes(), "node1,node2,pfcpstub")
+			gomega.Eventually(listNodes, 2*time.Minute, 5*time.Second).Should(gomega.Equal("invalid,invalid,invalid"))
 
-		ginkgo.By("Waiting for the main PFCP association to drop while sending requests...")
-		stopAt := time.Now().Add(5 * time.Minute)
-		for time.Now().Before(stopAt) {
-			_, err := f.PFCP.ModifySession(f.VPP.Context(context.Background()), seids[0], ie.NewQueryURR(ie.NewURRID(1)))
-			if err != nil {
-				framework.Logf("ModifySession() failed (expected): %v", err)
-				f.PFCP.HardStop()
-				// don't try to stop the PFCPConnection normally
-				// in framework's AfterEach
-				f.PFCP = nil
-				break
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
+			ginkgo.By("Waiting for the extra PFCP associations to drop")
+			wg.Wait()
 
-		gomega.Eventually(listNodes, 2*time.Minute, 5*time.Second).Should(gomega.Equal("invalid,invalid,invalid"))
-
-		ginkgo.By("Waiting for the extra PFCP associations to drop")
-		wg.Wait()
-
-		ginkgo.By("Verifying that all of the active sessions are gone")
-		verifyActiveSessions(f, nil)
+			ginkgo.By("Verifying that all of the active sessions are gone")
+			verifyActiveSessions(f, nil)
+		})
 	})
 })
 
