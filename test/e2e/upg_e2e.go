@@ -431,6 +431,9 @@ var _ = ginkgo.Describe("PFCP Association Release", func() {
 	})
 })
 
+const leakTestNumSessions = 10000
+const leakTestNumIterations = 3
+
 var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 	ginkgo.Context("[TDF]", func() {
 		// FIXME: these tests may crash UPG in UPGIPModeV6 (bad PFCP requests)
@@ -440,13 +443,13 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			_, err := f.VPP.Ctl("memory-trace main-heap on")
 			framework.ExpectNoError(err)
 			var ueIPs []net.IP
-			for i := 0; i < 10000; i++ {
+			for i := 0; i < leakTestNumSessions; i++ {
 				ueIPs = append(ueIPs, f.AddUEIP())
 			}
-			for i := 0; i < 3; i++ {
-				ginkgo.By("creating 10000 sessions")
+			for i := 0; i < leakTestNumIterations; i++ {
+				framework.Logf("creating %d sessions", leakTestNumSessions)
 				var seids []pfcp.SEID
-				for j := 0; j < 10000; j++ {
+				for j := 0; j < leakTestNumSessions; j++ {
 					sessionCfg := &framework.SessionConfig{
 						IdBase: 1,
 						UEIP:   ueIPs[j],
@@ -457,7 +460,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 					seids = append(seids, seid)
 				}
 
-				ginkgo.By("deleting 10000 sessions")
+				framework.Logf("deleting %d sessions", leakTestNumSessions)
 				for _, seid := range seids {
 					deleteSession(f, seid, false)
 				}
