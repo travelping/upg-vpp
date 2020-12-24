@@ -399,11 +399,9 @@ pfcp_new_association (session_handle_t session_handle,
 void
 pfcp_release_association (upf_node_assoc_t * n)
 {
-  pfcp_server_main_t *psm = &pfcp_server_main;
   upf_main_t *gtm = &upf_main;
   u32 node_id = n - gtm->nodes;
   u32 idx = n->sessions;
-  pfcp_msg_t *msg;
 
   switch (n->node_id.type)
     {
@@ -428,7 +426,7 @@ pfcp_release_association (upf_node_assoc_t * n)
 
       idx = sx->assoc.next;
 
-      if (pfcp_disable_session (sx, false) != 0)
+      if (pfcp_disable_session (sx) != 0)
 	clib_error ("failed to remove UPF session 0x%016" PRIx64,
 		    sx->cp_seid);
       pfcp_free_session (sx);
@@ -436,17 +434,7 @@ pfcp_release_association (upf_node_assoc_t * n)
 
   ASSERT (n->sessions == ~0);
 
-  /* *INDENT-OFF* */
-  pool_foreach (msg, psm->msg_pool,
-  ({
-    if (!msg->is_valid_pool_item || msg->node != node_id)
-      continue;
-    hash_unset (psm->request_q, msg->seq_no);
-    mhash_unset (&psm->response_q, msg->request_key, NULL);
-    upf_pfcp_server_stop_timer (msg->timer);
-    pfcp_msg_pool_put (psm, msg);
-  }));
-  /* *INDENT-ON* */
+  upf_pfcp_server_deferred_free_msgs(node_id, ~0);
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
@@ -989,7 +977,7 @@ pfcp_free_rules (upf_session_t * sx, int rule)
 }
 
 int
-pfcp_disable_session (upf_session_t * sx, int drop_msgs)
+pfcp_disable_session (upf_session_t * sx)
 {
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
   pfcp_server_main_t *psm = &pfcp_server_main;
@@ -1026,26 +1014,6 @@ pfcp_disable_session (upf_session_t * sx, int drop_msgs)
     upf_pfcp_session_stop_urr_time (&urr->traffic_timer, now);
   }
   upf_pfcp_session_stop_up_inactivity_timer (&active->inactivity_timer);
-
-  if (drop_msgs)
-    {
-      u32 si = sx - gtm->sessions;
-      pfcp_msg_t *msg;
-
-      /* *INDENT-OFF* */
-      pool_foreach (msg, psm->msg_pool,
-      ({
-	if (!msg->is_valid_pool_item || msg->session_index != si)
-	  continue;
-
-	hash_unset (psm->request_q, msg->seq_no);
-	mhash_unset (&psm->response_q, msg->request_key, NULL);
-	upf_pfcp_server_stop_timer (msg->timer);
-	pfcp_msg_pool_put (psm, msg);
-      }));
-      /* *INDENT-ON* */
-
-    }
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters
 				 [UPF_SESSIONS_COUNTER],

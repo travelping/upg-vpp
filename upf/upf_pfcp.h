@@ -31,7 +31,7 @@ upf_session_t *pfcp_create_session (upf_node_assoc_t * assoc,
 				    uint64_t cp_seid,
 				    const ip46_address_t * cp_address);
 void pfcp_update_session (upf_session_t * sx);
-int pfcp_disable_session (upf_session_t * sx, int drop_msgs);
+int pfcp_disable_session (upf_session_t * sx);
 void pfcp_free_session (upf_session_t * sx);
 
 #define pfcp_rule_vector_fns(t)						\
