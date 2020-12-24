@@ -269,7 +269,7 @@ handle_heartbeat_response (pfcp_msg_t * req, pfcp_simple_response_t * msg)
   n = pool_elt_at_index (gtm->nodes, req->node);
 
   if (msg->response.recovery_time_stamp > n->recovery_time_stamp)
-    upf_pfcp_server_deferred_release_association (req->node);
+    pfcp_release_association (n);
   else if (msg->response.recovery_time_stamp < n->recovery_time_stamp)
     {
       /* 3GPP TS 23.007, Sect. 19A:
@@ -2463,7 +2463,7 @@ out_send_resp:
 
   if (r != 0)
     {
-      if (pfcp_disable_session (sess, false) != 0)
+      if (pfcp_disable_session (sess) != 0)
 	clib_error ("failed to remove UPF session 0x%016" PRIx64,
 		    sess->cp_seid);
       pfcp_free_session (sess);
@@ -2650,6 +2650,7 @@ static int
 handle_session_deletion_request (pfcp_msg_t * req,
 				 pfcp_session_deletion_request_t * msg)
 {
+  upf_main_t *gtm = &upf_main;
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_session_procedure_response_t resp;
   struct rules *active;
@@ -2674,12 +2675,14 @@ handle_session_deletion_request (pfcp_msg_t * req,
 
   cp_seid = sess->cp_seid;
 
-  if ((r = pfcp_disable_session (sess, true)) != 0)
+  if ((r = pfcp_disable_session (sess)) != 0)
     {
       upf_debug ("PFCP Session %" PRIu64 " could no be disabled.\n",
 		 be64toh (req->hdr->session_hdr.seid));
       goto out_send_resp;
     }
+
+  upf_pfcp_server_deferred_free_msgs_by_sidx (sess - gtm->sessions);
 
   active = pfcp_get_rules (sess, PFCP_ACTIVE);
   if (vec_len (active->urr) != 0)
