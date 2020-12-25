@@ -832,11 +832,11 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	nwi = lookup_nwi (pdr->pdi.network_instance);
 	if (!nwi)
 	  {
-	    upf_debug ("PDR: %d, PDI for unknown network instance\n",
-		       pdr->pdr_id);
+	    clib_warning ("XXX: PDR: %d, PDI for unknown network instance\n",
+                          pdr->pdr_id);
 	    if (ISSET_BIT (pdr->pdi.grp.fields, PDI_NETWORK_INSTANCE))
-	      upf_debug ("NWI: %v (%d)", pdr->pdi.network_instance,
-			 vec_len (pdr->pdi.network_instance));
+	      clib_warning ("NWI: %v (%d)", pdr->pdi.network_instance,
+                            vec_len (pdr->pdi.network_instance));
 	    failed_rule_id->id = pdr->pdr_id;
 	    r = -1;
 	    vec_pop (rules->pdr);
@@ -865,8 +865,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	    (sx, gtm, &pdr->pdi, create, created_pdr_vec, res, 1) != 0)
 	  {
 	    r = -1;
-	    upf_debug ("create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
-		       pdr->pdr_id);
+	    clib_warning ("XXX: create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
+                          pdr->pdr_id);
 	    break;
 	  }
 	/* TODO validate TEID and mask
@@ -918,7 +918,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	      unformat_free (&input);
 	      failed_rule_id->id = pdr->pdr_id;
 	      vec_pop (rules->pdr);
-	      upf_debug ("failed to parse SDF '%s'", sdf->flow);
+	      clib_warning ("XXX: failed to parse SDF '%s'", sdf->flow);
 	      r = -1;
 	      break;
 	    }
@@ -941,6 +941,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	    failed_rule_id->id = pdr->pdr_id;
 	    vec_pop (rules->pdr);
 	    r = -1;
+	    clib_warning ("XXX: PDR: %d, application id %v has not been configured\n",
+		     pdr->pdr_id, pdr->pdi.application_id);
 	    fformat (stderr,
 		     "PDR: %d, application id %v has not been configured\n",
 		     pdr->pdr_id, pdr->pdi.application_id);
@@ -987,7 +989,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	validate_ue_ip (sx, nwi, &create->pdi.ue_addr))
       {
 	r = -1;
-	upf_debug ("handle_create_pdr: duplicate UE IP");
+	clib_warning ("XXX: handle_create_pdr: duplicate UE IP");
 	break;
       }
 
@@ -1033,8 +1035,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
     update = pfcp_get_pdr (sx, PFCP_PENDING, pdr->pdr_id);
     if (!update)
       {
-	upf_debug ("PFCP Session %" PRIu64 ", update PDR Id %d not found.\n",
-		   sx->cp_seid, pdr->pdr_id);
+	clib_warning ("XXX: PFCP Session %" PRIu64 ", update PDR Id %d not found.\n",
+                      sx->cp_seid, pdr->pdr_id);
 	failed_rule_id->id = pdr->pdr_id;
 	r = -1;
 	break;
@@ -1047,8 +1049,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	    nwi = lookup_nwi (pdr->pdi.network_instance);
 	    if (!nwi)
 	      {
-		upf_debug ("PDR: %d, PDI for unknown network instance\n",
-			   pdr->pdr_id);
+		clib_warning ("XXX: PDR: %d, PDI for unknown network instance\n",
+                              pdr->pdr_id);
 		failed_rule_id->id = pdr->pdr_id;
 		r = -1;
 		break;
@@ -1078,8 +1080,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	if (handle_f_teid (sx, gtm, &pdr->pdi, update, NULL, res, 0) != 0)
 	  {
 	    r = -1;
-	    upf_debug ("create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
-		       pdr->pdr_id);
+	    clib_warning ("XXX: update_pdr: Can't handle F_TEID for PDR-ID: %u\n",
+                          pdr->pdr_id);
 	    break;
 	  }
       }
@@ -1122,7 +1124,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	    {
 	      unformat_free (&input);
 	      failed_rule_id->id = pdr->pdr_id;
-	      upf_debug ("failed to parse SDF '%s'", sdf->flow);
+	      clib_warning ("XXX: failed to parse SDF '%s'", sdf->flow);
 	      r = -1;
 	      break;
 	    }
@@ -1144,6 +1146,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	  {
 	    failed_rule_id->id = pdr->pdr_id;
 	    r = -1;
+	    clib_warning ("XXX: %d, application id %v has not been configured\n",
+                          pdr->pdr_id, pdr->pdi.application_id);
 	    fformat (stderr,
 		     "PDR: %d, application id %v has not been configured\n",
 		     pdr->pdr_id, pdr->pdi.application_id);
@@ -1195,7 +1199,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	validate_ue_ip (sx, nwi, &update->pdi.ue_addr))
       {
 	r = -1;
-	upf_debug ("handle_update_pdr: duplicate UE IP");
+	clib_warning ("XXX: handle_update_pdr: duplicate UE IP");
 	break;
       }
 
@@ -1233,7 +1237,7 @@ handle_remove_pdr (upf_session_t * sx, pfcp_remove_pdr_t * remove_pdr,
   {
     if ((r = pfcp_delete_pdr (sx, pdr->pdr_id)) != 0)
       {
-	upf_debug ("Failed to remove PDR %d\n", pdr->pdr_id);
+	clib_warning ("XXX: Failed to remove PDR %d\n", pdr->pdr_id);
 	failed_rule_id->id = pdr->pdr_id;
 	r = -1;
 	break;
@@ -1438,8 +1442,8 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	      lookup_nwi (far->forwarding_parameters.network_instance);
 	    if (!nwi)
 	      {
-		upf_debug
-		  ("FAR: %d, Parameter with unknown network instance\n",
+		clib_warning
+		  ("XXX: FAR: %d, Parameter with unknown network instance\n",
 		   far->far_id);
 		failed_rule_id->id = far->far_id;
 		r = -1;
@@ -1480,8 +1484,8 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 				 create->forward.nwi_index);
 	    if (~0 == fib_index)
 	      {
-		upf_debug
-		  ("FAR: %d, Network instance with invalid VRF for IPv%d\n",
+		clib_warning
+		  ("XXX: FAR: %d, Network instance with invalid VRF for IPv%d\n",
 		   far->far_id, is_ip4 ? 4 : 6);
 		failed_rule_id->id = far->far_id;
 		r = -1;
@@ -1549,8 +1553,8 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
     update = pfcp_get_far (sx, PFCP_PENDING, far->far_id);
     if (!update)
       {
-	upf_debug ("PFCP Session %" PRIu64 ", update FAR Id %d not found.\n",
-		   sx->cp_seid, far->far_id);
+	clib_warning ("XXX: PFCP Session %" PRIu64 ", update FAR Id %d not found.\n",
+                      sx->cp_seid, far->far_id);
 	failed_rule_id->id = far->far_id;
 	r = -1;
 	break;
@@ -1573,8 +1577,8 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 			      update_forwarding_parameters.network_instance);
 		if (!nwi)
 		  {
-		    upf_debug
-		      ("FAR: %d, Update Parameter with unknown network instance\n",
+		    clib_warning
+		      ("XXX: FAR: %d, Update Parameter with unknown network instance\n",
 		       far->far_id);
 		    failed_rule_id->id = far->far_id;
 		    r = -1;
@@ -1623,8 +1627,8 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 				 update->forward.nwi_index);
 	    if (~0 == fib_index)
 	      {
-		upf_debug
-		  ("FAR: %d, Network instance with invalid VRF for IPv%d\n",
+		clib_warning
+		  ("XXX: FAR: %d, Network instance with invalid VRF for IPv%d\n",
 		   far->far_id, is_ip4 ? 4 : 6);
 		failed_rule_id->id = far->far_id;
 		r = -1;
@@ -1635,8 +1639,8 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	      upf_ip46_get_resolving_interface (fib_index, &ohc->ip, is_ip4);
 	    if (~0 == update->forward.dst_sw_if_index)
 	      {
-		upf_debug
-		  ("FAR: %d, No route to %U in table %d\n",
+		clib_warning
+		  ("XXX: FAR: %d, No route to %U in table %d\n",
 		   far->far_id, format_ip46_address, &ohc->ip, IP46_TYPE_ANY,
 		   is_ip4 ? ip4_fib_get (fib_index)->table_id :
 		   ip6_fib_get (fib_index)->table_id);
@@ -1685,7 +1689,7 @@ handle_remove_far (upf_session_t * sx, pfcp_remove_far_t * remove_far,
   {
     if ((r = pfcp_delete_far (sx, far->far_id)) != 0)
       {
-	upf_debug ("Failed to add FAR %d\n", far->far_id);
+	clib_warning ("XXX: Failed to add FAR %d\n", far->far_id);
 	failed_rule_id->id = far->far_id;
 	r = -1;
 	break;
@@ -1843,7 +1847,7 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
     update = pfcp_get_urr (sx, PFCP_PENDING, urr->urr_id);
     if (!update)
       {
-	upf_debug ("PFCP Session %" PRIu64 ", update URR Id %d not found.\n",
+	clib_warning ("XXX: PFCP Session %" PRIu64 ", update URR Id %d not found.\n",
 		   sx->cp_seid, urr->urr_id);
 	failed_rule_id->id = urr->urr_id;
 	r = -1;
@@ -1959,7 +1963,7 @@ handle_remove_urr (upf_session_t * sx, pfcp_remove_urr_t * remove_urr,
   {
     if ((r = pfcp_delete_urr (sx, urr->urr_id)) != 0)
       {
-	upf_debug ("Failed to add URR %d\n", urr->urr_id);
+	clib_warning ("XXX: Failed to remove URR %d\n", urr->urr_id);
 	failed_rule_id->id = urr->urr_id;
 	r = -1;
 	break;
@@ -2062,7 +2066,7 @@ handle_update_qer (upf_session_t * sx, pfcp_update_qer_t * update_qer,
     update = pfcp_get_qer (sx, PFCP_PENDING, qer->qer_id);
     if (!update)
       {
-	upf_debug ("PFCP Session %" PRIu64 ", update QER Id %d not found.\n",
+	clib_warning ("XXX: PFCP Session %" PRIu64 ", update QER Id %d not found.\n",
 		   sx->cp_seid, qer->qer_id);
 	failed_rule_id->id = qer->qer_id;
 	r = -1;
@@ -2123,7 +2127,7 @@ handle_remove_qer (upf_session_t * sx, pfcp_remove_qer_t * remove_qer,
   {
     if ((r = pfcp_delete_qer (sx, qer->qer_id)) != 0)
       {
-	upf_debug ("Failed to add QER %d\n", qer->qer_id);
+	clib_warning ("XXX: Failed to remove QER %d\n", qer->qer_id);
 	failed_rule_id->id = qer->qer_id;
 	r = -1;
 	break;
@@ -2550,7 +2554,7 @@ handle_session_modification_request (pfcp_msg_t * req,
 
   if (!(sess = pfcp_lookup (be64toh (req->hdr->session_hdr.seid))))
     {
-      upf_debug ("PFCP Session %" PRIu64 " not found.\n",
+      clib_warning ("XXX: PFCP Session %" PRIu64 " not found.\n",
 		 be64toh (req->hdr->session_hdr.seid));
       resp.response.cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
 
@@ -2742,7 +2746,7 @@ handle_session_deletion_request (pfcp_msg_t * req,
 
   if (!(sess = pfcp_lookup (be64toh (req->hdr->session_hdr.seid))))
     {
-      upf_debug ("PFCP Session %" PRIu64 " not found.\n",
+      clib_warning ("XXX: PFCP Session %" PRIu64 " not found.\n",
 		 be64toh (req->hdr->session_hdr.seid));
       resp.response.cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
 
@@ -2754,7 +2758,7 @@ handle_session_deletion_request (pfcp_msg_t * req,
 
   if ((r = pfcp_disable_session (sess)) != 0)
     {
-      upf_debug ("PFCP Session %" PRIu64 " could no be disabled.\n",
+      clib_warning ("XXX: PFCP Session %" PRIu64 " could no be disabled.\n",
 		 be64toh (req->hdr->session_hdr.seid));
       goto out_send_resp;
     }
@@ -2834,7 +2838,7 @@ session_msg (pfcp_msg_t * msg)
 
   if (!msg->hdr->s_flag)
     {
-      upf_debug ("PFCP: session msg without SEID.");
+      clib_warning ("XXX: PFCP: session msg without SEID.");
       return -1;
     }
 
