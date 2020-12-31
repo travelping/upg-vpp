@@ -436,17 +436,15 @@ pfcp_release_association (upf_node_assoc_t * n)
 
   ASSERT (n->sessions == ~0);
 
-  /* *INDENT-OFF* */
-  pool_foreach (msg, psm->msg_pool,
-  ({
-    if (!msg->is_valid_pool_item || msg->node != node_id)
-      continue;
-    hash_unset (psm->request_q, msg->seq_no);
-    mhash_unset (&psm->response_q, msg->request_key, NULL);
-    upf_pfcp_server_stop_timer (msg->timer);
-    pfcp_msg_pool_put (psm, msg);
-  }));
-  /* *INDENT-ON* */
+  pool_foreach (msg, psm->msg_pool)
+    {
+      if (!msg->is_valid_pool_item || msg->node != node_id)
+	continue;
+      hash_unset (psm->request_q, msg->seq_no);
+      mhash_unset (&psm->response_q, msg->request_key, NULL);
+      upf_pfcp_server_stop_timer (msg->timer);
+      pfcp_msg_pool_put (psm, msg);
+    }
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
@@ -810,12 +808,10 @@ pfcp_free_urr (upf_urr_t * urr)
 {
   upf_urr_traffic_t *tt;
 
-  /* *INDENT-OFF* */
-  pool_foreach (tt, urr->traffic,
-  ({
-    hash_unset_mem_free (&urr->traffic_by_ue, &tt->ip);
-  }));
-  /* *INDENT-ON* */
+  pool_foreach (tt, urr->traffic)
+    {
+      hash_unset_mem_free (&urr->traffic_by_ue, &tt->ip);
+    }
 
   pool_free (urr->traffic);
   hash_free (urr->traffic_by_ue);
@@ -1032,19 +1028,16 @@ pfcp_disable_session (upf_session_t * sx, int drop_msgs)
       u32 si = sx - gtm->sessions;
       pfcp_msg_t *msg;
 
-      /* *INDENT-OFF* */
-      pool_foreach (msg, psm->msg_pool,
-      ({
-	if (!msg->is_valid_pool_item || msg->session_index != si)
-	  continue;
+      pool_foreach (msg, psm->msg_pool)
+	{
+	  if (!msg->is_valid_pool_item || msg->session_index != si)
+	    continue;
 
-	hash_unset (psm->request_q, msg->seq_no);
-	mhash_unset (&psm->response_q, msg->request_key, NULL);
-	upf_pfcp_server_stop_timer (msg->timer);
-	pfcp_msg_pool_put (psm, msg);
-      }));
-      /* *INDENT-ON* */
-
+	  hash_unset (psm->request_q, msg->seq_no);
+	  mhash_unset (&psm->response_q, msg->request_key, NULL);
+	  upf_pfcp_server_stop_timer (msg->timer);
+	  pfcp_msg_pool_put (psm, msg);
+	}
     }
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters
@@ -2876,16 +2869,13 @@ format_pfcp_session (u8 * s, va_list * args)
 		    format_vlib_time, vm, now,
 		    format_urr_time, &urr->traffic_timer);
 
-	/* *INDENT-OFF* */
-	pool_foreach (tt, urr->traffic,
-	({
-	  s = format (s, "%U @ %U [%U]\n",
-		      format_ip46_address, &tt->ip, IP46_TYPE_ANY,
-		      format_vlib_time, vm, tt->first_seen,
-		      format_vlib_time, vm, now - tt->first_seen);
-
-	}));
-	/* *INDENT-ON* */
+	pool_foreach (tt, urr->traffic)
+	  {
+	    s = format (s, "%U @ %U [%U]\n",
+			format_ip46_address, &tt->ip, IP46_TYPE_ANY,
+			format_vlib_time, vm, tt->first_seen,
+			format_vlib_time, vm, now - tt->first_seen);
+	  }
       }
   }
   vec_foreach (qer, rules->qer)

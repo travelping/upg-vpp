@@ -82,14 +82,12 @@ flowtable_init_cpu (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
   pool_validate_index (fmt->timers, TIMER_MAX_LIFETIME - 1);
   upf_debug ("POOL SIZE %u", pool_elts (fmt->timers));
 
-  /* *INDENT-OFF* */
-  pool_foreach (timer_slot, fmt->timers,
-  ({
-    u32 timer_slot_head_index = timer_slot - fmt->timers;
+  pool_foreach (timer_slot, fmt->timers)
+    {
+      u32 timer_slot_head_index = timer_slot - fmt->timers;
 
-    clib_dlist_init (fmt->timers, timer_slot_head_index);
-  }));
-  /* *INDENT-ON* */
+      clib_dlist_init (fmt->timers, timer_slot_head_index);
+    }
 
   /* fill flow entry cache */
   if (pthread_spin_lock (&fm->flows_lock) == 0)

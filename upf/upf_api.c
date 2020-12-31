@@ -135,12 +135,10 @@ static void vl_api_upf_applications_dump_t_handler
       return;
     }
 
-  /* *INDENT-OFF* */
-  pool_foreach(app, sm->upf_apps,
-    ({
+  pool_foreach(app, sm->upf_apps)
+    {
       send_upf_applications_details (reg, app->name, app->flags, mp->context);
-    }));
-  /* *INDENT-ON* */
+    }
 }
 
 static void
@@ -189,12 +187,10 @@ static void vl_api_upf_application_l7_rule_dump_t_handler
 
   app = pool_elt_at_index (sm->upf_apps, p[0]);
 
-  /* *INDENT-OFF* */
-  pool_foreach(rule, app->rules,
-               ({
-                 send_upf_application_l7_rule_details (reg, rule->id, rule->regex, mp->context);
-               }));
-  /* *INDENT-ON* */
+  pool_foreach(rule, app->rules)
+    {
+      send_upf_application_l7_rule_details (reg, rule->id, rule->regex, mp->context);
+    }
 
   vec_free (app_name);
 }

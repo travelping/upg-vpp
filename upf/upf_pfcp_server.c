@@ -911,13 +911,11 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	upf_urr_traffic_t **expired = NULL;
 	upf_urr_traffic_t *tt = NULL;
 
-	/* *INDENT-OFF* */
-	pool_foreach (tt, urr->traffic,
-	({
-	  if (tt->first_seen + 60 < now)
-	    vec_add1 (expired, tt);
-	}));
-	/* *INDENT-ON* */
+	pool_foreach (tt, urr->traffic)
+	  {
+	    if (tt->first_seen + 60 < now)
+	      vec_add1 (expired, tt);
+	  };
 
 	for (int i = 0; i < vec_len (expired); i++)
 	  {
@@ -1023,12 +1021,10 @@ static void upf_validate_session_timers ()
   upf_main_t *gtm = &upf_main;
   upf_session_t *sx = NULL;
 
-  /* *INDENT-OFF* */
-  pool_foreach (sx, gtm->sessions,
-  ({
-    upf_validate_session_timer (sx);
-  }));
-  /* *INDENT-ON* */
+  pool_foreach (sx, gtm->sessions)
+    {
+      upf_validate_session_timer (sx);
+    }
 }
 
 #endif
