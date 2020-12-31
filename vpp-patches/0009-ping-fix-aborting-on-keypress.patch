@@ -1,4 +1,4 @@
-From f1a0e9a75bf2af49659a25bf2c729af20d1cb24d Mon Sep 17 00:00:00 2001
+From 8f6dbfe44f48826e6779c6ef2c7588285566b11f Mon Sep 17 00:00:00 2001
 From: Ivan Shvedunov <ivan.shvedunov@travelping.com>
 Date: Thu, 4 Feb 2021 21:21:30 +0300
 Subject: [PATCH] ping: fix aborting on keypress
@@ -19,7 +19,7 @@ Change-Id: Id7a8d0b0fdeb7bbc7b85240e398d27bd5199345b
  3 files changed, 11 insertions(+), 9 deletions(-)
 
 diff --git a/src/plugins/ping/ping.c b/src/plugins/ping/ping.c
-index f56f44ffb..a9136cc11 100644
+index 98add5334..f3e238b9c 100644
 --- a/src/plugins/ping/ping.c
 +++ b/src/plugins/ping/ping.c
 @@ -16,6 +16,7 @@
@@ -29,8 +29,8 @@ index f56f44ffb..a9136cc11 100644
 +#include <vlib/unix/unix.h>
  #include <vnet/fib/ip6_fib.h>
  #include <vnet/fib/ip4_fib.h>
- #include <vnet/fib/fib_entry.h>
-@@ -1175,11 +1176,11 @@ run_ping_ip46_address (vlib_main_t * vm, u32 table_id, ip4_address_t * pa4,
+ #include <vnet/fib/fib_sas.h>
+@@ -1173,11 +1174,11 @@ run_ping_ip46_address (vlib_main_t * vm, u32 table_id, ip4_address_t * pa4,
  		  }
  	      }
  	      break;
@@ -45,7 +45,7 @@ index f56f44ffb..a9136cc11 100644
  	  vec_free (event_data);
  	}
 diff --git a/src/vlib/unix/cli.c b/src/vlib/unix/cli.c
-index 5979dbdbd..470744fb8 100644
+index 8120befef..96e22a253 100644
 --- a/src/vlib/unix/cli.c
 +++ b/src/vlib/unix/cli.c
 @@ -449,13 +449,6 @@ static unix_cli_parse_actions_t unix_cli_parse_pager[] = {
@@ -63,10 +63,10 @@ index 5979dbdbd..470744fb8 100644
  typedef enum
  {
 diff --git a/src/vlib/unix/unix.h b/src/vlib/unix/unix.h
-index 9fa95a0c1..86ef88b61 100644
+index 44dcf712e..4b5f98a2e 100644
 --- a/src/vlib/unix/unix.h
 +++ b/src/vlib/unix/unix.h
-@@ -109,6 +109,14 @@ typedef struct
+@@ -111,6 +111,14 @@ typedef struct
  
  } unix_main_t;
  

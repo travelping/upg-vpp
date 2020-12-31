@@ -1,4 +1,4 @@
-From 37807e1110ea39dd09f19af9182e109f73847ae8 Mon Sep 17 00:00:00 2001
+From 74100b64c0d51bec622f10bd65a0a52d07c746cf Mon Sep 17 00:00:00 2001
 From: Andreas Schultz <andreas.schultz@travelping.com>
 Date: Mon, 20 Apr 2020 09:45:24 +0200
 Subject: [PATCH] Only install hyperscan on amd64
@@ -12,7 +12,7 @@ Change-Id: I73707d33860820e4cee0b95575c11756236466a4
  1 file changed, 4 insertions(+)
 
 diff --git a/Makefile b/Makefile
-index a0e16649e..3a9750645 100644
+index 66fbacbbc..96a45d880 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -72,7 +72,9 @@ DEB_DEPENDS += python3-venv  # ensurepip
@@ -36,5 +36,5 @@ index a0e16649e..3a9750645 100644
  RPM_DEPENDS_DEBUG  = glibc-debuginfo e2fsprogs-debuginfo
  RPM_DEPENDS_DEBUG += krb5-debuginfo openssl-debuginfo
 -- 
-2.24.3 (Apple Git-128)
+2.28.0
 

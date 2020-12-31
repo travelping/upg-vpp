@@ -1,4 +1,4 @@
-From 003d0a6259eb8a0c8809c051ff10880d9c4bbb56 Mon Sep 17 00:00:00 2001
+From 4f88f9284b69fe9b36c1962855f3fc2d22361347 Mon Sep 17 00:00:00 2001
 From: Ivan Shvedunov <ivan4th@gmail.com>
 Date: Sat, 16 Jan 2021 03:43:01 +0300
 Subject: [PATCH] tcp: remove bad assert
@@ -14,10 +14,10 @@ Change-Id: I955077a4ed2389b9ee38d97e27a7c7761c860a4a
  1 file changed, 2 insertions(+), 5 deletions(-)
 
 diff --git a/src/vnet/tcp/tcp_input.c b/src/vnet/tcp/tcp_input.c
-index a86161c6d..aab52bbb0 100644
+index 0a3d31588..a159d8507 100644
 --- a/src/vnet/tcp/tcp_input.c
 +++ b/src/vnet/tcp/tcp_input.c
-@@ -1814,13 +1814,10 @@ tcp46_syn_sent_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
+@@ -1812,13 +1812,10 @@ tcp46_syn_sent_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
  	  goto drop;
  	}
  

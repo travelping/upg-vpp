@@ -1,4 +1,4 @@
-From 7a1eef3b75a577718331b146d76c700e782c4f7e Mon Sep 17 00:00:00 2001
+From 118f4d6f5d1c3508ff42ed147198243fcaebd634 Mon Sep 17 00:00:00 2001
 From: Andreas Schultz <andreas.schultz@travelping.com>
 Date: Mon, 16 Mar 2020 17:00:29 +0100
 Subject: [PATCH] CI and build infrastructure adjustments
@@ -9,7 +9,7 @@ Subject: [PATCH] CI and build infrastructure adjustments
  2 files changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile b/Makefile
-index 6b5f50a7a..a0e16649e 100644
+index 31d08a463..66fbacbbc 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -71,6 +71,8 @@ DEB_DEPENDS += cmake ninja-build uuid-dev python3-jsonschema python3-yaml
@@ -54,5 +54,5 @@ index ef66682f8..d47aff25b 100644
   This package contains the VPP dpdk plugin
   .
 -- 
-2.24.3 (Apple Git-128)
+2.28.0
 

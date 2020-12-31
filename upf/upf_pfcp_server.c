@@ -925,13 +925,11 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	upf_urr_traffic_t **expired = NULL;
 	upf_urr_traffic_t *tt = NULL;
 
-	/* *INDENT-OFF* */
-	pool_foreach (tt, urr->traffic,
-	({
+	pool_foreach (tt, urr->traffic)
+	{
 	  if (tt->first_seen + 60 < now)
 	    vec_add1 (expired, tt);
-	}));
-	/* *INDENT-ON* */
+	};
 
 	for (int i = 0; i < vec_len (expired); i++)
 	  {
@@ -1037,12 +1035,10 @@ static void upf_validate_session_timers ()
   upf_main_t *gtm = &upf_main;
   upf_session_t *sx = NULL;
 
-  /* *INDENT-OFF* */
-  pool_foreach (sx, gtm->sessions,
-  ({
+  pool_foreach (sx, gtm->sessions)
+  {
     upf_validate_session_timer (sx);
-  }));
-  /* *INDENT-ON* */
+  }
 }
 
 #endif
@@ -1274,21 +1270,18 @@ static uword
        * these timers are invoked, they may end up handling messages
        * that were freed (put to the msg_pool).
        */
-
-      /* *INDENT-OFF* */
-      pool_foreach (msg, psm->msg_pool,
-      ({
+      pool_foreach (msg, psm->msg_pool)
+      {
 	if (!msg->is_valid_pool_item ||
-	    (!hash_get(psm->free_msgs_by_node, msg->node) &&
-	     !hash_get(psm->free_msgs_by_sidx, msg->session_index)))
+	    (!hash_get (psm->free_msgs_by_node, msg->node) &&
+	     !hash_get (psm->free_msgs_by_sidx, msg->session_index)))
 	  continue;
 
 	hash_unset (psm->request_q, msg->seq_no);
 	mhash_unset (&psm->response_q, msg->request_key, NULL);
 	upf_pfcp_server_stop_timer (msg->timer);
 	pfcp_msg_pool_put (psm, msg);
-      }));
-      /* *INDENT-ON* */
+      }
 
       vec_reset_length (expired);
       vec_reset_length (event_data);
