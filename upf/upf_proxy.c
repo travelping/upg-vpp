@@ -265,7 +265,7 @@ rx_callback_inline (svm_fifo_t * tx_fifo)
   if (svm_fifo_set_event (tx_fifo))
     {
       u8 thread_index = tx_fifo->master_thread_index;
-      u32 session_index = tx_fifo->master_session_index;
+      u32 session_index = tx_fifo->shr->master_session_index;
       if (session_send_io_evt_to_thread_custom (&session_index,
 						thread_index,
 						SESSION_IO_EVT_TX))
@@ -1040,7 +1040,7 @@ active_open_connected_callback (u32 app_index, u32 opaque,
    * Reset the active-open tx-fifo master indices so the active-open session
    * will receive data, etc.
    */
-  s->tx_fifo->master_session_index = s->session_index;
+  s->tx_fifo->shr->master_session_index = s->session_index;
   s->tx_fifo->master_thread_index = s->thread_index;
 
   /*
