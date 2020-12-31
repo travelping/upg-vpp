@@ -55,7 +55,7 @@ prepare:
 # build container image
 .build:
   stage: build
-  image: quay.io/travelping/upg-build:e89e979bd46043a3d9e7a6d1b11ddc29 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: quay.io/travelping/upg-build:f2a4c2db5d37589ce83e12f6b70567d1 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
   - |
     export REGISTRY_LOGIN=${QUAY_USER_ID}
@@ -91,7 +91,7 @@ build:debug:
 .test:
   stage: test
   # the following is updated automatically by make update-build-image-tag
-  image: quay.io/travelping/upg-build:e89e979bd46043a3d9e7a6d1b11ddc29 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: quay.io/travelping/upg-build:f2a4c2db5d37589ce83e12f6b70567d1 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
   - make update-vpp
   - tar -C vpp -xvzf ${TEST_ARCHIVE}
@@ -114,7 +114,7 @@ build:debug:
 test:patch-style:
   stage: test
   # the following is updated automatically by make update-build-image-tag
-  image: quay.io/travelping/upg-build:e89e979bd46043a3d9e7a6d1b11ddc29 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: quay.io/travelping/upg-build:f2a4c2db5d37589ce83e12f6b70567d1 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
   - hack/checkstyle.sh
 
@@ -139,7 +139,7 @@ test:release:
   variables:
     SKIP_VPP_SOURCE_CHECK: "y"
   # the following is updated automatically by make update-build-image-tag
-  image: quay.io/travelping/upg-build:e89e979bd46043a3d9e7a6d1b11ddc29 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: quay.io/travelping/upg-build:f2a4c2db5d37589ce83e12f6b70567d1 # XX_DO_NOT_REMOVE_THIS_COMMENT
   script:
   - tar -C vpp -xvzf ${TEST_ARCHIVE}
   - sysctl vm.nr_hugepages=0

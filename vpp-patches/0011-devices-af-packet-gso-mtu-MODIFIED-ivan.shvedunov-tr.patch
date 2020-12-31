@@ -1,7 +1,8 @@
-From f5b65cf107e9d4a5ba7e5b2e4d788e178b6b3387 Mon Sep 17 00:00:00 2001
+From 0b322aadec2040caebb2b29e9fd10fb972ef69b7 Mon Sep 17 00:00:00 2001
 From: Nathan Skrzypczak <nathan.skrzypczak@gmail.com>
 Date: Mon, 1 Feb 2021 17:13:59 +0100
-Subject: [PATCH] devices: af-packet gso mtu [MODIFIED - ivan.shvedunov@travelping.com]
+Subject: [PATCH] devices: af-packet gso mtu [MODIFIED -
+ ivan.shvedunov@travelping.com]
 
 Type: fix
 
@@ -16,8 +17,8 @@ stay stuck.
 Change-Id: Idf0bdd88990254a614962c2f7bc3e0292ccfd61a
 Signed-off-by: Nathan Skrzypczak <nathan.skrzypczak@gmail.com>
 ---
- src/vnet/devices/af_packet/device.c    | 88 +++++++++++++++++++-------
- 4 files changed, 126 insertions(+), 38 deletions(-)
+ src/vnet/devices/af_packet/device.c | 88 +++++++++++++++++++++--------
+ 1 file changed, 66 insertions(+), 22 deletions(-)
 
 diff --git a/src/vnet/devices/af_packet/device.c b/src/vnet/devices/af_packet/device.c
 index 2886fb5b6..b6b99a046 100644
@@ -151,3 +152,6 @@ index 2886fb5b6..b6b99a046 100644
  
    clib_spinlock_unlock_if_init (&apif->lockp);
  
+-- 
+2.28.0
+

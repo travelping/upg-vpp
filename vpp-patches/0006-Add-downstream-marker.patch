@@ -1,7 +1,7 @@
-From 7ff117b5df1f520e2d1d2d2a3dc3734c1b5c6d81 Mon Sep 17 00:00:00 2001
+From d63b42608110f5db03cc8780dd5c69e695f5888b Mon Sep 17 00:00:00 2001
 From: Ivan Shvedunov <ivan4th@gmail.com>
 Date: Tue, 22 Sep 2020 01:28:37 +0300
-Subject: [PATCH 6/7] Add downstream marker
+Subject: [PATCH] Add downstream marker
 
 ---
  .downstream-marker | 0

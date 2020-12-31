@@ -320,18 +320,16 @@ upf_show_nwi_command_fn (vlib_main_t * vm,
       unformat_free (line_input);
     }
 
-  /* *INDENT-OFF* */
-  pool_foreach (nwi, gtm->nwis,
-  ({
-    if (name && !vec_is_equal(name, nwi->name))
+  pool_foreach (nwi, gtm->nwis)
+  {
+    if (name && !vec_is_equal (name, nwi->name))
       continue;
 
     vlib_cli_output (vm, "%U, ip4-fib-index %u, ip6-fib-index %u\n",
 		     format_network_instance, nwi->name,
 		     nwi->fib_index[FIB_PROTOCOL_IP4],
 		     nwi->fib_index[FIB_PROTOCOL_IP6]);
-  }));
-  /* *INDENT-ON* */
+  }
 
 done:
   vec_free (name);
@@ -862,13 +860,11 @@ upf_show_gtpu_endpoint_command_fn (vlib_main_t * vm,
      }
    */
 
-  /* *INDENT-OFF* */
-  pool_foreach (res, gtm->upip_res,
-  ({
+  pool_foreach (res, gtm->upip_res)
+  {
     vlib_cli_output (vm, "[%d]: %U", res - gtm->upip_res,
 		     format_gtpu_endpoint, res);
-  }));
-  /* *INDENT-ON* */
+  }
 
   //done:
   return error;
@@ -983,12 +979,11 @@ upf_show_session_command_fn (vlib_main_t * vm,
     }
   else
     {
-      /* *INDENT-OFF* */
-      pool_foreach (sess, gtm->sessions,
-      ({
-	vlib_cli_output (vm, "%U", format_pfcp_session, sess, PFCP_ACTIVE, debug);
-      }));
-      /* *INDENT-ON* */
+      pool_foreach (sess, gtm->sessions)
+      {
+	vlib_cli_output (vm, "%U", format_pfcp_session, sess, PFCP_ACTIVE,
+			 debug);
+      }
     }
 
 done:
@@ -1079,12 +1074,11 @@ upf_show_assoc_command_fn (vlib_main_t * vm,
     }
   else
     {
-      /* *INDENT-OFF* */
-      pool_foreach (node, gtm->nodes,
-      ({
-	vlib_cli_output (vm, "%U", format_pfcp_node_association, node, verbose);
-      }));
-      /* *INDENT-ON* */
+      pool_foreach (node, gtm->nodes)
+      {
+	vlib_cli_output (vm, "%U", format_pfcp_node_association, node,
+			 verbose);
+      }
     }
 
 done:
@@ -1333,12 +1327,10 @@ upf_show_proxy_session_command_fn (vlib_main_t * vm,
       unformat_free (line_input);
     }
 
-  /* *INDENT-OFF* */
-  pool_foreach (ps, pm->sessions,
-  ({
+  pool_foreach (ps, pm->sessions)
+  {
     vlib_cli_output (vm, "%U\n", format_upf_proxy_session, ps);
-  }));
-  /* *INDENT-ON* */
+  }
 
 done:
   return error;

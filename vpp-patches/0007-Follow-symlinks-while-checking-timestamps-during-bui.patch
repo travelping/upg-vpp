@@ -1,4 +1,4 @@
-From e04f4cd4790a9a3ae09e54ad0ac2bee1346cf26c Mon Sep 17 00:00:00 2001
+From 8a126ffe5a65538f9ee8e6234caa8ad2d2d7235d Mon Sep 17 00:00:00 2001
 From: Ivan Shvedunov <ivan.shvedunov@travelping.com>
 Date: Thu, 19 Nov 2020 12:27:37 +0300
 Subject: [PATCH] Follow symlinks while checking timestamps during builds

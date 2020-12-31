@@ -798,12 +798,10 @@ pfcp_free_urr (upf_urr_t * urr)
 {
   upf_urr_traffic_t *tt;
 
-  /* *INDENT-OFF* */
-  pool_foreach (tt, urr->traffic,
-  ({
+  pool_foreach (tt, urr->traffic)
+  {
     hash_unset_mem_free (&urr->traffic_by_ue, &tt->ip);
-  }));
-  /* *INDENT-ON* */
+  }
 
   pool_free (urr->traffic);
   hash_free (urr->traffic_by_ue);
@@ -1670,12 +1668,12 @@ build_pfcp_rules (upf_session_t * sx)
       }
 
     if ((pdr->pdi.fields & F_PDI_APPLICATION_ID) &&
-        (pdr->pdi.adr.flags & UPF_ADR_PROXY) &&
-        pdr->precedence < pending->proxy_precedence)
+	(pdr->pdi.adr.flags & UPF_ADR_PROXY) &&
+	pdr->precedence < pending->proxy_precedence)
       {
-        pending->proxy_precedence = pdr->precedence;
-        pending->proxy_pdr_idx = idx;
-        pending->flags |= PFCP_ADR;
+	pending->proxy_precedence = pdr->precedence;
+	pending->proxy_pdr_idx = idx;
+	pending->flags |= PFCP_ADR;
       }
   }
 
@@ -2852,16 +2850,13 @@ format_pfcp_session (u8 * s, va_list * args)
 		    format_vlib_time, vm, now,
 		    format_urr_time, &urr->traffic_timer);
 
-	/* *INDENT-OFF* */
-	pool_foreach (tt, urr->traffic,
-	({
+	pool_foreach (tt, urr->traffic)
+	{
 	  s = format (s, "%U @ %U [%U]\n",
 		      format_ip46_address, &tt->ip, IP46_TYPE_ANY,
 		      format_vlib_time, vm, tt->first_seen,
 		      format_vlib_time, vm, now - tt->first_seen);
-
-	}));
-	/* *INDENT-ON* */
+	}
       }
   }
   vec_foreach (qer, rules->qer)

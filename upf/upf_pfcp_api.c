@@ -199,19 +199,18 @@ static void
 
   vec_alloc (*upip, pool_elts (gtm->upip_res));
 
-  /* *INDENT-OFF* */
-  pool_foreach (res, gtm->upip_res,
-  ({
+  pool_foreach (res, gtm->upip_res)
+  {
     pfcp_user_plane_ip_resource_information_t *r;
 
     vec_add2 (*upip, r, 1);
 
     if (res->nwi_index != ~0)
       {
-	upf_nwi_t *nwi = pool_elt_at_index(gtm->nwis, res->nwi_index);
+	upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, res->nwi_index);
 
 	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI;
-	r->network_instance = vec_dup(nwi->name);
+	r->network_instance = vec_dup (nwi->name);
       }
 
     if (INTF_INVALID != res->intf)
@@ -223,7 +222,7 @@ static void
 
     if (res->mask != 0)
       {
-	r->teid_range_indication = __builtin_popcount(res->mask);
+	r->teid_range_indication = __builtin_popcount (res->mask);
 	r->teid_range = (res->teid >> 24);
       }
 
@@ -238,8 +237,7 @@ static void
 	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V6;
 	r->ip6 = res->ip6;
       }
-  }));
-  /* *INDENT-ON* */
+  }
 }
 
 /* message handlers */
@@ -890,16 +888,14 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	create->pdi.nwi_index = nwi - gtm->nwis;
       }
 
-    /* *INDENT-OFF* */
-    pool_foreach (ip_res, gtm->upip_res,
-    ({
+    pool_foreach (ip_res, gtm->upip_res)
+    {
       if (ip_res->nwi_index == create->pdi.nwi_index)
 	{
 	  res = ip_res;
-          break;
+	  break;
 	}
-    }));
-    /* *INDENT-ON* */
+    }
 
     create->pdi.src_intf = pdr->pdi.source_interface;
 
@@ -928,8 +924,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	create->pdi.fields |= F_PDI_UE_IP_ADDR;
 	create->pdi.ue_addr = pdr->pdi.ue_ip_address;
 
-        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
-            !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
 	  {
 	    /* neither SDF, nor Application Id, generate a wildcard
 	       ACL to make ACL scanning simpler */
@@ -987,12 +983,12 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	create->pdi.adr.db_id = upf_adf_get_adr_db (p[0]);
 	create->pdi.adr.flags = app->flags;
 
-        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
-            (create->pdi.adr.flags & UPF_ADR_IP_RULES))
-          {
-            create->pdi.fields |= F_PDI_SDF_FILTER;
-            vec_add1 (create->pdi.acl, wildcard_acl);
-          }
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+	    (create->pdi.adr.flags & UPF_ADR_IP_RULES))
+	  {
+	    create->pdi.fields |= F_PDI_SDF_FILTER;
+	    vec_add1 (create->pdi.acl, wildcard_acl);
+	  }
 	upf_debug ("app: %v, ADR DB id %u", app->name, create->pdi.adr.db_id);
       }
 
@@ -1089,16 +1085,14 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
     update->precedence = pdr->precedence;
     update->pdi.src_intf = pdr->pdi.source_interface;
 
-    /* *INDENT-OFF* */
-    pool_foreach (ip_res, gtm->upip_res,
-    ({
+    pool_foreach (ip_res, gtm->upip_res)
+    {
       if (ip_res->nwi_index == update->pdi.nwi_index)
 	{
 	  res = ip_res;
-          break;
+	  break;
 	}
-    }));
-    /* *INDENT-ON* */
+    }
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_F_TEID))
       {
@@ -1114,8 +1108,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	update->pdi.fields |= F_PDI_UE_IP_ADDR;
 	update->pdi.ue_addr = pdr->pdi.ue_ip_address;
 
-        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
-            !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
 	  {
 	    /* neither SDF, nor Application Id, generate a wildcard
 	       ACL to make ACL scanning simpler */
@@ -1175,15 +1169,15 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	update->pdi.adr.db_id = upf_adf_get_adr_db (p[0]);
 	update->pdi.adr.flags = app->flags;
 
-        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
-          {
-          vec_reset_length (update->pdi.acl);
-          if (update->pdi.adr.flags & UPF_ADR_IP_RULES)
-            {
-              update->pdi.fields |= F_PDI_SDF_FILTER;
-              vec_add1 (update->pdi.acl, wildcard_acl);
-            }
-          }
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
+	  {
+	    vec_reset_length (update->pdi.acl);
+	    if (update->pdi.adr.flags & UPF_ADR_IP_RULES)
+	      {
+		update->pdi.fields |= F_PDI_SDF_FILTER;
+		vec_add1 (update->pdi.acl, wildcard_acl);
+	      }
+	  }
 
 	upf_debug ("app: %v, ADR DB id %u", app->name, update->pdi.adr.db_id);
       }
@@ -1281,9 +1275,8 @@ upip_ip_interface_ip (upf_far_forward_t * ff, u32 fib_index, int is_ip4)
   ip_interface_address_t *a;
   upf_upip_res_t *res;
 
-  /* *INDENT-OFF* */
-  pool_foreach (res, gtm->upip_res,
-  ({
+  pool_foreach (res, gtm->upip_res)
+  {
     uword *p;
 
     if (is_ip4 && is_zero_ip4_address (&res->ip4))
@@ -1294,7 +1287,8 @@ upip_ip_interface_ip (upf_far_forward_t * ff, u32 fib_index, int is_ip4)
     if (INTF_INVALID != res->intf && ff->dst_intf != res->intf)
       continue;
 
-    if (~0 != res->nwi_index && ~0 != ff->nwi_index && ff->nwi_index != res->nwi_index)
+    if (~0 != res->nwi_index && ~0 != ff->nwi_index
+	&& ff->nwi_index != res->nwi_index)
       continue;
 
     if (is_ip4)
@@ -1316,9 +1310,8 @@ upip_ip_interface_ip (upf_far_forward_t * ff, u32 fib_index, int is_ip4)
 
     a = pool_elt_at_index (lm->if_address_pool, p[0]);
     if (a->sw_if_index == ff->dst_sw_if_index)
-      return (is_ip4) ? (void *)&res->ip4 : (void *)&res->ip6;
-  }));
-  /* *INDENT-ON* */
+      return (is_ip4) ? (void *) &res->ip4 : (void *) &res->ip6;
+  }
 
   clib_warning ("No NWI IP found, using first interface IP");
   return ip_interface_get_first_ip (ff->dst_sw_if_index, is_ip4);
