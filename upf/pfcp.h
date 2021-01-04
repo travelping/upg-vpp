@@ -1162,6 +1162,17 @@ typedef f64 pfcp_tp_start_time_t;
 #define PFCP_IE_TP_END_TIME				5
 typedef f64 pfcp_tp_end_time_t;
 
+#define PFCP_IE_TP_ERROR_REPORT				6
+
+#define PFCP_IE_TP_ERROR_MESSAGE			7
+typedef u8 *pfcp_tp_error_message_t;
+
+#define PFCP_IE_TP_FILE_NAME				8
+typedef u8 *pfcp_tp_file_name_t;
+
+#define PFCP_IE_TP_LINE_NUMBER				9
+typedef u32 pfcp_tp_line_number_t;
+
 /* Grouped PFCP Information Elements */
 
 enum
@@ -2188,6 +2199,23 @@ typedef struct
   pfcp_tp_end_time_t tp_end_time;
 } pfcp_usage_report_t;
 
+enum
+{
+  TP_ERROR_REPORT_TP_ERROR_MESSAGE,
+  TP_ERROR_REPORT_TP_FILE_NAME,
+  TP_ERROR_REPORT_TP_LINE_NUMBER,
+  TP_ERROR_REPORT_LAST = TP_ERROR_REPORT_TP_LINE_NUMBER
+};
+
+typedef struct
+{
+  struct pfcp_group grp;
+
+  pfcp_tp_error_message_t error_message;
+  pfcp_tp_file_name_t file_name;
+  pfcp_tp_line_number_t line_number;
+} pfcp_tp_error_report_t;
+
 
 /* PFCP Methods */
 
@@ -2221,6 +2249,7 @@ enum
   PFCP_RESPONSE_CAUSE,
   PFCP_RESPONSE_OFFENDING_IE,
   PFCP_RESPONSE_RECOVERY_TIME_STAMP,
+  PFCP_RESPONSE_TP_ERROR_REPORT,
 };
 
 struct pfcp_response
@@ -2229,6 +2258,7 @@ struct pfcp_response
   pfcp_cause_t cause;
   pfcp_offending_ie_t offending_ie;
   pfcp_recovery_time_stamp_t recovery_time_stamp;
+  pfcp_tp_error_report_t tp_error_report;
 };
 
 enum
@@ -2351,6 +2381,7 @@ enum
 {
   ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID,
   ASSOCIATION_PROCEDURE_RESPONSE_CAUSE,
+  ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT,
   ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP,
   ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES,
   ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES,
@@ -2367,6 +2398,7 @@ typedef struct
 
   pfcp_node_id_t node_id;
   pfcp_cause_t cause;
+  pfcp_tp_error_report_t tp_error_report;
   pfcp_recovery_time_stamp_t recovery_time_stamp;
   pfcp_cp_function_features_t cp_function_features;
   pfcp_up_function_features_t up_function_features;
@@ -2528,6 +2560,7 @@ enum
   SESSION_PROCEDURE_RESPONSE_NODE_ID,
   SESSION_PROCEDURE_RESPONSE_CAUSE,
   SESSION_PROCEDURE_RESPONSE_OFFENDING_IE,
+  SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT,
   SESSION_PROCEDURE_RESPONSE_UP_F_SEID,
   SESSION_PROCEDURE_RESPONSE_CREATED_PDR,
   SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION,
@@ -2548,6 +2581,7 @@ typedef struct
   pfcp_node_id_t node_id;
   pfcp_cause_t cause;
   pfcp_offending_ie_t offending_ie;
+  pfcp_tp_error_report_t tp_error_report;
   pfcp_f_seid_t up_f_seid;
   pfcp_created_pdr_t *created_pdr;
   pfcp_load_control_information_t load_control_information;
@@ -2592,6 +2626,7 @@ enum
 {
   SESSION_REPORT_RESPONSE_CAUSE = PFCP_RESPONSE_CAUSE,
   SESSION_REPORT_RESPONSE_OFFENDING_IE = PFCP_RESPONSE_OFFENDING_IE,
+  SESSION_REPORT_RESPONSE_TP_ERROR_REPORT = PFCP_RESPONSE_TP_ERROR_REPORT,
   SESSION_REPORT_RESPONSE_UPDATE_BAR,
   SESSION_REPORT_RESPONSE_PFCPSRRSP_FLAGS,
   SESSION_REPORT_RESPONSE_CP_F_SEID,
