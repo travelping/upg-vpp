@@ -791,12 +791,8 @@ validate_ue_ip (upf_session_t * sx, upf_nwi_t * nwi,
 
 static int
 handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
-		   struct pfcp_group *grp,
-		   pfcp_created_pdr_t ** created_pdr_vec,
-		   int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   upf_main_t *gtm = &upf_main;
   pfcp_create_pdr_t *pdr;
   struct rules *rules;
@@ -837,7 +833,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	    if (ISSET_BIT (pdr->pdi.grp.fields, PDI_NETWORK_INSTANCE))
 	      upf_debug ("NWI: %v (%d)", pdr->pdi.network_instance,
 			 vec_len (pdr->pdi.network_instance));
-	    failed_rule_id->id = pdr->pdr_id;
+	    response->failed_rule_id.id = pdr->pdr_id;
 	    r = -1;
 	    vec_pop (rules->pdr);
 	    break;
@@ -862,7 +858,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_F_TEID))
       {
 	if (handle_f_teid
-	    (sx, gtm, &pdr->pdi, create, created_pdr_vec, res, 1) != 0)
+	    (sx, gtm, &pdr->pdi, create, &response->created_pdr, res, 1) != 0)
 	  {
 	    r = -1;
 	    upf_debug ("create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
@@ -916,7 +912,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	  if (!unformat (&input, "%U", unformat_ipfilter, acl))
 	    {
 	      unformat_free (&input);
-	      failed_rule_id->id = pdr->pdr_id;
+	      response->failed_rule_id.id = pdr->pdr_id;
 	      vec_pop (rules->pdr);
 	      upf_debug ("failed to parse SDF '%s'", sdf->flow);
 	      r = -1;
@@ -938,7 +934,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	p = hash_get_mem (gtm->upf_app_by_name, pdr->pdi.application_id);
 	if (!p)
 	  {
-	    failed_rule_id->id = pdr->pdr_id;
+	    response->failed_rule_id.id = pdr->pdr_id;
 	    vec_pop (rules->pdr);
 	    r = -1;
 	    fformat (stderr,
@@ -1000,8 +996,9 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_PDR;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
     }
 
   return r;
@@ -1009,11 +1006,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 
 static int
 handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
-		   struct pfcp_group *grp,
-		   int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   upf_main_t *gtm = &upf_main;
   pfcp_update_pdr_t *pdr;
   int r = 0;
@@ -1035,7 +1029,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
       {
 	upf_debug ("PFCP Session %" PRIu64 ", update PDR Id %d not found.\n",
 		   sx->cp_seid, pdr->pdr_id);
-	failed_rule_id->id = pdr->pdr_id;
+	response->failed_rule_id.id = pdr->pdr_id;
 	r = -1;
 	break;
       }
@@ -1049,7 +1043,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	      {
 		upf_debug ("PDR: %d, PDI for unknown network instance\n",
 			   pdr->pdr_id);
-		failed_rule_id->id = pdr->pdr_id;
+		response->failed_rule_id.id = pdr->pdr_id;
 		r = -1;
 		break;
 	      }
@@ -1121,7 +1115,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	  if (!unformat (&input, "%U", unformat_ipfilter, acl))
 	    {
 	      unformat_free (&input);
-	      failed_rule_id->id = pdr->pdr_id;
+	      response->failed_rule_id.id = pdr->pdr_id;
 	      upf_debug ("failed to parse SDF '%s'", sdf->flow);
 	      r = -1;
 	      break;
@@ -1142,7 +1136,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	p = hash_get_mem (gtm->upf_app_by_name, pdr->pdi.application_id);
 	if (!p)
 	  {
-	    failed_rule_id->id = pdr->pdr_id;
+	    response->failed_rule_id.id = pdr->pdr_id;
 	    r = -1;
 	    fformat (stderr,
 		     "PDR: %d, application id %v has not been configured\n",
@@ -1206,8 +1200,9 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_PDR;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
     }
 
   return r;
@@ -1215,11 +1210,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 
 static int
 handle_remove_pdr (upf_session_t * sx, pfcp_remove_pdr_t * remove_pdr,
-		   struct pfcp_group *grp,
-		   int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   pfcp_remove_pdr_t *pdr;
   int r = 0;
 
@@ -1234,7 +1226,7 @@ handle_remove_pdr (upf_session_t * sx, pfcp_remove_pdr_t * remove_pdr,
     if ((r = pfcp_delete_pdr (sx, pdr->pdr_id)) != 0)
       {
 	upf_debug ("Failed to remove PDR %d\n", pdr->pdr_id);
-	failed_rule_id->id = pdr->pdr_id;
+	response->failed_rule_id.id = pdr->pdr_id;
 	r = -1;
 	break;
       }
@@ -1244,8 +1236,9 @@ handle_remove_pdr (upf_session_t * sx, pfcp_remove_pdr_t * remove_pdr,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_PDR;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
     }
 
   return r;
@@ -1396,11 +1389,8 @@ upf_ip46_get_resolving_interface (u32 fib_index, ip46_address_t * pa46,
 
 static int
 handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
-		   struct pfcp_group *grp,
-		   int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   upf_main_t *gtm = &upf_main;
   pfcp_create_far_t *far;
   struct rules *rules;
@@ -1441,7 +1431,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 		upf_debug
 		  ("FAR: %d, Parameter with unknown network instance\n",
 		   far->far_id);
-		failed_rule_id->id = far->far_id;
+		response->failed_rule_id.id = far->far_id;
 		r = -1;
 		vec_pop (rules->far);
 		break;
@@ -1483,7 +1473,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 		upf_debug
 		  ("FAR: %d, Network instance with invalid VRF for IPv%d\n",
 		   far->far_id, is_ip4 ? 4 : 6);
-		failed_rule_id->id = far->far_id;
+		response->failed_rule_id.id = far->far_id;
 		r = -1;
 		vec_pop (rules->far);
 		break;
@@ -1498,7 +1488,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 		   is_ip4 ? ip4_fib_get (fib_index)->table_id :
 		   ip6_fib_get (fib_index)->table_id);
 
-		failed_rule_id->id = far->far_id;
+		response->failed_rule_id.id = far->far_id;
 		r = -1;
 		vec_pop (rules->far);
 		break;
@@ -1518,8 +1508,9 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_FAR;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
     }
 
   return r;
@@ -1527,11 +1518,8 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 
 static int
 handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
-		   struct pfcp_group *grp,
-		   int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   upf_main_t *gtm = &upf_main;
   pfcp_update_far_t *far;
   int r = 0;
@@ -1551,7 +1539,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
       {
 	upf_debug ("PFCP Session %" PRIu64 ", update FAR Id %d not found.\n",
 		   sx->cp_seid, far->far_id);
-	failed_rule_id->id = far->far_id;
+	response->failed_rule_id.id = far->far_id;
 	r = -1;
 	break;
       }
@@ -1576,7 +1564,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 		    upf_debug
 		      ("FAR: %d, Update Parameter with unknown network instance\n",
 		       far->far_id);
-		    failed_rule_id->id = far->far_id;
+		    response->failed_rule_id.id = far->far_id;
 		    r = -1;
 		    break;
 		  }
@@ -1626,7 +1614,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 		upf_debug
 		  ("FAR: %d, Network instance with invalid VRF for IPv%d\n",
 		   far->far_id, is_ip4 ? 4 : 6);
-		failed_rule_id->id = far->far_id;
+		response->failed_rule_id.id = far->far_id;
 		r = -1;
 		break;
 	      }
@@ -1641,7 +1629,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 		   is_ip4 ? ip4_fib_get (fib_index)->table_id :
 		   ip6_fib_get (fib_index)->table_id);
 
-		failed_rule_id->id = far->far_id;
+		response->failed_rule_id.id = far->far_id;
 		r = -1;
 		break;
 	      }
@@ -1658,8 +1646,9 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_FAR;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
     }
 
   return r;
@@ -1667,11 +1656,8 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 
 static int
 handle_remove_far (upf_session_t * sx, pfcp_remove_far_t * remove_far,
-		   struct pfcp_group *grp,
-		   int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   pfcp_remove_far_t *far;
   int r = 0;
 
@@ -1686,7 +1672,7 @@ handle_remove_far (upf_session_t * sx, pfcp_remove_far_t * remove_far,
     if ((r = pfcp_delete_far (sx, far->far_id)) != 0)
       {
 	upf_debug ("Failed to add FAR %d\n", far->far_id);
-	failed_rule_id->id = far->far_id;
+	response->failed_rule_id.id = far->far_id;
 	r = -1;
 	break;
       }
@@ -1696,8 +1682,9 @@ handle_remove_far (upf_session_t * sx, pfcp_remove_far_t * remove_far,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_FAR;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
     }
 
   return r;
@@ -1705,11 +1692,9 @@ handle_remove_far (upf_session_t * sx, pfcp_remove_far_t * remove_far,
 
 static int
 handle_create_urr (upf_session_t * sx, pfcp_create_urr_t * create_urr,
-		   f64 now, struct pfcp_group *grp, int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   f64 now, pfcp_session_procedure_response_t * response)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   pfcp_create_urr_t *urr;
   struct rules *rules;
   int r = 0;
@@ -1813,8 +1798,9 @@ handle_create_urr (upf_session_t * sx, pfcp_create_urr_t * create_urr,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_URR;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
     }
 
   return r;
@@ -1822,11 +1808,9 @@ handle_create_urr (upf_session_t * sx, pfcp_create_urr_t * create_urr,
 
 static int
 handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
-		   f64 now, struct pfcp_group *grp, int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   f64 now, pfcp_session_procedure_response_t * response)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   pfcp_update_urr_t *urr;
   int r = 0;
 
@@ -1845,7 +1829,7 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
       {
 	upf_debug ("PFCP Session %" PRIu64 ", update URR Id %d not found.\n",
 		   sx->cp_seid, urr->urr_id);
-	failed_rule_id->id = urr->urr_id;
+	response->failed_rule_id.id = urr->urr_id;
 	r = -1;
 	break;
       }
@@ -1933,8 +1917,9 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_URR;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
     }
 
   return r;
@@ -1942,10 +1927,8 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
 
 static int
 handle_remove_urr (upf_session_t * sx, pfcp_remove_urr_t * remove_urr,
-		   f64 now, struct pfcp_group *grp, int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   f64 now, pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   pfcp_remove_urr_t *urr;
   int r = 0;
 
@@ -1960,7 +1943,7 @@ handle_remove_urr (upf_session_t * sx, pfcp_remove_urr_t * remove_urr,
     if ((r = pfcp_delete_urr (sx, urr->urr_id)) != 0)
       {
 	upf_debug ("Failed to add URR %d\n", urr->urr_id);
-	failed_rule_id->id = urr->urr_id;
+	response->failed_rule_id.id = urr->urr_id;
 	r = -1;
 	break;
       }
@@ -1970,8 +1953,9 @@ handle_remove_urr (upf_session_t * sx, pfcp_remove_urr_t * remove_urr,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_URR;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
     }
 
   return r;
@@ -1979,10 +1963,8 @@ handle_remove_urr (upf_session_t * sx, pfcp_remove_urr_t * remove_urr,
 
 static int
 handle_create_qer (upf_session_t * sx, pfcp_create_qer_t * create_qer,
-		   f64 now, struct pfcp_group *grp, int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   f64 now, pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   upf_main_t *gtm = &upf_main;
   pfcp_create_qer_t *qer;
   struct rules *rules;
@@ -2032,8 +2014,9 @@ handle_create_qer (upf_session_t * sx, pfcp_create_qer_t * create_qer,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_QER;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
     }
 
   return r;
@@ -2041,10 +2024,8 @@ handle_create_qer (upf_session_t * sx, pfcp_create_qer_t * create_qer,
 
 static int
 handle_update_qer (upf_session_t * sx, pfcp_update_qer_t * update_qer,
-		   f64 now, struct pfcp_group *grp, int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   f64 now, pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   upf_main_t *gtm = &upf_main;
   pfcp_update_qer_t *qer;
   int r = 0;
@@ -2064,7 +2045,7 @@ handle_update_qer (upf_session_t * sx, pfcp_update_qer_t * update_qer,
       {
 	upf_debug ("PFCP Session %" PRIu64 ", update QER Id %d not found.\n",
 		   sx->cp_seid, qer->qer_id);
-	failed_rule_id->id = qer->qer_id;
+	response->failed_rule_id.id = qer->qer_id;
 	r = -1;
 	break;
       }
@@ -2097,8 +2078,9 @@ handle_update_qer (upf_session_t * sx, pfcp_update_qer_t * update_qer,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_QER;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
     }
 
   return r;
@@ -2106,10 +2088,8 @@ handle_update_qer (upf_session_t * sx, pfcp_update_qer_t * update_qer,
 
 static int
 handle_remove_qer (upf_session_t * sx, pfcp_remove_qer_t * remove_qer,
-		   f64 now, struct pfcp_group *grp, int failed_rule_id_field,
-		   pfcp_failed_rule_id_t * failed_rule_id)
+		   f64 now, pfcp_session_procedure_response_t * response)
 {
-  struct pfcp_response *response = (struct pfcp_response *) (grp + 1);
   pfcp_remove_qer_t *qer;
   int r = 0;
 
@@ -2124,7 +2104,7 @@ handle_remove_qer (upf_session_t * sx, pfcp_remove_qer_t * remove_qer,
     if ((r = pfcp_delete_qer (sx, qer->qer_id)) != 0)
       {
 	upf_debug ("Failed to add QER %d\n", qer->qer_id);
-	failed_rule_id->id = qer->qer_id;
+	response->failed_rule_id.id = qer->qer_id;
 	r = -1;
 	break;
       }
@@ -2134,8 +2114,9 @@ handle_remove_qer (upf_session_t * sx, pfcp_remove_qer_t * remove_qer,
     {
       response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (grp->fields, failed_rule_id_field);
-      failed_rule_id->type = FAILED_RULE_TYPE_QER;
+      SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+      response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
     }
 
   return r;
@@ -2419,10 +2400,10 @@ handle_session_establishment_request (pfcp_msg_t * req,
 				      pfcp_session_establishment_request_t *
 				      msg)
 {
-  pfcp_session_establishment_response_t resp;
   ip46_address_t up_address = ip46_address_initializer;
   ip46_address_t cp_address = ip46_address_initializer;
   pfcp_server_main_t *psm = &pfcp_server_main;
+  pfcp_session_procedure_response_t resp;
   upf_session_t *sess = NULL;
   upf_node_assoc_t *assoc;
   f64 now = psm->now;
@@ -2430,20 +2411,20 @@ handle_session_establishment_request (pfcp_msg_t * req,
   int is_ip4;
 
   memset (&resp, 0, sizeof (resp));
-  SET_BIT (resp.grp.fields, SESSION_ESTABLISHMENT_RESPONSE_CAUSE);
-  resp.response.cause = PFCP_CAUSE_REQUEST_REJECTED;
+  SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
+  resp.cause = PFCP_CAUSE_REQUEST_REJECTED;
 
   assoc = pfcp_get_association (&msg->request.node_id);
   if (!assoc)
     {
-      resp.response.cause = PFCP_CAUSE_NO_ESTABLISHED_PFCP_ASSOCIATION;
+      resp.cause = PFCP_CAUSE_NO_ESTABLISHED_PFCP_ASSOCIATION;
       upf_pfcp_send_response (req, msg->f_seid.seid,
 			      PFCP_SESSION_ESTABLISHMENT_RESPONSE, &resp.grp);
 
       return -1;
     }
 
-  SET_BIT (resp.grp.fields, SESSION_ESTABLISHMENT_RESPONSE_UP_F_SEID);
+  SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
   resp.up_f_seid.seid = msg->f_seid.seid;
 
   is_ip4 = ip46_address_is_ip4 (&req->rmt.address);
@@ -2477,23 +2458,16 @@ handle_session_establishment_request (pfcp_msg_t * req,
       pending->inactivity_timer.handle = ~0;
     }
 
-  if ((r =
-       handle_create_pdr (sess, msg->create_pdr, &resp.grp, &resp.created_pdr,
-			  SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
-			  &resp.failed_rule_id)) != 0)
+  if ((r = handle_create_pdr (sess, msg->create_pdr, &resp)) != 0)
     goto out_send_resp;
 
   if (vec_len (resp.created_pdr) > 0)
-    SET_BIT (resp.grp.fields, SESSION_ESTABLISHMENT_RESPONSE_CREATED_PDR);
+    SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CREATED_PDR);
 
-  if ((r = handle_create_far (sess, msg->create_far, &resp.grp,
-			      SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
-			      &resp.failed_rule_id)) != 0)
+  if ((r = handle_create_far (sess, msg->create_far, &resp)) != 0)
     goto out_send_resp;
 
-  if ((r = handle_create_urr (sess, msg->create_urr, now, &resp.grp,
-			      SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
-			      &resp.failed_rule_id)) != 0)
+  if ((r = handle_create_urr (sess, msg->create_urr, now, &resp)) != 0)
     goto out_send_resp;
 
   r = pfcp_update_apply (sess);
@@ -2505,7 +2479,7 @@ handle_session_establishment_request (pfcp_msg_t * req,
 
 out_send_resp:
   if (r == 0)
-    resp.response.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
+    resp.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
   upf_pfcp_send_response (req, sess->cp_seid,
 			  PFCP_SESSION_ESTABLISHMENT_RESPONSE, &resp.grp);
@@ -2523,7 +2497,7 @@ out_send_resp:
 
 static int
 handle_session_establishment_response (pfcp_msg_t * req,
-				       pfcp_session_establishment_response_t *
+				       pfcp_session_procedure_response_t *
 				       msg)
 {
   return -1;
@@ -2534,8 +2508,8 @@ handle_session_modification_request (pfcp_msg_t * req,
 				     pfcp_session_modification_request_t *
 				     msg)
 {
-  pfcp_session_modification_response_t resp;
   pfcp_server_main_t *psm = &pfcp_server_main;
+  pfcp_session_procedure_response_t resp;
   upf_usage_report_t report;
   pfcp_query_urr_t *qry;
   struct rules *active;
@@ -2545,14 +2519,14 @@ handle_session_modification_request (pfcp_msg_t * req,
   int r = 0;
 
   memset (&resp, 0, sizeof (resp));
-  SET_BIT (resp.grp.fields, SESSION_ESTABLISHMENT_RESPONSE_CAUSE);
-  resp.response.cause = PFCP_CAUSE_REQUEST_REJECTED;
+  SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
+  resp.cause = PFCP_CAUSE_REQUEST_REJECTED;
 
   if (!(sess = pfcp_lookup (be64toh (req->hdr->session_hdr.seid))))
     {
       upf_debug ("PFCP Session %" PRIu64 " not found.\n",
 		 be64toh (req->hdr->session_hdr.seid));
-      resp.response.cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
+      resp.cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
 
       r = -1;
       goto out_send_resp;
@@ -2590,69 +2564,43 @@ handle_session_modification_request (pfcp_msg_t * req,
 	  pending->inactivity_timer.handle = ~0;
 	}
 
-      if ((r =
-	   handle_create_pdr (sess, msg->create_pdr, &resp.grp,
-			      &resp.created_pdr,
-			      SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-			      &resp.failed_rule_id)) != 0)
+      if ((r = handle_create_pdr (sess, msg->create_pdr, &resp)) != 0)
 	goto out_send_resp;
 
       if (vec_len (resp.created_pdr) > 0)
-	SET_BIT (resp.grp.fields, SESSION_MODIFICATION_RESPONSE_CREATED_PDR);
+	SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CREATED_PDR);
 
-      if ((r = handle_update_pdr (sess, msg->update_pdr, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_update_pdr (sess, msg->update_pdr, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_remove_pdr (sess, msg->remove_pdr, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_remove_pdr (sess, msg->remove_pdr, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_create_far (sess, msg->create_far, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_create_far (sess, msg->create_far, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_update_far (sess, msg->update_far, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_update_far (sess, msg->update_far, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_remove_far (sess, msg->remove_far, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_remove_far (sess, msg->remove_far, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_create_urr (sess, msg->create_urr, now, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_create_urr (sess, msg->create_urr, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_update_urr (sess, msg->update_urr, now, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_update_urr (sess, msg->update_urr, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_remove_urr (sess, msg->remove_urr, now, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_remove_urr (sess, msg->remove_urr, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_create_qer (sess, msg->create_qer, now, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_create_qer (sess, msg->create_qer, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_update_qer (sess, msg->update_qer, now, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_update_qer (sess, msg->update_qer, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_remove_qer (sess, msg->remove_qer, now, &resp.grp,
-				  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-				  &resp.failed_rule_id)) != 0)
+      if ((r = handle_remove_qer (sess, msg->remove_qer, now, &resp)) != 0)
 	goto out_send_resp;
 
       if ((r = pfcp_update_apply (sess)) != 0)
@@ -2668,7 +2616,7 @@ handle_session_modification_request (pfcp_msg_t * req,
   if (ISSET_BIT (msg->grp.fields, SESSION_MODIFICATION_REQUEST_QUERY_URR) &&
       vec_len (msg->query_urr) != 0)
     {
-      SET_BIT (resp.grp.fields, SESSION_MODIFICATION_RESPONSE_USAGE_REPORT);
+      SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 
       vec_foreach (qry, msg->query_urr)
       {
@@ -2689,8 +2637,7 @@ handle_session_modification_request (pfcp_msg_t * req,
     {
       if (vec_len (active->urr) != 0)
 	{
-	  SET_BIT (resp.grp.fields,
-		   SESSION_MODIFICATION_RESPONSE_USAGE_REPORT);
+	  SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 	  upf_usage_report_set (&report,
 				USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT, now);
 	}
@@ -2707,7 +2654,7 @@ out_update_finish:
 
 out_send_resp:
   if (r == 0)
-    resp.response.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
+    resp.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
   upf_pfcp_send_response (req, cp_seid, PFCP_SESSION_MODIFICATION_RESPONSE,
 			  &resp.grp);
@@ -2717,8 +2664,7 @@ out_send_resp:
 
 static int
 handle_session_modification_response (pfcp_msg_t * req,
-				      pfcp_session_modification_response_t *
-				      msg)
+				      pfcp_session_procedure_response_t * msg)
 {
   return -1;
 }
@@ -2728,7 +2674,7 @@ handle_session_deletion_request (pfcp_msg_t * req,
 				 pfcp_session_deletion_request_t * msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_session_deletion_response_t resp;
+  pfcp_session_procedure_response_t resp;
   struct rules *active;
   f64 now = psm->now;
   upf_session_t *sess;
@@ -2736,14 +2682,14 @@ handle_session_deletion_request (pfcp_msg_t * req,
   int r = 0;
 
   memset (&resp, 0, sizeof (resp));
-  SET_BIT (resp.grp.fields, SESSION_DELETION_RESPONSE_CAUSE);
-  resp.response.cause = PFCP_CAUSE_REQUEST_REJECTED;
+  SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
+  resp.cause = PFCP_CAUSE_REQUEST_REJECTED;
 
   if (!(sess = pfcp_lookup (be64toh (req->hdr->session_hdr.seid))))
     {
       upf_debug ("PFCP Session %" PRIu64 " not found.\n",
 		 be64toh (req->hdr->session_hdr.seid));
-      resp.response.cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
+      resp.cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
 
       r = -1;
       goto out_send_resp_no_session;
@@ -2763,7 +2709,7 @@ handle_session_deletion_request (pfcp_msg_t * req,
     {
       upf_usage_report_t report;
 
-      SET_BIT (resp.grp.fields, SESSION_DELETION_RESPONSE_USAGE_REPORT);
+      SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 
       upf_usage_report_init (&report, vec_len (active->urr));
       upf_usage_report_set (&report, USAGE_REPORT_TRIGGER_TERMINATION_REPORT,
@@ -2777,7 +2723,7 @@ out_send_resp:
   if (r == 0)
     {
       pfcp_free_session (sess);
-      resp.response.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
+      resp.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
     }
 
 out_send_resp_no_session:
@@ -2789,7 +2735,7 @@ out_send_resp_no_session:
 
 static int
 handle_session_deletion_response (pfcp_msg_t * req,
-				  pfcp_session_deletion_response_t * msg)
+				  pfcp_session_procedure_response_t * msg)
 {
   return -1;
 }
@@ -2818,11 +2764,9 @@ session_msg (pfcp_msg_t * msg)
     pfcp_simple_response_t simple_response;
     pfcp_session_set_deletion_request_t session_set_deletion_request;
     pfcp_session_establishment_request_t session_establishment_request;
-    pfcp_session_establishment_response_t session_establishment_response;
     pfcp_session_modification_request_t session_modification_request;
-    pfcp_session_modification_response_t session_modification_response;
     pfcp_session_deletion_request_t session_deletion_request;
-    pfcp_session_deletion_response_t session_deletion_response;
+    pfcp_session_procedure_response_t session_procedure_response;
     pfcp_session_report_request_t session_report_request;
     pfcp_session_report_response_t session_report_response;
   } m;
@@ -2882,8 +2826,7 @@ session_msg (pfcp_msg_t * msg)
     case PFCP_SESSION_ESTABLISHMENT_RESPONSE:
       r =
 	handle_session_establishment_response (msg,
-					       &m.
-					       session_establishment_response);
+					       &m.session_procedure_response);
       break;
 
     case PFCP_SESSION_MODIFICATION_REQUEST:
@@ -2895,8 +2838,7 @@ session_msg (pfcp_msg_t * msg)
     case PFCP_SESSION_MODIFICATION_RESPONSE:
       r =
 	handle_session_modification_response (msg,
-					      &m.
-					      session_modification_response);
+					      &m.session_procedure_response);
       break;
 
     case PFCP_SESSION_DELETION_REQUEST:
@@ -2905,7 +2847,7 @@ session_msg (pfcp_msg_t * msg)
 
     case PFCP_SESSION_DELETION_RESPONSE:
       r =
-	handle_session_deletion_response (msg, &m.session_deletion_response);
+	handle_session_deletion_response (msg, &m.session_procedure_response);
       break;
 
     case PFCP_SESSION_REPORT_REQUEST:

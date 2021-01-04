@@ -6873,48 +6873,48 @@ static struct pfcp_group_ie_def pfcp_session_establishment_request_group[] =
 
 static struct pfcp_group_ie_def pfcp_session_establishment_response_group[] =
   {
-    [SESSION_ESTABLISHMENT_RESPONSE_NODE_ID] = {
+    [SESSION_PROCEDURE_RESPONSE_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_session_establishment_response_t, response.node_id)
+      .offset = offsetof(pfcp_session_procedure_response_t, node_id)
     },
-    [SESSION_ESTABLISHMENT_RESPONSE_CAUSE] = {
+    [SESSION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_session_establishment_response_t, response.cause)
+      .offset = offsetof(pfcp_session_procedure_response_t, cause)
     },
-    [SESSION_ESTABLISHMENT_RESPONSE_OFFENDING_IE] = {
+    [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
-      .offset = offsetof(pfcp_session_establishment_response_t, response.offending_ie)
+      .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
     },
-    [SESSION_ESTABLISHMENT_RESPONSE_UP_F_SEID] = {
+    [SESSION_PROCEDURE_RESPONSE_UP_F_SEID] = {
       .type = PFCP_IE_F_SEID,
-      .offset = offsetof(pfcp_session_establishment_response_t, up_f_seid)
+      .offset = offsetof(pfcp_session_procedure_response_t, up_f_seid)
     },
-    [SESSION_ESTABLISHMENT_RESPONSE_CREATED_PDR] = {
+    [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = {
       .type = PFCP_IE_CREATED_PDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_response_t, created_pdr)
+      .offset = offsetof(pfcp_session_procedure_response_t, created_pdr)
     },
-    [SESSION_ESTABLISHMENT_RESPONSE_LOAD_CONTROL_INFORMATION] = {
+    [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_establishment_response_t, load_control_information)
+      .offset = offsetof(pfcp_session_procedure_response_t, load_control_information)
     },
-    [SESSION_ESTABLISHMENT_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
+    [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_establishment_response_t, overload_control_information)
+      .offset = offsetof(pfcp_session_procedure_response_t, overload_control_information)
     },
-    [SESSION_ESTABLISHMENT_RESPONSE_FQ_CSID] = {
+    [SESSION_PROCEDURE_RESPONSE_FQ_CSID] = {
       .type = PFCP_IE_FQ_CSID,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_response_t, fq_csid)
+      .offset = offsetof(pfcp_session_procedure_response_t, fq_csid)
     },
-    [SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID] = {
+    [SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID] = {
       .type = PFCP_IE_FAILED_RULE_ID,
-      .offset = offsetof(pfcp_session_establishment_response_t, failed_rule_id)
+      .offset = offsetof(pfcp_session_procedure_response_t, failed_rule_id)
     },
-    [SESSION_ESTABLISHMENT_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = {
+    [SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = {
       .type = PFCP_IE_CREATED_TRAFFIC_ENDPOINT,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_response_t, created_traffic_endpoint)
+      .offset = offsetof(pfcp_session_procedure_response_t, created_traffic_endpoint)
     },
   };
 
@@ -7059,69 +7059,69 @@ static struct pfcp_group_ie_def pfcp_session_modification_request_group[] =
 
 static struct pfcp_group_ie_def pfcp_session_modification_response_group[] =
   {
-    [SESSION_MODIFICATION_RESPONSE_CAUSE] = {
+    [SESSION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_session_modification_response_t, response.cause)
+      .offset = offsetof(pfcp_session_procedure_response_t, cause)
     },
-    [SESSION_MODIFICATION_RESPONSE_OFFENDING_IE] = {
+    [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
-      .offset = offsetof(pfcp_session_modification_response_t, response.offending_ie)
+      .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
     },
-    [SESSION_MODIFICATION_RESPONSE_CREATED_PDR] = {
+    [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = {
       .type = PFCP_IE_CREATED_PDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_response_t, created_pdr)
+      .offset = offsetof(pfcp_session_procedure_response_t, created_pdr)
     },
-    [SESSION_MODIFICATION_RESPONSE_LOAD_CONTROL_INFORMATION] = {
+    [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_modification_response_t, load_control_information)
+      .offset = offsetof(pfcp_session_procedure_response_t, load_control_information)
     },
-    [SESSION_MODIFICATION_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
+    [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_modification_response_t, overload_control_information)
+      .offset = offsetof(pfcp_session_procedure_response_t, overload_control_information)
     },
-    [SESSION_MODIFICATION_RESPONSE_USAGE_REPORT] = {
+    [SESSION_PROCEDURE_RESPONSE_USAGE_REPORT] = {
       .type = PFCP_IE_USAGE_REPORT_SMR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_response_t, usage_report)
+      .offset = offsetof(pfcp_session_procedure_response_t, usage_report)
     },
-    [SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID] = {
+    [SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID] = {
       .type = PFCP_IE_FAILED_RULE_ID,
-      .offset = offsetof(pfcp_session_modification_response_t, failed_rule_id)
+      .offset = offsetof(pfcp_session_procedure_response_t, failed_rule_id)
     },
-    [SESSION_MODIFICATION_RESPONSE_ADDITIONAL_USAGE_REPORTS_INFORMATION] = {
+    [SESSION_PROCEDURE_RESPONSE_ADDITIONAL_USAGE_REPORTS_INFORMATION] = {
       .type = PFCP_IE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
-      .offset = offsetof(pfcp_session_modification_response_t, additional_usage_reports_information)
+      .offset = offsetof(pfcp_session_procedure_response_t, additional_usage_reports_information)
     },
-    [SESSION_MODIFICATION_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = {
+    [SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = {
       .type = PFCP_IE_CREATED_TRAFFIC_ENDPOINT,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_response_t, created_traffic_endpoint)
+      .offset = offsetof(pfcp_session_procedure_response_t, created_traffic_endpoint)
     },
   };
 
 static struct pfcp_group_ie_def pfcp_session_deletion_response_group[] =
   {
-    [SESSION_DELETION_RESPONSE_CAUSE] = {
+    [SESSION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_session_deletion_response_t, response.cause)
+      .offset = offsetof(pfcp_session_procedure_response_t, cause)
     },
-    [SESSION_DELETION_RESPONSE_OFFENDING_IE] = {
+    [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
-      .offset = offsetof(pfcp_session_deletion_response_t, response.offending_ie)
+      .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
     },
-    [SESSION_DELETION_RESPONSE_LOAD_CONTROL_INFORMATION] = {
+    [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_deletion_response_t, load_control_information)
+      .offset = offsetof(pfcp_session_procedure_response_t, load_control_information)
     },
-    [SESSION_DELETION_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
+    [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_deletion_response_t, overload_control_information)
+      .offset = offsetof(pfcp_session_procedure_response_t, overload_control_information)
     },
-    [SESSION_DELETION_RESPONSE_USAGE_REPORT] = {
+    [SESSION_PROCEDURE_RESPONSE_USAGE_REPORT] = {
       .type = PFCP_IE_USAGE_REPORT_SDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_deletion_response_t, usage_report)
+      .offset = offsetof(pfcp_session_procedure_response_t, usage_report)
     },
   };
 
@@ -7318,10 +7318,10 @@ static struct pfcp_ie_def msg_specs[] =
 
     [PFCP_SESSION_ESTABLISHMENT_RESPONSE] =
     {
-      .length = sizeof(pfcp_session_establishment_response_t),
-      .mandatory = (BIT(SESSION_ESTABLISHMENT_RESPONSE_NODE_ID) |
-		    BIT(SESSION_ESTABLISHMENT_RESPONSE_CAUSE) |
-		    BIT(SESSION_ESTABLISHMENT_RESPONSE_UP_F_SEID)),
+      .length = sizeof(pfcp_session_procedure_response_t),
+      .mandatory = (BIT(SESSION_PROCEDURE_RESPONSE_NODE_ID) |
+		    BIT(SESSION_PROCEDURE_RESPONSE_CAUSE) |
+		    BIT(SESSION_PROCEDURE_RESPONSE_UP_F_SEID)),
       .size = ARRAY_LEN(pfcp_session_establishment_response_group),
       .group = pfcp_session_establishment_response_group,
     },
@@ -7337,8 +7337,8 @@ static struct pfcp_ie_def msg_specs[] =
 
     [PFCP_SESSION_MODIFICATION_RESPONSE] =
     {
-      .length = sizeof(pfcp_session_modification_response_t),
-      .mandatory = BIT(SESSION_MODIFICATION_RESPONSE_CAUSE),
+      .length = sizeof(pfcp_session_procedure_response_t),
+      .mandatory = BIT(SESSION_PROCEDURE_RESPONSE_CAUSE),
       .size = ARRAY_LEN(pfcp_session_modification_response_group),
       .group = pfcp_session_modification_response_group,
     },
@@ -7350,8 +7350,8 @@ static struct pfcp_ie_def msg_specs[] =
 
     [PFCP_SESSION_DELETION_RESPONSE] =
     {
-      .length = sizeof(pfcp_session_deletion_response_t),
-      .mandatory = BIT(SESSION_DELETION_RESPONSE_CAUSE),
+      .length = sizeof(pfcp_session_procedure_response_t),
+      .mandatory = BIT(SESSION_PROCEDURE_RESPONSE_CAUSE),
       .size = ARRAY_LEN(pfcp_session_deletion_response_group),
       .group = pfcp_session_deletion_response_group,
     },
