@@ -1145,6 +1145,315 @@ typedef struct
   ip6_address_t ip6;
 } pfcp_alternative_smf_ip_address_t;
 
+
+
+
+
+
+
+#define PFCP_IE_PACKET_REPLICATION_AND_DETECTION_CARRY_ON_INFORMATION	179
+typedef u8 pfcp_packet_replication_and_detection_carry_on_information_t;
+#define PRaDCoI_PRIUEAI					BIT(0)
+#define PRaDCoI_PRIN19I					BIT(1)
+#define PRaDCoI_PRIN6I					BIT(2)
+#define PRaDCoI_DCARONI					BIT(3)
+
+#define PFCP_IE_SMF_SET_ID				180
+typedef u8 *pfcp_smf_set_id_t;
+
+#define PFCP_IE_QUOTA_VALIDITY_TIME			181
+typedef u32 pfcp_quota_validity_time_t;
+
+#define PFCP_IE_NUMBER_OF_REPORTS			182
+typedef u16 pfcp_number_of_reports_t;
+
+#define PFCP_IE_PFCP_SESSION_RETENTION_INFORMATION_ASR	183
+
+#define PFCP_IE_PFCPASRSP_FLAGS				184
+typedef u8 pfcp_pfcpasrsp_flags_t;
+#define PFCPASRSP_PSREI					BIT(0)
+#define PFCPASRSP_UUPSI					BIT(1)
+
+#define PFCP_IE_CP_PFCP_ENTITY_IP_ADDRESS		185
+typedef struct
+{
+  u8 flags;
+#define CP_PFCP_ENTITY_IP_ADDRESS_V6			BIT(0)
+#define CP_PFCP_ENTITY_IP_ADDRESS_V4			BIT(1)
+
+  ip4_address_t ip4;
+  ip6_address_t ip6;
+} pfcp_cp_pfcp_entity_ip_address_t;
+
+#define PFCP_IE_PFCPSEREQ_FLAGS				186
+typedef u8 pfcp_pfcpsereq_flags_t;
+#define PFCPSEREQ_RESTI					BIT(0)
+
+#define PFCP_IE_USER_PLANE_PATH_RECOVERY_REPORT		187
+#define PFCP_IE_IP_MULTICAST_ADDRESSING_INFO_SER	188
+#define PFCP_IE_JOIN_IP_MULTICAST_INFORMATION_UR	189
+#define PFCP_IE_LEAVE_IP_MULTICAST_INFORMATION_UR	190
+
+#define PFCP_IE_IP_MULTICAST_ADDRESS			191
+typedef struct
+{
+#define IP_MULTICAST_ADDRESS_V6				BIT(0)
+#define IP_MULTICAST_ADDRESS_V4				BIT(1)
+#define IP_MULTICAST_ADDRESS_RANGE			BIT(2)
+#define IP_MULTICAST_ADDRESS_ANY			BIT(3)
+
+  ip46_address_t start;
+  ip46_address_t end;
+} pfcp_ip_multicast_address_t;
+
+#define PFCP_IE_SOURCE_IP_ADDRESS			192
+typedef struct
+{
+#define SOURCE_IP_ADDRESS_V6				BIT(0)
+#define SOURCE_IP_ADDRESS_V4				BIT(1)
+#define SOURCE_IP_ADDRESS_MPL				BIT(2)
+
+  ip46_address_t ip;
+  u8 prefix_length;
+} pfcp_source_ip_address_t;
+
+#define PFCP_IE_PACKET_RATE_STATUS			193
+typedef struct
+{
+  u8 flags;
+#define PACKET_RATE_STATUS_UL				BIT(0)
+#define PACKET_RATE_STATUS_DL				BIT(1)
+#define PACKET_RATE_STATUS_APR				BIT(2)
+
+  u16 remaining_uplink_packets_allowed;
+  u16 remaining_additional_uplink_packets_allowed;
+  u16 remaining_downlink_packets_allowed;
+  u16 remaining_additional_downlink_packets_allowed;
+  u64 rate_control_status_validity_time;
+} pfcp_packet_rate_status_t;
+
+#define PFCP_IE_CREATE_BRIDGE_INFO_FOR_TSC		194
+typedef u8 pfcp_create_bridge_info_for_tsc_t;
+#define CREATE_BRIDGE_INFO_FOR_TSC_BII			BIT(0)
+
+#define PFCP_IE_CREATED_BRIDGE_INFO_FOR_TSC		195
+
+#define PFCP_IE_DS_TT_PORT_NUMBER			196
+typedef u32 pfcp_ds_tt_port_number_t;
+
+#define PFCP_IE_NW_TT_PORT_NUMBER			197
+typedef u32 pfcp_nw_tt_port_number_t;
+
+#define PFCP_IE_TSN_BRIDGE_ID				198
+typedef struct
+{
+  u8 flags;
+#define TSN_BRIDGE_ID_BID				BIT(0)
+
+  u64 bridge_id;
+} pfcp_tsn_bridge_id_t;
+
+#define PFCP_IE_TSC_MANAGEMENT_INFORMATION_SMREQ	199
+#define PFCP_IE_TSC_MANAGEMENT_INFORMATION_SMRESP	200
+#define PFCP_IE_TSC_MANAGEMENT_INFORMATION_SRR		201
+
+#define PFCP_IE_PORT_MANAGEMENT_INFORMATION_CONTAINER	202
+typedef u8 *pfcp_port_management_information_container_t;
+
+#define PFCP_IE_CLOCK_DRIFT_CONTROL_INFORMATION		203
+
+#define PFCP_IE_REQUESTED_CLOCK_DRIFT_INFORMATION	204
+typedef u8 pfcp_requested_clock_drift_information_t;
+#define REQUESTED_CLOCK_DRIFT_INFORMATION_RRTO		BIT(0)
+#define REQUESTED_CLOCK_DRIFT_INFORMATION_RRCR		BIT(1)
+
+#define PFCP_IE_CLOCK_DRIFT_REPORT			205
+
+#define PFCP_IE_TSN_TIME_DOMAIN_NUMBER			206
+typedef u8 pfcp_tsn_time_domain_number_t;
+
+#define PFCP_IE_TIME_OFFSET_THRESHOLD			207
+typedef u64 pfcp_time_offset_threshold_t;
+
+#define PFCP_IE_CUMULATIVE_RATERATIO_THRESHOLD		208
+typedef u32 pfcp_cumulative_rateratio_threshold_t;
+
+#define PFCP_IE_TIME_OFFSET_MEASUREMENT			209
+typedef u8 pfcp_time_offset_measurement_t;
+
+#define PFCP_IE_CUMULATIVE_RATERATIO_MEASUREMENT	210
+typedef u64 pfcp_cumulative_rateratio_measurement_t;
+
+#define PFCP_IE_REMOVE_SRR				211
+#define PFCP_IE_CREATE_SRR				212
+#define PFCP_IE_UPDATE_SRR				213
+#define PFCP_IE_SESSION_REPORT				214
+
+#define PFCP_IE_SRR_ID					215
+typedef u8 pfcp_srr_id_t;
+
+#define PFCP_IE_ACCESS_AVAILABILITY_CONTROL_INFORMATION			216
+
+#define PFCP_IE_REQUESTED_ACCESS_AVAILABILITY_INFORMATION		217
+typedef u8 pfcp_requested_access_availability_information_t;
+#define REQUESTED_ACCESS_AVAILABILITY_INFORMATION_RRCA	BIT(0)
+
+#define PFCP_IE_ACCESS_AVAILABILITY_REPORT		218
+
+#define PFCP_IE_ACCESS_AVAILABILITY_INFORMATION		219
+typedef struct {
+  u8 access_type;
+  u8 availability_status;
+} pfcp_access_availability_information_t;
+
+#define PFCP_IE_PROVIDE_ATSSS_CONTROL_INFORMATION	220
+#define PFCP_IE_ATSSS_CONTROL_PARAMETERS		221
+
+#define PFCP_IE_MPTCP_CONTROL_INFORMATION		222
+typedef u8 pfcp_mptcp_control_information_t;
+#define MPTCP_CONTROL_INFORMATION_TCI			BIT(0)
+
+#define PFCP_IE_ATSSS_LL_CONTROL_INFORMATION		223
+typedef u8 pfcp_atsss_ll_control_information_t;
+#define ATSSS_LL_CONTROL_INFORMATION_LLI		BIT(0)
+
+#define PFCP_IE_PMF_CONTROL_INFORMATION			224
+typedef u8 pfcp_pmf_control_information_t;
+#define PMF_CONTROL_INFORMATION_PMFI			BIT(0)
+#define PMF_CONTROL_INFORMATION_DRTTI			BIT(1)
+
+#define PFCP_IE_MPTCP_PARAMETERS			225
+#define PFCP_IE_ATSSS_LL_PARAMETERS			226
+#define PFCP_IE_PMF_PARAMETERS				227
+
+#define PFCP_IE_MPTCP_ADDRESS_INFORMATION		228
+typedef struct
+{
+#define MPTCP_ADDRESS_INFORMATION_V4			BIT(0)
+#define MPTCP_ADDRESS_INFORMATION_V6			BIT(1)
+
+  u8 type;
+  u16 port;
+  ip46_address_t ip;
+} pfcp_mptcp_address_information_t;
+
+#define PFCP_IE_UE_LINK_SPECIFIC_IP_ADDRESS		229
+typedef u8 pfcp_ue_link_specific_ip_address_t;
+
+#define PFCP_IE_PMF_ADDRESS_INFORMATION			230
+typedef u8 pfcp_pmf_address_information_t;
+
+#define PFCP_IE_ATSSS_LL_INFORMATION			231
+typedef u8 pfcp_atsss_ll_information_t;
+
+#define PFCP_IE_DATA_NETWORK_ACCESS_IDENTIFIER		232
+typedef u8 pfcp_data_network_access_identifier_t;
+
+#define PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION		233
+
+#define PFCP_IE_AVERAGE_PACKET_DELAY			234
+typedef u8 pfcp_average_packet_delay_t;
+
+#define PFCP_IE_MINIMUM_PACKET_DELAY			235
+typedef u8 pfcp_minimum_packet_delay_t;
+
+#define PFCP_IE_MAXIMUM_PACKET_DELAY			236
+typedef u8 pfcp_maximum_packet_delay_t;
+
+#define PFCP_IE_QOS_REPORT_TRIGGER			237
+typedef u8 pfcp_qos_report_trigger_t;
+
+#define PFCP_IE_GTP_U_PATH_QOS_CONTROL_INFORMATION	238
+#define PFCP_IE_GTP_U_PATH_QOS_REPORT_NRR		239
+#define PFCP_IE_QOS_INFORMATION_GTP_U_PATH_REPORT	240
+
+#define PFCP_IE_GTP_U_PATH_INTERFACE_TYPE		241
+typedef u8 pfcp_gtp_u_path_interface_type_t;
+
+#define PFCP_IE_QOS_MONITORING_PER_QOS_FLOW_CONTROL_INFORMATION		242
+
+#define PFCP_IE_REQUESTED_QOS_MONITORING		243
+typedef u8 pfcp_requested_qos_monitoring_t;
+
+#define PFCP_IE_REPORTING_FREQUENCY			244
+typedef u8 pfcp_reporting_frequency_t;
+
+#define PFCP_IE_PACKET_DELAY_THRESHOLDS			245
+typedef u8 pfcp_packet_delay_thresholds_t;
+
+#define PFCP_IE_MINIMUM_WAIT_TIME			246
+typedef u8 pfcp_minimum_wait_time_t;
+
+#define PFCP_IE_QOS_MONITORING_REPORT			247
+
+#define PFCP_IE_QOS_MONITORING_MEASUREMENT		248
+typedef u8 pfcp_qos_monitoring_measurement_t;
+
+#define PFCP_IE_MT_EDT_CONTROL_INFORMATION		249
+typedef u8 pfcp_mt_edt_control_information_t;
+
+#define PFCP_IE_DL_DATA_PACKETS_SIZE			250
+typedef u8 pfcp_dl_data_packets_size_t;
+
+#define PFCP_IE_QER_CONTROL_INDICATIONS			251
+typedef u8 pfcp_qer_control_indications_t;
+
+#define PFCP_IE_PACKET_RATE_STATUS_REPORT		252
+
+#define PFCP_IE_NF_INSTANCE_ID				253
+typedef u8 pfcp_nf_instance_id_t;
+
+#define PFCP_IE_ETHERNET_CONTEXT_INFORMATION		254
+#define PFCP_IE_REDUNDANT_TRANSMISSION_PARAMETERS	255
+#define PFCP_IE_UPDATED_PDR				256
+
+#define PFCP_IE_S_NSSAI					257
+typedef u8 pfcp_s_nssai_t;
+
+#define PFCP_IE_IP_VERSION				258
+typedef u8 pfcp_ip_version_t;
+
+#define PFCP_IE_PFCPASREQ_FLAGS				259
+typedef u8 pfcp_pfcpasreq_flags_t;
+
+#define PFCP_IE_DATA_STATUS				260
+typedef u8 pfcp_data_status_t;
+
+#define PFCP_IE_PROVIDE_RDS_CONFIGURATION_INFORMATION	261
+
+#define PFCP_IE_RDS_CONFIGURATION_INFORMATION		262
+typedef u8 pfcp_rds_configuration_information_t;
+
+#define PFCP_IE_QUERY_PACKET_RATE_STATUS_SMREQ		263
+#define PFCP_IE_PACKET_RATE_STATUS_REPORT_SMRESP	264
+
+#define PFCP_IE_MPTCP_APPLICABLE_INDICATION		265
+typedef u8 pfcp_mptcp_applicable_indication_t;
+
+#define PFCP_IE_BRIDGE_MANAGEMENT_INFORMATION_CONTAINER			266
+typedef u8 pfcp_bridge_management_information_container_t;
+
+#define PFCP_IE_UE_IP_ADDRESS_USAGE_INFORMATION		267
+
+#define PFCP_IE_NUMBER_OF_UE_IP_ADDRESSES		268
+typedef u8 pfcp_number_of_ue_ip_addresses_t;
+
+#define PFCP_IE_VALIDITY_TIMER				269
+typedef u8 pfcp_validity_timer_t;
+
+#define PFCP_IE_REDUNDANT_TRANSMISSION_FORWARDING_PARAMETERS		270
+#define PFCP_IE_TRANSPORT_DELAY_REPORTING		271
+
+
+
+
+
+
+
+
+
+
+
 #define VENDOR_TRAVELPING   18681
 
 #define PFCP_IE_TP_PACKET_MEASUREMENT			1
