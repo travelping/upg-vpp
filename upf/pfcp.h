@@ -2305,34 +2305,6 @@ typedef struct
 
 enum
 {
-  ASSOCIATION_SETUP_RESPONSE_NODE_ID = PFCP_RESPONSE_NODE_ID,
-  ASSOCIATION_SETUP_RESPONSE_CAUSE = PFCP_RESPONSE_CAUSE,
-  ASSOCIATION_SETUP_RESPONSE_RECOVERY_TIME_STAMP =
-    PFCP_RESPONSE_RECOVERY_TIME_STAMP,
-  ASSOCIATION_SETUP_RESPONSE_UP_FUNCTION_FEATURES,
-  ASSOCIATION_SETUP_RESPONSE_CP_FUNCTION_FEATURES,
-  ASSOCIATION_SETUP_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION,
-  ASSOCIATION_SETUP_RESPONSE_TP_BUILD_ID,
-  ASSOCIATION_SETUP_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY,
-  ASSOCIATION_SETUP_RESPONSE_LAST = ASSOCIATION_SETUP_REQUEST_TP_BUILD_ID
-};
-
-typedef struct
-{
-  struct pfcp_group grp;
-  struct pfcp_response response;
-
-  pfcp_recovery_time_stamp_t recovery_time_stamp;
-  pfcp_cp_function_features_t cp_function_features;
-  pfcp_up_function_features_t up_function_features;
-    pfcp_user_plane_ip_resource_information_t
-    * user_plane_ip_resource_information;
-  pfcp_tp_build_id_t tp_build_id;
-  pfcp_ue_ip_address_pool_identity_t *ue_ip_address_pool_identity;
-} pfcp_association_setup_response_t;
-
-enum
-{
   ASSOCIATION_UPDATE_REQUEST_NODE_ID = PFCP_REQUEST_NODE_ID,
   ASSOCIATION_UPDATE_REQUEST_CP_FUNCTION_FEATURES,
   ASSOCIATION_UPDATE_REQUEST_UP_FUNCTION_FEATURES,
@@ -2364,25 +2336,6 @@ typedef struct
 
 enum
 {
-  ASSOCIATION_UPDATE_RESPONSE_NODE_ID = PFCP_RESPONSE_NODE_ID,
-  ASSOCIATION_UPDATE_RESPONSE_CAUSE = PFCP_RESPONSE_CAUSE,
-  ASSOCIATION_UPDATE_RESPONSE_UP_FUNCTION_FEATURES,
-  ASSOCIATION_UPDATE_RESPONSE_CP_FUNCTION_FEATURES,
-  ASSOCIATION_UPDATE_RESPONSE_LAST =
-    ASSOCIATION_UPDATE_RESPONSE_CP_FUNCTION_FEATURES
-};
-
-typedef struct
-{
-  struct pfcp_group grp;
-  struct pfcp_response response;
-
-  pfcp_cp_function_features_t cp_function_features;
-  pfcp_up_function_features_t up_function_features;
-} pfcp_association_update_response_t;
-
-enum
-{
   ASSOCIATION_RELEASE_REQUEST_NODE_ID = PFCP_REQUEST_NODE_ID,
   ASSOCIATION_RELEASE_REQUEST_LAST = ASSOCIATION_RELEASE_REQUEST_NODE_ID
 };
@@ -2393,6 +2346,35 @@ typedef struct
   struct pfcp_request request;
 
 } pfcp_association_release_request_t;
+
+enum
+{
+  ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID,
+  ASSOCIATION_PROCEDURE_RESPONSE_CAUSE,
+  ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP,
+  ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES,
+  ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES,
+  ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION,
+  ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID,
+  ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY,
+  ASSOCIATION_PROCEDURE_RESPONSE_LAST =
+    ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY
+};
+
+typedef struct
+{
+  struct pfcp_group grp;
+
+  pfcp_node_id_t node_id;
+  pfcp_cause_t cause;
+  pfcp_recovery_time_stamp_t recovery_time_stamp;
+  pfcp_cp_function_features_t cp_function_features;
+  pfcp_up_function_features_t up_function_features;
+    pfcp_user_plane_ip_resource_information_t
+    * user_plane_ip_resource_information;
+  pfcp_tp_build_id_t tp_build_id;
+  pfcp_ue_ip_address_pool_identity_t *ue_ip_address_pool_identity;
+} pfcp_association_procedure_response_t;
 
 enum
 {

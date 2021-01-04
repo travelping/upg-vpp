@@ -96,7 +96,7 @@ upf_pfcp_api_session_data_init (void *sxp, time_t start_time)
 }
 
 static void
-init_response_node_id (struct pfcp_response *r)
+init_response_node_id (pfcp_node_id_t * node_id)
 {
   //TODO: need CLI/API to set local Node-Id.....
 }
@@ -272,21 +272,23 @@ handle_association_setup_request (pfcp_msg_t * req,
 				  pfcp_association_setup_request_t * msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_association_setup_response_t resp;
+  pfcp_association_procedure_response_t resp;
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;
   int r = 0;
 
   memset (&resp, 0, sizeof (resp));
-  SET_BIT (resp.grp.fields, ASSOCIATION_SETUP_RESPONSE_CAUSE);
-  resp.response.cause = PFCP_CAUSE_REQUEST_REJECTED;
+  SET_BIT (resp.grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_CAUSE);
+  resp.cause = PFCP_CAUSE_REQUEST_REJECTED;
 
-  init_response_node_id (&resp.response);
+  SET_BIT (resp.grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID);
+  init_response_node_id (&resp.node_id);
 
-  SET_BIT (resp.grp.fields, ASSOCIATION_SETUP_RESPONSE_RECOVERY_TIME_STAMP);
+  SET_BIT (resp.grp.fields,
+	   ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP);
   resp.recovery_time_stamp = psm->start_time;
 
-  SET_BIT (resp.grp.fields, ASSOCIATION_SETUP_RESPONSE_TP_BUILD_ID);
+  SET_BIT (resp.grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID);
   vec_add (resp.tp_build_id, vpe_version_string, strlen (vpe_version_string));
 
   n = pfcp_get_association (&msg->request.node_id);
@@ -316,7 +318,8 @@ handle_association_setup_request (pfcp_msg_t * req,
 			  &msg->request.node_id);
   n->recovery_time_stamp = msg->recovery_time_stamp;
 
-  SET_BIT (resp.grp.fields, ASSOCIATION_SETUP_RESPONSE_UP_FUNCTION_FEATURES);
+  SET_BIT (resp.grp.fields,
+	   ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES);
   resp.up_function_features |= F_UPFF_EMPU;
   if (gtm->pfcp_spec_version >= 16)
     {
@@ -328,14 +331,14 @@ handle_association_setup_request (pfcp_msg_t * req,
 	(&resp.user_plane_ip_resource_information);
       if (vec_len (resp.user_plane_ip_resource_information) != 0)
 	SET_BIT (resp.grp.fields,
-		 ASSOCIATION_SETUP_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION);
+		 ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION);
     }
   if (r == 0)
     {
       n->heartbeat_handle = upf_pfcp_server_start_timer
 	(PFCP_SERVER_HB_TIMER, n - gtm->nodes, PFCP_HB_INTERVAL);
 
-      resp.response.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
+      resp.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
     }
 
   upf_pfcp_send_response (req, 0, PFCP_ASSOCIATION_SETUP_RESPONSE, &resp.grp);
@@ -345,7 +348,8 @@ handle_association_setup_request (pfcp_msg_t * req,
 
 static int
 handle_association_setup_response (pfcp_msg_t * req,
-				   pfcp_association_setup_response_t * msg)
+				   pfcp_association_procedure_response_t *
+				   msg)
 {
   return -1;
 }
@@ -359,7 +363,8 @@ handle_association_update_request (pfcp_msg_t * req,
 
 static int
 handle_association_update_response (pfcp_msg_t * req,
-				    pfcp_association_update_response_t * msg)
+				    pfcp_association_procedure_response_t *
+				    msg)
 {
   return -1;
 }
@@ -422,7 +427,8 @@ send_simple_repsonse (pfcp_msg_t * req, u64 seid, u8 type,
       break;
 
     default:
-      init_response_node_id (&resp.response);
+      SET_BIT (resp.grp.fields, PFCP_RESPONSE_NODE_ID);
+      init_response_node_id (&resp.response.node_id);
       break;
     }
 
@@ -457,10 +463,9 @@ node_msg (pfcp_msg_t * msg)
     pfcp_heartbeat_request_t heartbeat_request;
     pfcp_pfd_management_request_t pfd_management_request;
     pfcp_association_setup_request_t association_setup_request;
-    pfcp_association_setup_response_t association_setup_response;
     pfcp_association_update_request_t association_update_request;
-    pfcp_association_update_response_t association_update_response;
     pfcp_association_release_request_t association_release_request;
+    pfcp_association_procedure_response_t association_procedure_response;
     /* pfcp_version_not_supported_response_t version_not_supported_response; */
     pfcp_node_report_request_t node_report_request;
   } m;
@@ -524,7 +529,7 @@ node_msg (pfcp_msg_t * msg)
     case PFCP_ASSOCIATION_SETUP_RESPONSE:
       r =
 	handle_association_setup_response (msg,
-					   &m.association_setup_response);
+					   &m.association_procedure_response);
       break;
 
     case PFCP_ASSOCIATION_UPDATE_REQUEST:
@@ -536,7 +541,7 @@ node_msg (pfcp_msg_t * msg)
     case PFCP_ASSOCIATION_UPDATE_RESPONSE:
       r =
 	handle_association_update_response (msg,
-					    &m.association_update_response);
+					    &m.association_procedure_response);
       break;
 
     case PFCP_ASSOCIATION_RELEASE_REQUEST:

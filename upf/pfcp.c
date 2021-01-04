@@ -6662,40 +6662,40 @@ static struct pfcp_group_ie_def pfcp_association_setup_request_group[] =
 
 static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
   {
-    [ASSOCIATION_SETUP_RESPONSE_NODE_ID] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_association_setup_response_t, response.node_id)
+      .offset = offsetof(pfcp_association_procedure_response_t, node_id)
     },
-    [ASSOCIATION_SETUP_RESPONSE_CAUSE] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_association_setup_response_t, response.cause)
+      .offset = offsetof(pfcp_association_procedure_response_t, cause)
     },
-    [ASSOCIATION_SETUP_RESPONSE_RECOVERY_TIME_STAMP] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP] = {
       .type = PFCP_IE_RECOVERY_TIME_STAMP,
-      .offset = offsetof(pfcp_association_setup_response_t, recovery_time_stamp)
+      .offset = offsetof(pfcp_association_procedure_response_t, recovery_time_stamp)
     },
-    [ASSOCIATION_SETUP_RESPONSE_CP_FUNCTION_FEATURES] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_CP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_setup_response_t, cp_function_features)
+      .offset = offsetof(pfcp_association_procedure_response_t, cp_function_features)
     },
-    [ASSOCIATION_SETUP_RESPONSE_UP_FUNCTION_FEATURES] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_UP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_setup_response_t, up_function_features)
+      .offset = offsetof(pfcp_association_procedure_response_t, up_function_features)
     },
-    [ASSOCIATION_SETUP_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION] = {
       .type = PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_setup_response_t, user_plane_ip_resource_information)
+      .offset = offsetof(pfcp_association_procedure_response_t, user_plane_ip_resource_information)
     },
-    [ASSOCIATION_SETUP_RESPONSE_TP_BUILD_ID] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID] = {
       .type = PFCP_IE_TP_BUILD_ID,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_association_setup_response_t, tp_build_id)
+      .offset = offsetof(pfcp_association_procedure_response_t, tp_build_id)
     },
-    [ASSOCIATION_SETUP_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY] = {
       .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
       .is_array = true,
-      .offset = offsetof(pfcp_association_setup_response_t, ue_ip_address_pool_identity)
+      .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_identity)
     },
   };
 
@@ -6744,21 +6744,21 @@ static struct pfcp_group_ie_def pfcp_association_update_request_group[] =
 
 static struct pfcp_group_ie_def pfcp_association_update_response_group[] =
   {
-    [ASSOCIATION_UPDATE_RESPONSE_NODE_ID] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_association_update_response_t, response.node_id)
+      .offset = offsetof(pfcp_association_procedure_response_t, node_id)
     },
-    [ASSOCIATION_UPDATE_RESPONSE_CAUSE] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_association_update_response_t, response.cause)
+      .offset = offsetof(pfcp_association_procedure_response_t, cause)
     },
-    [ASSOCIATION_UPDATE_RESPONSE_CP_FUNCTION_FEATURES] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_CP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_update_response_t, cp_function_features)
+      .offset = offsetof(pfcp_association_procedure_response_t, cp_function_features)
     },
-    [ASSOCIATION_UPDATE_RESPONSE_UP_FUNCTION_FEATURES] = {
+    [ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_UP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_update_response_t, up_function_features)
+      .offset = offsetof(pfcp_association_procedure_response_t, up_function_features)
     },
   };
 
@@ -7228,10 +7228,10 @@ static struct pfcp_ie_def msg_specs[] =
 
     [PFCP_ASSOCIATION_SETUP_RESPONSE] =
     {
-      .length = sizeof(pfcp_association_setup_response_t),
-      .mandatory = (BIT(ASSOCIATION_SETUP_RESPONSE_NODE_ID) |
-		    BIT(ASSOCIATION_SETUP_RESPONSE_CAUSE) |
-		    BIT(ASSOCIATION_SETUP_RESPONSE_RECOVERY_TIME_STAMP)),
+      .length = sizeof(pfcp_association_procedure_response_t),
+      .mandatory = (BIT(ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID) |
+		    BIT(ASSOCIATION_PROCEDURE_RESPONSE_CAUSE) |
+		    BIT(ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP)),
       .size = ARRAY_LEN(pfcp_association_setup_response_group),
       .group = pfcp_association_setup_response_group,
     },
@@ -7246,9 +7246,9 @@ static struct pfcp_ie_def msg_specs[] =
 
     [PFCP_ASSOCIATION_UPDATE_RESPONSE] =
     {
-      .length = sizeof(pfcp_association_update_response_t),
-      .mandatory = (BIT(ASSOCIATION_UPDATE_RESPONSE_NODE_ID) |
-		    BIT(ASSOCIATION_UPDATE_RESPONSE_CAUSE)),
+      .length = sizeof(pfcp_association_procedure_response_t),
+      .mandatory = (BIT(ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID) |
+		    BIT(ASSOCIATION_PROCEDURE_RESPONSE_CAUSE)),
       .size = ARRAY_LEN(pfcp_association_update_response_group),
       .group = pfcp_association_update_response_group,
     },
