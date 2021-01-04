@@ -195,44 +195,44 @@ static void
   vec_alloc (*upip, pool_elts (gtm->upip_res));
 
   pool_foreach (res, gtm->upip_res)
-    {
-      pfcp_user_plane_ip_resource_information_t *r;
+  {
+    pfcp_user_plane_ip_resource_information_t *r;
 
-      vec_add2 (*upip, r, 1);
+    vec_add2 (*upip, r, 1);
 
-      if (res->nwi_index != ~0)
-	{
-	  upf_nwi_t *nwi = pool_elt_at_index(gtm->nwis, res->nwi_index);
+    if (res->nwi_index != ~0)
+      {
+	upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, res->nwi_index);
 
-	  r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI;
-	  r->network_instance = vec_dup(nwi->name);
-	}
+	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI;
+	r->network_instance = vec_dup (nwi->name);
+      }
 
-      if (INTF_INVALID != res->intf)
-	{
+    if (INTF_INVALID != res->intf)
+      {
 
-	  r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI;
-	  r->source_intf = res->intf;
-	}
+	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI;
+	r->source_intf = res->intf;
+      }
 
-      if (res->mask != 0)
-	{
-	  r->teid_range_indication = __builtin_popcount(res->mask);
-	  r->teid_range = (res->teid >> 24);
-	}
+    if (res->mask != 0)
+      {
+	r->teid_range_indication = __builtin_popcount (res->mask);
+	r->teid_range = (res->teid >> 24);
+      }
 
-      if (!is_zero_ip4_address (&res->ip4))
-	{
-	  r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V4;
-	  r->ip4 = res->ip4;
-	}
+    if (!is_zero_ip4_address (&res->ip4))
+      {
+	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V4;
+	r->ip4 = res->ip4;
+      }
 
-      if (!is_zero_ip6_address (&res->ip6))
-	{
-	  r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V6;
-	  r->ip6 = res->ip6;
-	}
-    }
+    if (!is_zero_ip6_address (&res->ip6))
+      {
+	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V6;
+	r->ip6 = res->ip6;
+      }
+  }
 }
 
 /* message handlers */
@@ -884,13 +884,13 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
       }
 
     pool_foreach (ip_res, gtm->upip_res)
-      {
-	if (ip_res->nwi_index == create->pdi.nwi_index)
-	  {
-	    res = ip_res;
-	    break;
-	  }
-      }
+    {
+      if (ip_res->nwi_index == create->pdi.nwi_index)
+	{
+	  res = ip_res;
+	  break;
+	}
+    }
 
     create->pdi.src_intf = pdr->pdi.source_interface;
 
@@ -1078,13 +1078,13 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
     update->pdi.src_intf = pdr->pdi.source_interface;
 
     pool_foreach (ip_res, gtm->upip_res)
-      {
-	if (ip_res->nwi_index == update->pdi.nwi_index)
-	  {
-	    res = ip_res;
-	    break;
-	  }
-      }
+    {
+      if (ip_res->nwi_index == update->pdi.nwi_index)
+	{
+	  res = ip_res;
+	  break;
+	}
+    }
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_F_TEID))
       {
@@ -1264,41 +1264,42 @@ upip_ip_interface_ip (upf_far_forward_t * ff, u32 fib_index, int is_ip4)
   upf_upip_res_t *res;
 
   pool_foreach (res, gtm->upip_res)
-    {
-      uword *p;
+  {
+    uword *p;
 
-      if (is_ip4 && is_zero_ip4_address (&res->ip4))
-	continue;
-      if (!is_ip4 && is_zero_ip6_address (&res->ip6))
-	continue;
+    if (is_ip4 && is_zero_ip4_address (&res->ip4))
+      continue;
+    if (!is_ip4 && is_zero_ip6_address (&res->ip6))
+      continue;
 
-      if (INTF_INVALID != res->intf && ff->dst_intf != res->intf)
-	continue;
+    if (INTF_INVALID != res->intf && ff->dst_intf != res->intf)
+      continue;
 
-      if (~0 != res->nwi_index && ~0 != ff->nwi_index && ff->nwi_index != res->nwi_index)
-	continue;
+    if (~0 != res->nwi_index && ~0 != ff->nwi_index
+	&& ff->nwi_index != res->nwi_index)
+      continue;
 
-      if (is_ip4)
-	{
-	  ip4_address_fib_t ip4_af;
+    if (is_ip4)
+      {
+	ip4_address_fib_t ip4_af;
 
-	  ip4_addr_fib_init (&ip4_af, &res->ip4, fib_index);
-	  p = mhash_get (&lm->address_to_if_address_index, &ip4_af);
-	}
-      else
-	{
-	  ip6_address_fib_t ip6_af;
+	ip4_addr_fib_init (&ip4_af, &res->ip4, fib_index);
+	p = mhash_get (&lm->address_to_if_address_index, &ip4_af);
+      }
+    else
+      {
+	ip6_address_fib_t ip6_af;
 
-	  ip6_addr_fib_init (&ip6_af, &res->ip6, fib_index);
-	  p = mhash_get (&lm->address_to_if_address_index, &ip6_af);
-	}
-      if (!p)
-	continue;
+	ip6_addr_fib_init (&ip6_af, &res->ip6, fib_index);
+	p = mhash_get (&lm->address_to_if_address_index, &ip6_af);
+      }
+    if (!p)
+      continue;
 
-      a = pool_elt_at_index (lm->if_address_pool, p[0]);
-      if (a->sw_if_index == ff->dst_sw_if_index)
-	return (is_ip4) ? (void *)&res->ip4 : (void *)&res->ip6;
-    }
+    a = pool_elt_at_index (lm->if_address_pool, p[0]);
+    if (a->sw_if_index == ff->dst_sw_if_index)
+      return (is_ip4) ? (void *) &res->ip4 : (void *) &res->ip6;
+  }
 
   clib_warning ("No NWI IP found, using first interface IP");
   return ip_interface_get_first_ip (ff->dst_sw_if_index, is_ip4);
