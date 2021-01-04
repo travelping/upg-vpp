@@ -2471,36 +2471,6 @@ typedef struct
 
 enum
 {
-  SESSION_ESTABLISHMENT_RESPONSE_NODE_ID = PFCP_RESPONSE_NODE_ID,
-  SESSION_ESTABLISHMENT_RESPONSE_CAUSE = PFCP_RESPONSE_CAUSE,
-  SESSION_ESTABLISHMENT_RESPONSE_OFFENDING_IE = PFCP_RESPONSE_OFFENDING_IE,
-  SESSION_ESTABLISHMENT_RESPONSE_UP_F_SEID,
-  SESSION_ESTABLISHMENT_RESPONSE_CREATED_PDR,
-  SESSION_ESTABLISHMENT_RESPONSE_LOAD_CONTROL_INFORMATION,
-  SESSION_ESTABLISHMENT_RESPONSE_OVERLOAD_CONTROL_INFORMATION,
-  SESSION_ESTABLISHMENT_RESPONSE_FQ_CSID,
-  SESSION_ESTABLISHMENT_RESPONSE_FAILED_RULE_ID,
-  SESSION_ESTABLISHMENT_RESPONSE_CREATED_TRAFFIC_ENDPOINT,
-  SESSION_ESTABLISHMENT_RESPONSE_LAST =
-    SESSION_ESTABLISHMENT_RESPONSE_CREATED_TRAFFIC_ENDPOINT
-};
-
-typedef struct
-{
-  struct pfcp_group grp;
-  struct pfcp_response response;
-
-  pfcp_f_seid_t up_f_seid;
-  pfcp_created_pdr_t *created_pdr;
-  pfcp_load_control_information_t load_control_information;
-  pfcp_overload_control_information_t overload_control_information;
-  pfcp_fq_csid_t *fq_csid;
-  pfcp_failed_rule_id_t failed_rule_id;
-  pfcp_created_traffic_endpoint_t *created_traffic_endpoint;
-} pfcp_session_establishment_response_t;
-
-enum
-{
   SESSION_MODIFICATION_REQUEST_F_SEID,
   SESSION_MODIFICATION_REQUEST_REMOVE_PDR,
   SESSION_MODIFICATION_REQUEST_REMOVE_FAR,
@@ -2566,36 +2536,6 @@ typedef struct
   pfcp_create_mar_t *create_mar;
 } pfcp_session_modification_request_t;
 
-enum
-{
-  SESSION_MODIFICATION_RESPONSE_CAUSE = PFCP_RESPONSE_CAUSE,
-  SESSION_MODIFICATION_RESPONSE_OFFENDING_IE = PFCP_RESPONSE_OFFENDING_IE,
-  SESSION_MODIFICATION_RESPONSE_CREATED_PDR,
-  SESSION_MODIFICATION_RESPONSE_LOAD_CONTROL_INFORMATION,
-  SESSION_MODIFICATION_RESPONSE_OVERLOAD_CONTROL_INFORMATION,
-  SESSION_MODIFICATION_RESPONSE_USAGE_REPORT,
-  SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID,
-  SESSION_MODIFICATION_RESPONSE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
-  SESSION_MODIFICATION_RESPONSE_CREATED_TRAFFIC_ENDPOINT,
-  SESSION_MODIFICATION_RESPONSE_LAST =
-    SESSION_MODIFICATION_RESPONSE_FAILED_RULE_ID
-};
-
-typedef struct
-{
-  struct pfcp_group grp;
-  struct pfcp_response response;
-
-  pfcp_created_pdr_t *created_pdr;
-  pfcp_load_control_information_t load_control_information;
-  pfcp_overload_control_information_t overload_control_information;
-  pfcp_usage_report_t *usage_report;
-  pfcp_failed_rule_id_t failed_rule_id;
-    pfcp_additional_usage_reports_information_t
-    additional_usage_reports_information;
-  pfcp_created_traffic_endpoint_t *created_traffic_endpoint;
-} pfcp_session_modification_response_t;
-
 typedef struct
 {
   struct pfcp_group grp;
@@ -2603,23 +2543,40 @@ typedef struct
 
 enum
 {
-  SESSION_DELETION_RESPONSE_CAUSE = PFCP_RESPONSE_CAUSE,
-  SESSION_DELETION_RESPONSE_OFFENDING_IE = PFCP_RESPONSE_OFFENDING_IE,
-  SESSION_DELETION_RESPONSE_LOAD_CONTROL_INFORMATION,
-  SESSION_DELETION_RESPONSE_OVERLOAD_CONTROL_INFORMATION,
-  SESSION_DELETION_RESPONSE_USAGE_REPORT,
-  SESSION_DELETION_RESPONSE_LAST = SESSION_DELETION_RESPONSE_USAGE_REPORT
+  SESSION_PROCEDURE_RESPONSE_NODE_ID,
+  SESSION_PROCEDURE_RESPONSE_CAUSE,
+  SESSION_PROCEDURE_RESPONSE_OFFENDING_IE,
+  SESSION_PROCEDURE_RESPONSE_UP_F_SEID,
+  SESSION_PROCEDURE_RESPONSE_CREATED_PDR,
+  SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION,
+  SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION,
+  SESSION_PROCEDURE_RESPONSE_USAGE_REPORT,
+  SESSION_PROCEDURE_RESPONSE_FQ_CSID,
+  SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID,
+  SESSION_PROCEDURE_RESPONSE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
+  SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT,
+  SESSION_PROCEDURE_RESPONSE_LAST =
+    SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT
 };
 
 typedef struct
 {
   struct pfcp_group grp;
-  struct pfcp_response response;
 
+  pfcp_node_id_t node_id;
+  pfcp_cause_t cause;
+  pfcp_offending_ie_t offending_ie;
+  pfcp_f_seid_t up_f_seid;
+  pfcp_created_pdr_t *created_pdr;
   pfcp_load_control_information_t load_control_information;
   pfcp_overload_control_information_t overload_control_information;
   pfcp_usage_report_t *usage_report;
-} pfcp_session_deletion_response_t;
+  pfcp_fq_csid_t *fq_csid;
+  pfcp_failed_rule_id_t failed_rule_id;
+    pfcp_additional_usage_reports_information_t
+    additional_usage_reports_information;
+  pfcp_created_traffic_endpoint_t *created_traffic_endpoint;
+} pfcp_session_procedure_response_t;
 
 enum
 {
