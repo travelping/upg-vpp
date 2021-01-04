@@ -101,6 +101,46 @@ init_response_node_id (pfcp_node_id_t * node_id)
   //TODO: need CLI/API to set local Node-Id.....
 }
 
+#define tp_error_report(r, fmt, ...)					\
+  init_tp_error_report (r, __FILE__, __LINE__, fmt, ## __VA_ARGS__);
+#define tp_session_error_report(r, fmt, ...)				\
+  do {									\
+    SET_BIT ((r)->grp.fields, SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT); \
+    tp_error_report (&(r)->tp_error_report, (fmt), ## __VA_ARGS__);			\
+  } while (0)
+
+void
+init_tp_error_report (pfcp_tp_error_report_t * report,
+		      const char *file, int line, char *fmt, ...)
+{
+#if CLIB_DEBUG > 1
+  const char *p;
+#endif
+  va_list va;
+
+  SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_ERROR_MESSAGE);
+
+  va_start (va, fmt);
+  report->error_message = va_format (0, fmt, &va);
+  va_end (va);
+
+#if CLIB_DEBUG > 1
+  SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_FILE_NAME);
+  SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_LINE_NUMBER);
+
+  if ((p = strrchr (file)) != NULL)
+    {
+      p++;
+    }
+  else
+    p = file;
+  vec_add (report->file_name, p, strlen (p));
+  report->line_number = line;
+
+  clib_warning ("%s:%u PFCP error: %v.\n", p, line, report->error_message);
+#endif
+}
+
 /*************************************************************************/
 
 int
@@ -793,6 +833,11 @@ validate_ue_ip (upf_session_t * sx, upf_nwi_t * nwi,
   return 0;
 }
 
+#define pdr_error(r, pdr, fmt, ...)					\
+  do {									\
+    tp_session_error_report ((r), "PDR ID %u, " fmt, (pdr)->pdr_id, ## __VA_ARGS__); \
+    response->failed_rule_id.id = pdr->pdr_id;				\
+  } while (0)
 
 static int
 handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
@@ -801,12 +846,12 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
   upf_main_t *gtm = &upf_main;
   pfcp_create_pdr_t *pdr;
   struct rules *rules;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_pdr (sx)) != 0)
+  if (pfcp_make_pending_pdr (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   rules = pfcp_get_rules (sx, PFCP_PENDING);
@@ -833,15 +878,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	nwi = lookup_nwi (pdr->pdi.network_instance);
 	if (!nwi)
 	  {
-	    upf_debug ("PDR: %d, PDI for unknown network instance\n",
-		       pdr->pdr_id);
-	    if (ISSET_BIT (pdr->pdi.grp.fields, PDI_NETWORK_INSTANCE))
-	      upf_debug ("NWI: %v (%d)", pdr->pdi.network_instance,
-			 vec_len (pdr->pdi.network_instance));
-	    response->failed_rule_id.id = pdr->pdr_id;
-	    r = -1;
-	    vec_pop (rules->pdr);
-	    break;
+	    pdr_error (response, pdr, "unknown Network Instance");
+	    goto out_error;
 	  }
 
 	create->pdi.nwi_index = nwi - gtm->nwis;
@@ -865,10 +903,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	if (handle_f_teid
 	    (sx, gtm, &pdr->pdi, create, &response->created_pdr, res, 1) != 0)
 	  {
-	    r = -1;
-	    upf_debug ("create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
-		       pdr->pdr_id);
-	    break;
+	    pdr_error (response, pdr, "can't handle F-TEID");
+	    goto out_error;
 	  }
 	/* TODO validate TEID and mask
 	   if (nwi->teid != (pdr->pdi.f_teid.teid & nwi->mask))
@@ -917,11 +953,9 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	  if (!unformat (&input, "%U", unformat_ipfilter, acl))
 	    {
 	      unformat_free (&input);
-	      response->failed_rule_id.id = pdr->pdr_id;
-	      vec_pop (rules->pdr);
-	      upf_debug ("failed to parse SDF '%s'", sdf->flow);
-	      r = -1;
-	      break;
+
+	      pdr_error (response, pdr, "failed to parse SDF");
+	      goto out_error;
 	    }
 
 	  unformat_free (&input);
@@ -939,13 +973,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	p = hash_get_mem (gtm->upf_app_by_name, pdr->pdi.application_id);
 	if (!p)
 	  {
-	    response->failed_rule_id.id = pdr->pdr_id;
-	    vec_pop (rules->pdr);
-	    r = -1;
-	    fformat (stderr,
-		     "PDR: %d, application id %v has not been configured\n",
-		     pdr->pdr_id, pdr->pdi.application_id);
-	    break;
+	    pdr_error (response, pdr, "unknown Application ID");
+	    goto out_error;
 	  }
 
 	ASSERT (!pool_is_free_index (gtm->upf_apps, p[0]));
@@ -987,26 +1016,23 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
     if ((create->pdi.fields & F_PDI_UE_IP_ADDR) && nwi &&
 	validate_ue_ip (sx, nwi, &create->pdi.ue_addr))
       {
-	r = -1;
-	upf_debug ("handle_create_pdr: duplicate UE IP");
-	break;
+	pdr_error (response, pdr, "duplicate UE IP");
+	goto out_error;
       }
 
     // CREATE_PDR_ACTIVATE_PREDEFINED_RULES
   }
 
   pfcp_sort_pdrs (rules);
+  return 0;
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
-    }
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
 
-  return r;
+  return -1;
 }
 
 static int
@@ -1015,12 +1041,12 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 {
   upf_main_t *gtm = &upf_main;
   pfcp_update_pdr_t *pdr;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_pdr (sx)) != 0)
+  if (pfcp_make_pending_pdr (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   vec_foreach (pdr, update_pdr)
@@ -1032,11 +1058,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
     update = pfcp_get_pdr (sx, PFCP_PENDING, pdr->pdr_id);
     if (!update)
       {
-	upf_debug ("PFCP Session %" PRIu64 ", update PDR Id %d not found.\n",
-		   sx->cp_seid, pdr->pdr_id);
-	response->failed_rule_id.id = pdr->pdr_id;
-	r = -1;
-	break;
+	pdr_error (response, pdr, "not found");
+	goto out_error;
       }
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_NETWORK_INSTANCE))
@@ -1046,11 +1069,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	    nwi = lookup_nwi (pdr->pdi.network_instance);
 	    if (!nwi)
 	      {
-		upf_debug ("PDR: %d, PDI for unknown network instance\n",
-			   pdr->pdr_id);
-		response->failed_rule_id.id = pdr->pdr_id;
-		r = -1;
-		break;
+		pdr_error (response, pdr, "unknown Network Instance");
+		goto out_error;
 	      }
 	    update->pdi.nwi_index = nwi - gtm->nwis;
 	  }
@@ -1076,10 +1096,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
       {
 	if (handle_f_teid (sx, gtm, &pdr->pdi, update, NULL, res, 0) != 0)
 	  {
-	    r = -1;
-	    upf_debug ("create_pdr: Can't handle F_TEID for PDR-ID: %u\n",
-		       pdr->pdr_id);
-	    break;
+	    pdr_error (response, pdr, "can't handle F-TEID");
+	    goto out_error;
 	  }
       }
 
@@ -1120,10 +1138,9 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	  if (!unformat (&input, "%U", unformat_ipfilter, acl))
 	    {
 	      unformat_free (&input);
-	      response->failed_rule_id.id = pdr->pdr_id;
-	      upf_debug ("failed to parse SDF '%s'", sdf->flow);
-	      r = -1;
-	      break;
+
+	      pdr_error (response, pdr, "failed to parse SDF");
+	      goto out_error;
 	    }
 
 	  unformat_free (&input);
@@ -1141,12 +1158,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	p = hash_get_mem (gtm->upf_app_by_name, pdr->pdi.application_id);
 	if (!p)
 	  {
-	    response->failed_rule_id.id = pdr->pdr_id;
-	    r = -1;
-	    fformat (stderr,
-		     "PDR: %d, application id %v has not been configured\n",
-		     pdr->pdr_id, pdr->pdi.application_id);
-	    break;
+	    pdr_error (response, pdr, "unknown Application ID");
+	    goto out_error;
 	  }
 
 	ASSERT (!pool_is_free_index (gtm->upf_apps, p[0]));
@@ -1193,24 +1206,22 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
     if ((update->pdi.fields & F_PDI_UE_IP_ADDR) && nwi &&
 	validate_ue_ip (sx, nwi, &update->pdi.ue_addr))
       {
-	r = -1;
-	upf_debug ("handle_update_pdr: duplicate UE IP");
-	break;
+	pdr_error (response, pdr, "duplicate UE IP");
+	goto out_error;
       }
 
     // UPDATE_PDR_ACTIVATE_PREDEFINED_RULES
   }
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+  return 0;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
-    }
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  return r;
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
+
+  return -1;
 }
 
 static int
@@ -1218,36 +1229,35 @@ handle_remove_pdr (upf_session_t * sx, pfcp_remove_pdr_t * remove_pdr,
 		   pfcp_session_procedure_response_t * response)
 {
   pfcp_remove_pdr_t *pdr;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_pdr (sx)) != 0)
+  if (pfcp_make_pending_pdr (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   vec_foreach (pdr, remove_pdr)
   {
-    if ((r = pfcp_delete_pdr (sx, pdr->pdr_id)) != 0)
+    if (pfcp_delete_pdr (sx, pdr->pdr_id) != 0)
       {
-	upf_debug ("Failed to remove PDR %d\n", pdr->pdr_id);
-	response->failed_rule_id.id = pdr->pdr_id;
-	r = -1;
-	break;
+	pdr_error (response, pdr, "unable to remove");
+	goto out_error;
       }
   }
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+  return 0;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
-    }
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  return r;
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
+
+  return -1;
 }
+
+#undef pdr_error
 
 /* find source IP based on outgoing route and UpIP */
 static void *
@@ -1392,6 +1402,12 @@ upf_ip46_get_resolving_interface (u32 fib_index, ip46_address_t * pa46,
   return fib_entry_get_resolving_interface (fib_entry_index);
 }
 
+#define far_error(r, far, fmt, ...)					\
+  do {									\
+    tp_session_error_report ((r), "FAR ID %u, " fmt, (far)->far_id, ## __VA_ARGS__); \
+    response->failed_rule_id.id = far->far_id;				\
+  } while (0)
+
 static int
 handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 		   pfcp_session_procedure_response_t * response)
@@ -1399,12 +1415,12 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
   upf_main_t *gtm = &upf_main;
   pfcp_create_far_t *far;
   struct rules *rules;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_far (sx)) != 0)
+  if (pfcp_make_pending_far (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   rules = pfcp_get_rules (sx, PFCP_PENDING);
@@ -1433,13 +1449,8 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	      lookup_nwi (far->forwarding_parameters.network_instance);
 	    if (!nwi)
 	      {
-		upf_debug
-		  ("FAR: %d, Parameter with unknown network instance\n",
-		   far->far_id);
-		response->failed_rule_id.id = far->far_id;
-		r = -1;
-		vec_pop (rules->far);
-		break;
+		far_error (response, far, "unknown Network Instance");
+		goto out_error;
 	      }
 
 	    create->forward.nwi_index = nwi - gtm->nwis;
@@ -1475,28 +1486,21 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 				 create->forward.nwi_index);
 	    if (~0 == fib_index)
 	      {
-		upf_debug
-		  ("FAR: %d, Network instance with invalid VRF for IPv%d\n",
-		   far->far_id, is_ip4 ? 4 : 6);
-		response->failed_rule_id.id = far->far_id;
-		r = -1;
-		vec_pop (rules->far);
-		break;
+		far_error (response, far,
+			   "Network Instance with invalid FIB index for IPv%d",
+			   is_ip4 ? 4 : 6);
+		goto out_error;
 	      }
 	    create->forward.dst_sw_if_index =
 	      upf_ip46_get_resolving_interface (fib_index, &ohc->ip, is_ip4);
 	    if (~0 == create->forward.dst_sw_if_index)
 	      {
-		clib_warning
-		  ("FAR: %d, No route to %U in fib index %d\n",
-		   far->far_id, format_ip46_address, &ohc->ip, IP46_TYPE_ANY,
-		   is_ip4 ? ip4_fib_get (fib_index)->table_id :
-		   ip6_fib_get (fib_index)->table_id);
-
-		response->failed_rule_id.id = far->far_id;
-		r = -1;
-		vec_pop (rules->far);
-		break;
+		far_error (response, far,
+			   "no route to %U in FIB index %d",
+			   format_ip46_address, &ohc->ip, IP46_TYPE_ANY,
+			   is_ip4 ? ip4_fib_get (fib_index)->table_id :
+			   ip6_fib_get (fib_index)->table_id);
+		goto out_error;
 	      }
 
 	    ip_udp_gtpu_rewrite (&create->forward, fib_index, is_ip4);
@@ -1508,17 +1512,15 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
   }
 
   pfcp_sort_fars (rules);
+  return 0;
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
-    }
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
 
-  return r;
+  return -1;
 }
 
 static int
@@ -1527,12 +1529,12 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 {
   upf_main_t *gtm = &upf_main;
   pfcp_update_far_t *far;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_far (sx)) != 0)
+  if (pfcp_make_pending_far (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   vec_foreach (far, update_far)
@@ -1542,11 +1544,8 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
     update = pfcp_get_far (sx, PFCP_PENDING, far->far_id);
     if (!update)
       {
-	upf_debug ("PFCP Session %" PRIu64 ", update FAR Id %d not found.\n",
-		   sx->cp_seid, far->far_id);
-	response->failed_rule_id.id = far->far_id;
-	r = -1;
-	break;
+	far_error (response, far, "not found");
+	goto out_error;
       }
 
     update->apply_action =
@@ -1566,12 +1565,8 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 			      update_forwarding_parameters.network_instance);
 		if (!nwi)
 		  {
-		    upf_debug
-		      ("FAR: %d, Update Parameter with unknown network instance\n",
-		       far->far_id);
-		    response->failed_rule_id.id = far->far_id;
-		    r = -1;
-		    break;
+		    far_error (response, far, "unknown Network Instance");
+		    goto out_error;
 		  }
 		update->forward.nwi_index = nwi - gtm->nwis;
 	      }
@@ -1616,27 +1611,22 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 				 update->forward.nwi_index);
 	    if (~0 == fib_index)
 	      {
-		upf_debug
-		  ("FAR: %d, Network instance with invalid VRF for IPv%d\n",
-		   far->far_id, is_ip4 ? 4 : 6);
-		response->failed_rule_id.id = far->far_id;
-		r = -1;
-		break;
+		far_error (response, far,
+			   "Network Instance with invalid FIB index for IPv%d",
+			   is_ip4 ? 4 : 6);
+		goto out_error;
 	      }
 
 	    update->forward.dst_sw_if_index =
 	      upf_ip46_get_resolving_interface (fib_index, &ohc->ip, is_ip4);
 	    if (~0 == update->forward.dst_sw_if_index)
 	      {
-		upf_debug
-		  ("FAR: %d, No route to %U in table %d\n",
-		   far->far_id, format_ip46_address, &ohc->ip, IP46_TYPE_ANY,
-		   is_ip4 ? ip4_fib_get (fib_index)->table_id :
-		   ip6_fib_get (fib_index)->table_id);
-
-		response->failed_rule_id.id = far->far_id;
-		r = -1;
-		break;
+		far_error (response, far,
+			   "no route to %U in FIB index %d",
+			   format_ip46_address, &ohc->ip, IP46_TYPE_ANY,
+			   is_ip4 ? ip4_fib_get (fib_index)->table_id :
+			   ip6_fib_get (fib_index)->table_id);
+		goto out_error;
 	      }
 
 	    ip_udp_gtpu_rewrite (&update->forward, fib_index, is_ip4);
@@ -1647,16 +1637,15 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
       }
   }
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+  return 0;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
-    }
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  return r;
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
+
+  return -1;
 }
 
 static int
@@ -1664,36 +1653,41 @@ handle_remove_far (upf_session_t * sx, pfcp_remove_far_t * remove_far,
 		   pfcp_session_procedure_response_t * response)
 {
   pfcp_remove_far_t *far;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_far (sx)) != 0)
+  if (pfcp_make_pending_far (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   vec_foreach (far, remove_far)
   {
-    if ((r = pfcp_delete_far (sx, far->far_id)) != 0)
+    if (pfcp_delete_far (sx, far->far_id) != 0)
       {
-	upf_debug ("Failed to add FAR %d\n", far->far_id);
-	response->failed_rule_id.id = far->far_id;
-	r = -1;
-	break;
+	far_error (response, far, "unable to remove");
+	goto out_error;
       }
   }
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+  return 0;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
-    }
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  return r;
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
+
+  return -1;
 }
+
+#undef far_error
+
+#define urr_error(r, urr, fmt, ...)					\
+  do {									\
+    tp_session_error_report ((r), "URR ID %u, " fmt, (urr)->urr_id, ## __VA_ARGS__); \
+    response->failed_rule_id.id = urr->urr_id;				\
+  } while (0)
 
 static int
 handle_create_urr (upf_session_t * sx, pfcp_create_urr_t * create_urr,
@@ -1702,12 +1696,12 @@ handle_create_urr (upf_session_t * sx, pfcp_create_urr_t * create_urr,
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_create_urr_t *urr;
   struct rules *rules;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_urr (sx)) != 0)
+  if (pfcp_make_pending_urr (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   rules = pfcp_get_rules (sx, PFCP_PENDING);
@@ -1798,17 +1792,7 @@ handle_create_urr (upf_session_t * sx, pfcp_create_urr_t * create_urr,
   }
 
   pfcp_sort_urrs (rules);
-
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
-
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
-    }
-
-  return r;
+  return 0;
 }
 
 static int
@@ -1817,12 +1801,12 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_update_urr_t *urr;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_urr (sx)) != 0)
+  if (pfcp_make_pending_urr (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   vec_foreach (urr, update_urr)
@@ -1832,11 +1816,8 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
     update = pfcp_get_urr (sx, PFCP_PENDING, urr->urr_id);
     if (!update)
       {
-	upf_debug ("PFCP Session %" PRIu64 ", update URR Id %d not found.\n",
-		   sx->cp_seid, urr->urr_id);
-	response->failed_rule_id.id = urr->urr_id;
-	r = -1;
-	break;
+	urr_error (response, urr, "not found");
+	goto out_error;
       }
 
     update->methods = urr->measurement_method;
@@ -1918,16 +1899,15 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
     //TODO: time_quota_mechanism;
   }
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+  return 0;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
-    }
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  return r;
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
+
+  return -1;
 }
 
 static int
@@ -1935,36 +1915,41 @@ handle_remove_urr (upf_session_t * sx, pfcp_remove_urr_t * remove_urr,
 		   f64 now, pfcp_session_procedure_response_t * response)
 {
   pfcp_remove_urr_t *urr;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_urr (sx)) != 0)
+  if (pfcp_make_pending_urr (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   vec_foreach (urr, remove_urr)
   {
-    if ((r = pfcp_delete_urr (sx, urr->urr_id)) != 0)
+    if (pfcp_delete_urr (sx, urr->urr_id) != 0)
       {
-	upf_debug ("Failed to add URR %d\n", urr->urr_id);
-	response->failed_rule_id.id = urr->urr_id;
-	r = -1;
-	break;
+	urr_error (response, urr, "unable to remove");
+	goto out_error;
       }
   }
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+  return 0;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
-    }
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  return r;
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
+
+  return -1;
 }
+
+#undef urr_error
+
+#define qer_error(r, qer, fmt, ...)					\
+  do {									\
+    tp_session_error_report ((r), "QER ID %u, " fmt, (qer)->qer_id, ## __VA_ARGS__); \
+    response->failed_rule_id.id = qer->qer_id;				\
+  } while (0)
 
 static int
 handle_create_qer (upf_session_t * sx, pfcp_create_qer_t * create_qer,
@@ -1973,12 +1958,12 @@ handle_create_qer (upf_session_t * sx, pfcp_create_qer_t * create_qer,
   upf_main_t *gtm = &upf_main;
   pfcp_create_qer_t *qer;
   struct rules *rules;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_qer (sx)) != 0)
+  if (pfcp_make_pending_qer (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   rules = pfcp_get_rules (sx, PFCP_PENDING);
@@ -2014,17 +1999,7 @@ handle_create_qer (upf_session_t * sx, pfcp_create_qer_t * create_qer,
   }
 
   pfcp_sort_qers (rules);
-
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
-
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
-    }
-
-  return r;
+  return 0;
 }
 
 static int
@@ -2033,12 +2008,12 @@ handle_update_qer (upf_session_t * sx, pfcp_update_qer_t * update_qer,
 {
   upf_main_t *gtm = &upf_main;
   pfcp_update_qer_t *qer;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_qer (sx)) != 0)
+  if (pfcp_make_pending_qer (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   vec_foreach (qer, update_qer)
@@ -2048,11 +2023,8 @@ handle_update_qer (upf_session_t * sx, pfcp_update_qer_t * update_qer,
     update = pfcp_get_qer (sx, PFCP_PENDING, qer->qer_id);
     if (!update)
       {
-	upf_debug ("PFCP Session %" PRIu64 ", update QER Id %d not found.\n",
-		   sx->cp_seid, qer->qer_id);
-	response->failed_rule_id.id = qer->qer_id;
-	r = -1;
-	break;
+	qer_error (response, qer, "not found");
+	goto out_error;
       }
 
     update->policer.key =
@@ -2079,16 +2051,15 @@ handle_update_qer (upf_session_t * sx, pfcp_update_qer_t * update_qer,
     //TODO: reflective_qos;
   }
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+  return 0;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
-    }
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  return r;
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
+
+  return -1;
 }
 
 static int
@@ -2096,36 +2067,35 @@ handle_remove_qer (upf_session_t * sx, pfcp_remove_qer_t * remove_qer,
 		   f64 now, pfcp_session_procedure_response_t * response)
 {
   pfcp_remove_qer_t *qer;
-  int r = 0;
 
-  if ((r = pfcp_make_pending_qer (sx)) != 0)
+  if (pfcp_make_pending_qer (sx) != 0)
     {
+      tp_session_error_report (response, "no resources available");
       response->cause = PFCP_CAUSE_NO_RESOURCES_AVAILABLE;
-      return r;
+      return -1;
     }
 
   vec_foreach (qer, remove_qer)
   {
-    if ((r = pfcp_delete_qer (sx, qer->qer_id)) != 0)
+    if (pfcp_delete_qer (sx, qer->qer_id) != 0)
       {
-	upf_debug ("Failed to add QER %d\n", qer->qer_id);
-	response->failed_rule_id.id = qer->qer_id;
-	r = -1;
-	break;
+	qer_error (response, qer, "unable to remove");
+	goto out_error;
       }
   }
 
-  if (r != 0)
-    {
-      response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
+  return 0;
 
-      SET_BIT (response->grp.fields,
-	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-      response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
-    }
+out_error:
+  response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  return r;
+  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
+
+  return -1;
 }
+
+#undef qer_error
 
 static pfcp_usage_report_t *
 init_usage_report (upf_urr_t * urr, u32 trigger,
@@ -2422,6 +2392,8 @@ handle_session_establishment_request (pfcp_msg_t * req,
   assoc = pfcp_get_association (&msg->request.node_id);
   if (!assoc)
     {
+      tp_session_error_report (&resp, "no established PFCP association");
+
       resp.cause = PFCP_CAUSE_NO_ESTABLISHED_PFCP_ASSOCIATION;
       upf_pfcp_send_response (req, msg->f_seid.seid,
 			      PFCP_SESSION_ESTABLISHMENT_RESPONSE, &resp.grp);

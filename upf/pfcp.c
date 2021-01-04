@@ -4627,6 +4627,20 @@ encode_alternative_smf_ip_address (void *p, u8 ** vec)
 #define decode_tp_end_time decode_sntp_time_stamp_ie
 #define encode_tp_end_time encode_sntp_time_stamp_ie
 
+#define format_tp_error_message format_simple_vec_ie
+#define decode_tp_error_message decode_simple_vec_ie
+#define encode_tp_error_message encode_simple_vec_ie
+#define free_tp_error_message free_simple_vec_ie
+
+#define format_tp_file_name format_simple_vec_ie
+#define decode_tp_file_name decode_simple_vec_ie
+#define encode_tp_file_name encode_simple_vec_ie
+#define free_tp_file_name free_simple_vec_ie
+
+#define format_tp_line_number format_u32_ie
+#define decode_tp_line_number decode_u32_ie
+#define encode_tp_line_number encode_u32_ie
+
 /* Grouped Information Elements */
 
 
@@ -5956,6 +5970,25 @@ static struct pfcp_group_ie_def pfcp_update_access_forwarding_action_information
     },
   };
 
+static struct pfcp_group_ie_def pfcp_tp_error_report_group[] =
+  {
+    [TP_ERROR_REPORT_TP_ERROR_MESSAGE] = {
+      .type = PFCP_IE_TP_ERROR_MESSAGE,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_tp_error_report_t, error_message)
+    },
+    [TP_ERROR_REPORT_TP_FILE_NAME] = {
+      .type = PFCP_IE_TP_FILE_NAME,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_tp_error_report_t, file_name)
+    },
+    [TP_ERROR_REPORT_TP_LINE_NUMBER] = {
+      .type = PFCP_IE_TP_LINE_NUMBER,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_tp_error_report_t, line_number)
+    },
+  };
+
 /**********************************************************/
 
 #define SIMPLE_IE(IE, TYPE, NAME)			\
@@ -6545,6 +6578,17 @@ static struct pfcp_ie_def vendor_tp_specs[] =
    SIMPLE_IE(PFCP_IE_TP_NOW, tp_now, "TP: Now"),
    SIMPLE_IE(PFCP_IE_TP_START_TIME, tp_start_time, "TP: Start Time"),
    SIMPLE_IE(PFCP_IE_TP_END_TIME, tp_end_time, "TP: Start Time"),
+   [PFCP_IE_TP_ERROR_REPORT] =
+   {
+     .name = "TP: Error Report",
+     .length = sizeof(pfcp_tp_error_report_t),
+     .mandatory = BIT(TP_ERROR_REPORT_TP_ERROR_MESSAGE),
+     .size = ARRAY_LEN(pfcp_tp_error_report_group),
+     .group = pfcp_tp_error_report_group,
+    },
+   SIMPLE_IE_FREE(PFCP_IE_TP_ERROR_MESSAGE, tp_error_message, "TP: Error Message"),
+   SIMPLE_IE_FREE(PFCP_IE_TP_FILE_NAME, tp_file_name, "TP: File Name"),
+   SIMPLE_IE(PFCP_IE_TP_LINE_NUMBER, tp_line_number, "TP: Line Number"),
   };
 
 /**********************************************************/
@@ -6600,6 +6644,11 @@ static struct pfcp_group_ie_def pfcp_simple_response_group[] =
     [PFCP_RESPONSE_RECOVERY_TIME_STAMP] = {
       .type = PFCP_IE_RECOVERY_TIME_STAMP,
       .offset = offsetof(pfcp_simple_response_t, response.recovery_time_stamp)
+    },
+    [PFCP_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_simple_response_t, response.tp_error_report)
     },
   };
 
@@ -6669,6 +6718,11 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
     [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
       .offset = offsetof(pfcp_association_procedure_response_t, cause)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_association_procedure_response_t, tp_error_report)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP] = {
       .type = PFCP_IE_RECOVERY_TIME_STAMP,
@@ -6751,6 +6805,11 @@ static struct pfcp_group_ie_def pfcp_association_update_response_group[] =
     [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
       .offset = offsetof(pfcp_association_procedure_response_t, cause)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_association_procedure_response_t, tp_error_report)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_CP_FUNCTION_FEATURES,
@@ -6884,6 +6943,11 @@ static struct pfcp_group_ie_def pfcp_session_establishment_response_group[] =
     [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
       .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
+    },
+    [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_procedure_response_t, tp_error_report)
     },
     [SESSION_PROCEDURE_RESPONSE_UP_F_SEID] = {
       .type = PFCP_IE_F_SEID,
@@ -7067,6 +7131,11 @@ static struct pfcp_group_ie_def pfcp_session_modification_response_group[] =
       .type = PFCP_IE_OFFENDING_IE,
       .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
     },
+    [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_procedure_response_t, tp_error_report)
+    },
     [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = {
       .type = PFCP_IE_CREATED_PDR,
       .is_array = true,
@@ -7109,6 +7178,11 @@ static struct pfcp_group_ie_def pfcp_session_deletion_response_group[] =
     [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
       .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
+    },
+    [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_procedure_response_t, tp_error_report)
     },
     [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
@@ -7171,6 +7245,11 @@ static struct pfcp_group_ie_def pfcp_session_report_response_group[] =
     [SESSION_REPORT_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
       .offset = offsetof(pfcp_session_report_response_t, response.offending_ie)
+    },
+    [SESSION_REPORT_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_report_response_t, response.tp_error_report)
     },
     [SESSION_REPORT_RESPONSE_UPDATE_BAR] = {
       .type = PFCP_IE_UPDATE_BAR_RESPONSE,
