@@ -1018,6 +1018,7 @@ active_open_connected_callback (u32 app_index, u32 opaque,
 	 s ? s->session_index : -1, opaque);
       ps->ao_disconnected = 1;
       proxy_server_sessions_writer_unlock ();
+      proxy_session_put (ps);
       /*
        * Returning -1 here will cause the active open side to be
        * closed immediatelly. Cleanup callback will not be invoked.
