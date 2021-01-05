@@ -4392,6 +4392,7 @@ free_trace_information (void *p)
 #define format_apn_dnn format_simple_vec_ie
 #define decode_apn_dnn decode_simple_vec_ie
 #define encode_apn_dnn encode_simple_vec_ie
+#define free_apn_dnn free_simple_vec_ie
 
 static char *tgpp_interface_type[] = {
   [0] = "S1-U",
@@ -6474,7 +6475,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     SIMPLE_IE(PFCP_IE_EVENT_TIME_STAMP, event_time_stamp, "Event Time Stamp"),
     SIMPLE_IE(PFCP_IE_AVERAGING_WINDOW, averaging_window, "Averaging Window"),
     SIMPLE_IE(PFCP_IE_PAGING_POLICY_INDICATOR, paging_policy_indicator, "Paging Policy Indicator"),
-    SIMPLE_IE(PFCP_IE_APN_DNN, apn_dnn, "APN/DNN"),
+    SIMPLE_IE_FREE(PFCP_IE_APN_DNN, apn_dnn, "APN/DNN"),
     SIMPLE_IE(PFCP_IE_TGPP_INTERFACE_TYPE, tgpp_interface_type, "3GPP Interface Type"),
     SIMPLE_IE(PFCP_IE_PFCPSRREQ_FLAGS, pfcpsrreq_flags, "PFCPSRReq-Flags"),
     SIMPLE_IE(PFCP_IE_PFCPAUREQ_FLAGS, pfcpaureq_flags, "PFCPAUReq-Flags"),
