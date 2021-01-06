@@ -134,6 +134,7 @@ upf_get_session_dpo_ip6 (upf_nwi_t * nwi, ip6_address_t * ip6)
   pfx.fp_addr.ip6.as_u64[0] = ip6->as_u64[0];
   pfx.fp_addr.ip6.as_u64[1] = ip6->as_u64[1];
   pfx.fp_len = 64;
+  pfx.fp_proto = FIB_PROTOCOL_IP6;
   return upf_get_session_dpo (nwi, &pfx);
 }
 
