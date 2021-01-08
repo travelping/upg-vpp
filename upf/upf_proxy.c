@@ -334,7 +334,6 @@ proxy_start_connect_fn (const u32 * session_index)
   upf_session_t *sx;
   upf_pdr_t *pdr;
   upf_far_t *far;
-  u32 fib_index;
   int is_ip4;
   int rv;
 
@@ -366,21 +365,20 @@ proxy_start_connect_fn (const u32 * session_index)
   pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
   far = pfcp_get_far_by_id (active, pdr->far_id);
 
-  fib_index =
-    upf_nwi_fib_index (is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
-		       far->forward.nwi_index);
-
   memset (a, 0, sizeof (*a));
   a->api_context = *session_index;
   a->app_index = pm->active_open_app_index;
   a->sep_ext = (session_endpoint_cfg_t) SESSION_ENDPOINT_CFG_NULL;
-  a->sep_ext.fib_index = fib_index;
+  upf_nwi_if_and_fib_index (gtm, is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
+			    far->forward.nwi_index,
+			    &a->sep_ext.sw_if_index, &a->sep_ext.fib_index);
   a->sep_ext.transport_proto = TRANSPORT_PROTO_TCP;
   a->sep_ext.mss = pm->mss;
   a->sep_ext.is_ip4 = is_ip4;
   a->sep_ext.ip = *dst;
   a->sep_ext.port = flow->key.port[FT_REVERSE ^ flow->is_reverse];
-  a->sep_ext.peer.fib_index = fib_index;
+  a->sep_ext.peer.fib_index = a->sep_ext.fib_index;
+  a->sep_ext.peer.sw_if_index = a->sep_ext.sw_if_index;
   a->sep_ext.peer.is_ip4 = is_ip4;
   a->sep_ext.peer.ip = *src;
   a->sep_ext.peer.port = flow->key.port[FT_ORIGIN ^ flow->is_reverse];
