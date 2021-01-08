@@ -113,6 +113,24 @@ ipfilter_address_cmp_const (const ipfilter_address_t * a,
   return intcmp (a->mask, b.mask);
 };
 
+static inline void
+upf_nwi_if_and_fib_index (upf_main_t *gtm, fib_protocol_t proto, u32 nwi_index,
+			  u32 * sw_if_index, u32 * fib_index)
+{
+  if (!pool_is_free_index (gtm->nwis, nwi_index))
+    {
+      upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, nwi_index);
+
+      *sw_if_index = nwi->sw_if_index;
+      *fib_index = nwi->fib_index[proto];
+    }
+  else
+    {
+      *sw_if_index = vnet_main.local_interface_sw_if_index;
+      *fib_index = ~0;
+    }
+}
+
 static inline u32
 upf_nwi_fib_index (fib_protocol_t proto, u32 nwi_index)
 {
