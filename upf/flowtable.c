@@ -146,6 +146,7 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 		    flow_entry_t * f, dlist_elt_t * e, u32 now)
 {
   ASSERT (f->timer_index == (e - fmt->timers));
+  ASSERT (f->active <= now);
 
   /* timers unlink */
   clib_dlist_remove (fmt->timers, e - fmt->timers);
