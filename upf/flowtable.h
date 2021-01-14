@@ -177,6 +177,7 @@ typedef struct
   /* timers */
   dlist_elt_t *timers;
   u32 time_index;
+  u32 next_check;
 
   /* flow cache
    * set cache size to 256 so that the worst node run fills the cache at most once */
@@ -338,8 +339,20 @@ flow_tcp_update_lifetime (flow_entry_t * f, tcp_header_t * hdr)
 
   if (new_state && old_state != new_state)
     {
+      flowtable_main_t *fm = &flowtable_main;
+      u32 cpu_index = os_get_thread_index ();
+      flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+      u32 timer_slot_head_index;
       f->tcp_state = new_state;
+
       f->lifetime = tcp_lifetime[new_state];
+      /* reschedule */
+      clib_dlist_remove (fmt->timers, f->timer_index);
+
+      timer_slot_head_index =
+	(f->active + f->lifetime) % fm->timer_max_lifetime;
+      clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
+
       return 1;
     }
 
