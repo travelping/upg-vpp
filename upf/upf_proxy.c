@@ -29,13 +29,6 @@
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
-
-static inline u32
-proxy_session_index (upf_proxy_session_t * ps)
-{
-  upf_proxy_main_t *pm = &upf_proxy_main;
-  return ps ? ps - pm->sessions : ~0;
-}
 #else
 #define upf_debug(...)				\
   do { } while (0)
@@ -49,6 +42,13 @@ typedef enum
 } http_process_event_t;
 
 upf_proxy_main_t upf_proxy_main;
+
+static inline u32
+proxy_session_index (upf_proxy_session_t * ps)
+{
+  upf_proxy_main_t *pm = &upf_proxy_main;
+  return ps ? ps - pm->sessions : ~0;
+}
 
 static void proxy_session_try_close_unlocked (upf_proxy_session_t * ps);
 static void
@@ -100,6 +100,7 @@ proxy_session_alloc (u32 thread_index)
 
   ps->proxy_session_index = ~0;
   ps->active_open_session_index = ~0;
+  ps->flow_index = ~0;
 
   return ps;
 }
@@ -108,6 +109,13 @@ static void
 proxy_session_free (upf_proxy_session_t * ps)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
+  flowtable_main_t *fm = &flowtable_main;
+  flow_entry_t *flow;
+  if (ps->flow_index != ~0)
+    {
+      flow = flowtable_get_flow (fm, ps->flow_index);
+      flow->ps_index = ~0;
+    }
   vec_free (ps->rx_buf);
   pool_put (pm->sessions, ps);
   if (CLIB_DEBUG)
@@ -673,7 +681,9 @@ common_fifo_tuning_callback (session_t * s, svm_fifo_t * f,
 static int
 proxy_accept_callback (session_t * s)
 {
+  flowtable_main_t *fm = &flowtable_main;
   upf_proxy_session_t *ps;
+  flow_entry_t *flow;
 
   proxy_server_sessions_writer_lock ();
 
@@ -696,8 +706,10 @@ proxy_accept_callback (session_t * s)
   ps->proxy_thread_index = s->thread_index;
 
   ps->flow_index = s->opaque;
+  flow = flowtable_get_flow (fm, ps->flow_index);
+  flow->ps_index = proxy_session_index (ps);
 
-  //TBDps->session_state = PROXY_STATE_ESTABLISHED;
+  //TBD ps->session_state = PROXY_STATE_ESTABLISHED;
   //TBD proxy_server_session_timer_start (ps);
 
 out_unlock:
@@ -1061,6 +1073,7 @@ active_open_connected_callback (u32 app_index, u32 opaque,
       flow_tc_t *ftc;
 
       flow = pool_elt_at_index (fm->flows, ps->flow_index);
+      ASSERT (flow->ps_index == opaque);
       tc = session_get_transport (s);
 
       ASSERT (tc->thread_index == thread_index);
@@ -1339,6 +1352,21 @@ upf_proxy_create (u32 fib_index, int is_ip4)
     clib_error ("UPF http redirect server create returned %d", rv);
 }
 
+static int
+upf_proxy_flow_expiration_hook (flow_entry_t * flow)
+{
+  upf_proxy_session_t *ps;
+  if (flow->ps_index == ~0)
+    return 0;
+
+  proxy_server_sessions_writer_lock ();
+  ps = proxy_session_get (flow->ps_index);
+  ASSERT (ps);
+  proxy_session_try_close_unlocked (ps);
+  proxy_server_sessions_writer_unlock ();
+  return -1;
+}
+
 clib_error_t *
 upf_proxy_main_init (vlib_main_t * vm)
 {
@@ -1377,6 +1405,7 @@ upf_proxy_main_init (vlib_main_t * vm)
     vlib_node_add_next (vm, tcp6_output_node.index,
 			upf_ip6_proxy_server_output_node.index);
 
+  flow_expiration_hook = upf_proxy_flow_expiration_hook;
   upf_proxy_create (0, 1);
 
   return 0;

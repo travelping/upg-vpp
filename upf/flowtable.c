@@ -34,6 +34,8 @@
 
 vlib_node_registration_t upf_flow_node;
 
+flow_expiration_hook_t flow_expiration_hook = 0;
+
 always_inline void
 flow_entry_cache_fill (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
 {
@@ -158,8 +160,8 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 	     f - fm->flows, f->active + f->lifetime,
 	     (f->active + f->lifetime) % fm->timer_max_lifetime,
 	     now, fmt->time_index);
-
-  if (f->active + f->lifetime > now)
+  if (f->active + f->lifetime > now ||
+      (flow_expiration_hook && flow_expiration_hook (f) != 0))
     {
       /* There was activity on the entry, so the idle timeout
          has not passed. Enqueue for another time period. */
@@ -346,6 +348,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   flow_tc (f, FT_ORIGIN).thread_index = ~0;
   flow_tc (f, FT_REVERSE).conn_index = ~0;
   flow_tc (f, FT_REVERSE).thread_index = ~0;
+  f->ps_index = ~0;
 
   /* insert in timer list */
   pool_get (fmt->timers, timer_entry);

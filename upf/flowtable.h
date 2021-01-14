@@ -123,6 +123,7 @@ typedef struct flow_entry
   u8 dont_splice:1;
   u8 app_detection_done:1;
   u16 tcp_state;
+  u32 ps_index;
 
   /* stats */
   flow_stats_t stats[FT_ORDER_MAX];
@@ -216,6 +217,9 @@ typedef struct
 } flowtable_main_t;
 
 extern flowtable_main_t flowtable_main;
+typedef int (*flow_expiration_hook_t) (flow_entry_t * flow);
+
+extern flow_expiration_hook_t flow_expiration_hook;
 
 u8 *format_flow_key (u8 *, va_list *);
 u8 *format_flow (u8 *, va_list *);
