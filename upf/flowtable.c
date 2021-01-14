@@ -189,30 +189,51 @@ u64
 flowtable_timer_expire (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 			u32 now)
 {
-  u32 time_slot_curr_index = fmt->time_index;
-  u64 expire_cpt;
+  u32 time_slot_curr_index =
+    fmt->next_check != ~0 ? fmt->next_check : fmt->time_index;
   flow_entry_t *f;
   dlist_elt_t *time_slot_curr;
   u32 index;
+  dlist_elt_t *e;
+  u64 total_expired = 0;
 
-  if (PREDICT_FALSE (dlist_is_empty (fmt->timers, time_slot_curr_index)))
-    return 0;
-
-  expire_cpt = 0;
-  time_slot_curr = pool_elt_at_index (fmt->timers, time_slot_curr_index);
-
-  index = time_slot_curr->next;
-  while (index != time_slot_curr_index && expire_cpt < TIMER_MAX_EXPIRE)
+  /*
+   * In case some of the time slots were skipped e.g. due to low traffic
+   * (so flowtable_timer_expire is not called often enough),
+   * process all of the skipped entries, but don't expire too many
+   * of them to avoid any pauses. We can expire more of the flows
+   * if there's low traffic currently, though, so we apply
+   * TIMER_MAX_EXPIRE limit per step, not per this function run.
+   */
+  do
     {
-      dlist_elt_t *e = pool_elt_at_index (fmt->timers, index);
-      f = pool_elt_at_index (fm->flows, e->value);
+      u64 expire_cpt = 0;
+      if (PREDICT_TRUE (!dlist_is_empty (fmt->timers, time_slot_curr_index)))
+	{
+	  time_slot_curr =
+	    pool_elt_at_index (fmt->timers, time_slot_curr_index);
 
-      index = e->next;
-      expire_single_flow (fm, fmt, f, e, now);
-      expire_cpt++;
+	  index = time_slot_curr->next;
+	  while (index != time_slot_curr_index
+		 && expire_cpt < TIMER_MAX_EXPIRE)
+	    {
+	      e = pool_elt_at_index (fmt->timers, index);
+	      f = pool_elt_at_index (fm->flows, e->value);
+
+	      index = e->next;
+	      expire_single_flow (fm, fmt, f, e, now);
+	      expire_cpt++;
+	    }
+	}
+      index = time_slot_curr_index;
+      time_slot_curr_index =
+	(time_slot_curr_index + 1) % fm->timer_max_lifetime;
+      total_expired += expire_cpt;
     }
+  while (index != fmt->time_index);
 
-  return expire_cpt;
+  fmt->next_check = time_slot_curr_index;
+  return total_expired;
 }
 
 static inline u16

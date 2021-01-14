@@ -77,6 +77,7 @@ flowtable_init_cpu (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
 
   /* init timer wheel */
   fmt->time_index = ~0;
+  fmt->next_check = ~0;
 
   /* alloc TIMER_MAX_LIFETIME heads from the timers pool and fill them with defaults */
   pool_validate_index (fmt->timers, TIMER_MAX_LIFETIME - 1);
