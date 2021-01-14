@@ -19,12 +19,12 @@ import (
 )
 
 const (
-	READ_CHUNK_SIZE = 1000000
-	READ_TIMEOUT    = 5 * time.Second
+	HTTP_DEFAULT_CHUNK_SIZE   = 100000
+	HTTP_DEFAULT_READ_TIMEOUT = 5 * time.Second
 )
 
 type HTTPConfig struct {
-	ServerIP          net.IP
+	ServerIPs         []net.IP
 	ServerPort        int
 	ClientPort        int
 	ChunkSize         int
@@ -52,7 +52,7 @@ func (cfg *HTTPConfig) SetDefaults() {
 		cfg.ServerPort = cfg.ClientPort
 	}
 	if cfg.ChunkSize == 0 {
-		cfg.ChunkSize = 1000000
+		cfg.ChunkSize = HTTP_DEFAULT_CHUNK_SIZE
 	}
 	if cfg.ChunkCount == 0 {
 		if quickTest() {
@@ -71,7 +71,7 @@ func (cfg *HTTPConfig) SetDefaults() {
 		cfg.MaxRetries = 10
 	}
 	if cfg.ReadTimeout == 0 {
-		cfg.ReadTimeout = 0
+		cfg.ReadTimeout = HTTP_DEFAULT_READ_TIMEOUT
 	}
 }
 
@@ -188,16 +188,19 @@ func (hc *HTTPClient) downloadURL() string {
 func (hc *HTTPClient) download(ctx context.Context, ns *network.NetNS, url string) error {
 	log := hc.log.WithField("url", url)
 	c := httpClient(ns, hc.cfg.NoLinger)
-	chunk := make([]byte, READ_CHUNK_SIZE)
+	chunk := make([]byte, hc.cfg.ChunkSize)
 	retry := false
 	retrySucceeded := false
 	for i := 0; hc.cfg.Persist || (i < hc.cfg.MaxRetries && !retrySucceeded); i++ {
 		// FIXME: this needs to be refactored
 		cont, err := func() (bool, error) {
-			ctx, cancel := context.WithCancel(ctx)
-			timer := time.AfterFunc(READ_TIMEOUT, func() { cancel() })
+			childCtx, childCancel := context.WithCancel(ctx)
+			timer := time.AfterFunc(hc.cfg.ReadTimeout, func() {
+				childCancel()
+			})
+			defer childCancel()
 			defer timer.Stop()
-			req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+			req, err := http.NewRequestWithContext(childCtx, "GET", url, nil)
 			resp, err := c.Do(req)
 			if err != nil {
 				if hc.cfg.Retry && ctx.Err() == nil {
@@ -217,7 +220,7 @@ func (hc *HTTPClient) download(ctx context.Context, ns *network.NetNS, url strin
 			}()
 
 			for {
-				timer.Reset(READ_TIMEOUT)
+				timer.Reset(hc.cfg.ReadTimeout)
 				n, err := resp.Body.Read(chunk)
 				if retry && n > 0 {
 					retrySucceeded = true
