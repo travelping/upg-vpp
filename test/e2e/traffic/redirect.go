@@ -16,6 +16,10 @@ import (
 	"github.com/travelping/upg-vpp/test/e2e/network"
 )
 
+const (
+	REDIRECT_READ_TIMEOUT = 5 * time.Second
+)
+
 type RedirectConfig struct {
 	Count                  int
 	ServerIP               net.IP
@@ -85,7 +89,7 @@ func (rc *RedirectClient) checkRedirectOnce(ctx context.Context, ns *network.Net
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
-	timer := time.AfterFunc(READ_TIMEOUT, func() { cancel() })
+	timer := time.AfterFunc(REDIRECT_READ_TIMEOUT, func() { cancel() })
 	defer timer.Stop()
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	resp, err := c.Do(req)
