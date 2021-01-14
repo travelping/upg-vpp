@@ -22,7 +22,13 @@ type ICMPPingConfig struct {
 
 var _ TrafficConfig = &ICMPPingConfig{}
 
-func (cfg *ICMPPingConfig) SetServerIP(ip net.IP)     { cfg.ServerIP = ip }
+func (cfg *ICMPPingConfig) AddServerIP(ip net.IP) {
+	if cfg.ServerIP != nil {
+		panic("only single ServerIP is supported")
+	}
+	cfg.ServerIP = ip
+}
+
 func (cfg *ICMPPingConfig) SetNoLinger(noLinger bool) {}
 
 func (cfg *ICMPPingConfig) SetDefaults() {

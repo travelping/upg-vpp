@@ -40,7 +40,7 @@ type TrafficClient interface {
 
 type TrafficConfig interface {
 	SetDefaults()
-	SetServerIP(ip net.IP)
+	AddServerIP(ip net.IP)
 	SetNoLinger(noLinger bool)
 	Server(rec TrafficRec) TrafficServer
 	Client(rec TrafficRec) TrafficClient

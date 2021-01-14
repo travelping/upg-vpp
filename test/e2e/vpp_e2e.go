@@ -2,6 +2,7 @@ package exttest
 
 import (
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -60,7 +61,9 @@ var _ = ginkgo.Describe("VPP", func() {
 		f.VPP.Ctl("http static server www-root %s uri tcp://0.0.0.0/80 cache-size 2m fifo-size %d debug 2",
 			wsDir, VPP_WS_FIFO_SIZE_KiB)
 		tg := traffic.NewTrafficGen(&traffic.HTTPConfig{
-			ServerIP: framework.MustParseIP("10.0.0.2"),
+			ServerIPs: []net.IP{
+				framework.MustParseIP("10.0.0.2"),
+			},
 		}, &traffic.SimpleTrafficRec{})
 		clientNS := f.VPP.GetNS("client")
 		serverNS := f.VPP.GetNS("server")
@@ -70,7 +73,9 @@ var _ = ginkgo.Describe("VPP", func() {
 	ginkgo.It("should be able to proxy TCP with its proxy plugin", func() {
 		f.VPP.Ctl("test proxy server server-uri tcp://10.0.0.2/555 client-uri tcp://10.0.1.3/777 fifo-size 41943040 max-fifo-size 41943040 rcv-buf-size 41943040")
 		tg := traffic.NewTrafficGen(&traffic.HTTPConfig{
-			ServerIP:   framework.MustParseIP("10.0.0.2"),
+			ServerIPs: []net.IP{
+				framework.MustParseIP("10.0.0.2"),
+			},
 			ClientPort: 555,
 			ServerPort: 777,
 		}, &traffic.PreciseTrafficRec{})

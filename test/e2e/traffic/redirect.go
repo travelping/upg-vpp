@@ -33,7 +33,13 @@ type RedirectConfig struct {
 
 var _ TrafficConfig = &RedirectConfig{}
 
-func (cfg *RedirectConfig) SetServerIP(ip net.IP)     { cfg.ServerIP = ip }
+func (cfg *RedirectConfig) AddServerIP(ip net.IP) {
+	if cfg.ServerIP != nil {
+		panic("only single ServerIP is supported")
+	}
+	cfg.ServerIP = ip
+}
+
 func (cfg *RedirectConfig) SetNoLinger(noLinger bool) { cfg.NoLinger = noLinger }
 
 func (cfg *RedirectConfig) SetDefaults() {

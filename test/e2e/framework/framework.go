@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -31,18 +32,19 @@ func SetArtifactsDirectory(dir string) {
 }
 
 type Framework struct {
-	Mode             UPGMode
-	IPMode           UPGIPMode
-	VPPCfg           *vpp.VPPConfig
-	VPP              *vpp.VPPInstance
-	PFCPCfg          *pfcp.PFCPConfig
-	PFCP             *pfcp.PFCPConnection
-	GTPUs            []*GTPU
-	Context          context.Context
-	GTPUMTU          int
-	TPDUHook         TPDUHook
-	numExtraCNodeIPs uint32
-	numExtraUEIPs    uint32
+	Mode              UPGMode
+	IPMode            UPGIPMode
+	VPPCfg            *vpp.VPPConfig
+	VPP               *vpp.VPPInstance
+	PFCPCfg           *pfcp.PFCPConfig
+	PFCP              *pfcp.PFCPConnection
+	GTPUs             []*GTPU
+	Context           context.Context
+	GTPUMTU           int
+	TPDUHook          TPDUHook
+	numExtraCNodeIPs  uint32
+	numExtraUEIPs     uint32
+	numExtraServerIPs uint32
 }
 
 func NewDefaultFramework(mode UPGMode, ipMode UPGIPMode) *Framework {
@@ -142,16 +144,11 @@ func (f *Framework) BeforeEach() {
 	ExpectNoError(f.VPP.Configure())
 	ExpectNoError(f.VPP.VerifyVPPAlive())
 
-	// TODO: use go-ping instead of 'ping'
 	for _, nsCfg := range f.VPPCfg.Namespaces {
 		if nsCfg.VPPIP == nil {
 			continue
 		}
-		ns := f.VPP.GetNS(nsCfg.Name)
-		cmd := exec.Command("nsenter", "--net="+ns.Path(), "ping", "-c", "3", nsCfg.VPPIP.IP.String())
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		ExpectNoError(cmd.Run())
+		f.Ping(nsCfg.Name, nsCfg.VPPIP.IP, 3)
 	}
 
 	if f.PFCPCfg != nil {
@@ -161,6 +158,16 @@ func (f *Framework) BeforeEach() {
 	} else {
 		f.PFCP = nil
 	}
+}
+
+func (f *Framework) Ping(nsName string, ip net.IP, count int) {
+	// TODO: use go-ping instead of 'ping'
+	ns := f.VPP.GetNS(nsName)
+	countArg := strconv.Itoa(count)
+	cmd := exec.Command("nsenter", "--net="+ns.Path(), "ping", "-c", countArg, ip.String())
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	ExpectNoError(cmd.Run())
 }
 
 func (f *Framework) AfterEach() {
@@ -221,7 +228,7 @@ func (f *Framework) ServerIP() net.IP {
 	}
 }
 
-func (f *Framework) addIP(nsName string, n uint32) net.IP {
+func (f *Framework) addIP(nsName string, count *uint32) net.IP {
 	mainAddr := f.VPPCfg.GetNamespaceAddress(nsName)
 	ipNet := &net.IPNet{
 		Mask: mainAddr.Mask,
@@ -233,6 +240,8 @@ func (f *Framework) addIP(nsName string, n uint32) net.IP {
 		ipNet.IP = make(net.IP, net.IPv6len)
 		copy(ipNet.IP, mainAddr.IP)
 	}
+	*count++
+	n := *count
 	for p := len(ipNet.IP) - 1; p >= 0 && n > 0; p-- {
 		n += uint32(ipNet.IP[p])
 		ipNet.IP[p] = byte(n)
@@ -250,13 +259,21 @@ func (f *Framework) addIP(nsName string, n uint32) net.IP {
 }
 
 func (f *Framework) AddCNodeIP() net.IP {
-	f.numExtraCNodeIPs++
-	return f.addIP("cp", f.numExtraCNodeIPs)
+	return f.addIP("cp", &f.numExtraCNodeIPs)
 }
 
 func (f *Framework) AddUEIP() net.IP {
-	f.numExtraUEIPs++
-	return f.addIP("ue", f.numExtraUEIPs)
+	return f.addIP("ue", &f.numExtraUEIPs)
+}
+
+func (f *Framework) AddServerIP() net.IP {
+	var serverNSName string
+	if f.Mode == UPGModeGTPProxy {
+		serverNSName = "srv"
+	} else {
+		serverNSName = "sgi"
+	}
+	return f.addIP(serverNSName, &f.numExtraServerIPs)
 }
 
 // SlowGTPU returns true if UPG runs in PGW mode, and userspace GTP-U
