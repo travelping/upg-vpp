@@ -724,7 +724,16 @@ func deleteSession(f *framework.Framework, seid pfcp.SEID, showInfo bool) *pfcp.
 func newTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffic.TrafficRec) (*traffic.TrafficGen, *network.NetNS, *network.NetNS) {
 	ginkgo.By("starting the traffic generator")
 	cfg.SetNoLinger(true)
-	cfg.SetServerIP(f.ServerIP())
+	cfg.AddServerIP(f.ServerIP())
+	httpCfg, ok := cfg.(*traffic.HTTPConfig)
+	if ok {
+		// Avoid broken connections due to 5-tuple reuse
+		// by using multiple server IPs
+		// Perhaps flowtable should handle these situations better
+		for i := 1; i < httpCfg.SimultaneousCount/10; i++ {
+			cfg.AddServerIP(f.AddServerIP())
+		}
+	}
 	clientNS := f.VPP.GetNS("ue")
 	var serverNS *network.NetNS
 	if f.Mode == framework.UPGModeGTPProxy {

@@ -41,7 +41,10 @@ type HTTPConfig struct {
 
 var _ TrafficConfig = &HTTPConfig{}
 
-func (cfg *HTTPConfig) SetServerIP(ip net.IP)     { cfg.ServerIP = ip }
+func (cfg *HTTPConfig) AddServerIP(ip net.IP) {
+	cfg.ServerIPs = append(cfg.ServerIPs, ip)
+}
+
 func (cfg *HTTPConfig) SetNoLinger(noLinger bool) { cfg.NoLinger = noLinger }
 
 func (cfg *HTTPConfig) SetDefaults() {
@@ -108,6 +111,10 @@ func (hs *HTTPServer) Stop() {
 }
 
 func (hs *HTTPServer) Start(ctx context.Context, ns *network.NetNS) error {
+	if len(hs.cfg.ServerIPs) == 0 {
+		return errors.New("no server IPs specified")
+	}
+
 	if hs.s != nil {
 		return nil
 	}
@@ -139,7 +146,7 @@ func (hs *HTTPServer) Start(ctx context.Context, ns *network.NetNS) error {
 	}
 
 	listenAt := "0.0.0.0"
-	if hs.cfg.ServerIP.To4() == nil {
+	if hs.cfg.ServerIPs[0].To4() == nil {
 		listenAt = "[::]"
 	}
 	listenAddr := fmt.Sprintf("%s:%d", listenAt, hs.cfg.ServerPort)
@@ -168,19 +175,20 @@ type HTTPClient struct {
 
 var _ TrafficClient = &HTTPClient{}
 
-func (hc *HTTPClient) downloadURL() string {
+func (hc *HTTPClient) downloadURL(n int) string {
 	portSuffix := ""
 	if hc.cfg.ClientPort != 80 {
 		portSuffix = fmt.Sprintf(":%d", hc.cfg.ClientPort)
 	}
+	serverIP := hc.cfg.ServerIPs[n%len(hc.cfg.ServerIPs)]
 	var hostname string
 	switch {
 	case hc.cfg.UseFakeHostname:
-		hostname = ipToFakeHostname(hc.cfg.ServerIP)
-	case hc.cfg.ServerIP.To4() == nil:
-		hostname = fmt.Sprintf("[%s]", hc.cfg.ServerIP)
+		hostname = ipToFakeHostname(serverIP)
+	case serverIP.To4() == nil:
+		hostname = fmt.Sprintf("[%s]", serverIP)
 	default:
-		hostname = hc.cfg.ServerIP.String()
+		hostname = serverIP.String()
 	}
 	return fmt.Sprintf("http://%s%s/dummy", hostname, portSuffix)
 }
@@ -260,27 +268,29 @@ func (hc *HTTPClient) download(ctx context.Context, ns *network.NetNS, url strin
 }
 
 func (hc *HTTPClient) Run(ctx context.Context, ns *network.NetNS) error {
+	if len(hc.cfg.ServerIPs) == 0 {
+		return errors.New("no server IPs specified")
+	}
+
 	ts := time.Now()
 
-	url := hc.downloadURL()
-	log := hc.log.WithField("url", url)
-
-	log.Info("downloading")
+	hc.log.WithField("numConns", hc.cfg.SimultaneousCount).Info("downloading")
 	var wg sync.WaitGroup
 	wg.Add(hc.cfg.SimultaneousCount)
 	for i := 0; i < hc.cfg.SimultaneousCount; i++ {
-		go func() {
+		go func(n int) {
 			defer wg.Done()
+			url := hc.downloadURL(n)
 			if err := hc.download(ctx, ns, url); err != nil {
 				hc.rec.RecordError("download error: %v", err)
 			}
-		}()
+		}(i)
 	}
 	wg.Wait()
 
 	elapsed := time.Since(ts)
 	rcvBytes := hc.rec.Stats().ClientReceived
-	log.WithFields(logrus.Fields{
+	hc.log.WithFields(logrus.Fields{
 		"total":   rcvBytes,
 		"elapsed": elapsed,
 		"Mbps":    float64(rcvBytes) * 8.0 * float64(time.Second) / (1000000. * float64(elapsed)),

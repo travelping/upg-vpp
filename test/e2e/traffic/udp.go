@@ -28,7 +28,13 @@ type UDPPingConfig struct {
 
 var _ TrafficConfig = &UDPPingConfig{}
 
-func (cfg *UDPPingConfig) SetServerIP(ip net.IP)     { cfg.ServerIP = ip }
+func (cfg *UDPPingConfig) AddServerIP(ip net.IP) {
+	if cfg.ServerIP != nil {
+		panic("only single ServerIP is supported")
+	}
+	cfg.ServerIP = ip
+}
+
 func (cfg *UDPPingConfig) SetNoLinger(noLinger bool) {}
 
 func (cfg *UDPPingConfig) SetDefaults() {
