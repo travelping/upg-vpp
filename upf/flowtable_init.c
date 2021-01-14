@@ -34,7 +34,7 @@
 flowtable_main_t flowtable_main;
 
 clib_error_t *
-flowtable_timelife_update (flowtable_timeout_type_t type, u16 value)
+flowtable_lifetime_update (flowtable_timeout_type_t type, u16 value)
 {
   flowtable_main_t *fm = &flowtable_main;
 
@@ -50,8 +50,12 @@ flowtable_timelife_update (flowtable_timeout_type_t type, u16 value)
 }
 
 clib_error_t *
-flowtable_max_timelife_update (u16 value)
+flowtable_max_lifetime_update (u16 value)
 {
+  /*
+   * TODO: need to do range check on the value (> 0)
+   * and also reschedule the current flows, if any
+   */
   clib_error_t *error = 0;
   flowtable_main_t *fm = &flowtable_main;
 
