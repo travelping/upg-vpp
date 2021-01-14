@@ -145,14 +145,17 @@ always_inline void
 expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 		    flow_entry_t * f, dlist_elt_t * e, u32 now)
 {
+#if CLIB_DEBUG > 1
+  flowtable_main_t *fm = &flowtable_main;
+#endif
   ASSERT (f->timer_index == (e - fmt->timers));
   ASSERT (f->active <= now);
 
   /* timers unlink */
   clib_dlist_remove (fmt->timers, e - fmt->timers);
 
-  upf_debug ("Flow Timeout Check %p: %u (%u) > %u (%u)",
-	     f, f->active + f->lifetime,
+  upf_debug ("Flow Timeout Check %d: %u (%u) > %u (%u)",
+	     f - fm->flows, f->active + f->lifetime,
 	     (f->active + f->lifetime) % fm->timer_max_lifetime,
 	     now, fmt->time_index);
 
@@ -164,13 +167,14 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 
       timer_slot_head_index =
 	(f->active + f->lifetime) % fm->timer_max_lifetime;
-      upf_debug ("Flow Reshedule %p to %u", f, timer_slot_head_index);
+      upf_debug ("Flow Reshedule %d to %u", f - fm->flows,
+		 timer_slot_head_index);
       clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
     }
   else
     {
       upf_main_t *gtm = &upf_main;
-      upf_debug ("Flow Remove %p", f);
+      upf_debug ("Flow Remove %d", f - fm->flows);
       pool_put (fmt->timers, e);
 
       /* hashtable unlink */
@@ -348,6 +352,8 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   timer_entry->value = f - fm->flows;	/* index within the flow pool */
   f->timer_index = timer_entry - fmt->timers;	/* index within the timer pool */
   timer_wheel_insert_flow (fm, fmt, f);
+  upf_debug ("Flow Created: fidx %d timer_index %d", f - fm->flows,
+	     f->timer_index);
 
   vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
@@ -439,6 +445,9 @@ format_flow (u8 * s, va_list * args)
   flow_entry_t *flow = va_arg (*args, flow_entry_t *);
   int is_reverse = flow->is_reverse;
   upf_main_t *sm = &upf_main;
+#if CLIB_DEBUG > 0
+  flowtable_main_t *fm = &flowtable_main;
+#endif
   u8 *app_name = NULL;
 
   if (flow->application_id != ~0)
@@ -449,7 +458,9 @@ format_flow (u8 * s, va_list * args)
     }
   else
     app_name = format (0, "%s", "None");
-
+#if CLIB_DEBUG > 0
+  s = format (s, "Flow %d: ", flow - fm->flows);
+#endif
   s = format (s, "%U, UL pkt %u, DL pkt %u, "
 	      "Forward PDR %u, Reverse PDR %u, "
 	      "app %v, lifetime %u, proxy %d, spliced %d",
@@ -459,6 +470,9 @@ format_flow (u8 * s, va_list * args)
 	      flow_pdr_id (flow, FT_ORIGIN),
 	      flow_pdr_id (flow, FT_REVERSE), app_name, flow->lifetime,
 	      flow->is_l3_proxy, flow->is_spliced);
+#if CLIB_DEBUG > 0
+  s = format (s, ", dont_splice %d", flow->dont_splice);
+#endif
 #if CLIB_DEBUG > 1
   s = format (s, ", cpu %u", flow->cpu_index);
 #endif
