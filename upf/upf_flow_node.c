@@ -118,9 +118,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
   n_left_from = frame->n_vectors;
   next_index = node->cached_next_index;
 
-  u32 current_time =
-    (u32) ((u64) fm->vlib_main->cpu_time_last_node_dispatch /
-	   fm->vlib_main->clib_time.clocks_per_second);
+  u32 current_time = (u32) vlib_time_now (vm);
   timer_wheel_index_update (fm, fmt, current_time);
 
   while (n_left_from > 0)

@@ -369,6 +369,7 @@ flow_update_lifetime (flow_entry_t * f, u8 * iph, u8 is_ip4)
 always_inline void
 flow_update_active (flow_entry_t * f, u32 now)
 {
+  ASSERT (f->active <= now);
   f->active = now;
 }
 
@@ -380,7 +381,6 @@ timer_wheel_insert_flow (flowtable_main_t * fm,
 
   timer_slot_head_index =
     (fmt->time_index + f->lifetime) % fm->timer_max_lifetime;
-  f->active = fmt->time_index;
   clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
 }
 
