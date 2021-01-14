@@ -177,6 +177,30 @@ func describeMeasurement(f *framework.Framework) {
 
 			ginkgo.It("can handle a big number of HTTP connections at once", func() {
 				verifyConnFlood(f, false)
+				// we only verify proxy cleanup for "clean" (non-netem)
+				// multi-connection test b/c the flows there should time out
+				// rather quickly.
+				// TODO: also verify for netem, but only in non-quick mode
+				countFlows := func() int {
+					f.Ping("ue", f.ServerIP(), 1)
+					r, err := f.VPP.Ctl("show upf flows")
+					framework.ExpectNoError(err)
+					lines := strings.Split(r, "\n")
+					n := 0
+					for _, l := range lines {
+						if strings.TrimSpace(l) != "" {
+							n++
+						}
+					}
+					return n
+				}
+				// just one flow must remain, corresponding to the ping
+				gomega.Eventually(countFlows, 6*time.Minute, 10*time.Second).Should(gomega.Equal(1))
+				// all of the proxy sessions must be cleaned up together with the flows
+				proxySessionStr, err := f.VPP.Ctl("show upf proxy session")
+				framework.ExpectNoError(err)
+				framework.ExpectEqual(strings.TrimSpace(proxySessionStr), "")
+
 				deleteSession(f, seid, true)
 			})
 
@@ -474,6 +498,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 						IdBase: 1,
 						UEIP:   ueIPs[j],
 						Mode:   f.Mode,
+						AppPDR: true,
 					}
 					seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
 					framework.ExpectNoError(err)
