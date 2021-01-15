@@ -133,7 +133,7 @@ init_tp_error_report (pfcp_tp_error_report_t * report,
   SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_FILE_NAME);
   SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_LINE_NUMBER);
 
-  if ((p = strrchr (file)) != NULL)
+  if ((p = strrchr (file, '/')) != NULL)
     {
       p++;
     }
