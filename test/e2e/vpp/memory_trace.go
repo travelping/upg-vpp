@@ -32,6 +32,7 @@ func (mt MemoryTrace) FindSuspectedLeak(locationSubsring string, minCount uint64
 
 var titleRx = regexp.MustCompile(`^Bytes\s+Count\s+Sample\s+Traceback$`)
 var entryRx = regexp.MustCompile(`^\s*(\d+)\s+(\d+)\s+0x([0-9A-Fa-f]+)\s+(.*)`)
+var totalRx = regexp.MustCompile(`^\s*\d+\s+total traced objects`)
 
 func ParseMemoryTrace(src string) (MemoryTrace, error) {
 	var r MemoryTrace
@@ -44,13 +45,14 @@ func ParseMemoryTrace(src string) (MemoryTrace, error) {
 			continue
 		}
 		if titleRx.MatchString(l) {
-			if gotTitle {
-				return nil, errors.New("duplicate trace title")
-			}
 			gotTitle = true
 			continue
 		}
 		if !gotTitle {
+			continue
+		}
+		if totalRx.MatchString(l) {
+			gotTitle = false
 			continue
 		}
 
