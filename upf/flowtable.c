@@ -334,6 +334,9 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
   f->application_id = ~0;
+#if CLIB_DEBUG > 0
+  f->cpu_index = os_get_thread_index ();
+#endif
   f->generation = generation;
   flow_pdr_id (f, FT_ORIGIN) = ~0;
   flow_pdr_id (f, FT_REVERSE) = ~0;

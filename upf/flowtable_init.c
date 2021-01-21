@@ -65,15 +65,13 @@ flowtable_max_lifetime_update (u16 value)
 }
 
 static clib_error_t *
-flowtable_init_cpu (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
+flowtable_init_cpu (flowtable_main_t * fm, u32 cpu_index)
 {
-#if CLIB_DEBUG > 0
-  u32 cpu_index = os_get_thread_index ();
-#endif
   int i;
   flow_entry_t *f;
   clib_error_t *error = 0;
   dlist_elt_t *timer_slot;
+  flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
 
   /* init hashtable */
   BV (clib_bihash_init) (&fmt->flows_ht, "flow hash table",
@@ -145,7 +143,7 @@ flowtable_init (vlib_main_t * vm)
   vec_validate (fm->per_cpu, tm->n_vlib_mains - 1);
   for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)
     {
-      error = flowtable_init_cpu (fm, &fm->per_cpu[cpu_index]);
+      error = flowtable_init_cpu (fm, cpu_index);
       if (error)
 	return error;
     }

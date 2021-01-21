@@ -66,6 +66,7 @@ upf_pfcp_send_data (pfcp_msg_t * msg)
   app_session_transport_t at;
   svm_msg_q_t *mq;
   session_t *s;
+  vlib_main_t *vm = vlib_get_main ();
 
   s = session_get_from_handle_if_valid (msg->session_handle);
   if (!s)
@@ -81,6 +82,14 @@ upf_pfcp_send_data (pfcp_msg_t * msg)
   app_send_dgram_raw (s->tx_fifo, &at, mq, msg->data,
 		      _vec_len (msg->data), SESSION_IO_EVT_TX,
 		      1 /* do_evt */ , 0);
+  /*
+   * This is needed in case if there are > 0 workers
+   * as PFCP still runs on the main thread which can't
+   * process the session queue by itself w/o being
+   * "nudged" this way
+   */
+  if (vm->thread_index == 0 && vlib_num_workers ())
+    session_queue_run_on_main_thread (vm);
 }
 
 static int
@@ -418,8 +427,8 @@ request_t1_expired (u32 seq_no)
       hash_unset (psm->request_q, msg->seq_no);
       pfcp_msg_pool_put (psm, msg);
 
-      if (type == PFCP_HEARTBEAT_REQUEST 
- 	  && !pool_is_free_index (gtm->nodes, msg->node))
+      if (type == PFCP_HEARTBEAT_REQUEST
+	  && !pool_is_free_index (gtm->nodes, msg->node))
 	{
 	  upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, msg->node);
 	  pfcp_release_association (n);

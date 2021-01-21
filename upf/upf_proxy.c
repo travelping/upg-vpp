@@ -1336,9 +1336,8 @@ proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
 }
 
 static void
-upf_proxy_create (u32 fib_index, int is_ip4)
+upf_proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
 {
-  vlib_main_t *vm = &vlib_global_main;
   upf_proxy_main_t *pm = &upf_proxy_main;
   int rv;
 
@@ -1403,10 +1402,21 @@ upf_proxy_main_init (vlib_main_t * vm)
     vlib_node_add_next (vm, tcp6_output_node.index,
 			upf_ip6_proxy_server_output_node.index);
 
-  flow_expiration_hook = upf_proxy_flow_expiration_hook;
-  upf_proxy_create (0, 1);
-
   return 0;
+}
+
+static int is_initialized = 0;
+
+void
+upf_proxy_init (vlib_main_t * vm)
+{
+  if (is_initialized)
+    return;
+
+  flow_expiration_hook = upf_proxy_flow_expiration_hook;
+  upf_proxy_create (vm, 0, 1);
+
+  is_initialized = 1;
 }
 
 VLIB_INIT_FUNCTION (upf_proxy_main_init);

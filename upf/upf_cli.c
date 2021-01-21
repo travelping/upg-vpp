@@ -455,6 +455,8 @@ upf_tdf_ul_table_add_del_command_fn (vlib_main_t * vm,
   if (table_id == ~0)
     return clib_error_return (0, "table-id must be specified");
 
+  upf_proxy_init (vm);
+
   rv = vnet_upf_tdf_ul_table_add_del (vrf, fproto, table_id, add);
 
   switch (rv)
@@ -727,6 +729,8 @@ upf_gtpu_endpoint_add_del_command_fn (vlib_main_t * vm,
   u8 add = 1;
   int rv;
   u8 *s;
+
+  upf_proxy_init (vm);
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
     return 0;
@@ -1108,11 +1112,16 @@ static clib_error_t *
 upf_show_flows_command_fn (vlib_main_t * vm,
 			   unformat_input_t * input, vlib_cli_command_t * cmd)
 {
+  u32 cpu_index;
   flowtable_main_t *fm = &flowtable_main;
-  flowtable_main_per_cpu_t *fmt = &fm->per_cpu[0];
+  vlib_thread_main_t *tm = vlib_get_thread_main ();
 
-  BV (clib_bihash_foreach_key_value_pair)
-    (&fmt->flows_ht, upf_flows_out_cb, vm);
+  for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)
+    {
+      flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+      BV (clib_bihash_foreach_key_value_pair)
+	(&fmt->flows_ht, upf_flows_out_cb, vm);
+    }
 
   return NULL;
 }
