@@ -173,6 +173,8 @@ func (f *Framework) Ping(nsName string, ip net.IP, count int) {
 func (f *Framework) AfterEach() {
 	if f.VPP != nil {
 		ExpectNoError(f.VPP.VerifyVPPAlive())
+		f.VPP.Ctl("show run")
+		f.VPP.Ctl("show threads")
 		defer func() {
 			if f.VPP != nil {
 				f.VPP.TearDown()
