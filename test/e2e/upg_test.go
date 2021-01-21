@@ -1,10 +1,13 @@
 package exttest
 
 import (
+	"encoding/binary"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -13,9 +16,11 @@ import (
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
+	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/sirupsen/logrus"
 
 	"github.com/travelping/upg-vpp/test/e2e/framework"
+	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
 var pause = flag.Bool("pause", false, "Pause upon failure")
@@ -29,6 +34,38 @@ func FailPause(message string, callerSkip ...int) {
 		time.Sleep(time.Hour)
 	}
 }
+
+var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
+	percents, err := cpu.Percent(5*time.Second, true)
+	if err != nil {
+		log.Panicf("can't get cpu usage: %v", err)
+	}
+	usage := make([]struct {
+		n       uint16
+		percent float64
+	}, len(percents))
+	for n, p := range percents {
+		usage[n].n = uint16(n)
+		usage[n].percent = p
+	}
+	sort.Slice(usage, func(i, j int) bool {
+		return usage[i].percent < usage[j].percent
+	})
+	r := make([]byte, len(usage)*2)
+	for n, u := range usage {
+		binary.LittleEndian.PutUint16(r[n*2:], u.n)
+	}
+	return r
+}, func(data []byte) {
+	// select 2 cores for the current parallel node
+	numCores := len(data) / 2
+	n := (config.GinkgoConfig.ParallelNode - 1) % (numCores / 2)
+	vpp.Cores = []int{
+		int(binary.LittleEndian.Uint16(data[n*4:])),
+		int(binary.LittleEndian.Uint16(data[n*4+2:])),
+	}
+	fmt.Println("Cores:", vpp.Cores)
+})
 
 func TestUPG(t *testing.T) {
 	if *pause {

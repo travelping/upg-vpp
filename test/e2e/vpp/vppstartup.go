@@ -32,7 +32,7 @@ api-trace {
 
 cpu {
   main-core {{.MainCore}}
-  workers 0
+  corelist-workers {{.WorkerCore}}
 }
 
 statseg {
@@ -56,6 +56,10 @@ plugins {
 var startupTemplate *template.Template
 var vppIndex int32
 
+// Cores list the logical CPU cores that can be used for VPP.
+// It is set in SynchronizedBeforeSuite()
+var Cores []int = []int{0, 1}
+
 func init() {
 	var err error
 	startupTemplate, err = template.New("test").Parse(vppStartupTemplateStr)
@@ -73,6 +77,7 @@ type VPPStartupConfig struct {
 	VPPLog        string
 	APIPrefix     string
 	MainCore      int
+	WorkerCore    int
 	UseGDB        bool
 	Trace         bool
 	DispatchTrace bool
