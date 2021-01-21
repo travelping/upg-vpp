@@ -1,4 +1,4 @@
-From aa44336575dcf97bb9ce8277b045b96cafd67c3d Mon Sep 17 00:00:00 2001
+From 50e9ce6fbd8f88b8993335a21f401b7d6c6ccd79 Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Mon, 23 Nov 2020 21:35:28 +0400
 Subject: [PATCH] vppinfra: Refactor sparse_vec_free
@@ -13,12 +13,14 @@ Type: improvement
 Change-Id: Ied161a4408447d57cade5266cad4e1660e967a88
 Signed-off-by: Sergey Matov <sergey.matov@travelping.com>
 ---
+ src/vppinfra/sparse_vec.h | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/src/vppinfra/sparse_vec.h b/src/vppinfra/sparse_vec.h
-index 54a92ce..7fd1aff 100644
+index 54a92ce7a..7fd1aff60 100644
 --- a/src/vppinfra/sparse_vec.h
 +++ b/src/vppinfra/sparse_vec.h
-@@ -223,7 +223,18 @@
+@@ -223,7 +223,18 @@ sparse_vec_index2 (void *v,
    *i1_return = is_member1 + d1;
  }
  
@@ -38,3 +40,6 @@ index 54a92ce..7fd1aff 100644
  
  #define sparse_vec_elt_at_index(v,i) \
    vec_elt_at_index ((v), sparse_vec_index ((v), (i)))
+-- 
+2.28.0
+
