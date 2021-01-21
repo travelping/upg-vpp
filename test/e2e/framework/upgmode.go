@@ -58,6 +58,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				OtherLinkName: "cp1",
 				Table:         0,
 				MTU:           1500,
+				Placement:     -1, // main thread
 			},
 			{
 				Name:          "ue",
@@ -128,6 +129,7 @@ func pgwVPPConfigIPv6() vpp.VPPConfig {
 				VPPLinkName:   "cp0",
 				OtherLinkName: "cp1",
 				Table:         0,
+				Placement:     -1, // main thread
 			},
 			{
 				Name:          "ue",
@@ -196,6 +198,7 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "cp0",
 				OtherLinkName: "cp1",
 				Table:         0,
+				Placement:     -1, // main thread
 			},
 			{
 				Name:          "ue",
@@ -260,6 +263,7 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 				VPPLinkName:   "cp0",
 				OtherLinkName: "cp1",
 				Table:         0,
+				Placement:     -1, // main thread
 			},
 			{
 				Name:          "ue",
