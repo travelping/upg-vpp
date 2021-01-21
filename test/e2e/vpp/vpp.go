@@ -167,11 +167,8 @@ func (vi *VPPInstance) prepareCommand() (*exec.Cmd, error) {
 	vi.startupCfg.StatsSock = vi.vppFilePath("stats.sock")
 	vi.startupCfg.VPPLog = vi.vppFilePath("vpp.log")
 
-	coreIndex, err := getCPU()
-	if err != nil {
-		return nil, errors.Wrap(err, "sched_getcpu() failed")
-	}
-	vi.startupCfg.MainCore = coreIndex
+	vi.startupCfg.MainCore = Cores[0]
+	vi.startupCfg.WorkerCore = Cores[1]
 
 	startupFile, err := vi.writeVPPFile("startup.conf", vi.startupCfg.Get())
 	if err != nil {
