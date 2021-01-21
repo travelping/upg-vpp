@@ -940,6 +940,8 @@ upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
   b->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
 }
 
+void upf_proxy_init (vlib_main_t * vm);
+
 #endif /* __included_upf_h__ */
 
 /*

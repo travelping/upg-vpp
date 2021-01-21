@@ -1336,9 +1336,8 @@ proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
 }
 
 static void
-upf_proxy_create (u32 fib_index, int is_ip4)
+upf_proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
 {
-  vlib_main_t *vm = &vlib_global_main;
   upf_proxy_main_t *pm = &upf_proxy_main;
   int rv;
 
@@ -1404,12 +1403,34 @@ upf_proxy_main_init (vlib_main_t * vm)
 			upf_ip6_proxy_server_output_node.index);
 
   flow_expiration_hook = upf_proxy_flow_expiration_hook;
-  upf_proxy_create (0, 1);
+
+  return 0;
+}
+
+static int upf_proxy_is_initialized = 0;
+
+/*
+ * upf_proxy_create() calls vnet_session_enable_disable() which must
+ * not be invoked from an init function, as this leads to a crash in
+ * the case of non-zero workers. See session_main_loop_init() in
+ * src/vnet/session/session.c
+ */
+static clib_error_t *
+upf_proxy_main_loop_init (vlib_main_t * vm)
+{
+  vlib_worker_thread_barrier_sync (vm);
+  if (!upf_proxy_is_initialized)
+    {
+      upf_proxy_is_initialized = 1;
+      upf_proxy_create (vm, 0, 1);
+    }
+  vlib_worker_thread_barrier_release (vm);
 
   return 0;
 }
 
 VLIB_INIT_FUNCTION (upf_proxy_main_init);
+VLIB_MAIN_LOOP_ENTER_FUNCTION (upf_proxy_main_loop_init);
 
 /*
 * fd.io coding-style-patch-verification: ON
