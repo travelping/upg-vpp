@@ -362,15 +362,24 @@ proxy_start_connect_fn (const u32 * session_index)
       goto out;
     }
 
+  /* TODO: RACE: should not access the flow on the main thread */
   flow = pool_elt_at_index (fm->flows, ps->flow_index);
   sx = pool_elt_at_index (gtm->sessions, flow->session_index);
+  if (sx->generation != flow->generation)
+    {
+      ps->refcnt--;
+      ps->active_open_establishing = 0;
+      goto out;
+    }
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
   src = &flow->key.ip[FT_ORIGIN ^ flow->is_reverse];
   dst = &flow->key.ip[FT_REVERSE ^ flow->is_reverse];
   is_ip4 = ip46_address_is_ip4 (dst);
 
+  ASSERT (flow_pdr_id (flow, FT_ORIGIN) != ~0);
   pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
+  ASSERT (pdr);
   far = pfcp_get_far_by_id (active, pdr->far_id);
 
   memset (a, 0, sizeof (*a));
@@ -852,6 +861,12 @@ proxy_rx_callback_static (session_t * s, upf_proxy_session_t * ps)
 
   flow = pool_elt_at_index (fm->flows, ps->flow_index);
   sx = pool_elt_at_index (gtm->sessions, flow->session_index);
+  if (sx->generation != flow->generation)
+    {
+      upf_debug ("flow PDR info outdated, close incoming session");
+      proxy_session_try_close_unlocked (ps);
+      return 0;
+    }
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
   /*
