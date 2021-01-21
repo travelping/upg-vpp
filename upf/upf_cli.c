@@ -1108,11 +1108,16 @@ static clib_error_t *
 upf_show_flows_command_fn (vlib_main_t * vm,
 			   unformat_input_t * input, vlib_cli_command_t * cmd)
 {
+  u32 cpu_index;
   flowtable_main_t *fm = &flowtable_main;
-  flowtable_main_per_cpu_t *fmt = &fm->per_cpu[0];
+  vlib_thread_main_t *tm = vlib_get_thread_main ();
 
-  BV (clib_bihash_foreach_key_value_pair)
-    (&fmt->flows_ht, upf_flows_out_cb, vm);
+  for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)
+    {
+      flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+      BV (clib_bihash_foreach_key_value_pair)
+	(&fmt->flows_ht, upf_flows_out_cb, vm);
+    }
 
   return NULL;
 }
