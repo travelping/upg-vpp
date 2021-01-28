@@ -16,7 +16,7 @@ if [[ ${1:-} = "-verify" ]]; then
   verify=1
 fi
 
-sed_cmd="s@\(FROM \|image: \)quay\.io/[^ ]*\(.*# XX_DO_NOT_REMOVE_THIS_COMMENT\|.* AS build-stage\)@\1${build_image}\2@"
+sed_cmd="s@\(BUILD_IMAGE: \)quay\.io/[^ ]*\(.*# XX_DO_NOT_REMOVE_THIS_COMMENT\|.* AS build-stage\)@\1${build_image}\2@"
 if [[ ${verify} ]]; then
   for f in "${files[@]}"; do
     if ! cmp -s "${f}" <(sed "${sed_cmd}" "${f}"); then

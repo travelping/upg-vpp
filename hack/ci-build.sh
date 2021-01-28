@@ -8,23 +8,15 @@ set -x
 : ${REGISTRY:=quay.io}
 : ${CONTAINER_IMAGE:=travelping/upg-vpp}
 : ${DOCKERFILE:=Dockerfile.devel}
-: ${BUILDKITD_ADDR:=tcp://buildkitd:1234}
 
 . vpp.spec
 function do_build {
-  # FIXME: can't export cache to quay.io:
-  # https://github.com/moby/buildkit/issues/1440
-  # --export-cache type=inline \
-  # --import-cache type=registry,ref="${IMAGE_REPO}" \
-  buildctl --addr "${BUILDKITD_ADDR}" build \
-           --frontend dockerfile.v0 \
-           --progress=plain \
-           --local context=. \
-           --local dockerfile=. \
-           --opt filename="${DOCKERFILE}" \
-           --opt label:vpp.release="${VPP_RELEASE}" \
-           --opt label:vpp.commit="${VPP_COMMIT}" \
-           "$@"
+    docker buildx build \
+           --build-arg BUILD_IMAGE="${BUILD_IMAGE}" \
+           --label vpp.release="${VPP_RELEASE}" \
+           --label vpp.commit="${VPP_COMMIT}" \
+           "$@" \
+           -f ${DOCKERFILE} .
 }
 
 IMAGE_VARIANT="${CI_BUILD_NAME##*:}"
@@ -46,11 +38,19 @@ if [[ ${REGISTRY_LOGIN:-} && ${REGISTRY_PASSWORD:-} ]]; then
   hack/registry-login.sh "${REGISTRY}"
 fi
 
+#echo >&2 "Create builder ..."
+#docker buildx create \
+#       --append \
+#       --name upg \
+#       --driver-opt env.BUILDKIT_STEP_LOG_MAX_SIZE=10000000,env.BUILDKIT_STEP_LOG_MAX_SPEED=100000000 \
+#       --use
+#docker buildx ls
+
 echo >&2 "Building VPP and extracting the artifacts ..."
 rm -rf /tmp/_out
 mkdir /tmp/_out
-do_build --opt target=artifacts --output type=local,dest=/tmp/_out
+do_build --target=artifacts --output type=local,dest=/tmp/_out
 
 echo >&2 "Building the image from ${DOCKERFILE} ..."
-do_build --opt target=final-stage \
-         --output type=image,name="${IMAGE_FULL_NAME}",push=true
+do_build --target=final-stage \
+         --tag "${IMAGE_FULL_NAME}" --push

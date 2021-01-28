@@ -1,11 +1,7 @@
 # syntax = docker/dockerfile:experimental
-FROM ubuntu:bionic AS build-stage
+FROM ubuntu:focal AS build-stage
 
 WORKDIR /
-
-ENV BUILDKIT_VERSION "v0.7.1"
-ENV BUILDCTL_SHA256 "a39e44735e9cdcbe27ef22179ef990de1024f2dc69665fed1c2a5431ff73ed9c"
-ENV INDENT_SHA256 "12185be748db620f8f7799ea839f0d10ce643b9f5ab1805c960e56eb27941236"
 
 COPY vpp/Makefile /src/vpp/Makefile
 COPY vpp/build/external /src/vpp/build/external
@@ -17,20 +13,18 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     apt-get dist-upgrade -yy && \
     apt-get install -y software-properties-common && \
     add-apt-repository ppa:longsleep/golang-backports && \
+    add-apt-repository ppa:aschultz/ppa && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-	    build-essential sudo git netbase curl ca-certificates \
+            build-essential sudo git netbase curl ca-certificates \
             golang-go iproute2 gdb tcpdump iputils-ping libpcap-dev \
-            dumb-init && \
-    curl -sSL "https://github.com/moby/buildkit/releases/download/${BUILDKIT_VERSION}/buildkit-${BUILDKIT_VERSION}.linux-amd64.tar.gz" | \
-    tar -xvz -C /usr/local bin/buildctl && \
-    echo "${BUILDCTL_SHA256}  /usr/local/bin/buildctl" | sha256sum -c && \
+            dumb-init dh-python && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            docker-ce docker-ce-cli && \
     cd /src/vpp && \
-    curl -sSL -O http://mirrors.kernel.org/ubuntu/pool/main/i/indent/indent_2.2.12-1_amd64.deb && \
-    echo "${INDENT_SHA256} /src/vpp/indent_2.2.12-1_amd64.deb" | sha256sum -c && \
-    apt-get install  -y --no-install-recommends \
-    /src/vpp/indent_2.2.12-1_amd64.deb && \
-    rm /src/vpp/indent_2.2.12-1_amd64.deb && \
     git config --global user.email "dummy@example.com" && \
     git config --global user.name "dummy user" && \
     git init && \

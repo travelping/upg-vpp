@@ -21,13 +21,11 @@ update-build-image-tag: vpp
 	hack/update-build-image-tag.sh
 
 image-debug: vpp
-	DOCKER_BUILDKIT=1 \
-	docker build -t $(IMAGE_BASE):debug \
+	docker buildx build -t $(IMAGE_BASE):debug \
 	  -f Dockerfile.devel .
 
 image-release: vpp
-	DOCKER_BUILDKIT=1 \
-	docker build -t $(IMAGE_BASE):release \
+	docker buildx build -t $(IMAGE_BASE):release \
 	  -f Dockerfile .
 
 test-debug:

@@ -6,8 +6,8 @@ stages:
 variables:
   REGISTRY: "quay.io"
   IMAGE_NAME: travelping/upg-vpp
-  # this points to buildkitd k8s service
-  BUILDKITD_ADDR: tcp://buildkitd:1234
+  # the following is updated automatically by make update-build-image-tag
+  BUILD_IMAGE: quay.io/travelping/upg-build:845c1d67c361f2c78c315f02fec9ee22 # XX_DO_NOT_REMOVE_THIS_COMMENT
   # This is needed to disable TLS in recent docker:...dind images.
   # TLS there is not really needed as docker client connects
   # to localhost, and all of the docker certs only cause problems
@@ -22,29 +22,24 @@ variables:
 # prepare build image
 prepare:
   stage: prepare
-  # image: moby/buildkit:v0.7.1@sha256:530396a0ef93eacc025dadeb6a8a69d8c87ca402f48df9bc7c8c767b46fe9cf3
-  image: docker:git
+  # image: docker:20-git
+  image: jdrouet/docker-with-buildx:stable
   services:
-  - docker:19.03.8-dind
+    - docker:dind
+    - linuxkit/binfmt:v0.8
+  before_script:
+    - apk --no-cache --update add git
   script:
-  - export DOCKER_HOST="tcp://localhost:2375"
-  - echo "quay.io login..."
-  - docker login -u ${QUAY_USER_ID} -p ${QUAY_TOKEN} ${REGISTRY}
-  - echo "Ensuring that proper build image exists ..."
-  # we don't use 'make' here b/c dind image doesn't have it
-  # and it's not strictly required
-  - sh hack/update-vpp.sh
-  - PUSH_BUILD_IMAGE=1 sh hack/ensure-build-image.sh
-  # FIXME: push from buildkit to quay.io fails with '401 UNAUTHORIZED'
-  # for some reason, and it only happens with build images
-  # - echo "registry login..."
-  # # 'docker' command not available in the buildkit image
-  # - >
-  #   REGISTRY_LOGIN=${QUAY_USER_ID}
-  #   REGISTRY_PASSWORD=${QUAY_TOKEN}
-  #   hack/registry-login.sh "${REGISTRY}"
-  # - echo "Ensuring that proper build image exists ..."
-  # - USE_BUILDCTL=1 PUSH_BUILD_IMAGE=1 sh hack/ensure-build-image.sh
+    - docker version
+    - docker buildx ls
+    - docker buildx inspect --bootstrap
+    - echo "quay.io login..."
+    - docker login -u ${QUAY_USER_ID} -p ${QUAY_TOKEN} ${REGISTRY}
+    - echo "Ensuring that proper build image exists ..."
+    # we don't use 'make' here b/c dind image doesn't have it
+    # and it's not strictly required
+    - sh hack/update-vpp.sh
+    - PUSH_BUILD_IMAGE=1 sh hack/ensure-build-image.sh
   only:
     changes:
     - .gitlab-ci.yml
@@ -55,8 +50,14 @@ prepare:
 # build container image
 .build:
   stage: build
-  image: quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: ${BUILD_IMAGE}
+  services:
+    - docker:dind
+    - linuxkit/binfmt:v0.8
   script:
+  - docker version
+  - docker buildx ls
+  - docker buildx inspect --bootstrap
   - |
     export REGISTRY_LOGIN=${QUAY_USER_ID}
     export REGISTRY_PASSWORD=${QUAY_TOKEN}
@@ -90,8 +91,7 @@ build:debug:
 
 .test:
   stage: test
-  # the following is updated automatically by make update-build-image-tag
-  image: quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: ${BUILD_IMAGE}
   script:
   - make update-vpp
   - tar -C vpp -xvzf ${TEST_ARCHIVE}
@@ -113,8 +113,7 @@ build:debug:
 
 test:patch-style:
   stage: test
-  # the following is updated automatically by make update-build-image-tag
-  image: quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: ${BUILD_IMAGE}
   script:
   - hack/checkstyle.sh
 
@@ -138,8 +137,7 @@ test:release:
   stage: test
   variables:
     SKIP_VPP_SOURCE_CHECK: "y"
-  # the following is updated automatically by make update-build-image-tag
-  image: quay.io/travelping/upg-build:c0e8ed0e5ab1e1160f104c77fc4b5654 # XX_DO_NOT_REMOVE_THIS_COMMENT
+  image: ${BUILD_IMAGE}
   script:
   - tar -C vpp -xvzf ${TEST_ARCHIVE}
   - sysctl vm.nr_hugepages=0
