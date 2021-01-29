@@ -18,7 +18,7 @@
 # UPF plugin
 ##############################################################################
 
-message(STATUS "Looking for hyperscan")
+message(STATUS "Looking for vectorscan")
 pkg_check_modules(HS libhs)
 
 if(HS_FOUND)
@@ -90,5 +90,5 @@ if(HS_FOUND)
     upf_test.c
   )
 else()
-  message(WARNING "Hyperscan not found - GTP UPF disabled")
+  message(WARNING "Vectorscan not found - GTP UPF disabled")
 endif()
