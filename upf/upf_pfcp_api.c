@@ -864,7 +864,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 
   vec_foreach (pdr, create_pdr)
   {
-    upf_upip_res_t *res, *ip_res = NULL;
+    upf_upip_res_t *res = NULL, *ip_res = NULL;
     upf_pdr_t *create;
     upf_nwi_t *nwi = NULL;
 
@@ -1057,7 +1057,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
   vec_foreach (pdr, update_pdr)
   {
     upf_pdr_t *update;
-    upf_upip_res_t *res, *ip_res = NULL;
+    upf_upip_res_t *res = NULL, *ip_res = NULL;
     upf_nwi_t *nwi = NULL;
 
     update = pfcp_get_pdr (sx, PFCP_PENDING, pdr->pdr_id);

@@ -229,8 +229,8 @@ upf_tcp_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	{
 	  flow_direction_t direction;
 	  flow_entry_t *flow = NULL;
-	  ip4_header_t *ip4;
-	  ip6_header_t *ip6;
+	  ip4_header_t *ip4 = NULL;
+	  ip6_header_t *ip6 = NULL;
 	  tcp_header_t *th;
 	  u32 seq, ack;
 	  u32 flow_id;
