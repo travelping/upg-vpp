@@ -1437,8 +1437,7 @@ static void
 compile_sdf (int is_ip4, const upf_pdr_t * pdr,
 	     const acl_rule_t * rule, upf_acl_t * acl)
 {
-  if (!(pdr->pdi.fields & F_PDI_SDF_FILTER))
-    return;
+  ASSERT (pdr->pdi.fields & (F_PDI_SDF_FILTER | F_PDI_APPLICATION_ID));
 
   acl->match_sdf = 1;
 
@@ -1629,10 +1628,11 @@ build_pfcp_rules (upf_session_t * sx)
 			     pdr->pdi.teid.teid, idx);
       }
 
-    if ((pdr->pdi.fields & F_PDI_SDF_FILTER))
+    if (vec_len (pdr->pdi.acl) != 0)
       {
 	acl_rule_t *rule;
 
+	ASSERT (pdr->pdi.fields & (F_PDI_SDF_FILTER | F_PDI_APPLICATION_ID));
 	vec_foreach (rule, pdr->pdi.acl)
 	{
 	  if (rule->type == IPFILTER_IPV4 || rule->type == IPFILTER_WILDCARD)
