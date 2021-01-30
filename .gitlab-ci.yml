@@ -70,6 +70,7 @@ prepare:
 build:release:
   extends: .build
   variables:
+    DOCKER_TLS_CERTDIR: ""
     DOCKERFILE: Dockerfile
   artifacts:
     when: always
@@ -81,6 +82,7 @@ build:release:
 build:debug:
   extends: .build
   variables:
+    DOCKER_TLS_CERTDIR: ""
     DOCKERFILE: Dockerfile.devel
   artifacts:
     when: always
