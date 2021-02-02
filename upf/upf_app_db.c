@@ -223,6 +223,9 @@ upf_adf_get_adr_db (u32 application_id, acl_rule_t ** acl)
   upf_main_t *sm = &upf_main;
   upf_adf_app_t *app;
 
+  if (acl)
+    *acl = 0;
+
   if (application_id == ~0)
     return ~0;
 
