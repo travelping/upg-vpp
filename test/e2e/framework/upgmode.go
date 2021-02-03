@@ -107,6 +107,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 			// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
 			// For IPv6, ::/0 should be used as the subnet
 			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
+			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
@@ -175,6 +176,7 @@ func pgwVPPConfigIPv6() vpp.VPPConfig {
 			// "upf gtpu endpoint ip6 2001:db8:10::2 nwi cp teid 0x80000000/2",
 			"upf gtpu endpoint ip6 2001:db8:13::2 nwi epc teid 0x80000000/2",
 			"ip route add ::/0 table 200 via 2001:db8:12::3 host-sgi0",
+			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
@@ -238,6 +240,7 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 			// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
 			// For IPv6, ::/0 should be used as the subnet
 			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
+			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
@@ -299,6 +302,7 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 			"upf tdf ul table vrf 100 ip6 table-id 1001",
 			"upf tdf ul enable ip6 host-access0",
 			"ip route add ::/0 table 200 via 2001:db8:12::3 host-sgi0",
+			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
@@ -369,6 +373,7 @@ func gtpProxyVPPConfigIPv4() vpp.VPPConfig {
 			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
 			"upf gtpu endpoint ip 10.0.2.2 nwi access teid 0x80000000/2",
 			"upf gtpu endpoint ip 10.0.3.2 nwi core teid 0x80000000/2",
+			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it
@@ -440,6 +445,7 @@ func gtpProxyVPPConfigIPv6() vpp.VPPConfig {
 			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
 			"upf gtpu endpoint ip6 2001:db8:13::2 nwi access teid 0x80000000/2",
 			"upf gtpu endpoint ip6 2001:db8:14::2 nwi core teid 0x80000000/2",
+			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
 			// TODO: make stitching optional and verify it

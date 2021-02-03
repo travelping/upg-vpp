@@ -13,7 +13,6 @@ unix {
   nodaemon
   coredump-size unlimited
   full-coredump
-  interactive
   cli-listen {{.CLISock}}
   log {{.VPPLog}}
 }

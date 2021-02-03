@@ -86,7 +86,7 @@ var _ = ginkgo.Describe("PGW", func() {
 		}
 
 		ginkgo.BeforeEach(func() {
-			seid = startMeasurementSession(f, &framework.SessionConfig{AppPDR: true})
+			seid = startMeasurementSession(f, &framework.SessionConfig{AppName: framework.HTTPAppName})
 			n = 0
 			corruptTPDU = false
 		})
@@ -144,12 +144,12 @@ func describeMeasurement(f *framework.Framework) {
 		sessionContext("[no proxy]", framework.SessionConfig{}, func() {
 			ginkgo.It("counts plain HTTP traffic", func() {
 				verify(smallVolumeHTTPConfig(nil))
-				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 
 			ginkgo.It("counts UDP traffic", func() {
 				verify(&traffic.UDPPingConfig{})
-				verifyNonAppMeasurement(f, ms, layers.IPProtocolUDP)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolUDP, nil)
 			})
 
 			ginkgo.It("counts ICMP echo requests and responses", func() {
@@ -158,21 +158,57 @@ func describeMeasurement(f *framework.Framework) {
 				if f.IPMode == framework.UPGIPModeV6 {
 					proto = layers.IPProtocolICMPv6
 				}
-				verifyNonAppMeasurement(f, ms, proto)
+				verifyNonAppMeasurement(f, ms, proto, nil)
 			})
 		})
 
-		sessionContext("[proxy]", framework.SessionConfig{AppPDR: true}, func() {
+		ginkgo.Context("[ip rules]", func() {
+			var appServerIP net.IP
+			ginkgo.BeforeEach(func() {
+				appServerIP = f.AddServerIP()
+				f.VPP.Ctl(
+					"upf application IPAPP rule 3000 add ipfilter permit out ip from %s to assigned",
+					appServerIP,
+				)
+				// TODO: use VPP-side ping in the framework, too
+				f.VPP.Ctl("ping %s source host-sgi0 repeat 3", appServerIP)
+
+				seid = startMeasurementSession(f, &framework.SessionConfig{
+					AppName: framework.IPAppName,
+				})
+			})
+
+			ginkgo.It("counts plain HTTP traffic for app detection hit", func() {
+				trafficCfg := smallVolumeHTTPConfig(nil)
+				trafficCfg.AddServerIP(appServerIP)
+				verify(trafficCfg)
+				verifyAppMeasurement(f, ms, layers.IPProtocolTCP, appServerIP)
+			})
+
+			ginkgo.It("counts UDP traffic for app detection hit", func() {
+				trafficCfg := &traffic.UDPPingConfig{}
+				trafficCfg.AddServerIP(appServerIP)
+				verify(trafficCfg)
+				verifyAppMeasurement(f, ms, layers.IPProtocolUDP, appServerIP)
+			})
+
 			ginkgo.It("counts plain HTTP traffic (no app hit)", func() {
 				verify(smallVolumeHTTPConfig(nil))
-				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
+			})
+		})
+
+		sessionContext("[proxy]", framework.SessionConfig{AppName: framework.HTTPAppName}, func() {
+			ginkgo.It("counts plain HTTP traffic (no app hit)", func() {
+				verify(smallVolumeHTTPConfig(nil))
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 
 			ginkgo.It("counts traffic for app detection hit on plain HTTP", func() {
 				verify(smallVolumeHTTPConfig(&traffic.HTTPConfig{
 					UseFakeHostname: true,
 				}))
-				verifyAppMeasurement(f, ms, layers.IPProtocolTCP)
+				verifyAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 
 			ginkgo.It("can handle a big number of HTTP connections at once", func() {
@@ -220,7 +256,7 @@ func describeMeasurement(f *framework.Framework) {
 					RedirectLocationSubstr: "127.0.0.1/this-is-my-redirect",
 					RedirectResponseSubstr: "<title>Redirection</title>",
 				})
-				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 		})
 	})
@@ -256,7 +292,11 @@ func describePDRReplacement(f *framework.Framework) {
 				// while it's handling a packet belonging to an affected flow
 				sessionCfg.IdBase ^= 8
 				if toggleAppPDR {
-					sessionCfg.AppPDR = !sessionCfg.AppPDR
+					if sessionCfg.AppName == "" {
+						sessionCfg.AppName = framework.HTTPAppName
+					} else {
+						sessionCfg.AppName = ""
+					}
 				}
 				ies = append(ies, sessionCfg.CreatePDRs()...)
 				_, err := f.PFCP.ModifySession(f.VPP.Context(context.Background()), seid, ies...)
@@ -274,26 +314,26 @@ func describePDRReplacement(f *framework.Framework) {
 		sessionContext("[no proxy]", framework.SessionConfig{}, func() {
 			ginkgo.It("doesn't affect plain HTTP traffic accounting", func() {
 				verify(smallVolumeHTTPConfig(nil), &traffic.PreciseTrafficRec{}, false)
-				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 
 			ginkgo.It("doesn't affect UDP traffic accounting", func() {
 				verify(&traffic.UDPPingConfig{}, &traffic.PreciseTrafficRec{}, false)
-				verifyNonAppMeasurement(f, ms, layers.IPProtocolUDP)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolUDP, nil)
 			})
 		})
 
-		sessionContext("[proxy]", framework.SessionConfig{AppPDR: true}, func() {
+		sessionContext("[proxy]", framework.SessionConfig{AppName: framework.HTTPAppName}, func() {
 			ginkgo.It("doesn't affect plain HTTP traffic accounting (no app hit)", func() {
 				verify(smallVolumeHTTPConfig(nil), &traffic.PreciseTrafficRec{}, false)
-				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 
 			ginkgo.It("doesn't affect traffic accounting with app detection hit on plain HTTP", func() {
 				verify(smallVolumeHTTPConfig(&traffic.HTTPConfig{
 					UseFakeHostname: true,
 				}), &traffic.PreciseTrafficRec{}, false)
-				verifyAppMeasurement(f, ms, layers.IPProtocolTCP)
+				verifyAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 		})
 
@@ -303,14 +343,14 @@ func describePDRReplacement(f *framework.Framework) {
 					RedirectLocationSubstr: "127.0.0.1/this-is-my-redirect",
 					RedirectResponseSubstr: "<title>Redirection</title>",
 				}, &traffic.PreciseTrafficRec{}, false)
-				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 		})
 
-		sessionContext("[proxy on-off]", framework.SessionConfig{AppPDR: true}, func() {
+		sessionContext("[proxy on-off]", framework.SessionConfig{AppName: framework.HTTPAppName}, func() {
 			ginkgo.It("doesn't affect plain HTTP traffic accounting (no app hit)", func() {
 				verify(smallVolumeHTTPConfig(nil), &traffic.PreciseTrafficRec{}, true)
-				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 
 			ginkgo.It("doesn't disrupt traffic with app detection hit on plain HTTP", func() {
@@ -334,7 +374,7 @@ func describePDRReplacement(f *framework.Framework) {
 			})
 		})
 
-		sessionContext("[proxy off-on]", framework.SessionConfig{AppPDR: true}, func() {
+		sessionContext("[proxy off-on]", framework.SessionConfig{AppName: framework.HTTPAppName}, func() {
 			ginkgo.It("doesn't permanently disrupt plain HTTP traffic (no app hit)", func() {
 				// FIXME: could also avoid disruptions altogethern
 				// and also breaking traffic accounting,
@@ -495,10 +535,10 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				var seids []pfcp.SEID
 				for j := 0; j < leakTestNumSessions; j++ {
 					sessionCfg := &framework.SessionConfig{
-						IdBase: 1,
-						UEIP:   ueIPs[j],
-						Mode:   f.Mode,
-						AppPDR: true,
+						IdBase:  1,
+						UEIP:    ueIPs[j],
+						Mode:    f.Mode,
+						AppName: framework.HTTPAppName,
 					}
 					seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
 					framework.ExpectNoError(err)
@@ -749,7 +789,9 @@ func deleteSession(f *framework.Framework, seid pfcp.SEID, showInfo bool) *pfcp.
 func newTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffic.TrafficRec) (*traffic.TrafficGen, *network.NetNS, *network.NetNS) {
 	ginkgo.By("starting the traffic generator")
 	cfg.SetNoLinger(true)
-	cfg.AddServerIP(f.ServerIP())
+	if !cfg.HasServerIP() {
+		cfg.AddServerIP(f.ServerIP())
+	}
 	httpCfg, ok := cfg.(*traffic.HTTPConfig)
 	if ok {
 		// Avoid broken connections due to 5-tuple reuse
@@ -884,7 +926,7 @@ func startTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traf
 	return tg.Start(f.Context, clientNS, serverNS)
 }
 
-func verifyAppMeasurement(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto layers.IPProtocol) {
+func verifyAppMeasurement(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto layers.IPProtocol, serverIP net.IP) {
 	gomega.Expect(ms).NotTo(gomega.BeNil())
 
 	verifyPreAppReport(ms, 1, NON_APP_TRAFFIC_THRESHOLD)
@@ -892,11 +934,11 @@ func verifyAppMeasurement(f *framework.Framework, ms *pfcp.PFCPMeasurement, prot
 	*ms.Reports[2].UplinkVolume += *ms.Reports[1].UplinkVolume
 	*ms.Reports[2].DownlinkVolume += *ms.Reports[1].DownlinkVolume
 	*ms.Reports[2].TotalVolume += *ms.Reports[1].TotalVolume
-	verifyMainReport(f, ms, proto, 2)
+	verifyMainReport(f, ms, proto, 2, serverIP)
 }
 
-func verifyNonAppMeasurement(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto layers.IPProtocol) {
-	verifyMainReport(f, ms, proto, 1)
+func verifyNonAppMeasurement(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto layers.IPProtocol, serverIP net.IP) {
+	verifyMainReport(f, ms, proto, 1, serverIP)
 }
 
 func validateReport(ms *pfcp.PFCPMeasurement, urrId uint32) pfcp.PFCPReport {
@@ -917,7 +959,7 @@ func verifyPreAppReport(ms *pfcp.PFCPMeasurement, urrId uint32, toleration uint6
 		"too much non-app ul traffic: %d (max %d)", *r.DownlinkVolume, toleration)
 }
 
-func verifyMainReport(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto layers.IPProtocol, urrId uint32) {
+func verifyMainReport(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto layers.IPProtocol, urrId uint32, serverIP net.IP) {
 	var c *network.Capture
 	if f.SlowGTPU() {
 		// NOTE: if we use UE, we can get bad traffic figures,
@@ -940,8 +982,11 @@ func verifyMainReport(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto la
 	// make sure the capture is finished, grabbing all of the late packets
 	c.Stop()
 
-	ul := c.GetTrafficCount(network.Make5Tuple(f.UEIP(), -1, f.ServerIP(), -1, proto))
-	dl := c.GetTrafficCount(network.Make5Tuple(f.ServerIP(), -1, f.UEIP(), -1, proto))
+	if serverIP == nil {
+		serverIP = f.ServerIP()
+	}
+	ul := c.GetTrafficCount(network.Make5Tuple(f.UEIP(), -1, serverIP, -1, proto))
+	dl := c.GetTrafficCount(network.Make5Tuple(serverIP, -1, f.UEIP(), -1, proto))
 	framework.Logf("capture stats: UL: %d, DL: %d", ul, dl)
 
 	r := validateReport(ms, urrId)
