@@ -41,6 +41,7 @@ type TrafficClient interface {
 type TrafficConfig interface {
 	SetDefaults()
 	AddServerIP(ip net.IP)
+	HasServerIP() bool
 	SetNoLinger(noLinger bool)
 	Server(rec TrafficRec) TrafficServer
 	Client(rec TrafficRec) TrafficClient

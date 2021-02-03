@@ -29,6 +29,10 @@ func (cfg *ICMPPingConfig) AddServerIP(ip net.IP) {
 	cfg.ServerIP = ip
 }
 
+func (cfg *ICMPPingConfig) HasServerIP() bool {
+	return cfg.ServerIP != nil
+}
+
 func (cfg *ICMPPingConfig) SetNoLinger(noLinger bool) {}
 
 func (cfg *ICMPPingConfig) SetDefaults() {

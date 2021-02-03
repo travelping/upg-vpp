@@ -13,7 +13,7 @@ type SessionConfig struct {
 	UEIP            net.IP
 	PGWIP           net.IP
 	SGWIP           net.IP
-	AppPDR          bool
+	AppName         string
 	Redirect        bool
 	Mode            UPGMode
 	TEIDPGWs5u      uint32
@@ -23,6 +23,11 @@ type SessionConfig struct {
 	ProxyAccessTEID uint32
 	ProxyCoreTEID   uint32
 }
+
+const (
+	HTTPAppName = "TST"
+	IPAppName   = "IPAPP"
+)
 
 func (cfg SessionConfig) sgwOuterHeaderCreation() *ie.IE {
 	ip4 := cfg.SGWIP.To4()
@@ -223,10 +228,10 @@ func (cfg SessionConfig) CreatePDRs() []*ie.IE {
 		cfg.forwardPDR(cfg.IdBase, 1, 1, 200, ""),
 		cfg.reversePDR(cfg.IdBase+1, 2, 1, 200, ""),
 	}
-	if cfg.AppPDR {
+	if cfg.AppName != "" {
 		ies = append(ies,
-			cfg.forwardPDR(cfg.IdBase+2, 1, 2, 100, "TST"),
-			cfg.reversePDR(cfg.IdBase+3, 2, 2, 100, "TST"))
+			cfg.forwardPDR(cfg.IdBase+2, 1, 2, 100, cfg.AppName),
+			cfg.reversePDR(cfg.IdBase+3, 2, 2, 100, cfg.AppName))
 	}
 	return ies
 }
@@ -236,7 +241,7 @@ func (cfg SessionConfig) DeletePDRs() []*ie.IE {
 		ie.NewRemovePDR(ie.NewPDRID(cfg.IdBase)),
 		ie.NewRemovePDR(ie.NewPDRID(cfg.IdBase + 1)),
 	}
-	if cfg.AppPDR {
+	if cfg.AppName != "" {
 		ies = append(ies,
 			ie.NewRemovePDR(ie.NewPDRID(cfg.IdBase+2)),
 			ie.NewRemovePDR(ie.NewPDRID(cfg.IdBase+3)))

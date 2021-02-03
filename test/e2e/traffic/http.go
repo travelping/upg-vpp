@@ -45,6 +45,10 @@ func (cfg *HTTPConfig) AddServerIP(ip net.IP) {
 	cfg.ServerIPs = append(cfg.ServerIPs, ip)
 }
 
+func (cfg *HTTPConfig) HasServerIP() bool {
+	return len(cfg.ServerIPs) != 0
+}
+
 func (cfg *HTTPConfig) SetNoLinger(noLinger bool) { cfg.NoLinger = noLinger }
 
 func (cfg *HTTPConfig) SetDefaults() {

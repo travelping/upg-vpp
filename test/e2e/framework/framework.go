@@ -7,14 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 
 	"github.com/travelping/upg-vpp/test/e2e/pfcp"
 	"github.com/travelping/upg-vpp/test/e2e/sgw"
+	"github.com/travelping/upg-vpp/test/e2e/traffic"
 	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
@@ -70,6 +71,7 @@ func (f *Framework) BeforeEach() {
 	// https://github.com/kubernetes/kubernetes/blob/84096f02e9ecb1dd596d3e05b56238485e4ba051/test/e2e/framework/framework.go#L184-L168
 	f.numExtraCNodeIPs = 0
 	f.numExtraUEIPs = 0
+	f.numExtraServerIPs = 0
 	d, err := ioutil.TempDir("", "upgtest")
 	ExpectNoError(err)
 	f.VPPCfg.BaseDir = d
@@ -161,13 +163,19 @@ func (f *Framework) BeforeEach() {
 }
 
 func (f *Framework) Ping(nsName string, ip net.IP, count int) {
-	// TODO: use go-ping instead of 'ping'
+	// TODO: use VPP-side ping
+	// (it aborts immediatelly in 'interactive' mode of VPP)
 	ns := f.VPP.GetNS(nsName)
-	countArg := strconv.Itoa(count)
-	cmd := exec.Command("nsenter", "--net="+ns.Path(), "ping", "-c", countArg, ip.String())
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	ExpectNoError(cmd.Run())
+	pingCfg := &traffic.ICMPPingConfig{
+		ServerIP:    ip,
+		PacketSize:  64,
+		PacketCount: 3,
+		Delay:       100 * time.Millisecond,
+	}
+	rec := &traffic.SimpleTrafficRec{}
+	tg := traffic.NewTrafficGen(pingCfg, rec)
+	ExpectNoError(tg.Run(f.Context, ns, nil))
+	gomega.Expect(rec.Stats().ClientReceived).NotTo(gomega.BeZero())
 }
 
 func (f *Framework) AfterEach() {
@@ -220,12 +228,16 @@ func (f *Framework) UEIP() net.IP {
 	return f.VPPCfg.GetNamespaceAddress("ue").IP
 }
 
-func (f *Framework) ServerIP() net.IP {
+func (f *Framework) ServerNSName() string {
 	if f.Mode == UPGModeGTPProxy {
-		return f.VPPCfg.GetNamespaceAddress("srv").IP
+		return "srv"
 	} else {
-		return f.VPPCfg.GetNamespaceAddress("sgi").IP
+		return "sgi"
 	}
+}
+
+func (f *Framework) ServerIP() net.IP {
+	return f.VPPCfg.GetNamespaceAddress(f.ServerNSName()).IP
 }
 
 func (f *Framework) addIP(nsName string, count *uint32) net.IP {
@@ -267,13 +279,7 @@ func (f *Framework) AddUEIP() net.IP {
 }
 
 func (f *Framework) AddServerIP() net.IP {
-	var serverNSName string
-	if f.Mode == UPGModeGTPProxy {
-		serverNSName = "srv"
-	} else {
-		serverNSName = "sgi"
-	}
-	return f.addIP(serverNSName, &f.numExtraServerIPs)
+	return f.addIP(f.ServerNSName(), &f.numExtraServerIPs)
 }
 
 // SlowGTPU returns true if UPG runs in PGW mode, and userspace GTP-U

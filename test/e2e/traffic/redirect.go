@@ -40,6 +40,10 @@ func (cfg *RedirectConfig) AddServerIP(ip net.IP) {
 	cfg.ServerIP = ip
 }
 
+func (cfg *RedirectConfig) HasServerIP() bool {
+	return cfg.ServerIP != nil
+}
+
 func (cfg *RedirectConfig) SetNoLinger(noLinger bool) { cfg.NoLinger = noLinger }
 
 func (cfg *RedirectConfig) SetDefaults() {

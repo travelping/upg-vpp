@@ -35,6 +35,10 @@ func (cfg *UDPPingConfig) AddServerIP(ip net.IP) {
 	cfg.ServerIP = ip
 }
 
+func (cfg *UDPPingConfig) HasServerIP() bool {
+	return cfg.ServerIP != nil
+}
+
 func (cfg *UDPPingConfig) SetNoLinger(noLinger bool) {}
 
 func (cfg *UDPPingConfig) SetDefaults() {
@@ -87,7 +91,7 @@ func (us *UDPServer) Start(ctx context.Context, ns *network.NetNS) error {
 	}
 
 	uc, err := ns.ListenUDP(ctx, &net.UDPAddr{
-		IP:   nil,
+		IP:   us.cfg.ServerIP,
 		Port: us.cfg.Port,
 	})
 	if err != nil {
