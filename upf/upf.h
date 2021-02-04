@@ -1,5 +1,5 @@
 /*
- * upf.c - 3GPP TS 29.244 GTP-U UP plug-in header file
+ * upf.h - 3GPP TS 29.244 GTP-U UP plug-in header file
  *
  * Copyright (c) 2017-2019 Travelping GmbH
  *
@@ -369,6 +369,7 @@ typedef struct
   int match_teid:1;
   int match_ue_ip:3;
   int match_sdf:1;
+  int match_ip_app:1;
 
   u32 fib_index;
   u32 teid;			// TEID
@@ -767,12 +768,14 @@ typedef struct
 {
   u8 *name;
   u32 flags;
-  uword *rules_by_id;		/* hash over rules id */
-  upf_adr_t *rules;		/* vector of rules definition */
+  u32 num_ip_rules;
+  uword *rules_by_id;		/* hash over rule ids */
+  upf_adr_t *rules;		/* vector of rule definitions */
   u32 db_index;			/* index in ADR pool */
 } upf_adf_app_t;
 
-#define UPF_ADR_PROXY   BIT(0)
+#define UPF_ADR_PROXY    BIT(0)
+#define UPF_ADR_IP_RULES BIT(1)
 
 #define UPF_ADR_PROTO_HTTP  1
 #define UPF_ADR_PROTO_HTTPS 2

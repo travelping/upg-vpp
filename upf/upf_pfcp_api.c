@@ -928,8 +928,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	create->pdi.fields |= F_PDI_UE_IP_ADDR;
 	create->pdi.ue_addr = pdr->pdi.ue_ip_address;
 
-	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
-	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
+        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+            !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
 	  {
 	    /* neither SDF, nor Application Id, generate a wildcard
 	       ACL to make ACL scanning simpler */
@@ -971,7 +971,6 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
       {
 	upf_adf_app_t *app;
 	uword *p = NULL;
-	acl_rule_t *acl;
 
 	create->pdi.fields |= F_PDI_APPLICATION_ID;
 
@@ -985,11 +984,15 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	ASSERT (!pool_is_free_index (gtm->upf_apps, p[0]));
 	app = pool_elt_at_index (gtm->upf_apps, p[0]);
 	create->pdi.adr.application_id = p[0];
-	create->pdi.adr.db_id = upf_adf_get_adr_db (p[0], &acl);
+	create->pdi.adr.db_id = upf_adf_get_adr_db (p[0]);
 	create->pdi.adr.flags = app->flags;
 
-	vec_append (create->pdi.acl, acl);
-
+        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+            (create->pdi.adr.flags & UPF_ADR_IP_RULES))
+          {
+            create->pdi.fields |= F_PDI_SDF_FILTER;
+            vec_add1 (create->pdi.acl, wildcard_acl);
+          }
 	upf_debug ("app: %v, ADR DB id %u", app->name, create->pdi.adr.db_id);
       }
 
@@ -1111,8 +1114,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	update->pdi.fields |= F_PDI_UE_IP_ADDR;
 	update->pdi.ue_addr = pdr->pdi.ue_ip_address;
 
-	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
-	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
+        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+            !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
 	  {
 	    /* neither SDF, nor Application Id, generate a wildcard
 	       ACL to make ACL scanning simpler */
@@ -1156,7 +1159,6 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
       {
 	upf_adf_app_t *app;
 	uword *p = NULL;
-	acl_rule_t *acl;
 
 	update->pdi.fields |= F_PDI_APPLICATION_ID;
 
@@ -1170,13 +1172,18 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	ASSERT (!pool_is_free_index (gtm->upf_apps, p[0]));
 	app = pool_elt_at_index (gtm->upf_apps, p[0]);
 	update->pdi.adr.application_id = p[0];
-	update->pdi.adr.db_id = upf_adf_get_adr_db (p[0], &acl);
+	update->pdi.adr.db_id = upf_adf_get_adr_db (p[0]);
 	update->pdi.adr.flags = app->flags;
 
-	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
-	  vec_reset_length (update->pdi.acl);
-
-	vec_append (update->pdi.acl, acl);
+        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
+          {
+          vec_reset_length (update->pdi.acl);
+          if (update->pdi.adr.flags & UPF_ADR_IP_RULES)
+            {
+              update->pdi.fields |= F_PDI_SDF_FILTER;
+              vec_add1 (update->pdi.acl, wildcard_acl);
+            }
+          }
 
 	upf_debug ("app: %v, ADR DB id %u", app->name, update->pdi.adr.db_id);
       }

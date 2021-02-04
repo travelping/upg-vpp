@@ -22,21 +22,10 @@
 #include <vppinfra/vec.h>
 #include <vppinfra/pool.h>
 
-#include <hs/hs.h>
 #include "upf/upf_app_db.h"
 #include <upf/upf_pfcp.h>
 #include "upf/upf_ipfilter.h"
-
-typedef struct
-{
-  regex_t *expressions;
-  acl_rule_t *acl;
-  u32 *flags;
-  unsigned int *ids;
-  hs_database_t *database;
-  hs_scratch_t *scratch;
-  u32 ref_cnt;
-} upf_adf_entry_t;
+#include "upf/upf_app_dpo.h"
 
 typedef struct
 {
@@ -50,6 +39,8 @@ static void
 upf_adf_cleanup_db_entry (upf_adf_entry_t * entry)
 {
   regex_t *regex = NULL;
+
+  upf_app_fib_cleanup (entry);
 
   vec_foreach (regex, entry->expressions)
   {
@@ -116,6 +107,8 @@ upf_adf_create_update_db (upf_adf_app_t * app)
 
       memset (entry, 0, sizeof (*entry));
       app->db_index = entry - upf_adf_db;
+      entry->fib_index_ip4 = ~0;
+      entry->fib_index_ip6 = ~0;
     }
 
   /* *INDENT-OFF* */
@@ -140,11 +133,17 @@ upf_adf_create_update_db (upf_adf_app_t * app)
   }));
   /* *INDENT-ON* */
 
+  ASSERT(vec_len(entry->acl) ?
+	 app->flags & UPF_ADR_IP_RULES :
+	 !(app->flags & UPF_ADR_IP_RULES));
+
   if (entry->database)
     {
       hs_free_database (entry->database);
       entry->database = NULL;
     }
+
+  upf_ensure_app_fib_if_needed (entry);
 
   if (vec_len (entry->expressions) == 0)
     goto done;
@@ -218,7 +217,7 @@ upf_adf_lookup (u32 db_index, u8 * str, uint16_t length, u32 * id)
 }
 
 u32
-upf_adf_get_adr_db (u32 application_id, acl_rule_t ** acl)
+upf_adf_get_adr_db (u32 application_id)
 {
   upf_main_t *sm = &upf_main;
   upf_adf_app_t *app;
@@ -231,8 +230,6 @@ upf_adf_get_adr_db (u32 application_id, acl_rule_t ** acl)
     {
       upf_adf_entry_t *entry = pool_elt_at_index (upf_adf_db, app->db_index);
       clib_atomic_add_fetch (&entry->ref_cnt, 1);
-      if (acl)
-	*acl = entry->acl;
     }
 
   return app->db_index;
@@ -338,7 +335,7 @@ upf_adf_app_add_command_fn (vlib_main_t * vm,
       pdr->pdi.fields |= F_PDI_APPLICATION_ID;
       pdr->pdi.adr.application_id = p[0];
       /* no ACLs at this point */
-      pdr->pdi.adr.db_id = upf_adf_get_adr_db (p[0], NULL);
+      pdr->pdi.adr.db_id = upf_adf_get_adr_db (p[0]);
     }
 
   vlib_cli_output (vm, "ADR DB id: %u", pdr->pdi.adr.db_id);
@@ -686,8 +683,12 @@ vnet_upf_rule_add_del (u8 * app_name, u32 rule_index, u8 add, regex_t regex,
       rule->id = rule_index;
       if (regex != 0)
 	rule->regex = vec_dup (regex);
-      if (acl_rule)
+      else {
+        ASSERT (acl_rule);
+	if (!app->num_ip_rules++)
+	  app->flags |= UPF_ADR_IP_RULES;
 	rule->acl_rule = *acl_rule;
+      }
 
       hash_set (app->rules_by_id, rule_index, rule - app->rules);
     }
@@ -697,6 +698,8 @@ vnet_upf_rule_add_del (u8 * app_name, u32 rule_index, u8 add, regex_t regex,
 	return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       rule = pool_elt_at_index (app->rules, p[0]);
+      if (!rule->regex && !--app->num_ip_rules)
+	app->flags &= ~UPF_ADR_IP_RULES;
       vec_free (rule->regex);
       hash_unset (app->rules_by_id, rule_index);
       clib_memset (rule, 0, sizeof (*rule));
@@ -1009,6 +1012,15 @@ upf_update_app (upf_main_t * sm, u8 * app_name, u32 num_rules, u32 * ids,
     return res;
 
   return 0;
+}
+
+int
+upf_app_ip_rule_match (u32 db_index, flow_entry_t * flow,
+		       ip46_address_t *assigned)
+{
+  upf_adf_entry_t *entry = pool_elt_at_index (upf_adf_db, db_index);
+  return entry->app_dpos &&
+    upf_app_dpo_match (entry, flow, assigned);
 }
 
 /*

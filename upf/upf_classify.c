@@ -29,6 +29,7 @@
 #include <upf/upf_app_db.h>
 #include <upf/upf_pfcp.h>
 #include <upf/upf_proxy.h>
+#include <upf/upf_app_dpo.h>
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -133,7 +134,8 @@ acl_port_in_range (const u16 port, upf_acl_t * acl, int field)
 always_inline int
 upf_acl_classify_one (vlib_main_t * vm, u32 teid,
 		      flow_entry_t * flow, int is_reverse,
-		      u8 is_ip4, upf_acl_t * acl)
+		      u8 is_ip4, upf_acl_t * acl,
+                      struct rules *active)
 {
   u32 pf_len = is_ip4 ? 32 : 64;
 
@@ -169,6 +171,22 @@ upf_acl_classify_one (vlib_main_t * vm, u32 teid,
       break;
     default:
       break;
+    }
+
+  if (acl->match_ip_app)
+    {
+      upf_pdr_t *pdr;
+
+      /* FIXME: should be able to handle PDRs w/o UE IP */
+      if (!acl->match_ue_ip)
+        return 0;
+
+      pdr = vec_elt_at_index (active->pdr, acl->pdr_idx);
+      upf_debug("IP app db_id %d", pdr->pdi.adr.db_id);
+      if (!upf_app_ip_rule_match(pdr->pdi.adr.db_id,
+                                 flow,
+                                 &acl->ue_ip))
+        return 0;
     }
 
   upf_debug ("Protocol: 0x%04x/0x%04x, 0x%04x\n",
@@ -244,7 +262,7 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
   vec_foreach (acl, acl_vec)
   {
     if (upf_acl_classify_one
-	(vm, teid, flow, FT_ORIGIN ^ flow->is_reverse, is_ip4, acl))
+	(vm, teid, flow, FT_ORIGIN ^ flow->is_reverse, is_ip4, acl, active))
       {
 	upf_pdr_t *pdr;
 
@@ -319,7 +337,7 @@ upf_acl_classify_proxied (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
   vec_foreach (acl, acl_vec)
   {
     if (upf_acl_classify_one
-	(vm, teid, flow, FT_REVERSE ^ flow->is_reverse, is_ip4, acl))
+	(vm, teid, flow, FT_REVERSE ^ flow->is_reverse, is_ip4, acl, active))
       {
 	upf_pdr_t *pdr;
 	pdr = vec_elt_at_index (active->pdr, acl->pdr_idx);
@@ -366,7 +384,7 @@ upf_acl_classify_return (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
   vec_foreach (acl, acl_vec)
   {
     if (upf_acl_classify_one
-	(vm, teid, flow, FT_REVERSE ^ flow->is_reverse, is_ip4, acl))
+	(vm, teid, flow, FT_REVERSE ^ flow->is_reverse, is_ip4, acl, active))
       {
 	upf_pdr_t *pdr;
 

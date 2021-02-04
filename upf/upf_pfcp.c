@@ -1250,6 +1250,9 @@ pfcp_add_del_tdf (const void *tdf, void *si, int is_ip4, int is_add)
   };
   u32 fib_index;
 
+  if (acl->match_ip_app)
+    return;
+
   if (acl->fib_index >= vec_len (gtm->tdf_ul_table[pfx.fp_proto]))
     return;
 
@@ -1305,7 +1308,7 @@ format_upf_acl (u8 * s, va_list * args)
   ip46_type_t itype = (acl->is_ip4) ? IP46_TYPE_IP4 : IP46_TYPE_IP6;
 
   return format (s,
-		 "%u: %u, (%u/%u/%u/%u) TEID 0x%08x, UE-IP %U, %u/%u, %U/%U:%u-%u <-> %U/%U:%u-%u",
+		 "%u: %u, (%u/%u/%u/%u) TEID 0x%08x, UE-IP %U, %u/%u, %U/%U:%u-%u <-> %U/%U:%u-%u%s",
 		 acl->pdr_idx, acl->precedence, !!acl->is_ip4,
 		 !!acl->match_teid, !!acl->match_ue_ip, !!acl->match_sdf,
 		 acl->teid, format_ip46_address, &acl->ue_ip, itype,
@@ -1320,7 +1323,8 @@ format_upf_acl (u8 * s, va_list * args)
 		 format_ip46_address,
 		 &acl->mask.address[IPFILTER_RULE_FIELD_DST], itype,
 		 acl->mask.port[IPFILTER_RULE_FIELD_DST],
-		 acl->match.port[IPFILTER_RULE_FIELD_DST]);
+		 acl->match.port[IPFILTER_RULE_FIELD_DST],
+		 acl->match_ip_app ? " [ip app]" : "");
 }
 
 always_inline u32
@@ -1437,7 +1441,7 @@ static void
 compile_sdf (int is_ip4, const upf_pdr_t * pdr,
 	     const acl_rule_t * rule, upf_acl_t * acl)
 {
-  ASSERT (pdr->pdi.fields & (F_PDI_SDF_FILTER | F_PDI_APPLICATION_ID));
+  ASSERT (pdr->pdi.fields & F_PDI_SDF_FILTER);
 
   acl->match_sdf = 1;
 
@@ -1470,9 +1474,9 @@ compile_sdf (int is_ip4, const upf_pdr_t * pdr,
 }
 
 static int
-compile_ipfilter_rule (int is_ip4, const upf_pdr_t * pdr,
-		       const acl_rule_t * rule, u32 pdr_idx, u32 sw_if_index,
-		       upf_acl_t * acl)
+compile_pdi (int is_ip4, const upf_pdr_t * pdr,
+	     const acl_rule_t * rule, u32 pdr_idx, u32 sw_if_index,
+	     upf_acl_t * acl)
 {
   memset (acl, 0, sizeof (*acl));
 
@@ -1485,9 +1489,14 @@ compile_ipfilter_rule (int is_ip4, const upf_pdr_t * pdr,
   compile_sdf (is_ip4, pdr, rule, acl);
   compile_ue_ip (is_ip4, pdr, acl);
 
+  if ((pdr->pdi.fields & F_PDI_APPLICATION_ID) &&
+      (pdr->pdi.adr.flags & UPF_ADR_IP_RULES))
+    acl->match_ip_app = 1;
+
   upf_debug ("ACL: ip4 %u, %U\n", is_ip4, format_upf_acl, acl);
   return 0;
 }
+
 
 static void
 rules_add_v4_teid (struct rules *r, const ip4_address_t * addr, u32 teid,
@@ -1632,7 +1641,7 @@ build_pfcp_rules (upf_session_t * sx)
       {
 	acl_rule_t *rule;
 
-	ASSERT (pdr->pdi.fields & (F_PDI_SDF_FILTER | F_PDI_APPLICATION_ID));
+	ASSERT (pdr->pdi.fields & F_PDI_SDF_FILTER);
 	vec_foreach (rule, pdr->pdi.acl)
 	{
 	  if (rule->type == IPFILTER_IPV4 || rule->type == IPFILTER_WILDCARD)
@@ -1641,8 +1650,11 @@ build_pfcp_rules (upf_session_t * sx)
 
 	      vec_add2 (pending->v4_acls, acl, 1);
 	      /* compile PDI into ACL matcher */
-	      compile_ipfilter_rule (1 /* is_ip4 */ , pdr, rule, idx,
-				     sw_if_index, acl);
+	      compile_pdi (1 /* is_ip4 */ , pdr, rule, idx,
+			   sw_if_index, acl);
+	      if ((pdr->pdi.fields & F_PDI_APPLICATION_ID) &&
+		  (pdr->pdi.adr.flags & UPF_ADR_IP_RULES))
+		acl->match_ip_app = 1;
 	    }
 
 	  if (rule->type == IPFILTER_IPV6 || rule->type == IPFILTER_WILDCARD)
@@ -1651,23 +1663,19 @@ build_pfcp_rules (upf_session_t * sx)
 
 	      vec_add2 (pending->v6_acls, acl, 1);
 	      /* compile PDI into ACL matcher */
-	      compile_ipfilter_rule (0 /* is_ip4 */ , pdr, rule, idx,
-				     sw_if_index, acl);
+	      compile_pdi (0 /* is_ip4 */ , pdr, rule, idx,
+			   sw_if_index, acl);
 	    }
 	}
       }
 
-    if ((pdr->pdi.fields & F_PDI_APPLICATION_ID))
+    if ((pdr->pdi.fields & F_PDI_APPLICATION_ID) &&
+        (pdr->pdi.adr.flags & UPF_ADR_PROXY) &&
+        pdr->precedence < pending->proxy_precedence)
       {
-
-	if ((pdr->pdi.adr.flags & UPF_ADR_PROXY) &&
-	    pdr->precedence < pending->proxy_precedence)
-	  {
-	    pending->proxy_precedence = pdr->precedence;
-	    pending->proxy_pdr_idx = idx;
-	  }
-
-	pending->flags |= PFCP_ADR;
+        pending->proxy_precedence = pdr->precedence;
+        pending->proxy_pdr_idx = idx;
+        pending->flags |= PFCP_ADR;
       }
   }
 
