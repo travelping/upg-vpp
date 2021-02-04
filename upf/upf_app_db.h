@@ -21,6 +21,7 @@
 
 #include <stddef.h>
 #include <upf/upf.h>
+#include <hs/hs.h>
 
 #if CLIB_DEBUG > 1
 #define adf_debug clib_warning
@@ -54,12 +55,35 @@ CLIB_PACKED (struct tls_client_hello_hdr
 	     u8 random[32];	/* gmt_unix_time + random_bytes[28] */
 	     });
 
+typedef struct
+{
+  u32 rule_index;		/* referenced ADR rule index */
+  index_t next;			/* link to the next less specific ACL ref */
+  index_t dpoi_index;		/* DPO id */
+  u8 src_preflen;		/* src prefix length */
+  u8 is_ip4:1;
+} upf_app_dpo_t;
+
+typedef struct
+{
+  regex_t *expressions;
+  acl_rule_t *acl;
+  u32 *flags;
+  unsigned int *ids;
+  hs_database_t *database;
+  hs_scratch_t *scratch;
+  u32 ref_cnt;
+  u32 fib_index_ip4;		/* IP rule FIB table index (IP4) */
+  u32 fib_index_ip6;		/* IP rule FIB table index (IP6) */
+  upf_app_dpo_t *app_dpos;	/* vector of APP DPOs */
+} upf_adf_entry_t;
+
 int upf_adf_lookup (u32 db_index, u8 * str, uint16_t length, u32 * id);
 int upf_app_add_del (upf_main_t * sm, u8 * name, u32 flags, int add);
 int upf_rule_add_del (upf_main_t * sm, u8 * name, u32 id,
 		      int add, u8 * regex, acl_rule_t * acl);
 
-u32 upf_adf_get_adr_db (u32 application_id, acl_rule_t ** acl);
+u32 upf_adf_get_adr_db (u32 application_id);
 void upf_adf_put_adr_db (u32 db_index);
 
 int upf_update_app (upf_main_t * sm, u8 * app_name, u32 num_rules,
@@ -68,6 +92,10 @@ int upf_update_app (upf_main_t * sm, u8 * app_name, u32 num_rules,
 adr_result_t
 upf_application_detection (vlib_main_t * vm, u8 * p,
 			   flow_entry_t * flow, struct rules *active);
+
+int
+upf_app_ip_rule_match (u32 db_index, flow_entry_t * flow,
+		       ip46_address_t *assigned);
 
 /* perfect hash over the HTTP keywords:
  *   GET

@@ -49,8 +49,10 @@ if(HS_FOUND)
     upf_proxy.c
     upf_app_db.c
     upf_ipfilter.c
+    upf_app_dpo.c
     flowtable_init.c
     flowtable.c
+    unittest.c
 
     MULTIARCH_SOURCES
     upf_gtpu_encap.c

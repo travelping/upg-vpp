@@ -1368,6 +1368,13 @@ class TestPGWFTUPIP6(IPv6Mixin, TestPGWBase, framework.VppTestCase):
             self.teid = resp[IE_CreatedPDR][IE_FTEID].TEID
             self.logger.info(self.teid)
 
+class TestUPFUnit(framework.VppTestCase):
+    """ UPF Unit Test Cases """
+
+    def test_unit(self):
+        r = self.vapi.cli_return_response("test upf debug")
+        self.assertEqual(r.retval, 0)
+
 # TODO: send session report response
 # TODO: check for heartbeat requests from UPF
 # TODO: check redirects (perhaps IPv4 type redirect) -- currently broken
