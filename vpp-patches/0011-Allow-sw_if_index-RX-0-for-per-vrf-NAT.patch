@@ -1,0 +1,25 @@
+From 070327edf5c859c5bb27050065afb6471942292a Mon Sep 17 00:00:00 2001
+From: Sergey Matov <sergey.matov@travelping.com>
+Date: Mon, 1 Feb 2021 13:11:27 +0400
+Subject: [PATCH] Allow sw_if_index[RX]=0 for per-vrf NAT
+
+---
+ src/plugins/nat/in2out_ed.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/plugins/nat/in2out_ed.c b/src/plugins/nat/in2out_ed.c
+index 7153a6035..51077a57f 100644
+--- a/src/plugins/nat/in2out_ed.c
++++ b/src/plugins/nat/in2out_ed.c
+@@ -219,7 +219,7 @@ nat_ed_alloc_addr_and_port (snat_main_t * sm, u32 rx_fib_index,
+ 	{
+ #define _(N, j, n, unused)                                                   \
+   case NAT_PROTOCOL_##N:                                                     \
+-    if (a->fib_index == rx_fib_index)                                        \
++    if ((a->fib_index == rx_fib_index) || (rx_fib_index == 0))               \
+       {                                                                      \
+         /* first try port suggested by caller */                             \
+         u16 port = clib_net_to_host_u16 (*outside_port);                     \
+-- 
+2.24.3 (Apple Git-128)
+
