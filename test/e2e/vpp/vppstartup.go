@@ -31,7 +31,11 @@ api-trace {
 
 cpu {
   main-core {{.MainCore}}
+{{ if .Multicore }}
   corelist-workers {{.WorkerCore}}
+{{ else }}
+  workers 0
+{{ end }}
 }
 
 statseg {
@@ -80,6 +84,7 @@ type VPPStartupConfig struct {
 	UseGDB        bool
 	Trace         bool
 	DispatchTrace bool
+	Multicore     bool
 }
 
 func (cfg *VPPStartupConfig) SetFromEnv() {
@@ -94,6 +99,7 @@ func (cfg *VPPStartupConfig) SetFromEnv() {
 	cfg.UseGDB = os.Getenv("VPP_NO_GDB") == ""
 	cfg.Trace = os.Getenv("VPP_TRACE") != ""
 	cfg.DispatchTrace = os.Getenv("VPP_DISPATCH_TRACE") != ""
+	cfg.Multicore = os.Getenv("VPP_MULTICORE") != ""
 	cfg.SetDefaults()
 }
 

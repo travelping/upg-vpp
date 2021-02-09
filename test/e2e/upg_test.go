@@ -35,6 +35,8 @@ func FailPause(message string, callerSkip ...int) {
 	}
 }
 
+// Here we select logical CPU cores for parallel Ginkgo nodes starting
+// from the least loaded ones.
 var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	percents, err := cpu.Percent(5*time.Second, true)
 	if err != nil {
@@ -57,12 +59,24 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	}
 	return r
 }, func(data []byte) {
-	// select 2 cores for the current parallel node
 	numCores := len(data) / 2
-	n := (config.GinkgoConfig.ParallelNode - 1) % (numCores / 2)
-	vpp.Cores = []int{
-		int(binary.LittleEndian.Uint16(data[n*4:])),
-		int(binary.LittleEndian.Uint16(data[n*4+2:])),
+	var startupCfg vpp.VPPStartupConfig
+	startupCfg.SetFromEnv()
+	if startupCfg.Multicore {
+		// select 2 cores for the current parallel node
+		// in the multicore mode
+		n := (config.GinkgoConfig.ParallelNode - 1) % (numCores / 2)
+		vpp.Cores = []int{
+			int(binary.LittleEndian.Uint16(data[n*4:])),
+			int(binary.LittleEndian.Uint16(data[n*4+2:])),
+		}
+	} else {
+		// select a single core for the current parallel node
+		// in the single core mode
+		n := (config.GinkgoConfig.ParallelNode - 1) % numCores
+		vpp.Cores = []int{
+			int(binary.LittleEndian.Uint16(data[n*2:])),
+		}
 	}
 	fmt.Println("Cores:", vpp.Cores)
 })

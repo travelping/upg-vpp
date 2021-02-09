@@ -168,7 +168,9 @@ func (vi *VPPInstance) prepareCommand() (*exec.Cmd, error) {
 	vi.startupCfg.VPPLog = vi.vppFilePath("vpp.log")
 
 	vi.startupCfg.MainCore = Cores[0]
-	vi.startupCfg.WorkerCore = Cores[1]
+	if vi.startupCfg.Multicore {
+		vi.startupCfg.WorkerCore = Cores[1]
+	}
 
 	startupFile, err := vi.writeVPPFile("startup.conf", vi.startupCfg.Get())
 	if err != nil {
@@ -507,15 +509,21 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 	if mtu == 0 {
 		mtu = DEFAULT_MTU
 	}
-	placement := "main"
-	if nsCfg.Placement >= 0 {
-		placement = fmt.Sprintf("worker %d", nsCfg.Placement)
+	cmds = append(cmds,
+		fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName))
+
+	if vi.startupCfg.Multicore {
+		placement := "main"
+		if nsCfg.Placement >= 0 {
+			placement = fmt.Sprintf("worker %d", nsCfg.Placement)
+		}
+		cmds = append(cmds,
+			fmt.Sprintf("set interface rx-placement host-%s %s", nsCfg.VPPLinkName, placement))
 	}
+
 	return append(cmds,
-		fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName),
 		// TODO: add an option for interrupt mode
 		// fmt.Sprintf("set interface rx-mode host-%s interrupt", nsCfg.VPPLinkName),
-		fmt.Sprintf("set interface rx-placement host-%s %s", nsCfg.VPPLinkName, placement),
 		fmt.Sprintf("set interface mac address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
 		fmt.Sprintf("set interface %s table host-%s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
 		fmt.Sprintf("set interface ip address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),

@@ -41,6 +41,7 @@ else
          -e E2E_TRACE="${E2E_TRACE:-}" \
          -e E2E_DISPATCH_TRACE="${E2E_DISPATCH_TRACE:-}" \
          -e E2E_PAUSE_ON_ERROR="${E2E_PAUSE_ON_ERROR:-}" \
+         -e E2E_MULTICORE="${E2E_MULTICORE:-}" \
          -w /src/vpp \
          "${build_image}" \
          "$@"
