@@ -641,17 +641,14 @@ func describeMTU(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 		// TODO: There is a need to check maximum MTU per XDP driver
 		// might be added as a separate test of fixed in this one
 
-		// TODO: Make MTUs config in respect to interface driver
-		// GRX interface should be equal to ACCESS_MTU + GTPU header overhead
-		// so for this we will ignore MTU setting here
+		var startupCfg vpp.VPPStartupConfig
+		startupCfg.SetFromEnv()
+
 		f := framework.NewDefaultFramework(mode, ipMode)
 		for i := range f.VPPCfg.Namespaces {
-			if strings.HasPrefix(f.VPPCfg.Namespaces[i].Name, "grx") {
-				continue
-			}
-			f.VPPCfg.Namespaces[i].MTU = vpp.ACCESS_MTU
+			f.VPPCfg.Namespaces[i].MTU = 1500
 		}
-		f.GTPUMTU = vpp.ACCESS_MTU
+		f.GTPUMTU = 9000
 
 		ginkgo.BeforeEach(func() {
 			seid = startMeasurementSession(f, &framework.SessionConfig{})
