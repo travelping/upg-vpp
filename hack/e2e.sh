@@ -34,7 +34,10 @@ export UPG_TEST_QUICK="${E2E_QUICK}"
 export VPP_TRACE="${E2E_TRACE}"
 export VPP_DISPATCH_TRACE="${E2E_DISPATCH_TRACE}"
 export VPP_MULTICORE="${E2E_MULTICORE}"
-export VPP_XDP_SETUP="${E2E_XDP}"
+if [[ ${E2E_XDP} ]]; then
+  ulimit -l 10000000
+  export VPP_XDP=1
+fi
 
 case ${E2E_TARGET} in
   debug)
