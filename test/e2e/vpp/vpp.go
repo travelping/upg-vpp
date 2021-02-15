@@ -38,9 +38,7 @@ const (
 	VPP_STARTUP_TIMEOUT     = 30 * time.Second
 	VPP_REPLY_TIMEOUT       = 5 * time.Second
 	NSENTER_CMD             = "nsenter"
-	DEFAULT_MTU             = 1500
 	DISPATCH_TRACE_FILENAME = "dispatch-trace.pcap"
-	ACCESS_MTU	= 1460
 )
 
 type RouteConfig struct {
@@ -404,7 +402,7 @@ func (vi *VPPInstance) SetupNamespaces() error {
 		if nsCfg.VPPLinkName != "" {
 			mtu := nsCfg.MTU
 			if mtu == 0 {
-				mtu = DEFAULT_MTU
+				mtu = vi.startupCfg.DefaultMTU()
 			}
 			if err := vi.vppNS.SetupVethPair(nsCfg.VPPLinkName, nil, ns, nsCfg.OtherLinkName, nsCfg.OtherIP, mtu); err != nil {
 				return errors.Wrap(err, "SetupVethPair (client)")
@@ -508,20 +506,14 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 	}
 	mtu := nsCfg.MTU
 	if mtu == 0 {
-		mtu = DEFAULT_MTU
+		mtu = vi.startupCfg.DefaultMTU()
 	}
-	if os.Getenv("VPP_XDP") != "" {
-		return append(cmds,
-			fmt.Sprintf("create interface af_xdp host-if %s name host-%s", nsCfg.VPPLinkName, nsCfg.VPPLinkName),
-			fmt.Sprintf("set interface mac address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
-			fmt.Sprintf("set interface %s table host-%s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
-			fmt.Sprintf("set interface ip address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),
-			fmt.Sprintf("set interface state host-%s up", nsCfg.VPPLinkName),
-			//fmt.Sprintf("set interface mtu %d host-%s", mtu, nsCfg.VPPLinkName),
-		)
+	if vi.startupCfg.XDP {
+		cmds = append(cmds, fmt.Sprintf("create interface af_xdp host-if %s name host-%s",
+			nsCfg.VPPLinkName, nsCfg.VPPLinkName))
 	} else {
-	cmds = append(cmds,
-		fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName))
+		cmds = append(cmds, fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName))
+	}
 
 	if vi.startupCfg.Multicore {
 		placement := "main"
@@ -529,20 +521,20 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 			placement = fmt.Sprintf("worker %d", nsCfg.Placement)
 		}
 		cmds = append(cmds,
-			fmt.Sprintf("set interface rx-placement host-%s %s", nsCfg.VPPLinkName, placement))
+			fmt.Sprintf("set interface rx-placement host-%s %s",
+				nsCfg.VPPLinkName, placement))
 	}
 
 	return append(cmds,
 		// TODO: add an option for interrupt mode
 		// fmt.Sprintf("set interface rx-mode host-%s interrupt", nsCfg.VPPLinkName),
-		fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName,),
 		fmt.Sprintf("set interface mac address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
 		fmt.Sprintf("set interface %s table host-%s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
 		fmt.Sprintf("set interface ip address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),
 		fmt.Sprintf("set interface state host-%s up", nsCfg.VPPLinkName),
+		// TODO: newer VPP should be able to pick up MTU value from the link
 		fmt.Sprintf("set interface mtu %d host-%s", mtu, nsCfg.VPPLinkName),
-		)
-	}
+	)
 }
 
 func (vi *VPPInstance) setupDispatchTrace() error {
@@ -621,4 +613,11 @@ func waitForFile(path string, interval, timeout time.Duration) error {
 			return errors.Errorf("timed out waiting for %q", path)
 		}
 	}
+}
+
+func init() {
+	// VPP may be slow responding to the health probe
+	// when there's a lot of output
+	core.HealthCheckReplyTimeout = 500 * time.Millisecond
+	core.HealthCheckThreshold = 10
 }

@@ -57,7 +57,6 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "cp0",
 				OtherLinkName: "cp1",
 				Table:         0,
-				MTU:           1500,
 				Placement:     -1, // main thread
 			},
 			{
@@ -68,7 +67,6 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				// using L3 capture because of tun
 				// (no Ethernet headers)
 				L3Capture: true,
-				MTU: vpp.ACCESS_MTU,
 				// the default route is added by gtpu (sgw) code here
 			},
 			{
@@ -79,7 +77,6 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "grx0",
 				OtherLinkName: "grx1",
 				Table:         100,
-				MTU:           1500,
 			},
 			{
 				Name:          "sgi",
@@ -89,7 +86,6 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "sgi0",
 				OtherLinkName: "sgi1",
 				Table:         200,
-				MTU:           vpp.ACCESS_MTU,
 				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("10.1.0.0/16"),
@@ -327,7 +323,6 @@ func gtpProxyVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "cp0",
 				OtherLinkName: "cp1",
 				Table:         0,
-				MTU:           1500,
 			},
 			{
 				Name:          "ue",
@@ -347,7 +342,6 @@ func gtpProxyVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "access0",
 				OtherLinkName: "access1",
 				Table:         100,
-				MTU:           1500,
 			},
 			{
 				Name:          "core",
@@ -357,7 +351,6 @@ func gtpProxyVPPConfigIPv4() vpp.VPPConfig {
 				VPPLinkName:   "core0",
 				OtherLinkName: "core1",
 				Table:         200,
-				MTU:           1500,
 			},
 			{
 				Name:          "srv",
@@ -399,7 +392,6 @@ func gtpProxyVPPConfigIPv6() vpp.VPPConfig {
 				VPPLinkName:   "cp0",
 				OtherLinkName: "cp1",
 				Table:         0,
-				MTU:           1500,
 			},
 			{
 				Name:          "ue",
@@ -419,7 +411,6 @@ func gtpProxyVPPConfigIPv6() vpp.VPPConfig {
 				VPPLinkName:   "access0",
 				OtherLinkName: "access1",
 				Table:         100,
-				MTU:           1500,
 			},
 			{
 				Name:          "core",
@@ -429,7 +420,6 @@ func gtpProxyVPPConfigIPv6() vpp.VPPConfig {
 				VPPLinkName:   "core0",
 				OtherLinkName: "core1",
 				Table:         200,
-				MTU:           1500,
 			},
 			{
 				Name:          "srv",
