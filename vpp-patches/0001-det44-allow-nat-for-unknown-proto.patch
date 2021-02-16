@@ -1,0 +1,357 @@
+From b804cec18dbbc1a784e60261c67398ad27b7049e Mon Sep 17 00:00:00 2001
+From: Sergey Matov <sergey.matov@travelping.com>
+Date: Tue, 16 Feb 2021 13:18:08 +0400
+Subject: [PATCH] det44 allow nat for unknown proto
+
+---
+ src/plugins/nat/det44/det44_in2out.c | 53 ++++++++++++++++++++++++----
+ src/plugins/nat/det44/det44_out2in.c | 53 ++++++++++++++++++++++------
+ 2 files changed, 88 insertions(+), 18 deletions(-)
+
+diff --git a/src/plugins/nat/det44/det44_in2out.c b/src/plugins/nat/det44/det44_in2out.c
+index 0857ca188..ffabc38bd 100644
+--- a/src/plugins/nat/det44/det44_in2out.c
++++ b/src/plugins/nat/det44/det44_in2out.c
+@@ -501,8 +501,14 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 
+       snat_det_forward (mp0, &ip0->src_address, &new_addr0, &lo_port0);
+ 
++      if ((proto0 != NAT_PROTOCOL_UDP) && (proto0 != NAT_PROTOCOL_TCP))
++      {
++      key0.ext_host_addr = ip0->dst_address;
++      key0.ext_host_port = 0;}
++      else {
+       key0.ext_host_addr = ip0->dst_address;
+       key0.ext_host_port = tcp0->dst;
++      }
+ 
+       ses0 =
+ 	snat_det_find_ses_by_in (mp0, &ip0->src_address, tcp0->src, key0);
+@@ -510,11 +516,17 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	{
+ 	  for (i0 = 0; i0 < mp0->ports_per_host; i0++)
+ 	    {
++
++	      if ((proto0 != NAT_PROTOCOL_UDP) && (proto0 != NAT_PROTOCOL_TCP))
++		{
++		  key0.out_port = 0;
++		} else {
+ 	      key0.out_port = clib_host_to_net_u16 (lo_port0 +
+ 						    ((i0 +
+ 						      clib_net_to_host_u16
+ 						      (tcp0->src)) %
+ 						     mp0->ports_per_host));
++		}
+ 
+ 	      if (snat_det_get_ses_by_out
+ 		  (mp0, &ip0->src_address, key0.as_u64))
+@@ -538,8 +550,10 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	    }
+ 	}
+ 
++      if ((proto0 == NAT_PROTOCOL_UDP) || (proto0 == NAT_PROTOCOL_TCP)) {
+       old_port0 = udp0->src_port;
+       udp0->src_port = new_port0 = ses0->out.out_port;
++	}
+ 
+       old_addr0.as_u32 = ip0->src_address.as_u32;
+       ip0->src_address.as_u32 = new_addr0.as_u32;
+@@ -579,7 +593,7 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	  mss_clamping (dm->mss_clamping, tcp0, &sum0);
+ 	  tcp0->checksum = ip_csum_fold (sum0);
+ 	}
+-      else
++      else if (PREDICT_FALSE (proto0 == NAT_PROTOCOL_UDP))
+ 	{
+ 	  ses0->state = DET44_SESSION_UDP_ACTIVE;
+ 
+@@ -610,6 +624,7 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	  ses0->expire = now + dm->timeouts.tcp.transitory;
+ 	  break;
+ 	case DET44_SESSION_TCP_ESTABLISHED:
++	default:
+ 	  ses0->expire = now + dm->timeouts.tcp.established;
+ 	  break;
+ 	}
+@@ -671,20 +686,30 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 
+       snat_det_forward (mp1, &ip1->src_address, &new_addr1, &lo_port1);
+ 
++      if ((proto1 != NAT_PROTOCOL_UDP) && (proto1 != NAT_PROTOCOL_TCP))
++      {
++      key1.ext_host_addr = ip1->dst_address;
++      key1.ext_host_port = 0;}
++      else {
+       key1.ext_host_addr = ip1->dst_address;
+       key1.ext_host_port = tcp1->dst;
+-
++      }
+       ses1 =
+ 	snat_det_find_ses_by_in (mp1, &ip1->src_address, tcp1->src, key1);
+       if (PREDICT_FALSE (!ses1))
+ 	{
+ 	  for (i1 = 0; i1 < mp1->ports_per_host; i1++)
+ 	    {
++               if ((proto1 != NAT_PROTOCOL_UDP) && (proto1 != NAT_PROTOCOL_TCP))
++                {
++                  key1.out_port = 0;
++                } else {
+ 	      key1.out_port = clib_host_to_net_u16 (lo_port1 +
+ 						    ((i1 +
+ 						      clib_net_to_host_u16
+ 						      (tcp1->src)) %
+ 						     mp1->ports_per_host));
++		}
+ 
+ 	      if (snat_det_get_ses_by_out
+ 		  (mp1, &ip1->src_address, key1.as_u64))
+@@ -708,8 +733,9 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	    }
+ 	}
+ 
++      if ((proto1 == NAT_PROTOCOL_UDP) || (proto1 == NAT_PROTOCOL_TCP)) {
+       old_port1 = udp1->src_port;
+-      udp1->src_port = new_port1 = ses1->out.out_port;
++      udp1->src_port = new_port1 = ses1->out.out_port;}
+ 
+       old_addr1.as_u32 = ip1->src_address.as_u32;
+       ip1->src_address.as_u32 = new_addr1.as_u32;
+@@ -749,7 +775,7 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	  mss_clamping (dm->mss_clamping, tcp1, &sum1);
+ 	  tcp1->checksum = ip_csum_fold (sum1);
+ 	}
+-      else
++      else if (PREDICT_FALSE (proto1 == NAT_PROTOCOL_UDP))
+ 	{
+ 	  ses1->state = DET44_SESSION_UDP_ACTIVE;
+ 
+@@ -780,6 +806,7 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	  ses1->expire = now + dm->timeouts.tcp.transitory;
+ 	  break;
+ 	case DET44_SESSION_TCP_ESTABLISHED:
++	default:
+ 	  ses1->expire = now + dm->timeouts.tcp.established;
+ 	  break;
+ 	}
+@@ -869,8 +896,14 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 
+       snat_det_forward (mp0, &ip0->src_address, &new_addr0, &lo_port0);
+ 
++      if ((proto0 != NAT_PROTOCOL_UDP) && (proto0 != NAT_PROTOCOL_TCP))
++      {
++      key0.ext_host_addr = ip0->dst_address;
++      key0.ext_host_port = 0;}
++      else {
+       key0.ext_host_addr = ip0->dst_address;
+       key0.ext_host_port = tcp0->dst;
++      }
+ 
+       ses0 =
+ 	snat_det_find_ses_by_in (mp0, &ip0->src_address, tcp0->src, key0);
+@@ -878,11 +911,15 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	{
+ 	  for (i0 = 0; i0 < mp0->ports_per_host; i0++)
+ 	    {
++	      if ((proto0 != NAT_PROTOCOL_UDP) && (proto0 != NAT_PROTOCOL_TCP))
++		{
++		  key0.out_port = 0;
++		} else {
+ 	      key0.out_port = clib_host_to_net_u16 (lo_port0 +
+ 						    ((i0 +
+ 						      clib_net_to_host_u16
+ 						      (tcp0->src)) %
+-						     mp0->ports_per_host));
++						     mp0->ports_per_host)); }
+ 
+ 	      if (snat_det_get_ses_by_out
+ 		  (mp0, &ip0->src_address, key0.as_u64))
+@@ -906,8 +943,9 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	    }
+ 	}
+ 
++      if ((proto0 == NAT_PROTOCOL_TCP) || (proto0 == NAT_PROTOCOL_UDP)) {
+       old_port0 = udp0->src_port;
+-      udp0->src_port = new_port0 = ses0->out.out_port;
++      udp0->src_port = new_port0 = ses0->out.out_port; }
+ 
+       old_addr0.as_u32 = ip0->src_address.as_u32;
+       ip0->src_address.as_u32 = new_addr0.as_u32;
+@@ -947,7 +985,7 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	  mss_clamping (dm->mss_clamping, tcp0, &sum0);
+ 	  tcp0->checksum = ip_csum_fold (sum0);
+ 	}
+-      else
++      else if (PREDICT_FALSE (proto0 == NAT_PROTOCOL_UDP))
+ 	{
+ 	  ses0->state = DET44_SESSION_UDP_ACTIVE;
+ 
+@@ -978,6 +1016,7 @@ VLIB_NODE_FN (det44_in2out_node) (vlib_main_t * vm,
+ 	  ses0->expire = now + dm->timeouts.tcp.transitory;
+ 	  break;
+ 	case DET44_SESSION_TCP_ESTABLISHED:
++	default:
+ 	  ses0->expire = now + dm->timeouts.tcp.established;
+ 	  break;
+ 	}
+diff --git a/src/plugins/nat/det44/det44_out2in.c b/src/plugins/nat/det44/det44_out2in.c
+index 48b816bca..3f6c40769 100644
+--- a/src/plugins/nat/det44/det44_out2in.c
++++ b/src/plugins/nat/det44/det44_out2in.c
+@@ -372,6 +372,7 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+   u32 pkts_processed = 0;
+   det44_main_t *dm = &det44_main;
+   u32 thread_index = vm->thread_index;
++  u16 tmp_port;
+ 
+   from = vlib_frame_vector_args (frame);
+   n_left_from = frame->n_vectors;
+@@ -449,10 +450,18 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 				     thread_index, &ses0, &mp0);
+ 	  goto trace0;
+ 	}
+-
++      if ((proto0 != NAT_PROTOCOL_UDP) && (proto0 != NAT_PROTOCOL_TCP))
++	{
++	  key0.ext_host_addr = ip0->src_address;
++	  key0.ext_host_port = 0;
++	  key0.out_port = 0;
++	  tmp_port = 0;
++	} else {
+       key0.ext_host_addr = ip0->src_address;
+       key0.ext_host_port = tcp0->src;
+       key0.out_port = tcp0->dst;
++	tmp_port = tcp0->dst;
++	}
+ 
+       mp0 = snat_det_map_by_out (&ip0->dst_address);
+       if (PREDICT_FALSE (!mp0))
+@@ -465,7 +474,7 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 	}
+ 
+       snat_det_reverse (mp0, &ip0->dst_address,
+-			clib_net_to_host_u16 (tcp0->dst), &new_addr0);
++			clib_net_to_host_u16 (tmp_port), &new_addr0);
+ 
+       ses0 = snat_det_get_ses_by_out (mp0, &new_addr0, key0.as_u64);
+       if (PREDICT_FALSE (!ses0))
+@@ -480,8 +489,10 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 	  b0->error = node->errors[DET44_OUT2IN_ERROR_NO_TRANSLATION];
+ 	  goto trace0;
+ 	}
+-      old_port0 = udp0->dst_port;
+-      udp0->dst_port = new_port0 = ses0->in_port;
++      if ((proto0 == NAT_PROTOCOL_UDP) || (proto0 == NAT_PROTOCOL_TCP)) {
++        old_port0 = udp0->dst_port;
++        udp0->dst_port = new_port0 = ses0->in_port;
++      }
+ 
+       old_addr0 = ip0->dst_address;
+       ip0->dst_address = new_addr0;
+@@ -510,7 +521,7 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 				 length /* changed member */ );
+ 	  tcp0->checksum = ip_csum_fold (sum0);
+ 	}
+-      else if (udp0->checksum)
++      else if ((PREDICT_FALSE (proto0 == NAT_PROTOCOL_TCP)) && udp0->checksum)
+ 	{
+ 	  sum0 = udp0->checksum;
+ 	  sum0 = ip_csum_update (sum0, old_addr0.as_u32, new_addr0.as_u32,
+@@ -568,9 +579,18 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 	  goto trace1;
+ 	}
+ 
++      if ((proto1 != NAT_PROTOCOL_UDP) && (proto1 != NAT_PROTOCOL_TCP))
++        {
++          key1.ext_host_addr = ip1->src_address;
++          key1.ext_host_port = 0;
++          key1.out_port = 0;
++          tmp_port = 0;
++        } else {
+       key1.ext_host_addr = ip1->src_address;
+       key1.ext_host_port = tcp1->src;
+       key1.out_port = tcp1->dst;
++        tmp_port = tcp1->dst;
++        }
+ 
+       mp1 = snat_det_map_by_out (&ip1->dst_address);
+       if (PREDICT_FALSE (!mp1))
+@@ -583,7 +603,7 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 	}
+ 
+       snat_det_reverse (mp1, &ip1->dst_address,
+-			clib_net_to_host_u16 (tcp1->dst), &new_addr1);
++			clib_net_to_host_u16 (tmp_port), &new_addr1);
+ 
+       ses1 = snat_det_get_ses_by_out (mp1, &new_addr1, key1.as_u64);
+       if (PREDICT_FALSE (!ses1))
+@@ -598,8 +618,9 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 	  b1->error = node->errors[DET44_OUT2IN_ERROR_NO_TRANSLATION];
+ 	  goto trace1;
+ 	}
++      if ((proto1 == NAT_PROTOCOL_UDP) || (proto1 == NAT_PROTOCOL_TCP)) {
+       old_port1 = udp1->dst_port;
+-      udp1->dst_port = new_port1 = ses1->in_port;
++      udp1->dst_port = new_port1 = ses1->in_port; }
+ 
+       old_addr1 = ip1->dst_address;
+       ip1->dst_address = new_addr1;
+@@ -628,7 +649,7 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 				 length /* changed member */ );
+ 	  tcp1->checksum = ip_csum_fold (sum1);
+ 	}
+-      else if (udp1->checksum)
++      else if ( PREDICT_FALSE (proto1 == NAT_PROTOCOL_UDP) || udp1->checksum)
+ 	{
+ 	  sum1 = udp1->checksum;
+ 	  sum1 = ip_csum_update (sum1, old_addr1.as_u32, new_addr1.as_u32,
+@@ -713,9 +734,18 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 	  goto trace00;
+ 	}
+ 
++      if ((proto0 != NAT_PROTOCOL_UDP) && (proto0 != NAT_PROTOCOL_TCP))
++        {
++          key0.ext_host_addr = ip0->src_address;
++          key0.ext_host_port = 0;
++          key0.out_port = 0;
++          tmp_port = 0;
++        } else {
+       key0.ext_host_addr = ip0->src_address;
+       key0.ext_host_port = tcp0->src;
+       key0.out_port = tcp0->dst;
++        tmp_port = tcp0->dst;
++        }
+ 
+       mp0 = snat_det_map_by_out (&ip0->dst_address);
+       if (PREDICT_FALSE (!mp0))
+@@ -728,7 +758,7 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 	}
+ 
+       snat_det_reverse (mp0, &ip0->dst_address,
+-			clib_net_to_host_u16 (tcp0->dst), &new_addr0);
++			clib_net_to_host_u16 (tmp_port), &new_addr0);
+ 
+       ses0 = snat_det_get_ses_by_out (mp0, &new_addr0, key0.as_u64);
+       if (PREDICT_FALSE (!ses0))
+@@ -743,8 +773,9 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 	  b0->error = node->errors[DET44_OUT2IN_ERROR_NO_TRANSLATION];
+ 	  goto trace00;
+ 	}
++      if ((proto0 == NAT_PROTOCOL_UDP) || (proto0 == NAT_PROTOCOL_TCP)) {
+       old_port0 = udp0->dst_port;
+-      udp0->dst_port = new_port0 = ses0->in_port;
++      udp0->dst_port = new_port0 = ses0->in_port;}
+ 
+       old_addr0 = ip0->dst_address;
+       ip0->dst_address = new_addr0;
+@@ -773,7 +804,7 @@ VLIB_NODE_FN (det44_out2in_node) (vlib_main_t * vm,
+ 				 length /* changed member */ );
+ 	  tcp0->checksum = ip_csum_fold (sum0);
+ 	}
+-      else if (udp0->checksum)
++      else if ( PREDICT_FALSE (proto0 == NAT_PROTOCOL_UDP) || udp0->checksum)
+ 	{
+ 	  sum0 = udp0->checksum;
+ 	  sum0 = ip_csum_update (sum0, old_addr0.as_u32, new_addr0.as_u32,
+-- 
+2.24.3 (Apple Git-128)
+
