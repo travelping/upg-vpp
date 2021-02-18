@@ -29,7 +29,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     python python-cffi python-cffi-backend python-ipaddress \
     python2-minimal python-ply python-pycparser python2.7 python2.7-minimal \
     python3 python3-minimal python3.6 python3-minimal \
-    python3-cffi python3-cffi-backend && \
+    python3-cffi python3-cffi-backend dumb-init && \
     apt-get install -yy clang-9
 
 # TODO: add more packages above that are VPP deps
@@ -45,4 +45,8 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     /debs/libvppinfra-dev_*.deb \
     /debs/vpp-api-python_*.deb
 
-ENTRYPOINT /usr/bin/vpp
+COPY start.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/start.sh
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["/usr/local/bin/start.sh"]
