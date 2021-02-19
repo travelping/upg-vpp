@@ -417,10 +417,12 @@ var _ = ginkgo.Describe("Clearing message queue", func() {
 				stopAt := time.Now().Add(35 * time.Second)
 				for time.Now().Before(stopAt) {
 					_, err := f.PFCP.ModifySession(f.VPP.Context(context.Background()), seid, ie.NewQueryURR(ie.NewURRID(1)))
-					if err != nil {
-						framework.Logf("ModifySession() failed (expected): %v", err)
+					if err == nil {
+						time.Sleep(10 * time.Millisecond)
+						continue
 					}
-					// time.Sleep(10 * time.Millisecond)
+					gomega.Expect(errors.Is(err, context.Canceled)).To(gomega.BeFalse())
+					framework.Logf("ModifySession() failed (expected): %v", err)
 				}
 				ginkgo.By("deleting the PFCP session")
 				deleteSession(f, seid, false)
