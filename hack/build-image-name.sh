@@ -1,6 +1,6 @@
 function get_build_hash {
   (
-    GIT_DIR=$PWD/vpp/.git git ls-files -s -- Makefile build/external
+    (cd vpp && git ls-files -s -- Makefile build/external)
     md5sum Dockerfile.build
   ) | md5sum | awk '{print $1}'
 }
