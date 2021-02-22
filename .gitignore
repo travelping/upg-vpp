@@ -4,3 +4,5 @@ __pycache__
 *.pyc
 debug
 release
+# For local E2E artifacts
+artifacts
