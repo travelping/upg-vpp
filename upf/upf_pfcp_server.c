@@ -34,7 +34,7 @@
 #include "upf_pfcp_api.h"
 #include "upf_pfcp_server.h"
 
-#define RESPONSE_TIMEOUT 30
+#define RESPONSE_TIMEOUT 50
 
 #define TW_SECS_PER_CLOCK 10e-3	/* 10ms */
 #define TW_CLOCKS_PER_SECOND (1 / TW_SECS_PER_CLOCK)
