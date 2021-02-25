@@ -193,7 +193,9 @@ func (f *Framework) AfterEach() {
 		if f.PFCP != nil {
 			// FIXME: we need to make sure all PFCP packets are recorded
 			time.Sleep(time.Second)
-			ExpectNoError(f.PFCP.Stop())
+			if err := f.PFCP.Stop(); err != nil {
+				Logf("WARNING: error stopping PFCP: %v", err)
+			}
 			f.PFCP = nil
 		}
 
