@@ -877,19 +877,53 @@ func (pc *PFCPConnection) HardStop() {
 	pc.stop(errHardStop)
 }
 
+// ForgetSession forcibly removes the session entry
+func (pc *PFCPConnection) ForgetSession(seid SEID) bool {
+	pc.Lock()
+	defer pc.Unlock()
+	_, found := pc.sessions[seid]
+	if !found {
+		return false
+	}
+	delete(pc.sessions, seid)
+	return true
+}
+
 func (pc *PFCPConnection) EstablishSession(ctx context.Context, ies ...*ie.IE) (SEID, error) {
 	seid := pc.newSEID()
 	var fseid *ie.IE
+	var filteredIEs []*ie.IE
+	for _, curIE := range ies {
+		if curIE.Type == ie.FSEID {
+			fseidFields, err := curIE.FSEID()
+			if err != nil {
+				panic(err)
+			}
+
+			seid = SEID(fseidFields.SEID)
+
+			// do not break existing session entry if creating a new
+			// session with duplicate SEID is attempted without forgetting
+			// the previous one using ForgetSession()
+			pc.Lock()
+			_, found := pc.sessions[seid]
+			pc.Unlock()
+			if found {
+				return 0, errors.Errorf("session with SEID 0x%016x already present", seid)
+			}
+		} else {
+			filteredIEs = append(filteredIEs, curIE)
+		}
+	}
+
 	if pc.cfg.CNodeIP.To4() == nil {
 		fseid = ie.NewFSEID(uint64(seid), nil, pc.cfg.CNodeIP, nil)
 	} else {
 		fseid = ie.NewFSEID(uint64(seid), pc.cfg.CNodeIP.To4(), nil, nil)
 	}
-	ies = append(ies,
-		// TODO: replace for IPv6
-		fseid,
-		ie.NewNodeID("", "", pc.cfg.NodeID))
-	pc.requestCh <- message.NewSessionEstablishmentRequest(0, 0, 0, 0, 0, ies...)
+
+	filteredIEs = append(filteredIEs, fseid, ie.NewNodeID("", "", pc.cfg.NodeID))
+	pc.requestCh <- message.NewSessionEstablishmentRequest(0, 0, 0, 0, 0, filteredIEs...)
 	return seid, pc.waitForSessionState(ctx, seid, sessionStateEstablished, SessionEstablishmentTimeout)
 }
 

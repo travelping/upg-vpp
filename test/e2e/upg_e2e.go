@@ -585,12 +585,34 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 					var serverErr *pfcp.PFCPServerError
 					gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
 					framework.ExpectEqual(serverErr.Cause, ie.CauseRuleCreationModificationFailure)
+					// TODO: decode and verify TP error report
 					break
 				}
 
 			}
 			gomega.Expect(unexpectedSuccess).To(gomega.BeFalse(), "EstablishSession succeeded unexpectedly")
 			deleteSession(f, seid, true)
+		})
+
+		ginkgo.It("should not be allowed to conflict on SEIDs", func() {
+			sessionCfg := &framework.SessionConfig{
+				IdBase: 1,
+				UEIP:   f.UEIP(),
+				Mode:   f.Mode,
+			}
+			seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			f.PFCP.ForgetSession(seid)
+			sessionCfg.UEIP = f.AddUEIP()
+			ies := append(sessionCfg.SessionIEs(), ie.NewFSEID(uint64(seid), nil, nil, nil))
+			_, err = f.PFCP.EstablishSession(f.Context, ies...)
+			framework.ExpectError(err)
+
+			var serverErr *pfcp.PFCPServerError
+			gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
+			framework.ExpectEqual(serverErr.Cause, ie.CauseRequestRejected)
+			// TODO: decode and verify TP error report
 		})
 	})
 
