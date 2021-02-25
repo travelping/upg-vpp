@@ -2396,6 +2396,7 @@ handle_session_establishment_request (pfcp_msg_t * req,
   f64 now = psm->now;
   int r = 0;
   int is_ip4;
+  u64 seid;
 
   memset (&resp, 0, sizeof (resp));
   SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
@@ -2416,8 +2417,21 @@ handle_session_establishment_request (pfcp_msg_t * req,
       return -1;
     }
 
+  seid = msg->f_seid.seid;
   SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
-  resp.up_f_seid.seid = msg->f_seid.seid;
+  resp.up_f_seid.seid = seid;
+
+  /*
+   * TODO: unique CP-provided SEIDs here don't follow the spec.  The
+   * SEIDs need to be unique per-SMC / SMF Set and UPG should provide
+   * it's UP SEID instead of just reusing CP SEID.
+   */
+  if (pfcp_lookup (seid))
+    {
+      tp_session_error_report (&resp, "Duplicate SEID");
+      r = -1;
+      goto out_send_resp;
+    }
 
   is_ip4 = ip46_address_is_ip4 (&req->rmt.address);
   if (is_ip4)
@@ -2437,8 +2451,7 @@ handle_session_establishment_request (pfcp_msg_t * req,
       ip_set (&cp_address, &msg->f_seid.ip6, 0);
     }
 
-  sess =
-    pfcp_create_session (assoc, &up_address, msg->f_seid.seid, &cp_address);
+  sess = pfcp_create_session (assoc, &up_address, seid, &cp_address);
 
   if (ISSET_BIT
       (msg->grp.fields,
@@ -2473,10 +2486,10 @@ out_send_resp:
   if (r == 0)
     resp.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
-  upf_pfcp_send_response (req, sess->cp_seid,
+  upf_pfcp_send_response (req, seid,
 			  PFCP_SESSION_ESTABLISHMENT_RESPONSE, &resp.grp);
 
-  if (r != 0)
+  if (sess && r != 0)
     {
       if (pfcp_disable_session (sess) != 0)
 	clib_error ("failed to remove UPF session 0x%016" PRIx64,
