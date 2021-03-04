@@ -118,7 +118,7 @@ define upf_applications_dump {
   u32 context;
 };
 
-/* TODO: ip rules aren't implemented yet */
+/* TODO: API calls for the IP rules aren't implemented yet */
 /*
 define upf_application_ip_rule_details {
   u32 context;
@@ -148,4 +148,32 @@ define upf_application_l7_rule_dump {
   u32 context;
 
   u8 app[64];
+};
+
+define upf_pfcp_reencode {
+  u32 client_index;
+  u32 context;
+  u32 packet_len;
+  u8 packet[packet_len];
+};
+
+define upf_pfcp_reencode_reply {
+  u32 context;
+  i32 retval;
+  u32 packet_len;
+  u8 packet[packet_len];
+};
+
+define upf_pfcp_stringify {
+  u32 client_index;
+  u32 context;
+  u32 packet_len;
+  u8 packet[packet_len];
+};
+
+define upf_pfcp_stringify_reply {
+  u32 context;
+  i32 retval;
+  u32 text_len;
+  u8 text[text_len];
 };

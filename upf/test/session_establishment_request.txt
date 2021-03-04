@@ -1,0 +1,112 @@
+PFCP: V:1,S:1,MP:0, Session Establishment Request (50), Length: 929, SEID: 0x0000000000000000.
+Node ID: ergw
+F-SEID: 0xffde7211a5ab800a@172.18.1.1
+Create PDR
+  PDR Id: 6
+  Precedence: 150
+  PDI
+    Source Interface: Access
+    Network Instance: access
+    UE IP Address: S/D:0,CHv4:0,CHv6:0,IPv4:10.192.0.0
+    Application ID: TST
+  FAR ID: 6
+  URR ID: 3
+Create PDR
+  PDR Id: 4
+  Precedence: 100
+  PDI
+    Source Interface: Access
+    Network Instance: access
+    UE IP Address: S/D:0,CHv4:0,CHv6:0,IPv4:10.192.0.0
+    SDF Filter: FD:permit out ip from 198.19.65.4 to assigned
+  FAR ID: 4
+  URR ID: 2
+Create PDR
+  PDR Id: 2
+  Precedence: 200
+  PDI
+    Source Interface: Access
+    Network Instance: access
+    UE IP Address: S/D:0,CHv4:0,CHv6:0,IPv4:10.192.0.0
+    SDF Filter: FD:permit out ip from 198.19.65.2 to assigned
+  FAR ID: 2
+  URR ID: 1
+Create PDR
+  PDR Id: 5
+  Precedence: 150
+  PDI
+    Source Interface: SGi-LAN
+    Network Instance: sgi
+    UE IP Address: S/D:1,CHv4:0,CHv6:0,IPv4:10.192.0.0
+    Application ID: TST
+  FAR ID: 5
+  URR ID: 3
+Create PDR
+  PDR Id: 3
+  Precedence: 100
+  PDI
+    Source Interface: SGi-LAN
+    Network Instance: sgi
+    UE IP Address: S/D:1,CHv4:0,CHv6:0,IPv4:10.192.0.0
+    SDF Filter: FD:permit out ip from 198.19.65.4 to assigned
+  FAR ID: 3
+  URR ID: 2
+Create PDR
+  PDR Id: 1
+  Precedence: 200
+  PDI
+    Source Interface: SGi-LAN
+    Network Instance: sgi
+    UE IP Address: S/D:1,CHv4:0,CHv6:0,IPv4:10.192.0.0
+    SDF Filter: FD:permit out ip from 198.19.65.2 to assigned
+  FAR ID: 1
+  URR ID: 1
+Create FAR
+  FAR ID: 6
+  Apply Action: DROP:0,FORW:1,BUFF:0,NOCP:0,DUPL:0,IPMA:0,IPMD:0
+  Forwarding Parameters
+    Destination Interface: SGi-LAN
+    Network Instance: sgi
+Create FAR
+  FAR ID: 4
+  Apply Action: DROP:0,FORW:1,BUFF:0,NOCP:0,DUPL:0,IPMA:0,IPMD:0
+  Forwarding Parameters
+    Destination Interface: SGi-LAN
+    Network Instance: sgi
+    Redirect Information: HTTP to http://example.com
+Create FAR
+  FAR ID: 2
+  Apply Action: DROP:0,FORW:1,BUFF:0,NOCP:0,DUPL:0,IPMA:0,IPMD:0
+  Forwarding Parameters
+    Destination Interface: SGi-LAN
+    Network Instance: sgi
+Create FAR
+  FAR ID: 5
+  Apply Action: DROP:0,FORW:1,BUFF:0,NOCP:0,DUPL:0,IPMA:0,IPMD:0
+  Forwarding Parameters
+    Destination Interface: Access
+    Network Instance: access
+Create FAR
+  FAR ID: 3
+  Apply Action: DROP:0,FORW:1,BUFF:0,NOCP:0,DUPL:0,IPMA:0,IPMD:0
+  Forwarding Parameters
+    Destination Interface: Access
+    Network Instance: access
+Create FAR
+  FAR ID: 1
+  Apply Action: DROP:0,FORW:1,BUFF:0,NOCP:0,DUPL:0,IPMA:0,IPMD:0
+  Forwarding Parameters
+    Destination Interface: Access
+    Network Instance: access
+Create URR
+  URR ID: 2
+  Measurement Method: DURAT:0,VOLUM:1,EVENT:0
+  Reporting Triggers: PERIO:0,VOLTH:0,TIMTH:0,QUHTI:0,START:0,STOPT:0,DROTH:0,LIUSA:0,VOLQU:0,TIMQU:0,ENVCL:0,MACAR:0,EVETH:0,EVEQU:0,IPMJL:0
+Create URR
+  URR ID: 3
+  Measurement Method: DURAT:1,VOLUM:1,EVENT:0
+  Reporting Triggers: PERIO:0,VOLTH:0,TIMTH:0,QUHTI:0,START:0,STOPT:0,DROTH:0,LIUSA:0,VOLQU:0,TIMQU:0,ENVCL:0,MACAR:0,EVETH:0,EVEQU:0,IPMJL:0
+Create URR
+  URR ID: 1
+  Measurement Method: DURAT:0,VOLUM:1,EVENT:0
+  Reporting Triggers: PERIO:0,VOLTH:0,TIMTH:0,QUHTI:0,START:0,STOPT:0,DROTH:0,LIUSA:0,VOLQU:0,TIMQU:0,ENVCL:0,MACAR:0,EVETH:0,EVEQU:0,IPMJL:0

@@ -84,6 +84,34 @@ api_upf_application_l7_rule_dump (vat_main_t * vam)
   return -1;
 }
 
+static int
+api_upf_pfcp_reencode (vat_main_t * vam)
+{
+  return -1;
+}
+
+static int
+api_upf_pfcp_stringify (vat_main_t * vam)
+{
+  return -1;
+}
+
+static void vl_api_upf_pfcp_reencode_reply_t_handler
+  (vl_api_upf_pfcp_reencode_reply_t * mp)
+{
+  vat_main_t *vam = upf_test_main.vat_main;
+
+  fformat (vam->ofp, "retval %d packet_len %u\n", mp->retval, mp->packet_len);
+}
+
+static void vl_api_upf_pfcp_stringify_reply_t_handler
+  (vl_api_upf_pfcp_stringify_reply_t * mp)
+{
+  vat_main_t *vam = upf_test_main.vat_main;
+
+  fformat (vam->ofp, "retval %d text_len %u\n", mp->retval, mp->text_len);
+}
+
 #include <upf/upf.api_test.c>
 
 /*
