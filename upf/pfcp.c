@@ -86,11 +86,14 @@ format_enum (u8 * s, va_list * args)
 u8 *
 format_network_instance (u8 * s, va_list * args)
 {
-  u8 *label = va_arg (*args, u8 *);
+  u8 **p = va_arg (*args, u8 **);
   u8 i = 0;
+  u8 *label;
 
-  if (!label)
+  if (!p || !*p)
     return format (s, "invalid");
+
+  label = *p;
 
   if (*label > 64)
     {
@@ -1779,7 +1782,7 @@ format_node_id (u8 * s, va_list * args)
       break;
 
     case NID_FQDN:
-      s = format (s, "%U", format_network_instance, n->fqdn);
+      s = format (s, "%U", format_network_instance, &n->fqdn);
       break;
     }
   return s;
@@ -3108,7 +3111,7 @@ format_remote_gtp_u_peer (u8 * s, va_list * args)
       format (s, ",DI:%U", format_destination_interface,
 	      v->destination_interface);
   if (vec_len (v->network_instance) > 0)
-    s = format (s, ",NI: %U", format_network_instance, v->network_instance);
+    s = format (s, ",NI: %U", format_network_instance, &v->network_instance);
 
   return s;
 }
@@ -3503,7 +3506,7 @@ format_user_plane_ip_resource_information (u8 * s, va_list * args)
 
   if (v->network_instance)
     s = format (s, "Network Instance: %U, ",
-		format_network_instance, v->network_instance);
+		format_network_instance, &v->network_instance);
 
   if (v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_V4)
     s = format (s, "%U, ", format_ip4_address, &v->ip4);
