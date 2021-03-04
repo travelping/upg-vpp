@@ -147,13 +147,16 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
   u8 type = pfcp->type;
 
   if (type < ARRAY_LEN (msg_desc) && msg_desc[type])
-    return format (s, "PFCP: V:%d,S:%d,MP:%d, %s (%d), Length: %d.",
-		   pfcp->version, pfcp->s_flag, pfcp->mp_flag,
-		   msg_desc[type], type, clib_net_to_host_u16 (pfcp->length));
+    s = format (s, "PFCP: V:%d,S:%d,MP:%d, %s (%d), Length: %d",
+		pfcp->version, pfcp->s_flag, pfcp->mp_flag,
+		msg_desc[type], type, clib_net_to_host_u16 (pfcp->length));
   else
-    return format (s, "PFCP: V:%d,S:%d,MP:%d, %d, Length: %d.",
-		   pfcp->version, pfcp->s_flag, pfcp->mp_flag,
-		   type, clib_net_to_host_u16 (pfcp->length));
+    s = format (s, "PFCP: V:%d,S:%d,MP:%d, %d, Length: %d",
+		pfcp->version, pfcp->s_flag, pfcp->mp_flag,
+		type, clib_net_to_host_u16 (pfcp->length));
+  return pfcp->s_flag ?
+    format (s, ", SEID: 0x%016" PRIx64 ".", pfcp->session_hdr.seid) :
+    format (s, ".");
 }
 
 /*************************************************************************/
