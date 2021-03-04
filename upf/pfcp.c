@@ -7503,6 +7503,8 @@ decode_ie (const struct pfcp_ie_def *def, u8 * ie, u16 length, void *p,
     {
       if ((r = def->decode (ie, length, p)) == 0)
 	pfcp_debug ("PFCP: %s: %U.", def->name, def->format, p);
+      else
+	pfcp_debug ("FAILED to decode %s", def->name);
 
       return r;
     }
@@ -7798,6 +7800,89 @@ pfcp_free_msg (u16 type, struct pfcp_group *grp)
   assert (msg_specs[type].size == 0 || msg_specs[type].group != NULL);
 
   free_group (&msg_specs[type], grp);
+}
+
+
+static u8 *stringify_group (u8 * s,
+			    int level,
+			    const struct pfcp_ie_def *def,
+			    struct pfcp_group *grp);
+
+static u8 *
+stringify_ie (u8 * s,
+	      int level,
+	      const struct pfcp_group_ie_def *item,
+	      const struct pfcp_ie_def *def, u8 * v)
+{
+  for (int i = 0; i < level * 2; i++)
+    vec_add1 (s, ' ');
+
+  if (def->size != 0)
+    {
+      s = format (s, "%s\n", def->name);
+      s = stringify_group (s, level + 1, def, (struct pfcp_group *) v);
+    }
+  else
+    s = format (s, "%s: %U\n", def->name, def->format, v);
+
+  return s;
+}
+
+static u8 *
+stringify_vector_ie (u8 * s,
+		     int level,
+		     const struct pfcp_group_ie_def *item,
+		     const struct pfcp_ie_def *def, u8 * v)
+{
+  u8 *end;
+
+  if (!*(u8 **) v)
+    return s;
+
+  end = *(u8 **) v + _vec_len (*(u8 **) v) * def->length;
+  for (u8 * p = *(u8 **) v; p < end; p += def->length)
+    s = stringify_ie (s, level, item, def, p);
+
+  return s;
+}
+
+static u8 *
+stringify_group (u8 * s,
+		 int level,
+		 const struct pfcp_ie_def *def, struct pfcp_group *grp)
+{
+  for (int i = 0; i < def->size; i++)
+    {
+      const struct pfcp_group_ie_def *item = &def->group[i];
+      const struct pfcp_ie_def *ie_def;
+      u8 *v = ((u8 *) grp) + item->offset;
+
+      if (item->type == 0)
+	continue;
+
+      if (!ISSET_BIT (grp->fields, i))
+	continue;
+
+      ie_def = get_ie_def (item);
+      if (!ie_def)
+	continue;
+
+      if (item->is_array)
+	s = stringify_vector_ie (s, level, item, ie_def, v);
+      else
+	s = stringify_ie (s, level, item, ie_def, v);
+    }
+
+  return s;
+}
+
+u8 *
+stringify_msg (u8 * s, u16 type, struct pfcp_group *grp)
+{
+  assert (type < ARRAY_LEN (msg_specs));
+  assert (msg_specs[type].size == 0 || msg_specs[type].group != NULL);
+
+  return stringify_group (s, 0, &msg_specs[type], grp);
 }
 
 /*

@@ -1,8 +1,11 @@
 from datetime import datetime
 import uuid
 import framework
+import os
+import os.path
 from unittest import skip
 from random import getrandbits
+from scapy.utils import hexdump
 from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     IE_CreateFAR, IE_CreatePDR, IE_CreateURR, IE_DestinationInterface, \
     IE_DurationMeasurement, IE_EndTime, IE_EnterpriseSpecific, IE_FAR_Id, \
@@ -17,7 +20,8 @@ from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     PFCPHeartbeatRequest, PFCPHeartbeatResponse, PFCPSessionDeletionRequest, \
     PFCPSessionDeletionResponse, PFCPSessionEstablishmentRequest, \
     PFCPSessionEstablishmentResponse, PFCPSessionModificationRequest, \
-    PFCPSessionModificationResponse, PFCPSessionReportRequest
+    PFCPSessionModificationResponse, PFCPSessionReportRequest, \
+    IE_UsageReport_SMR, IE_UsageReport_SRR
 from scapy.contrib.gtp import GTP_U_Header, GTPEchoRequest, GTPEchoResponse, \
     GTP_UDPPort_ExtensionHeader, GTP_PDCP_PDU_ExtensionHeader, \
     IE_Recovery, IE_SelectionMode
@@ -1374,6 +1378,262 @@ class TestUPFUnit(framework.VppTestCase):
     def test_unit(self):
         r = self.vapi.cli_return_response("test upf debug")
         self.assertEqual(r.retval, 0)
+
+class TestPFCPReencode(framework.VppTestCase):
+    """PFCP Reencode Test"""
+
+    def setUp(self):
+        self.have_diffs = False
+
+    def tearDown(self):
+        self.assertFalse(self.have_diffs, "should not have diffs")
+
+    def verify_text(self, name, text):
+        ws_root = os.getenv("WS_ROOT")
+        text_filename = os.path.join(ws_root, "src/plugins/upf/test", name + ".txt")
+        out_filename = text_filename + ".out"
+        if os.path.exists(text_filename):
+            with open(text_filename) as f:
+                orig_text = f.read()
+            if orig_text == text:
+                if os.path.exists(out_filename):
+                    os.remove(out_filename)
+                return
+            print("DIFF in %s, please review %s" % (text_filename, out_filename))
+        else:
+            print("File not found: %s, please review and rename %s" %
+                  (text_filename, out_filename))
+        self.have_diffs = True
+        with open(out_filename, "w") as f_out:
+            f_out.write(text)
+
+    def verify_reencode(self, name, data):
+        data = bytes(data)
+        r = self.vapi.upf_pfcp_reencode(len(data), data)
+        self.assertEqual(len(r.packet), r.packet_len)
+        hexdump(data)
+        PFCP(data).show()
+        print("----")
+        hexdump(r.packet)
+        print("----")
+        PFCP(r.packet).show()
+        # first reencoding rearranges the IEs, second reencoding
+        # should keep them intact
+        r1 = self.vapi.upf_pfcp_reencode(len(r.packet), r.packet)
+        self.assertEqual(len(r1.packet), r1.packet_len)
+        hexdump(r1.packet)
+        print("----")
+        PFCP(r1.packet).show()
+        self.assertEqual(r1.packet, r.packet)
+        r2 = self.vapi.upf_pfcp_stringify(len(data), data)
+        self.verify_text(name, r2.text.decode("utf-8"))
+        # print("----")
+        # # TODO: fail on decode errors
+        # print("ZZZZ OUT:\n%s\n" % r2.text.decode("utf-8", errors="replace"))
+
+    def test_reencode(self):
+        ts = int((datetime(2020, 3, 4) - datetime(1900, 1, 1)).total_seconds())
+        req = PFCP(version=1, seq=1, S=0) / \
+            PFCPAssociationSetupRequest(IE_list=[
+                IE_RecoveryTimeStamp(timestamp=ts),
+                IE_NodeId(id_type="FQDN", id="ergw")
+            ])
+        self.verify_reencode("association_setup_request", req)
+
+        req = PFCP(version=1, seq=6, seid=0xffde72125aeb00a3) / \
+            PFCPSessionModificationRequest(IE_list=[
+                IE_QueryURR(IE_list=[IE_URR_Id(id=1)])
+            ])
+        self.verify_reencode("session_modification_request", req)
+
+        req = PFCP(version=1, seq=6, seid=0xffde72125aeb00a3) / \
+            PFCPSessionModificationResponse(IE_list=[
+                IE_Cause(cause=1),
+                IE_UsageReport_SMR(IE_list=[
+                    IE_URR_Id(id=1),
+                    IE_UR_SEQN(number=0),
+                    IE_UsageReportTrigger(IMMER=1),
+                    IE_StartTime(timestamp=3782115066),
+                    IE_EndTime(timestamp=3782115066),
+                    IE_VolumeMeasurement(DLVOL=1, ULVOL=1, TOVOL=1),
+                    IE_DurationMeasurement(),
+                    IE_EnterpriseSpecific(ietype=32771, enterprise_id=18681, data=b'\xe1n~\xfa\x05Vl\x00'),
+                    IE_EnterpriseSpecific(ietype=32772, enterprise_id=18681, data=b'\xe1n~\xfa\x02\x7f\x08\x00'),
+                    IE_EnterpriseSpecific(ietype=32773, enterprise_id=18681, data=b'\xe1n~\xfa\x02\x7f\x08\x00')
+                ])
+            ])
+        self.verify_reencode("session_modification_response", req)
+
+        req = PFCP(seq=49, seid=1152331208797536256) / \
+            PFCPSessionReportRequest(IE_list=[
+                IE_ReportType(USAR=1),
+                IE_UsageReport_SRR(IE_list=[
+                    IE_URR_Id(id=3),
+                    IE_UR_SEQN(number=24),
+                    IE_UsageReportTrigger(PERIO=1),
+                    IE_StartTime(timestamp=3786688391),
+                    IE_EndTime(timestamp=3786688401),
+                    IE_VolumeMeasurement(
+                        DLVOL=1, ULVOL=1, TOVOL=1, total=0, uplink=0, downlink=0),
+                    IE_DurationMeasurement(duration=10),
+                    IE_EnterpriseSpecific(
+                        ietype=32771,
+                        enterprise_id=18681,
+                        data=b'\xe1\xb4G\x917\xcb\xd8\x00'),
+                    IE_EnterpriseSpecific(
+                        ietype=32772,
+                        enterprise_id=18681,
+                        data=b'\xe1\xb4G\x877\xcb\xd8\x00'),
+                    IE_EnterpriseSpecific(
+                        ietype=32773,
+                        enterprise_id=18681,
+                        data=b'\xe1\xb4G\x917\xcb\xd8\x00')
+                ])
+            ])
+        self.verify_reencode("session_report_request", req)
+
+        req = PFCP(seq=3) / \
+            PFCPSessionEstablishmentRequest(IE_list=[
+                IE_CreateFAR(IE_list=[
+                    IE_ApplyAction(FORW=1),
+                    IE_FAR_Id(id=6),
+                    IE_ForwardingParameters(IE_list=[
+                        IE_DestinationInterface(interface="SGi-LAN/N6-LAN"),
+                        IE_NetworkInstance(instance="sgi")
+                    ])
+                ]),
+                IE_CreateFAR(IE_list=[
+                    IE_ApplyAction(FORW=1),
+                    IE_FAR_Id(id=4),
+                    IE_ForwardingParameters(IE_list=[
+                        IE_DestinationInterface(interface="SGi-LAN/N6-LAN"),
+                        IE_NetworkInstance(instance="sgi"),
+                        IE_RedirectInformation(type="URL", address="http://example.com")
+                    ])
+                ]),
+                IE_CreateFAR(IE_list=[
+                    IE_ApplyAction(FORW=1),
+                    IE_FAR_Id(id=2),
+                    IE_ForwardingParameters(IE_list=[
+                        IE_DestinationInterface(interface="SGi-LAN/N6-LAN"),
+                        IE_NetworkInstance(instance="sgi")
+                    ])
+                ]),
+                IE_CreateFAR(IE_list=[
+                    IE_ApplyAction(FORW=1),
+                    IE_FAR_Id(id=5),
+                    IE_ForwardingParameters(IE_list=[
+                        IE_DestinationInterface(interface="Access"),
+                        IE_NetworkInstance(instance="access")
+                    ])
+                ]),
+                IE_CreateFAR(IE_list=[
+                    IE_ApplyAction(FORW=1),
+                    IE_FAR_Id(id=3),
+                    IE_ForwardingParameters(IE_list=[
+                        IE_DestinationInterface(interface="Access"),
+                        IE_NetworkInstance(instance="access")
+                    ])
+                ]),
+                IE_CreateFAR(IE_list=[
+                    IE_ApplyAction(FORW=1),
+                    IE_FAR_Id(id=1),
+                    IE_ForwardingParameters(IE_list=[
+                        IE_DestinationInterface(interface="Access"),
+                        IE_NetworkInstance(instance="access")
+                    ])
+                ]),
+                IE_CreatePDR(IE_list=[
+                    IE_FAR_Id(id=6),
+                    IE_PDI(IE_list=[
+                        IE_ApplicationId(id="TST"),
+                        IE_NetworkInstance(instance="access"),
+                        IE_SourceInterface(interface="Access"),
+                        IE_UE_IP_Address(ipv4='10.192.0.0', V4=1)
+                    ]),
+                    IE_PDR_Id(id=6),
+                    IE_Precedence(precedence=150),
+                    IE_URR_Id(id=3)
+                ]),
+                IE_CreatePDR(IE_list=[
+                    IE_FAR_Id(id=4),
+                    IE_PDI(IE_list=[
+                        IE_NetworkInstance(instance="access"),
+                        IE_SDF_Filter(FD=1, flow_description="permit out ip from 198.19.65.4 to assigned"),
+                        IE_SourceInterface(interface="Access"),
+                        IE_UE_IP_Address(ipv4='10.192.0.0', V4=1)
+                    ]),
+                    IE_PDR_Id(id=4),
+                    IE_Precedence(precedence=100),
+                    IE_URR_Id(id=2)
+                ]),
+                IE_CreatePDR(IE_list=[
+                    IE_FAR_Id(id=2),
+                    IE_PDI(IE_list=[
+                        IE_NetworkInstance(instance="access"),
+                        IE_SDF_Filter(FD=1, flow_description="permit out ip from 198.19.65.2 to assigned"),
+                        IE_SourceInterface(interface="Access"),
+                        IE_UE_IP_Address(ipv4='10.192.0.0', V4=1)
+                    ]),
+                    IE_PDR_Id(id=2),
+                    IE_Precedence(precedence=200),
+                    IE_URR_Id(id=1)
+                ]),
+                IE_CreatePDR(IE_list=[
+                    IE_FAR_Id(id=5),
+                    IE_PDI(IE_list=[
+                        IE_ApplicationId(id="TST"),
+                        IE_NetworkInstance(instance="sgi"),
+                        IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
+                        IE_UE_IP_Address(ipv4='10.192.0.0', SD=1, V4=1)
+                    ]),
+                    IE_PDR_Id(id=5),
+                    IE_Precedence(precedence=150),
+                    IE_URR_Id(id=3)
+                ]),
+                IE_CreatePDR(IE_list=[
+                    IE_FAR_Id(id=3),
+                    IE_PDI(IE_list=[
+                        IE_NetworkInstance(instance="sgi"),
+                        IE_SDF_Filter(FD=1, flow_description="permit out ip from 198.19.65.4 to assigned"),
+                        IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
+                        IE_UE_IP_Address(ipv4='10.192.0.0', SD=1, V4=1)
+                    ]),
+                    IE_PDR_Id(id=3),
+                    IE_Precedence(precedence=100),
+                    IE_URR_Id(id=2)
+                ]),
+                IE_CreatePDR(IE_list=[
+                    IE_FAR_Id(id=1),
+                    IE_PDI(IE_list=[
+                        IE_NetworkInstance(instance="sgi"),
+                        IE_SDF_Filter(FD=1, flow_description="permit out ip from 198.19.65.2 to assigned"),
+                        IE_SourceInterface(interface="SGi-LAN/N6-LAN"),
+                        IE_UE_IP_Address(ipv4='10.192.0.0', SD=1, V4=1)
+                    ]),
+                    IE_PDR_Id(id=1),
+                    IE_Precedence(precedence=200),
+                    IE_URR_Id(id=1)
+                ]),
+                IE_CreateURR(IE_list=[
+                    IE_MeasurementMethod(VOLUM=1),
+                    IE_ReportingTriggers(),
+                    IE_URR_Id(id=2)
+                ]),
+                IE_CreateURR(IE_list=[
+                    IE_MeasurementMethod(VOLUM=1, DURAT=1),
+                    IE_ReportingTriggers(),
+                    IE_URR_Id(id=3)
+                ]),
+                IE_CreateURR(IE_list=[
+                    IE_MeasurementMethod(VOLUM=1),
+                    IE_ReportingTriggers(),
+                    IE_URR_Id(id=1)
+                ]),
+                IE_FSEID(ipv4='172.18.1.1', v4=1, seid=0xffde7211a5ab800a),
+                IE_NodeId(id_type="FQDN", id="ergw")
+            ])
+        self.verify_reencode("session_establishment_request", req)
 
 # TODO: send session report response
 # TODO: check for heartbeat requests from UPF
