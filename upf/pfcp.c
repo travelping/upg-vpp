@@ -44,6 +44,8 @@
   do { } while (0)
 #endif
 
+#define MIN_SIMPLE_IE_SPACE 64
+
 /*************************************************************************/
 
 u8 *
@@ -7653,6 +7655,13 @@ encode_ie (const struct pfcp_group_ie_def *item,
   int hdr = _vec_len (*vec);
   int r = 0;
 
+  /*
+   * Larger and dynamically sized IEs use vec_append()
+   * which adjusts the capacity of the vector
+   */
+  vec_validate (*vec, hdr + MIN_SIMPLE_IE_SPACE);
+  _vec_len (*vec) = hdr;
+
   if (item->vendor == 0)
     {
       set_ie_hdr_type (*vec, item->type, hdr);
@@ -7677,6 +7686,15 @@ encode_ie (const struct pfcp_group_ie_def *item,
     finalize_ie (*vec, hdr, _vec_len (*vec));
   else
     _vec_len (*vec) = hdr;
+
+#if CLIB_DEBUG > 0
+  /*
+   * Make sure that we didn't have heap corruption
+   */
+  ASSERT (_vec_len (*vec) <=
+	  clib_mem_size ((void *) (*vec) - vec_header_bytes (0)) -
+	  vec_header_bytes (0));
+#endif
 
   return r;
 }

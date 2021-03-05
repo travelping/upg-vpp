@@ -328,11 +328,9 @@ vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t * mp)
   rmsg =
     clib_mem_alloc_aligned_no_fail (sizeof (*rmsg), CLIB_CACHE_LINE_BYTES);
   memset (rmsg, 0, sizeof (*rmsg));
-  /* TODO: only allocate enough space for the header */
-  vec_validate (rmsg->data, 65536);
-  /* FIXME: test header-related code too */
-  memcpy (rmsg->hdr, msg.hdr, sizeof (*rmsg->hdr));
-  _vec_len (rmsg->data) = ie_ofs;	//offsetof (pfcp_header_t, msg_hdr.ies);
+  vec_validate (rmsg->data, ie_ofs);
+  _vec_len (rmsg->data) = ie_ofs;
+  memcpy (rmsg->hdr, msg.hdr, ie_ofs);
   rv = pfcp_encode_msg (rmsg->hdr->type, &m.grp, &rmsg->data);
   rmsg->hdr->length = clib_host_to_net_u16 (_vec_len (rmsg->data) - 4);
 

@@ -108,7 +108,7 @@ encode_pfcp_session_msg (upf_session_t * sx, u8 type,
   msg->seq_no = clib_atomic_add_fetch (&psm->seq_no, 1) % 0x1000000;
   msg->node = sx->assoc.node;
   msg->session_index = sx - gtm->sessions;
-  msg->data = vec_new (u8, 2048);
+  msg->data = vec_new (u8, offsetof (pfcp_header_t, session_hdr.ies));
 
   msg->hdr->version = 1;
   msg->hdr->s_flag = 1;
@@ -118,8 +118,6 @@ encode_pfcp_session_msg (upf_session_t * sx, u8 type,
   msg->hdr->session_hdr.sequence[0] = (msg->seq_no >> 16) & 0xff;
   msg->hdr->session_hdr.sequence[1] = (msg->seq_no >> 8) & 0xff;
   msg->hdr->session_hdr.sequence[2] = msg->seq_no & 0xff;
-
-  _vec_len (msg->data) = offsetof (pfcp_header_t, session_hdr.ies);
 
   r = pfcp_encode_msg (type, grp, &msg->data);
   if (r != 0)
@@ -158,7 +156,7 @@ encode_pfcp_node_msg (upf_node_assoc_t * n, u8 type, struct pfcp_group *grp,
 
   msg->seq_no = clib_atomic_add_fetch (&psm->seq_no, 1) % 0x1000000;
   msg->node = n - gtm->nodes;
-  msg->data = vec_new (u8, 2048);
+  msg->data = vec_new (u8, offsetof (pfcp_header_t, msg_hdr.ies));
 
   msg->hdr->version = 1;
   msg->hdr->s_flag = 0;
@@ -167,8 +165,6 @@ encode_pfcp_node_msg (upf_node_assoc_t * n, u8 type, struct pfcp_group *grp,
   msg->hdr->msg_hdr.sequence[0] = (msg->seq_no >> 16) & 0xff;
   msg->hdr->msg_hdr.sequence[1] = (msg->seq_no >> 8) & 0xff;
   msg->hdr->msg_hdr.sequence[2] = msg->seq_no & 0xff;
-
-  _vec_len (msg->data) = offsetof (pfcp_header_t, msg_hdr.ies);
 
   r = pfcp_encode_msg (type, grp, &msg->data);
   if (r != 0)
@@ -528,7 +524,8 @@ upf_pfcp_send_response (pfcp_msg_t * req, u64 cp_seid, u8 type,
   int r = 0;
 
   resp = pfcp_msg_pool_get (psm);
-  upf_pfcp_make_response (resp, req, 2048);
+  upf_pfcp_make_response (resp, req,
+			  offsetof (pfcp_header_t, session_hdr.ies));
 
   resp->hdr->version = req->hdr->version;
   resp->hdr->s_flag = req->hdr->s_flag;
@@ -547,6 +544,7 @@ upf_pfcp_send_response (pfcp_msg_t * req, u64 cp_seid, u8 type,
     {
       memcpy (resp->hdr->msg_hdr.sequence, req->hdr->msg_hdr.sequence,
 	      sizeof (resp->hdr->session_hdr.sequence));
+      /* msg_hdr is shorter than session_hdr, so there's enough space allocated */
       _vec_len (resp->data) = offsetof (pfcp_header_t, msg_hdr.ies);
     }
 
