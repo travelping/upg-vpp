@@ -75,11 +75,7 @@ typedef struct
   char pool_put_loc[128];
 #endif
 
-  union
-  {
-    u8 *data;
-    pfcp_header_t *hdr;
-  };
+  u8 *data;
 } pfcp_msg_t;
 
 typedef struct
@@ -140,11 +136,9 @@ void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg);
 void upf_pfcp_server_deferred_free_msgs_by_node (u32 node);
 void upf_pfcp_server_deferred_free_msgs_by_sidx (u32 sidx);
 
-int upf_pfcp_send_request (upf_session_t * sx, u8 type,
-			   struct pfcp_group *grp);
+int upf_pfcp_send_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg);
 
-int upf_pfcp_send_response (pfcp_msg_t * req, u64 cp_seid, u8 type,
-			    struct pfcp_group *grp);
+int upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg);
 
 void upf_pfcp_server_session_usage_report (upf_event_urr_data_t * uev);
 

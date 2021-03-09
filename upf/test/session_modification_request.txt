@@ -1,3 +1,4 @@
-PFCP: V:1,S:1,MP:0, Session Modification Request (52), Length: 24, SEID: 0xa300eb5a1272deff.
+PFCP: seq 6, Session Modification Request (52), SEID: 0xffde72125aeb00a3.
 Query URR
   URR ID: 1
+

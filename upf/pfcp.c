@@ -157,8 +157,8 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
 		pfcp->version, pfcp->s_flag, pfcp->mp_flag,
 		type, clib_net_to_host_u16 (pfcp->length));
   return pfcp->s_flag ?
-    format (s, ", SEID: 0x%016" PRIx64 ".", pfcp->session_hdr.seid) :
-    format (s, ".");
+    format (s, ", SEID: 0x%016" PRIx64 ".",
+	    be64toh (pfcp->session_hdr.seid)) : format (s, ".");
 }
 
 /*************************************************************************/
@@ -173,9 +173,20 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
     ((pfcp_header_t *)(V))->msg_hdr.sequence[1] = (S >> 8) &0xff;	\
     ((pfcp_header_t *)(V))->msg_hdr.sequence[2] = S &0xff;		\
   } while (0)
-#define copy_msg_hdr_seq(V,S)						\
-  clib_memcpy(((pfcp_header_t *)(V))->msg_hdr.sequence, (S)->msg_hdr.sequence, \
-	      sizeof(S->msg_hdr.sequence))
+#define set_session_hdr_seid(V, SEID)				\
+  do {								\
+    ((pfcp_header_t *)(V))->s_flag = 1;				\
+    ((pfcp_header_t *)(V))->session_hdr.seid =	\
+      clib_host_to_net_u64 (SEID);				\
+  } while (0)
+
+#define set_session_hdr_seq(V,S)					\
+  do {									\
+    ((pfcp_header_t *)(V))->session_hdr.sequence[0] = (S >> 16) &0xff;	\
+    ((pfcp_header_t *)(V))->session_hdr.sequence[1] = (S >> 8) &0xff;	\
+    ((pfcp_header_t *)(V))->session_hdr.sequence[2] = S &0xff;		\
+  } while (0)
+
 #define set_msg_hdr_length(V,LEN) ((pfcp_header_t *)(V))->length =  htons((LEN))
 
 #define put_msg_response(V,REQ,TYPE,P)		\
@@ -7635,16 +7646,6 @@ decode_group (u8 * p, int len, const struct pfcp_ie_def *grp_def,
   return r;
 }
 
-int
-pfcp_decode_msg (u16 type, u8 * p, int len, struct pfcp_group *grp,
-		 pfcp_offending_ie_t ** err)
-{
-  assert (type < ARRAY_LEN (msg_specs));
-  assert (msg_specs[type].size == 0 || msg_specs[type].group != NULL);
-
-  return decode_group (p, len, &msg_specs[type], grp, err);
-}
-
 static int encode_group (const struct pfcp_ie_def *def,
 			 struct pfcp_group *grp, u8 ** vec);
 
@@ -7753,13 +7754,99 @@ encode_group (const struct pfcp_ie_def *def, struct pfcp_group *grp,
   return r;
 }
 
-int
-pfcp_encode_msg (u16 type, struct pfcp_group *grp, u8 ** vec)
+static inline bool
+pfcp_is_session_msg (u16 type)
 {
-  assert (type < ARRAY_LEN (msg_specs));
-  assert (msg_specs[type].size == 0 || msg_specs[type].group != NULL);
+  /* See TS 29.244 clause 7.3 (Message Types) */
+  return type >= 50 && type <= 99;
+}
 
-  return encode_group (&msg_specs[type], grp, vec);
+int
+pfcp_decode_msg (u8 * p, int len,
+		 pfcp_decoded_msg_t * dmsg, pfcp_offending_ie_t ** err)
+{
+  u16 type, msg_len;
+  int is_session_msg;
+  uword hdr_len;
+
+  clib_memset (dmsg, 0, sizeof (*dmsg));
+
+  /* can't generate any response in the case of an empty message */
+  if (!len)
+    return -1;
+
+  type = pfcp_msg_type (p);
+  is_session_msg = pfcp_is_session_msg (type);
+  hdr_len = is_session_msg ? SESSION_MSG_HDR_LEN : NODE_MSG_HDR_LEN;
+
+  /* can't generate any response in the case of an incomplete header */
+  if (len < hdr_len)
+    return -1;
+
+  /* can't generate any response in the case of bad type */
+  if (type >= ARRAY_LEN (msg_specs) ||
+      !(msg_specs[type].size == 0 || msg_specs[type].group != NULL))
+    return -1;
+
+  dmsg->type = type;
+  if (is_session_msg)
+    {
+      dmsg->seid = pfcp_session_msg_seid (p);
+      dmsg->seq_no = pfcp_session_msg_seq (p);
+    }
+  else
+    dmsg->seq_no = pfcp_node_msg_seq (p);
+
+  msg_len = pfcp_msg_length (p);
+  if (msg_len + 4 > len)
+    return PFCP_CAUSE_INVALID_LENGTH;
+
+  if (is_session_msg != pfcp_msg_s_flag (p))
+    return PFCP_CAUSE_REQUEST_REJECTED;
+
+  return decode_group (p + hdr_len, msg_len - hdr_len + 4,
+		       &msg_specs[type], &dmsg->grp, err);
+}
+
+int
+pfcp_encode_msg (pfcp_decoded_msg_t * dmsg, u8 ** vec)
+{
+  int is_session_msg = pfcp_is_session_msg (dmsg->type);
+  int r;
+  uword hdr_len = is_session_msg ? SESSION_MSG_HDR_LEN : NODE_MSG_HDR_LEN;
+
+  ASSERT (dmsg->type < ARRAY_LEN (msg_specs));
+  ASSERT (msg_specs[dmsg->type].size == 0
+	  || msg_specs[dmsg->type].group != NULL);
+
+  *vec = vec_new (u8, hdr_len);
+  clib_memset (*vec, 0, hdr_len);
+  set_msg_hdr_version (*vec, 1);
+  set_msg_hdr_type (*vec, dmsg->type);
+  if (is_session_msg)
+    {
+      set_session_hdr_seid (*vec, dmsg->seid);
+      set_session_hdr_seq (*vec, dmsg->seq_no);
+    }
+  else
+    set_msg_hdr_seq (*vec, dmsg->seq_no);
+
+  if ((r = encode_group (&msg_specs[dmsg->type], &dmsg->grp, vec)) == 0)
+    set_msg_hdr_length (*vec, _vec_len (*vec) - 4);
+  else
+    vec_free (*vec);
+
+  return r;
+}
+
+void
+pfcp_encode_version_not_supported_response (u8 ** vec)
+{
+  *vec = vec_new (u8, NODE_MSG_HDR_LEN);
+  clib_memset (*vec, 0, NODE_MSG_HDR_LEN);
+  set_msg_hdr_version (*vec, 1);
+  set_msg_hdr_type (*vec, PFCP_VERSION_NOT_SUPPORTED_RESPONSE);
+  set_msg_hdr_length (*vec, NODE_MSG_HDR_LEN - 4);
 }
 
 static void free_group (const struct pfcp_ie_def *def,
@@ -7812,12 +7899,13 @@ free_group (const struct pfcp_ie_def *def, struct pfcp_group *grp)
 }
 
 void
-pfcp_free_msg (u16 type, struct pfcp_group *grp)
+pfcp_free_dmsg_contents (pfcp_decoded_msg_t * dmsg)
 {
-  assert (type < ARRAY_LEN (msg_specs));
-  assert (msg_specs[type].size == 0 || msg_specs[type].group != NULL);
+  ASSERT (dmsg->type < ARRAY_LEN (msg_specs));
+  ASSERT (msg_specs[dmsg->type].size == 0
+	  || msg_specs[dmsg->type].group != NULL);
 
-  free_group (&msg_specs[type], grp);
+  free_group (&msg_specs[dmsg->type], &dmsg->grp);
 }
 
 
@@ -7895,12 +7983,23 @@ stringify_group (u8 * s,
 }
 
 u8 *
-stringify_msg (u8 * s, u16 type, struct pfcp_group *grp)
+format_dmsg (u8 * s, va_list * args)
 {
-  assert (type < ARRAY_LEN (msg_specs));
-  assert (msg_specs[type].size == 0 || msg_specs[type].group != NULL);
+  pfcp_decoded_msg_t *dmsg = va_arg (*args, pfcp_decoded_msg_t *);
 
-  return stringify_group (s, 0, &msg_specs[type], grp);
+  ASSERT (dmsg->type < ARRAY_LEN (msg_specs));
+  ASSERT (msg_specs[dmsg->type].size == 0
+	  || msg_specs[dmsg->type].group != NULL);
+
+  s = format (s, "PFCP: seq %d, ", dmsg->seq_no);
+  s = dmsg->type < ARRAY_LEN (msg_desc) && msg_desc[dmsg->type] ?
+    format (s, "%s (%d)", msg_desc[dmsg->type], dmsg->type) :
+    format (s, "UNKNOWN (%d)", dmsg->type);
+
+  s = pfcp_is_session_msg (dmsg->type) ?
+    format (s, ", SEID: 0x%016" PRIx64 ".\n", dmsg->seid) : format (s, ".\n");
+
+  return stringify_group (s, 0, &msg_specs[dmsg->type], &dmsg->grp);
 }
 
 /*

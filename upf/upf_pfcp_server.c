@@ -52,8 +52,7 @@
   do { } while (0)
 #endif
 
-static void upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req,
-				    size_t len);
+static void upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req);
 static void restart_response_timer (pfcp_msg_t * msg);
 
 pfcp_server_main_t pfcp_server_main;
@@ -93,8 +92,8 @@ upf_pfcp_send_data (pfcp_msg_t * msg)
 }
 
 static int
-encode_pfcp_session_msg (upf_session_t * sx, u8 type,
-			 struct pfcp_group *grp, pfcp_msg_t * msg)
+encode_pfcp_session_msg (upf_session_t * sx,
+			 pfcp_decoded_msg_t * dmsg, pfcp_msg_t * msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_main_t *gtm = &upf_main;
@@ -108,25 +107,11 @@ encode_pfcp_session_msg (upf_session_t * sx, u8 type,
   msg->seq_no = clib_atomic_add_fetch (&psm->seq_no, 1) % 0x1000000;
   msg->node = sx->assoc.node;
   msg->session_index = sx - gtm->sessions;
-  msg->data = vec_new (u8, offsetof (pfcp_header_t, session_hdr.ies));
 
-  msg->hdr->version = 1;
-  msg->hdr->s_flag = 1;
-  msg->hdr->type = type;
-
-  msg->hdr->session_hdr.seid = clib_host_to_net_u64 (sx->cp_seid);
-  msg->hdr->session_hdr.sequence[0] = (msg->seq_no >> 16) & 0xff;
-  msg->hdr->session_hdr.sequence[1] = (msg->seq_no >> 8) & 0xff;
-  msg->hdr->session_hdr.sequence[2] = msg->seq_no & 0xff;
-
-  r = pfcp_encode_msg (type, grp, &msg->data);
-  if (r != 0)
-    {
-      vec_free (msg->data);
-      return r;
-    }
-
-  msg->hdr->length = clib_host_to_net_u16 (_vec_len (msg->data) - 4);
+  dmsg->seq_no = msg->seq_no;
+  dmsg->seid = sx->cp_seid;
+  if ((r = pfcp_encode_msg (dmsg, &msg->data)) != 0)
+    return r;
 
   msg->session_handle = n->session_handle;
   msg->lcl.address = sx->up_address;
@@ -145,8 +130,8 @@ encode_pfcp_session_msg (upf_session_t * sx, u8 type,
 }
 
 static int
-encode_pfcp_node_msg (upf_node_assoc_t * n, u8 type, struct pfcp_group *grp,
-		      pfcp_msg_t * msg)
+encode_pfcp_node_msg (upf_node_assoc_t * n,
+		      pfcp_decoded_msg_t * dmsg, pfcp_msg_t * msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_main_t *gtm = &upf_main;
@@ -156,24 +141,10 @@ encode_pfcp_node_msg (upf_node_assoc_t * n, u8 type, struct pfcp_group *grp,
 
   msg->seq_no = clib_atomic_add_fetch (&psm->seq_no, 1) % 0x1000000;
   msg->node = n - gtm->nodes;
-  msg->data = vec_new (u8, offsetof (pfcp_header_t, msg_hdr.ies));
 
-  msg->hdr->version = 1;
-  msg->hdr->s_flag = 0;
-  msg->hdr->type = type;
-
-  msg->hdr->msg_hdr.sequence[0] = (msg->seq_no >> 16) & 0xff;
-  msg->hdr->msg_hdr.sequence[1] = (msg->seq_no >> 8) & 0xff;
-  msg->hdr->msg_hdr.sequence[2] = msg->seq_no & 0xff;
-
-  r = pfcp_encode_msg (type, grp, &msg->data);
-  if (r != 0)
-    {
-      vec_free (msg->data);
-      return r;
-    }
-
-  msg->hdr->length = clib_host_to_net_u16 (_vec_len (msg->data) - 4);
+  dmsg->seq_no = msg->seq_no;
+  if ((r = pfcp_encode_msg (dmsg, &msg->data)) != 0)
+    return r;
 
   msg->session_handle = n->session_handle;
   msg->lcl.address = n->lcl_addr;
@@ -196,50 +167,40 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   int len = vec_len (msg->data);
-  u8 *seq_no;
 
   if (len < 4)
     return -1;
 
-  upf_debug ("%U", format_pfcp_msg_hdr, msg->hdr);
+  upf_debug ("%U", format_pfcp_msg_hdr, (pfcp_header_t *) msg->data);
 
-  if (msg->hdr->version != 1)
+  if (!pfcp_msg_version_valid (msg->data))
     {
       pfcp_msg_t resp;
 
-      upf_debug ("PFCP: msg version invalid: %d.", msg->hdr->version);
+      upf_debug ("PFCP: msg version invalid: %d.",
+		 pfcp_msg_version (msg->data));
 
       memset (&resp, 0, sizeof (resp));
-      upf_pfcp_make_response (&resp, msg, sizeof (pfcp_header_t));
-
-      resp.hdr->version = 1;
-      resp.hdr->type = PFCP_VERSION_NOT_SUPPORTED_RESPONSE;
-      resp.hdr->length =
-	clib_host_to_net_u16 (offsetof (pfcp_header_t, msg_hdr.ies) - 4);
-      _vec_len (resp.data) = offsetof (pfcp_header_t, msg_hdr.ies);
-
+      upf_pfcp_make_response (&resp, msg);
+      pfcp_encode_version_not_supported_response (&msg->data);
       upf_pfcp_send_data (&resp);
       vec_free (resp.data);
 
       return 0;
     }
 
-  if (len < (clib_net_to_host_u16 (msg->hdr->length) + 4) ||
-      (!msg->hdr->s_flag && len < offsetof (pfcp_header_t, msg_hdr.ies)) ||
-      (msg->hdr->s_flag && len < offsetof (pfcp_header_t, session_hdr.ies)))
+  if (!pfcp_msg_enough_len (msg->data, len))
     {
       upf_debug ("PFCP: msg length invalid, data %d, msg %d.",
-		 len, clib_net_to_host_u16 (msg->hdr->length));
+		 len, pfcp_msg_length (msg->data));
       return -1;
     }
 
   msg->node = ~0;
 
-  seq_no = (msg->hdr->s_flag) ?
-    &msg->hdr->session_hdr.sequence[0] : &msg->hdr->msg_hdr.sequence[0];
-  msg->seq_no = (seq_no[0] << 16) | (seq_no[1] << 8) | seq_no[2];
+  msg->seq_no = pfcp_msg_seq (msg->data);
 
-  switch (msg->hdr->type)
+  switch (pfcp_msg_type (msg->data))
     {
     case PFCP_HEARTBEAT_REQUEST:
     case PFCP_PFD_MANAGEMENT_REQUEST:
@@ -314,14 +275,14 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
 }
 
 static pfcp_msg_t *
-build_pfcp_session_msg (upf_session_t * sx, u8 type, struct pfcp_group *grp)
+build_pfcp_session_msg (upf_session_t * sx, pfcp_decoded_msg_t * dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_msg_t *msg;
   int r = 0;
 
   msg = pfcp_msg_pool_get (psm);
-  if ((r = encode_pfcp_session_msg (sx, type, grp, msg)) != 0)
+  if ((r = encode_pfcp_session_msg (sx, dmsg, msg)) != 0)
     {
       pfcp_msg_pool_put (psm, msg);
       return NULL;
@@ -331,14 +292,14 @@ build_pfcp_session_msg (upf_session_t * sx, u8 type, struct pfcp_group *grp)
 }
 
 static pfcp_msg_t *
-build_pfcp_node_msg (upf_node_assoc_t * n, u8 type, struct pfcp_group *grp)
+build_pfcp_node_msg (upf_node_assoc_t * n, pfcp_decoded_msg_t * dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_msg_t *msg;
   int r = 0;
 
   msg = pfcp_msg_pool_get (psm);
-  if ((r = encode_pfcp_node_msg (n, type, grp, msg)) != 0)
+  if ((r = encode_pfcp_node_msg (n, dmsg, msg)) != 0)
     {
       pfcp_msg_pool_put (psm, msg);
       return NULL;
@@ -348,7 +309,7 @@ build_pfcp_node_msg (upf_node_assoc_t * n, u8 type, struct pfcp_group *grp)
 }
 
 int
-upf_pfcp_send_request (upf_session_t * sx, u8 type, struct pfcp_group *grp)
+upf_pfcp_send_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   vlib_main_t *vm = psm->vlib_main;
@@ -358,7 +319,7 @@ upf_pfcp_send_request (upf_session_t * sx, u8 type, struct pfcp_group *grp)
   msg = clib_mem_alloc_aligned_no_fail (sizeof (*msg), CLIB_CACHE_LINE_BYTES);
   memset (msg, 0, sizeof (*msg));
 
-  if ((r = encode_pfcp_session_msg (sx, type, grp, msg)) != 0)
+  if ((r = encode_pfcp_session_msg (sx, dmsg, msg)) != 0)
     {
       clib_mem_free (msg);
       goto out_free;
@@ -369,7 +330,7 @@ upf_pfcp_send_request (upf_session_t * sx, u8 type, struct pfcp_group *grp)
 				(uword) msg);
 
 out_free:
-  pfcp_free_msg (type, grp);
+  pfcp_free_dmsg_contents (dmsg);
   return r;
 }
 
@@ -415,7 +376,7 @@ request_t1_expired (u32 seq_no)
     }
   else
     {
-      u8 type = msg->hdr->type;
+      u8 type = pfcp_msg_type (msg->data);
 
       upf_debug ("abort...\n");
       // TODO: handle communication breakdown....
@@ -440,12 +401,12 @@ upf_pfcp_server_send_request (pfcp_msg_t * msg)
 }
 
 static void
-upf_pfcp_server_send_session_request (upf_session_t * sx, u8 type,
-				      struct pfcp_group *grp)
+upf_pfcp_server_send_session_request (upf_session_t * sx,
+				      pfcp_decoded_msg_t * dmsg)
 {
   pfcp_msg_t *msg;
 
-  if ((msg = build_pfcp_session_msg (sx, type, grp)))
+  if ((msg = build_pfcp_session_msg (sx, dmsg)))
     {
       upf_debug ("Msg: %p\n", msg);
       upf_pfcp_server_send_request (msg);
@@ -453,12 +414,12 @@ upf_pfcp_server_send_session_request (upf_session_t * sx, u8 type,
 }
 
 static void
-upf_pfcp_server_send_node_request (upf_node_assoc_t * n, u8 type,
-				   struct pfcp_group *grp)
+upf_pfcp_server_send_node_request (upf_node_assoc_t * n,
+				   pfcp_decoded_msg_t * dmsg)
 {
   pfcp_msg_t *msg;
 
-  if ((msg = build_pfcp_node_msg (n, type, grp)))
+  if ((msg = build_pfcp_node_msg (n, dmsg)))
     {
       upf_debug ("Node Msg: %p\n", msg);
       upf_pfcp_server_send_request (msg);
@@ -505,65 +466,37 @@ enqueue_response (pfcp_msg_t * msg)
 }
 
 static void
-upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req, size_t len)
+upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req)
 {
   resp->timer = ~0;
   resp->seq_no = req->seq_no;
   resp->session_handle = req->session_handle;
   resp->lcl = req->lcl;
   resp->rmt = req->rmt;
-  vec_alloc (resp->data, len);
+  resp->data = 0;
 }
 
 int
-upf_pfcp_send_response (pfcp_msg_t * req, u64 cp_seid, u8 type,
-			struct pfcp_group *grp)
+upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_msg_t *resp;
-  int r = 0;
+  int r;
 
   resp = pfcp_msg_pool_get (psm);
-  upf_pfcp_make_response (resp, req,
-			  offsetof (pfcp_header_t, session_hdr.ies));
+  upf_pfcp_make_response (resp, req);
+  dmsg->seq_no = pfcp_msg_seq (req->data);
 
-  resp->hdr->version = req->hdr->version;
-  resp->hdr->s_flag = req->hdr->s_flag;
-  resp->hdr->type = type;
-
-  if (req->hdr->s_flag)
-    {
-      resp->hdr->s_flag = 1;
-      resp->hdr->session_hdr.seid = clib_host_to_net_u64 (cp_seid);
-
-      memcpy (resp->hdr->session_hdr.sequence, req->hdr->session_hdr.sequence,
-	      sizeof (resp->hdr->session_hdr.sequence));
-      _vec_len (resp->data) = offsetof (pfcp_header_t, session_hdr.ies);
-    }
+  if ((r = pfcp_encode_msg (dmsg, &resp->data)) != 0)
+    pfcp_msg_pool_put (psm, resp);
   else
     {
-      memcpy (resp->hdr->msg_hdr.sequence, req->hdr->msg_hdr.sequence,
-	      sizeof (resp->hdr->session_hdr.sequence));
-      /* msg_hdr is shorter than session_hdr, so there's enough space allocated */
-      _vec_len (resp->data) = offsetof (pfcp_header_t, msg_hdr.ies);
+      upf_pfcp_send_data (resp);
+      enqueue_response (resp);
     }
 
-  r = pfcp_encode_msg (type, grp, &resp->data);
-  if (r != 0)
-    {
-      pfcp_msg_pool_put (psm, resp);
-      goto out_free;
-    }
-
-  /* vector resp might have changed */
-  resp->hdr->length = clib_host_to_net_u16 (_vec_len (resp->data) - 4);
-
-  upf_pfcp_send_data (resp);
-  enqueue_response (resp);
-
-out_free:
-  pfcp_free_msg (type, grp);
-  return 0;
+  pfcp_free_dmsg_contents (dmsg);
+  return r;
 }
 
 static int
@@ -584,7 +517,10 @@ static void
 upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
 			       upf_event_urr_data_t * uev, f64 now)
 {
-  pfcp_session_report_request_t req;
+  pfcp_decoded_msg_t dmsg = {
+    .type = PFCP_SESSION_REPORT_REQUEST
+  };
+  pfcp_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
   upf_event_urr_data_t *ev;
@@ -601,11 +537,11 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
     /* how could that happen? */
     return;
 
-  memset (&req, 0, sizeof (req));
-  SET_BIT (req.grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
-  req.report_type = REPORT_TYPE_USAR;
+  memset (req, 0, sizeof (*req));
+  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
+  req->report_type = REPORT_TYPE_USAR;
 
-  SET_BIT (req.grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
+  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
   upf_usage_report_init (&report, vec_len (active->urr));
 
@@ -663,12 +599,11 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
   if (send)
     {
       upf_usage_report_build (sx, ue, active->urr, now, &report,
-			      &req.usage_report);
-      upf_pfcp_server_send_session_request (sx, PFCP_SESSION_REPORT_REQUEST,
-					    &req.grp);
+			      &req->usage_report);
+      upf_pfcp_server_send_session_request (sx, &dmsg);
     }
 
-  pfcp_free_msg (PFCP_SESSION_REPORT_REQUEST, &req.grp);
+  pfcp_free_dmsg_contents (&dmsg);
   upf_usage_report_free (&report);
 }
 
@@ -769,7 +704,10 @@ upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t, u8 start_it)
 static void
 upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 {
-  pfcp_session_report_request_t req;
+  pfcp_decoded_msg_t dmsg = {
+    .type = PFCP_SESSION_REPORT_REQUEST
+  };
+  pfcp_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
   upf_usage_report_t report;
@@ -789,8 +727,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	     vlib_time_now (gtm->vlib_main) - sx->last_ul_traffic,
 	     active->inactivity_timer.handle);
 
-  memset (&req, 0, sizeof (req));
-  SET_BIT (req.grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
+  memset (req, 0, sizeof (*req));
+  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
 
   if (active->inactivity_timer.handle != ~0 &&
       active->inactivity_timer.period != 0)
@@ -799,7 +737,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	  active->inactivity_timer.period)
 	{
 	  active->inactivity_timer.handle = ~0;
-	  req.report_type |= REPORT_TYPE_UPIR;
+	  req->report_type |= REPORT_TYPE_UPIR;
 	}
       else
 	{
@@ -943,8 +881,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 
     if (trigger != 0)
       {
-	req.report_type |= REPORT_TYPE_USAR;
-	SET_BIT (req.grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
+	req->report_type |= REPORT_TYPE_USAR;
+	SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
 	upf_usage_report_trigger (&report, idx, trigger, urr->liusa_bitmap,
 				  trigger_now);
@@ -955,15 +893,14 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
       }
   }
 
-  if (req.report_type != 0)
+  if (req->report_type != 0)
     {
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
-			      &req.usage_report);
-      upf_pfcp_server_send_session_request (sx, PFCP_SESSION_REPORT_REQUEST,
-					    &req.grp);
+			      &req->usage_report);
+      upf_pfcp_server_send_session_request (sx, &dmsg);
     }
 
-  pfcp_free_msg (PFCP_SESSION_REPORT_REQUEST, &req.grp);
+  pfcp_free_dmsg_contents (&dmsg);
   upf_usage_report_free (&report);
 }
 
@@ -1094,18 +1031,20 @@ void upf_pfcp_server_deferred_free_msgs_by_sidx (u32 sidx)
 void upf_server_send_heartbeat (u32 node_idx)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_heartbeat_request_t req;
+  pfcp_decoded_msg_t dmsg = {
+    .type = PFCP_HEARTBEAT_REQUEST
+  };
+  pfcp_heartbeat_request_t *req = &dmsg.heartbeat_request;
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;
 
   n = pool_elt_at_index (gtm->nodes, node_idx);
 
-  memset (&req, 0, sizeof (req));
-  SET_BIT (req.grp.fields, HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP);
-  req.recovery_time_stamp = psm->start_time;
+  memset (req, 0, sizeof (*req));
+  SET_BIT (req->grp.fields, HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP);
+  req->recovery_time_stamp = psm->start_time;
 
-  upf_pfcp_server_send_node_request (n, PFCP_HEARTBEAT_REQUEST, &req.grp);
-
+  upf_pfcp_server_send_node_request (n, &dmsg);
 }
 
 static int timer_id_cmp (void *a1, void *a2)

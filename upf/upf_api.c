@@ -231,90 +231,18 @@ vl_api_upf_update_app_t_handler (vl_api_upf_update_app_t * mp)
   REPLY_MACRO (VL_API_UPF_UPDATE_APP_REPLY);
 }
 
-static int
-ie_offset (pfcp_msg_t * msg)
-{
-  switch (msg->hdr->type)
-    {
-    case PFCP_HEARTBEAT_REQUEST:
-    case PFCP_HEARTBEAT_RESPONSE:
-    case PFCP_PFD_MANAGEMENT_REQUEST:
-    case PFCP_PFD_MANAGEMENT_RESPONSE:
-    case PFCP_ASSOCIATION_SETUP_REQUEST:
-    case PFCP_ASSOCIATION_SETUP_RESPONSE:
-    case PFCP_ASSOCIATION_UPDATE_REQUEST:
-    case PFCP_ASSOCIATION_UPDATE_RESPONSE:
-    case PFCP_ASSOCIATION_RELEASE_REQUEST:
-    case PFCP_ASSOCIATION_RELEASE_RESPONSE:
-    case PFCP_VERSION_NOT_SUPPORTED_RESPONSE:
-    case PFCP_NODE_REPORT_REQUEST:
-    case PFCP_NODE_REPORT_RESPONSE:
-      return offsetof (pfcp_header_t, msg_hdr.ies);
-
-    case PFCP_SESSION_SET_DELETION_REQUEST:
-    case PFCP_SESSION_SET_DELETION_RESPONSE:
-    case PFCP_SESSION_ESTABLISHMENT_REQUEST:
-    case PFCP_SESSION_ESTABLISHMENT_RESPONSE:
-    case PFCP_SESSION_MODIFICATION_REQUEST:
-    case PFCP_SESSION_MODIFICATION_RESPONSE:
-    case PFCP_SESSION_DELETION_REQUEST:
-    case PFCP_SESSION_DELETION_RESPONSE:
-    case PFCP_SESSION_REPORT_REQUEST:
-    case PFCP_SESSION_REPORT_RESPONSE:
-      return offsetof (pfcp_header_t, session_hdr.ies);
-
-    default:
-      return -1;
-    }
-}
-
-typedef union
-{
-  struct pfcp_group grp;
-  pfcp_simple_response_t simple_response;
-  pfcp_heartbeat_request_t heartbeat_request;
-  pfcp_pfd_management_request_t pfd_management_request;
-  pfcp_association_setup_request_t association_setup_request;
-  pfcp_association_update_request_t association_update_request;
-  pfcp_association_release_request_t association_release_request;
-  pfcp_association_procedure_response_t association_procedure_response;
-  /* pfcp_version_not_supported_response_t version_not_supported_response; */
-  pfcp_node_report_request_t node_report_request;
-
-  pfcp_session_set_deletion_request_t session_set_deletion_request;
-  pfcp_session_establishment_request_t session_establishment_request;
-  pfcp_session_modification_request_t session_modification_request;
-  pfcp_session_deletion_request_t session_deletion_request;
-  pfcp_session_procedure_response_t session_procedure_response;
-  pfcp_session_report_request_t session_report_request;
-  pfcp_session_report_response_t session_report_response;
-} any_pfcp_msg_t;
-
 static void
 vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t * mp)
 {
-  any_pfcp_msg_t m;
   upf_main_t *sm = &upf_main;
   vl_api_upf_pfcp_reencode_reply_t *rmp;
-  pfcp_msg_t msg, *rmsg = 0;
+  pfcp_decoded_msg_t dmsg;
   pfcp_offending_ie_t *err = 0;
+  u8 *reply_data = 0;
   int rv = 0;
   int data_len = 0, packet_len = clib_net_to_host_u32 (mp->packet_len);
-  int ie_ofs;
 
-  memset (&m, 0, sizeof (m));
-  memset (&msg, 0, sizeof (pfcp_msg_t));
-  vec_validate (msg.data, packet_len);
-  clib_memcpy (msg.data, mp->packet, packet_len);
-  if ((ie_ofs = ie_offset (&msg)) < 0)
-    {
-      rv = -1;
-      goto reply;
-    }
-
-  if ((rv = pfcp_decode_msg (msg.hdr->type, msg.data + ie_ofs,
-			     clib_net_to_host_u16 (msg.hdr->length) -
-			     sizeof (msg.hdr->msg_hdr), &m.grp, &err)) != 0)
+  if ((rv = pfcp_decode_msg (mp->packet, packet_len, &dmsg, &err)) != 0)
     {
       pfcp_offending_ie_t *cur_err;
       vec_foreach (cur_err, err)
@@ -322,19 +250,12 @@ vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t * mp)
 	clib_warning ("offending IE: %d", *cur_err);
       }
       clib_warning ("pfcp_decode_msg failed, rv=%d", rv);
+      vec_free (err);
       goto reply;
     }
 
-  rmsg =
-    clib_mem_alloc_aligned_no_fail (sizeof (*rmsg), CLIB_CACHE_LINE_BYTES);
-  memset (rmsg, 0, sizeof (*rmsg));
-  vec_validate (rmsg->data, ie_ofs);
-  _vec_len (rmsg->data) = ie_ofs;
-  memcpy (rmsg->hdr, msg.hdr, ie_ofs);
-  rv = pfcp_encode_msg (rmsg->hdr->type, &m.grp, &rmsg->data);
-  rmsg->hdr->length = clib_host_to_net_u16 (_vec_len (rmsg->data) - 4);
-
-  data_len = vec_len (rmsg->data);
+  rv = pfcp_encode_msg (&dmsg, &reply_data);
+  data_len = vec_len (reply_data);
 
 reply:
   /* *INDENT-OFF* */
@@ -342,45 +263,27 @@ reply:
   {
     rmp->packet_len = clib_host_to_net_u32 (data_len);
     if (data_len)
-      clib_memcpy (rmp->packet, rmsg->data, data_len);
+      clib_memcpy (rmp->packet, reply_data, data_len);
   });
   /* *INDENT-ON* */
 
-  vec_free (msg.data);
-  if (rmsg)
-    {
-      vec_free (rmsg->data);
-      clib_mem_free (rmsg);
-    }
+  pfcp_free_dmsg_contents (&dmsg);
+  vec_free (reply_data);
 }
 
 static void
 vl_api_upf_pfcp_stringify_t_handler (vl_api_upf_pfcp_reencode_t * mp)
 {
-  any_pfcp_msg_t m;
   upf_main_t *sm = &upf_main;
   vl_api_upf_pfcp_stringify_reply_t *rmp;
-  pfcp_msg_t msg;
+  pfcp_decoded_msg_t dmsg;
   pfcp_offending_ie_t *err = 0;
   u8 *s;
   /* pfcp_offending_ie_t *err = NULL; */
   int rv = 0;
   int text_len = 0, packet_len = clib_net_to_host_u32 (mp->packet_len);
-  int ie_ofs;
 
-  memset (&m, 0, sizeof (m));
-  memset (&msg, 0, sizeof (pfcp_msg_t));
-  vec_validate (msg.data, packet_len);
-  clib_memcpy (msg.data, mp->packet, packet_len);
-  if ((ie_ofs = ie_offset (&msg)) < 0)
-    {
-      rv = -1;
-      goto reply;
-    }
-
-  if ((rv = pfcp_decode_msg (msg.hdr->type, msg.data + ie_ofs,
-			     clib_net_to_host_u16 (msg.hdr->length) -
-			     sizeof (msg.hdr->msg_hdr), &m.grp, &err)) != 0)
+  if ((rv = pfcp_decode_msg (mp->packet, packet_len, &dmsg, &err)) != 0)
     {
       pfcp_offending_ie_t *cur_err;
       vec_foreach (cur_err, err)
@@ -388,11 +291,11 @@ vl_api_upf_pfcp_stringify_t_handler (vl_api_upf_pfcp_reencode_t * mp)
 	clib_warning ("offending IE: %d", *cur_err);
       }
       clib_warning ("pfcp_decode_msg failed, rv=%d", rv);
+      vec_free (err);
       goto reply;
     }
 
-  s = format (0, "%U\n", format_pfcp_msg_hdr, msg.hdr);
-  s = stringify_msg (s, msg.hdr->type, &m.grp);
+  s = format (0, "%U\n", format_dmsg, &dmsg);
 
   text_len = vec_len (s);
 
@@ -406,7 +309,6 @@ reply:
   });
   /* *INDENT-ON* */
 
-  vec_free (msg.data);
   if (s != 0)
     vec_free (s);
 }

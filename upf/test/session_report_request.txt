@@ -1,4 +1,4 @@
-PFCP: V:1,S:1,MP:0, Session Report Request (56), Length: 138, SEID: 0x0040f90b21e7fd0f.
+PFCP: seq 49, Session Report Request (56), SEID: 0x0ffde7210bf94000.
 Report Type: DLDR:0,USAR:1,ERIR:0,UPIR:0,PMIR:0,SESR:0
 Usage Report SRR
   URR ID: 3
@@ -8,3 +8,4 @@ Usage Report SRR
   End Time: 2019/12/30 09:53:21:000
   Volume Measurement: V:[T:0,U:0,D:0],P:[T:0,U:0,D:0]
   Duration Measurement: 10
+
