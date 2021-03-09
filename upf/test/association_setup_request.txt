@@ -1,3 +1,4 @@
-PFCP: V:1,S:0,MP:0, Association Setup Request (5), Length: 22.
+PFCP: seq 1, Association Setup Request (5).
 Node ID: ergw
 Recovery Time Stamp: 2020/03/04 00:00:00:000
+

@@ -2645,6 +2645,67 @@ typedef struct
   pfcp_f_teid_t n4_u_f_teid;
 } pfcp_session_report_response_t;
 
+typedef struct
+{
+  u16 type;
+  u32 seq_no;
+  u64 seid;
+  union
+  {
+    struct pfcp_group grp;
+    pfcp_simple_response_t simple_response;
+    pfcp_heartbeat_request_t heartbeat_request;
+    pfcp_pfd_management_request_t pfd_management_request;
+    pfcp_association_setup_request_t association_setup_request;
+    pfcp_association_update_request_t association_update_request;
+    pfcp_association_release_request_t association_release_request;
+    pfcp_association_procedure_response_t association_procedure_response;
+    /* pfcp_version_not_supported_response_t version_not_supported_response; */
+    pfcp_node_report_request_t node_report_request;
+
+    pfcp_session_set_deletion_request_t session_set_deletion_request;
+    pfcp_session_establishment_request_t session_establishment_request;
+    pfcp_session_modification_request_t session_modification_request;
+    pfcp_session_deletion_request_t session_deletion_request;
+    pfcp_session_procedure_response_t session_procedure_response;
+    pfcp_session_report_request_t session_report_request;
+    pfcp_session_report_response_t session_report_response;
+  };
+} pfcp_decoded_msg_t;
+
+/* Quick message accessors for use without decoding */
+
+#define pfcp_node_msg_seq(V)					\
+  ((((pfcp_header_t *)(V))->msg_hdr.sequence[0] << 16) +	\
+   (((pfcp_header_t *)(V))->msg_hdr.sequence[1] << 8) +		\
+   ((pfcp_header_t *)(V))->msg_hdr.sequence[2])
+
+#define pfcp_session_msg_seq(V)					\
+  ((((pfcp_header_t *)(V))->session_hdr.sequence[0] << 16) +	\
+   (((pfcp_header_t *)(V))->session_hdr.sequence[1] << 8) +	\
+   ((pfcp_header_t *)(V))->session_hdr.sequence[2])
+
+#define pfcp_session_msg_seid(V)			\
+  be64toh (((pfcp_header_t *)(V))->session_hdr.seid)
+
+#define pfcp_msg_version(V) ((pfcp_header_t *)(V))->version
+#define pfcp_msg_type(V) ((pfcp_header_t *)(V))->type
+#define pfcp_msg_length(V) clib_net_to_host_u16(((pfcp_header_t *)(V))->length)
+
+#define pfcp_msg_version_valid(V) (pfcp_msg_version (V) == 1)
+#define pfcp_msg_enough_len(V,L)						\
+  ((L) >= pfcp_msg_length (V) + 4 &&						\
+   (L) >= (pfcp_msg_s_flag (V) ? SESSION_MSG_HDR_LEN : NODE_MSG_HDR_LEN))
+
+#define pfcp_msg_seq(V)					\
+  (((pfcp_header_t *)(V))->s_flag ?			\
+   pfcp_session_msg_seq(V) : pfcp_node_msg_seq(V))
+
+#define pfcp_msg_s_flag(V) (!! (((pfcp_header_t *)(V))->s_flag))
+
+#define pfcp_msg_seid(V)				\
+  (pfcp_msg_s_flag(V) ? pfcp_session_msg_seid(V) : ~0)
+
 u8 *format_flags (u8 * s, va_list * args);
 u8 *format_enum (u8 * s, va_list * args);
 u8 *format_network_instance (u8 * s, va_list * args);
@@ -2653,8 +2714,7 @@ u8 *format_user_plane_ip_resource_information (u8 * s, va_list * args);
 u8 *format_redirect_information (u8 * s, va_list * args);
 u8 *format_node_id (u8 * s, va_list * args);
 u8 *format_outer_header_creation (u8 * s, va_list * args);
-
-u8 *stringify_msg (u8 * s, u16 type, struct pfcp_group *grp);
+u8 *format_dmsg (u8 * s, va_list * args);
 
 void free_node_id (void *p);
 
@@ -2662,10 +2722,11 @@ void cpy_redirect_information (pfcp_redirect_information_t * dst,
 			       pfcp_redirect_information_t * src);
 void free_redirect_information (void *p);
 
-int pfcp_decode_msg (u16 type, u8 * p, int len, struct pfcp_group *grp,
-		     pfcp_offending_ie_t ** err);
-int pfcp_encode_msg (u16 type, struct pfcp_group *grp, u8 ** vec);
-void pfcp_free_msg (u16 type, struct pfcp_group *grp);
+int pfcp_decode_msg (u8 * p, int len,
+		     pfcp_decoded_msg_t * dmsg, pfcp_offending_ie_t ** err);
+int pfcp_encode_msg (pfcp_decoded_msg_t * dmsg, u8 ** vec);
+void pfcp_encode_version_not_supported_response (u8 ** vec);
+void pfcp_free_dmsg_contents (pfcp_decoded_msg_t * dmsg);
 
 #endif // included_vnet_pfcp_h
 

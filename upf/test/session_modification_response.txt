@@ -1,4 +1,4 @@
-PFCP: V:1,S:1,MP:0, Session Modification Response (53), Length: 138, SEID: 0xa300eb5a1272deff.
+PFCP: seq 6, Session Modification Response (53), SEID: 0xffde72125aeb00a3.
 Cause: 1
 Usage Report SMR
   URR ID: 1
@@ -8,3 +8,4 @@ Usage Report SMR
   End Time: 2019/11/07 11:31:06:000
   Volume Measurement: V:[T:0,U:0,D:0],P:[T:0,U:0,D:0]
   Duration Measurement: 0
+

@@ -1,4 +1,4 @@
-PFCP: V:1,S:1,MP:0, Session Establishment Request (50), Length: 929, SEID: 0x0000000000000000.
+PFCP: seq 3, Session Establishment Request (50), SEID: 0x0000000000000000.
 Node ID: ergw
 F-SEID: 0xffde7211a5ab800a@172.18.1.1
 Create PDR
@@ -110,3 +110,4 @@ Create URR
   URR ID: 1
   Measurement Method: DURAT:0,VOLUM:1,EVENT:0
   Reporting Triggers: PERIO:0,VOLTH:0,TIMTH:0,QUHTI:0,START:0,STOPT:0,DROTH:0,LIUSA:0,VOLQU:0,TIMQU:0,ENVCL:0,MACAR:0,EVETH:0,EVEQU:0,IPMJL:0
+
