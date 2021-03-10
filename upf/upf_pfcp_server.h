@@ -222,7 +222,7 @@ pfcp_msg_pool_add (pfcp_server_main_t * psm, pfcp_msg_t * m)
     _pfcp_msg_pool_put(psm, m);								\
   } while (0)
 #else
-#define pfcp_msg_pool_put(psm, m) _pfcp_msg_pool_put(psm, m);
+#define pfcp_msg_pool_put(psm, m) _pfcp_msg_pool_put(psm, m)
 #endif
 
 static inline void
