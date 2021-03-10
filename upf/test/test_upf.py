@@ -21,7 +21,7 @@ from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     PFCPSessionDeletionResponse, PFCPSessionEstablishmentRequest, \
     PFCPSessionEstablishmentResponse, PFCPSessionModificationRequest, \
     PFCPSessionModificationResponse, PFCPSessionReportRequest, \
-    IE_UsageReport_SMR, IE_UsageReport_SRR
+    IE_UsageReport_SMR, IE_UsageReport_SRR, IE_UsageReport_SDR
 from scapy.contrib.gtp import GTP_U_Header, GTPEchoRequest, GTPEchoResponse, \
     GTP_UDPPort_ExtensionHeader, GTP_PDCP_PDU_ExtensionHeader, \
     IE_Recovery, IE_SelectionMode
@@ -1427,9 +1427,6 @@ class TestPFCPReencode(framework.VppTestCase):
         self.assertEqual(r1.packet, r.packet)
         r2 = self.vapi.upf_pfcp_stringify(len(data), data)
         self.verify_text(name, r2.text.decode("utf-8"))
-        # print("----")
-        # # TODO: fail on decode errors
-        # print("ZZZZ OUT:\n%s\n" % r2.text.decode("utf-8", errors="replace"))
 
     def test_reencode(self):
         ts = int((datetime(2020, 3, 4) - datetime(1900, 1, 1)).total_seconds())
@@ -1634,6 +1631,25 @@ class TestPFCPReencode(framework.VppTestCase):
                 IE_NodeId(id_type="FQDN", id="ergw")
             ])
         self.verify_reencode("session_establishment_request", req)
+
+        report_ies = [
+            IE_UsageReport_SDR(IE_list=[
+                IE_URR_Id(id=n, extra_data=b''),
+                IE_UR_SEQN(number=0),
+                IE_UsageReportTrigger(TERMR=1, extra_data=b'\x00'),
+                IE_StartTime(timestamp=3824381293),
+                IE_EndTime(timestamp=3824381293),
+                IE_VolumeMeasurement(DLVOL=1, ULVOL=1, TOVOL=1, total=0, uplink=0, downlink=0,
+                                     extra_data=b'\x00'*24),
+                IE_DurationMeasurement(duration=0),
+                IE_EnterpriseSpecific(enterprise_id=18681, data=b'\xe3\xf3mm\xb0A\xe0\x00'),
+                IE_EnterpriseSpecific(enterprise_id=18681, data=b'\xe3\xf3mm\xae\xee\xf4\x00'),
+                IE_EnterpriseSpecific(enterprise_id=18681, data=b'\xe3\xf3mm\xae\xee\xf4\x00')
+            ]) for n in range(1, 21)
+        ]
+        req = PFCP(version=1, seq=3, seid=5577006791947779410) / \
+            PFCPSessionDeletionResponse(IE_list=[ IE_Cause(cause=1) ] + report_ies)
+        self.verify_reencode("session_deletion_response", req)
 
 # TODO: send session report response
 # TODO: check for heartbeat requests from UPF
