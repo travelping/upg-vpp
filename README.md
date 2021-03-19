@@ -17,6 +17,8 @@ UPG is used in production in conjunction with [erGW][erGW] as GGSN/PGW
 in multiple installation in several telecom operators (Tier 1 and
 smaller).
 
+For the list of known issues, see [KNOWN_ISSUES document](KNOWN_ISSUES.md).
+
 Working features
 ----------------
 
@@ -45,10 +47,6 @@ Limitations
 * FAR action with destination LI are not implemented
 * Ethernet bearer support
 
-General limitations and known deficits
---------------------------------------
-
-* Error handling in Sx procedures is weak
 
 Development setup
 -----------------
