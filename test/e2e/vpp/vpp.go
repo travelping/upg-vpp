@@ -178,7 +178,7 @@ func (vi *VPPInstance) prepareCommand() (*exec.Cmd, error) {
 
 	args := []string{"--net=" + vi.vppNS.Path()}
 	if vi.startupCfg.UseGDB {
-		gdbCmdsFile, err := vi.writeVPPFile("gdbcmds", "r\nbt 10\n")
+		gdbCmdsFile, err := vi.writeVPPFile("gdbcmds", "r\nbt full 30\n")
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing gdbcmds")
 		}
