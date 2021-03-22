@@ -38,6 +38,8 @@ cpu {
 {{ end }}
 }
 
+heapsize 2G
+
 statseg {
   socket-name {{.StatsSock}}
   size 512M
