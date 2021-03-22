@@ -272,10 +272,10 @@ reply:
 }
 
 static void
-vl_api_upf_pfcp_stringify_t_handler (vl_api_upf_pfcp_reencode_t * mp)
+vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t * mp)
 {
   upf_main_t *sm = &upf_main;
-  vl_api_upf_pfcp_stringify_reply_t *rmp;
+  vl_api_upf_pfcp_format_reply_t *rmp;
   pfcp_decoded_msg_t dmsg;
   pfcp_offending_ie_t *err = 0;
   u8 *s;
@@ -301,7 +301,7 @@ vl_api_upf_pfcp_stringify_t_handler (vl_api_upf_pfcp_reencode_t * mp)
 
 reply:
   /* *INDENT-OFF* */
-  REPLY_MACRO3_ZERO (VL_API_UPF_PFCP_STRINGIFY_REPLY, text_len,
+  REPLY_MACRO3_ZERO (VL_API_UPF_PFCP_FORMAT_REPLY, text_len,
   {
     rmp->text_len = clib_host_to_net_u32 (text_len);
     if (text_len)

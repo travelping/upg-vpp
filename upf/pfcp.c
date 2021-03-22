@@ -7909,25 +7909,20 @@ pfcp_free_dmsg_contents (pfcp_decoded_msg_t * dmsg)
 }
 
 
-static u8 *stringify_group (u8 * s,
-			    int level,
-			    const struct pfcp_ie_def *def,
-			    struct pfcp_group *grp);
+static u8 *format_group (u8 * s, va_list * args);
 
 static u8 *
-stringify_ie (u8 * s,
-	      int level,
-	      const struct pfcp_group_ie_def *item,
-	      const struct pfcp_ie_def *def, u8 * v)
+format_ie (u8 * s, va_list * args)
 {
+  int level = va_arg (*args, int);
+  const struct pfcp_ie_def *def = va_arg (*args, const struct pfcp_ie_def *);
+  u8 *v = va_arg (*args, u8 *);
   for (int i = 0; i < level * 2; i++)
     vec_add1 (s, ' ');
 
   if (def->size != 0)
-    {
-      s = format (s, "%s\n", def->name);
-      s = stringify_group (s, level + 1, def, (struct pfcp_group *) v);
-    }
+    s = format (s, "%s\n%U", def->name, format_group, level + 1, def,
+		(struct pfcp_group *) v);
   else
     s = format (s, "%s: %U\n", def->name, def->format, v);
 
@@ -7935,11 +7930,11 @@ stringify_ie (u8 * s,
 }
 
 static u8 *
-stringify_vector_ie (u8 * s,
-		     int level,
-		     const struct pfcp_group_ie_def *item,
-		     const struct pfcp_ie_def *def, u8 * v)
+format_vector_ie (u8 * s, va_list * args)
 {
+  int level = va_arg (*args, int);
+  const struct pfcp_ie_def *def = va_arg (*args, const struct pfcp_ie_def *);
+  u8 *v = va_arg (*args, u8 *);
   u8 *end;
 
   if (!*(u8 **) v)
@@ -7947,16 +7942,18 @@ stringify_vector_ie (u8 * s,
 
   end = *(u8 **) v + _vec_len (*(u8 **) v) * def->length;
   for (u8 * p = *(u8 **) v; p < end; p += def->length)
-    s = stringify_ie (s, level, item, def, p);
+    s = format (s, "%U", format_ie, level, def, p);
 
   return s;
 }
 
 static u8 *
-stringify_group (u8 * s,
-		 int level,
-		 const struct pfcp_ie_def *def, struct pfcp_group *grp)
+format_group (u8 * s, va_list * args)
 {
+  int level = va_arg (*args, int);
+  const struct pfcp_ie_def *def = va_arg (*args, const struct pfcp_ie_def *);
+  const struct pfcp_group *grp = va_arg (*args, const struct pfcp_group *);
+
   for (int i = 0; i < def->size; i++)
     {
       const struct pfcp_group_ie_def *item = &def->group[i];
@@ -7973,10 +7970,8 @@ stringify_group (u8 * s,
       if (!ie_def)
 	continue;
 
-      if (item->is_array)
-	s = stringify_vector_ie (s, level, item, ie_def, v);
-      else
-	s = stringify_ie (s, level, item, ie_def, v);
+      s = format (s, "%U", item->is_array ? format_vector_ie : format_ie,
+		  level, ie_def, v);
     }
 
   return s;
@@ -7999,7 +7994,8 @@ format_dmsg (u8 * s, va_list * args)
   s = pfcp_is_session_msg (dmsg->type) ?
     format (s, ", SEID: 0x%016" PRIx64 ".\n", dmsg->seid) : format (s, ".\n");
 
-  return stringify_group (s, 0, &msg_specs[dmsg->type], &dmsg->grp);
+  return format (s, "%U", format_group, 0, &msg_specs[dmsg->type],
+		 &dmsg->grp);
 }
 
 /*
