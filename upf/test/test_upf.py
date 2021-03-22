@@ -1425,7 +1425,7 @@ class TestPFCPReencode(framework.VppTestCase):
         print("----")
         PFCP(r1.packet).show()
         self.assertEqual(r1.packet, r.packet)
-        r2 = self.vapi.upf_pfcp_stringify(len(data), data)
+        r2 = self.vapi.upf_pfcp_format(len(data), data)
         self.verify_text(name, r2.text.decode("utf-8"))
 
     def test_reencode(self):

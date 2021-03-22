@@ -164,14 +164,14 @@ define upf_pfcp_reencode_reply {
   u8 packet[packet_len];
 };
 
-define upf_pfcp_stringify {
+define upf_pfcp_format {
   u32 client_index;
   u32 context;
   u32 packet_len;
   u8 packet[packet_len];
 };
 
-define upf_pfcp_stringify_reply {
+define upf_pfcp_format_reply {
   u32 context;
   i32 retval;
   u32 text_len;
