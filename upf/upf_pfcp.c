@@ -75,7 +75,7 @@ format_upf_device_name (u8 * s, va_list * args)
   upf_nwi_t *nwi;
 
   nwi = pool_elt_at_index (gtm->nwis, i);
-  s = format (s, "upf-nwi-%U", format_network_instance, &nwi->name);
+  s = format (s, "upf-nwi-%U", format_dns_labels, nwi->name);
 
   return s;
 }
@@ -2560,7 +2560,7 @@ format_upf_far (u8 * s, va_list * args)
 		  "%UDestination Interface: %u\n",
 		  format_white_space, indent + 2,
 		  format_white_space, indent + 4,
-		  format_network_instance, nwi ? &nwi->name : NULL,
+		  format_dns_labels, nwi ? nwi->name : NULL,
 		  format_white_space, indent + 4, ff->dst_intf);
       if (ff->flags & FAR_F_REDIRECT_INFORMATION)
 	s = format (s, "%URedirect Information: %U\n",
@@ -2657,7 +2657,7 @@ format_pfcp_session (u8 * s, va_list * args)
       s = format (s, "    Source Interface: %d\n", pdr->pdi.src_intf);
 
     s = format (s, "    Network Instance: %U\n",
-		format_network_instance, nwi ? &nwi->name : NULL);
+		format_dns_labels, nwi ? nwi->name : NULL);
 
     if (pdr->pdi.fields & F_PDI_LOCAL_F_TEID)
       {
@@ -2945,7 +2945,7 @@ format_network_instance_index (u8 * s, va_list * args)
     return format (s, "(@~0)");
 
   upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, n);
-  return format (s, "(@%u) %U", n, format_network_instance, &nwi->name);
+  return format (s, "(@%u) %U", n, format_dns_labels, nwi->name);
 }
 
 u8 *
