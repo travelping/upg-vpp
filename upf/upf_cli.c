@@ -445,7 +445,7 @@ upf_show_nwi_command_fn (vlib_main_t * vm,
       continue;
 
     vlib_cli_output (vm, "%U, ip4-fib-index %u, ip6-fib-index %u\n",
-		     format_network_instance, nwi->name,
+		     format_dns_labels, nwi->name,
 		     nwi->fib_index[FIB_PROTOCOL_IP4],
 		     nwi->fib_index[FIB_PROTOCOL_IP6]);
   }));
