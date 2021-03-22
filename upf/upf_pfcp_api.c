@@ -243,7 +243,7 @@ static void
 /* message handlers */
 
 static int
-handle_heartbeat_request (pfcp_msg_t * req, pfcp_heartbeat_request_t * msg)
+handle_heartbeat_request (pfcp_msg_t * msg, pfcp_heartbeat_request_t * req)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_simple_response_t resp;
@@ -255,25 +255,25 @@ handle_heartbeat_request (pfcp_msg_t * req, pfcp_heartbeat_request_t * msg)
   upf_debug ("PFCP: start_time: %p, %d, %x.",
 	     &psm, psm->start_time, psm->start_time);
 
-  upf_pfcp_send_response (req, 0, PFCP_HEARTBEAT_RESPONSE, &resp.grp);
+  upf_pfcp_send_response (msg, 0, PFCP_HEARTBEAT_RESPONSE, &resp.grp);
 
   return 0;
 }
 
 static int
-handle_heartbeat_response (pfcp_msg_t * req, pfcp_simple_response_t * msg)
+handle_heartbeat_response (pfcp_msg_t * msg, pfcp_simple_response_t * resp)
 {
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;
 
-  if (req->node == ~0 || pool_is_free_index (gtm->nodes, req->node))
+  if (msg->node == ~0 || pool_is_free_index (gtm->nodes, msg->node))
     return -1;
 
-  n = pool_elt_at_index (gtm->nodes, req->node);
+  n = pool_elt_at_index (gtm->nodes, msg->node);
 
-  if (msg->response.recovery_time_stamp > n->recovery_time_stamp)
+  if (resp->response.recovery_time_stamp > n->recovery_time_stamp)
     pfcp_release_association (n);
-  else if (msg->response.recovery_time_stamp < n->recovery_time_stamp)
+  else if (resp->response.recovery_time_stamp < n->recovery_time_stamp)
     {
       /* 3GPP TS 23.007, Sect. 19A:
        *
@@ -297,22 +297,22 @@ handle_heartbeat_response (pfcp_msg_t * req, pfcp_simple_response_t * msg)
 }
 
 static int
-handle_pfd_management_request (pfcp_msg_t * req,
-			       pfcp_pfd_management_request_t * msg)
+handle_pfd_management_request (pfcp_msg_t * msg,
+			       pfcp_pfd_management_request_t * req)
 {
   return -1;
 }
 
 static int
-handle_pfd_management_response (pfcp_msg_t * req,
-				pfcp_simple_response_t * msg)
+handle_pfd_management_response (pfcp_msg_t * msg,
+				pfcp_simple_response_t * resp)
 {
   return -1;
 }
 
 static int
-handle_association_setup_request (pfcp_msg_t * req,
-				  pfcp_association_setup_request_t * msg)
+handle_association_setup_request (pfcp_msg_t * msg,
+				  pfcp_association_setup_request_t * req)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_association_procedure_response_t resp;
@@ -334,7 +334,7 @@ handle_association_setup_request (pfcp_msg_t * req,
   SET_BIT (resp.grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID);
   vec_add (resp.tp_build_id, vpe_version_string, strlen (vpe_version_string));
 
-  n = pfcp_get_association (&msg->request.node_id);
+  n = pfcp_get_association (&req->request.node_id);
   if (n)
     {
       /* 3GPP TS 23.007, Sect. 19A:
@@ -356,10 +356,10 @@ handle_association_setup_request (pfcp_msg_t * req,
     }
 
   n =
-    pfcp_new_association (req->session_handle,
-			  &req->lcl.address, &req->rmt.address,
-			  &msg->request.node_id);
-  n->recovery_time_stamp = msg->recovery_time_stamp;
+    pfcp_new_association (msg->session_handle,
+			  &msg->lcl.address, &msg->rmt.address,
+			  &req->request.node_id);
+  n->recovery_time_stamp = req->recovery_time_stamp;
 
   SET_BIT (resp.grp.fields,
 	   ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES);
@@ -384,73 +384,73 @@ handle_association_setup_request (pfcp_msg_t * req,
       resp.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
     }
 
-  upf_pfcp_send_response (req, 0, PFCP_ASSOCIATION_SETUP_RESPONSE, &resp.grp);
+  upf_pfcp_send_response (msg, 0, PFCP_ASSOCIATION_SETUP_RESPONSE, &resp.grp);
 
   return r;
 }
 
 static int
-handle_association_setup_response (pfcp_msg_t * req,
+handle_association_setup_response (pfcp_msg_t * msg,
 				   pfcp_association_procedure_response_t *
-				   msg)
+				   req)
 {
   return -1;
 }
 
 static int
-handle_association_update_request (pfcp_msg_t * req,
-				   pfcp_association_update_request_t * msg)
+handle_association_update_request (pfcp_msg_t * msg,
+				   pfcp_association_update_request_t * req)
 {
   return -1;
 }
 
 static int
-handle_association_update_response (pfcp_msg_t * req,
+handle_association_update_response (pfcp_msg_t * msg,
 				    pfcp_association_procedure_response_t *
-				    msg)
+				    req)
 {
   return -1;
 }
 
 static int
-handle_association_release_request (pfcp_msg_t * req,
-				    pfcp_association_release_request_t * msg)
+handle_association_release_request (pfcp_msg_t * msg,
+				    pfcp_association_release_request_t * req)
 {
   return -1;
 }
 
 static int
-handle_association_release_response (pfcp_msg_t * req,
-				     pfcp_simple_response_t * msg)
+handle_association_release_response (pfcp_msg_t * msg,
+				     pfcp_simple_response_t * resp)
 {
   return -1;
 }
 
 #if 0
 static int
-handle_version_not_supported_response (pfcp_msg_t * req,
+handle_version_not_supported_response (pfcp_msg_t * msg,
 				       pfcp_version_not_supported_response_t *
-				       msg)
+				       req)
 {
   return -1;
 }
 #endif
 
 static int
-handle_node_report_request (pfcp_msg_t * req,
-			    pfcp_node_report_request_t * msg)
+handle_node_report_request (pfcp_msg_t * msg,
+			    pfcp_node_report_request_t * req)
 {
   return -1;
 }
 
 static int
-handle_node_report_response (pfcp_msg_t * req, pfcp_simple_response_t * msg)
+handle_node_report_response (pfcp_msg_t * msg, pfcp_simple_response_t * resp)
 {
   return -1;
 }
 
 static void
-send_simple_repsonse (pfcp_msg_t * req, u64 seid, u8 type,
+send_simple_repsonse (pfcp_msg_t * msg, u64 seid, u8 type,
 		      pfcp_cause_t cause, pfcp_offending_ie_t * err)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
@@ -493,7 +493,7 @@ send_simple_repsonse (pfcp_msg_t * req, u64 seid, u8 type,
       resp.response.offending_ie = err[0];
     }
 
-  upf_pfcp_send_response (req, seid, type, &resp.grp);
+  upf_pfcp_send_response (msg, seid, type, &resp.grp);
 }
 
 static int
@@ -2361,24 +2361,24 @@ upf_usage_report_build (upf_session_t * sx,
 
 
 static int
-handle_session_set_deletion_request (pfcp_msg_t * req,
+handle_session_set_deletion_request (pfcp_msg_t * msg,
 				     pfcp_session_set_deletion_request_t *
-				     msg)
+				     req)
 {
   return -1;
 }
 
 static int
-handle_session_set_deletion_response (pfcp_msg_t * req,
-				      pfcp_simple_response_t * msg)
+handle_session_set_deletion_response (pfcp_msg_t * msg,
+				      pfcp_simple_response_t * resp)
 {
   return -1;
 }
 
 static int
-handle_session_establishment_request (pfcp_msg_t * req,
+handle_session_establishment_request (pfcp_msg_t * msg,
 				      pfcp_session_establishment_request_t *
-				      msg)
+				      req)
 {
   ip46_address_t up_address = ip46_address_initializer;
   ip46_address_t cp_address = ip46_address_initializer;
@@ -2398,19 +2398,19 @@ handle_session_establishment_request (pfcp_msg_t * req,
   SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_NODE_ID);
   init_response_node_id (&resp.node_id);
 
-  assoc = pfcp_get_association (&msg->request.node_id);
+  assoc = pfcp_get_association (&req->request.node_id);
   if (!assoc)
     {
       tp_session_error_report (&resp, "no established PFCP association");
 
       resp.cause = PFCP_CAUSE_NO_ESTABLISHED_PFCP_ASSOCIATION;
-      upf_pfcp_send_response (req, msg->f_seid.seid,
+      upf_pfcp_send_response (msg, req->f_seid.seid,
 			      PFCP_SESSION_ESTABLISHMENT_RESPONSE, &resp.grp);
 
       return -1;
     }
 
-  seid = msg->f_seid.seid;
+  seid = req->f_seid.seid;
   SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
   resp.up_f_seid.seid = seid;
 
@@ -2426,46 +2426,46 @@ handle_session_establishment_request (pfcp_msg_t * req,
       goto out_send_resp;
     }
 
-  is_ip4 = ip46_address_is_ip4 (&req->rmt.address);
+  is_ip4 = ip46_address_is_ip4 (&msg->rmt.address);
   if (is_ip4)
     {
       resp.up_f_seid.flags |= IE_F_SEID_IP_ADDRESS_V4;
-      resp.up_f_seid.ip4 = req->lcl.address.ip4;
+      resp.up_f_seid.ip4 = msg->lcl.address.ip4;
 
-      ip_set (&up_address, &req->lcl.address.ip4, 1);
-      ip_set (&cp_address, &msg->f_seid.ip4, 1);
+      ip_set (&up_address, &msg->lcl.address.ip4, 1);
+      ip_set (&cp_address, &req->f_seid.ip4, 1);
     }
   else
     {
       resp.up_f_seid.flags |= IE_F_SEID_IP_ADDRESS_V6;
-      resp.up_f_seid.ip6 = req->lcl.address.ip6;
+      resp.up_f_seid.ip6 = msg->lcl.address.ip6;
 
-      ip_set (&up_address, &req->lcl.address.ip6, 0);
-      ip_set (&cp_address, &msg->f_seid.ip6, 0);
+      ip_set (&up_address, &msg->lcl.address.ip6, 0);
+      ip_set (&cp_address, &req->f_seid.ip6, 0);
     }
 
   sess = pfcp_create_session (assoc, &up_address, seid, &cp_address);
 
   if (ISSET_BIT
-      (msg->grp.fields,
+      (req->grp.fields,
        SESSION_ESTABLISHMENT_REQUEST_USER_PLANE_INACTIVITY_TIMER))
     {
       struct rules *pending = pfcp_get_rules (sess, PFCP_PENDING);
 
-      pending->inactivity_timer.period = msg->user_plane_inactivity_timer;
+      pending->inactivity_timer.period = req->user_plane_inactivity_timer;
       pending->inactivity_timer.handle = ~0;
     }
 
-  if ((r = handle_create_pdr (sess, msg->create_pdr, &resp)) != 0)
+  if ((r = handle_create_pdr (sess, req->create_pdr, &resp)) != 0)
     goto out_send_resp;
 
   if (vec_len (resp.created_pdr) > 0)
     SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CREATED_PDR);
 
-  if ((r = handle_create_far (sess, msg->create_far, &resp)) != 0)
+  if ((r = handle_create_far (sess, req->create_far, &resp)) != 0)
     goto out_send_resp;
 
-  if ((r = handle_create_urr (sess, msg->create_urr, now, &resp)) != 0)
+  if ((r = handle_create_urr (sess, req->create_urr, now, &resp)) != 0)
     goto out_send_resp;
 
   r = pfcp_update_apply (sess);
@@ -2479,7 +2479,7 @@ out_send_resp:
   if (r == 0)
     resp.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
-  upf_pfcp_send_response (req, seid,
+  upf_pfcp_send_response (msg, seid,
 			  PFCP_SESSION_ESTABLISHMENT_RESPONSE, &resp.grp);
 
   if (sess && r != 0)
@@ -2494,17 +2494,17 @@ out_send_resp:
 }
 
 static int
-handle_session_establishment_response (pfcp_msg_t * req,
+handle_session_establishment_response (pfcp_msg_t * msg,
 				       pfcp_session_procedure_response_t *
-				       msg)
+				       req)
 {
   return -1;
 }
 
 static int
-handle_session_modification_request (pfcp_msg_t * req,
+handle_session_modification_request (pfcp_msg_t * msg,
 				     pfcp_session_modification_request_t *
-				     msg)
+				     req)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_session_procedure_response_t resp;
@@ -2520,10 +2520,10 @@ handle_session_modification_request (pfcp_msg_t * req,
   SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp.cause = PFCP_CAUSE_REQUEST_REJECTED;
 
-  if (!(sess = pfcp_lookup (be64toh (req->hdr->session_hdr.seid))))
+  if (!(sess = pfcp_lookup (be64toh (msg->hdr->session_hdr.seid))))
     {
       upf_debug ("PFCP Session %" PRIu64 " not found.\n",
-		 be64toh (req->hdr->session_hdr.seid));
+		 be64toh (msg->hdr->session_hdr.seid));
       resp.cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
 
       r = -1;
@@ -2532,7 +2532,7 @@ handle_session_modification_request (pfcp_msg_t * req,
 
   cp_seid = sess->cp_seid;
 
-  if (msg->grp.fields &
+  if (req->grp.fields &
       (BIT (SESSION_MODIFICATION_REQUEST_USER_PLANE_INACTIVITY_TIMER) |
        BIT (SESSION_MODIFICATION_REQUEST_REMOVE_PDR) |
        BIT (SESSION_MODIFICATION_REQUEST_REMOVE_FAR) |
@@ -2553,52 +2553,52 @@ handle_session_modification_request (pfcp_msg_t * req,
       /* invoke the update process only if a update is include */
       pfcp_update_session (sess);
 
-      if (msg->grp.fields &
+      if (req->grp.fields &
 	  BIT (SESSION_MODIFICATION_REQUEST_USER_PLANE_INACTIVITY_TIMER))
 	{
 	  struct rules *pending = pfcp_get_rules (sess, PFCP_PENDING);
 
-	  pending->inactivity_timer.period = msg->user_plane_inactivity_timer;
+	  pending->inactivity_timer.period = req->user_plane_inactivity_timer;
 	  pending->inactivity_timer.handle = ~0;
 	}
 
-      if ((r = handle_create_pdr (sess, msg->create_pdr, &resp)) != 0)
+      if ((r = handle_create_pdr (sess, req->create_pdr, &resp)) != 0)
 	goto out_send_resp;
 
       if (vec_len (resp.created_pdr) > 0)
 	SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CREATED_PDR);
 
-      if ((r = handle_update_pdr (sess, msg->update_pdr, &resp)) != 0)
+      if ((r = handle_update_pdr (sess, req->update_pdr, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_remove_pdr (sess, msg->remove_pdr, &resp)) != 0)
+      if ((r = handle_remove_pdr (sess, req->remove_pdr, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_create_far (sess, msg->create_far, &resp)) != 0)
+      if ((r = handle_create_far (sess, req->create_far, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_update_far (sess, msg->update_far, &resp)) != 0)
+      if ((r = handle_update_far (sess, req->update_far, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_remove_far (sess, msg->remove_far, &resp)) != 0)
+      if ((r = handle_remove_far (sess, req->remove_far, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_create_urr (sess, msg->create_urr, now, &resp)) != 0)
+      if ((r = handle_create_urr (sess, req->create_urr, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_update_urr (sess, msg->update_urr, now, &resp)) != 0)
+      if ((r = handle_update_urr (sess, req->update_urr, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_remove_urr (sess, msg->remove_urr, now, &resp)) != 0)
+      if ((r = handle_remove_urr (sess, req->remove_urr, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_create_qer (sess, msg->create_qer, now, &resp)) != 0)
+      if ((r = handle_create_qer (sess, req->create_qer, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_update_qer (sess, msg->update_qer, now, &resp)) != 0)
+      if ((r = handle_update_qer (sess, req->update_qer, now, &resp)) != 0)
 	goto out_send_resp;
 
-      if ((r = handle_remove_qer (sess, msg->remove_qer, now, &resp)) != 0)
+      if ((r = handle_remove_qer (sess, req->remove_qer, now, &resp)) != 0)
 	goto out_send_resp;
 
       if ((r = pfcp_update_apply (sess)) != 0)
@@ -2611,12 +2611,12 @@ handle_session_modification_request (pfcp_msg_t * req,
   active = pfcp_get_rules (sess, PFCP_ACTIVE);
   upf_usage_report_init (&report, vec_len (active->urr));
 
-  if (ISSET_BIT (msg->grp.fields, SESSION_MODIFICATION_REQUEST_QUERY_URR) &&
-      vec_len (msg->query_urr) != 0)
+  if (ISSET_BIT (req->grp.fields, SESSION_MODIFICATION_REQUEST_QUERY_URR) &&
+      vec_len (req->query_urr) != 0)
     {
       SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 
-      vec_foreach (qry, msg->query_urr)
+      vec_foreach (qry, req->query_urr)
       {
 	upf_urr_t *urr;
 
@@ -2630,8 +2630,8 @@ handle_session_modification_request (pfcp_msg_t * req,
     }
   else
     if (ISSET_BIT
-	(msg->grp.fields, SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS)
-	&& msg->pfcpsmreq_flags & PFCPSMREQ_QAURR)
+	(req->grp.fields, SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS)
+	&& req->pfcpsmreq_flags & PFCPSMREQ_QAURR)
     {
       if (vec_len (active->urr) != 0)
 	{
@@ -2654,22 +2654,23 @@ out_send_resp:
   if (r == 0)
     resp.cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
-  upf_pfcp_send_response (req, cp_seid, PFCP_SESSION_MODIFICATION_RESPONSE,
+  upf_pfcp_send_response (msg, cp_seid, PFCP_SESSION_MODIFICATION_RESPONSE,
 			  &resp.grp);
 
   return r;
 }
 
 static int
-handle_session_modification_response (pfcp_msg_t * req,
-				      pfcp_session_procedure_response_t * msg)
+handle_session_modification_response (pfcp_msg_t * msg,
+				      pfcp_session_procedure_response_t *
+				      resp)
 {
   return -1;
 }
 
 static int
-handle_session_deletion_request (pfcp_msg_t * req,
-				 pfcp_session_deletion_request_t * msg)
+handle_session_deletion_request (pfcp_msg_t * msg,
+				 pfcp_session_deletion_request_t * req)
 {
   upf_main_t *gtm = &upf_main;
   pfcp_server_main_t *psm = &pfcp_server_main;
@@ -2684,10 +2685,10 @@ handle_session_deletion_request (pfcp_msg_t * req,
   SET_BIT (resp.grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp.cause = PFCP_CAUSE_REQUEST_REJECTED;
 
-  if (!(sess = pfcp_lookup (be64toh (req->hdr->session_hdr.seid))))
+  if (!(sess = pfcp_lookup (be64toh (msg->hdr->session_hdr.seid))))
     {
       upf_debug ("PFCP Session %" PRIu64 " not found.\n",
-		 be64toh (req->hdr->session_hdr.seid));
+		 be64toh (msg->hdr->session_hdr.seid));
       resp.cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
 
       r = -1;
@@ -2699,7 +2700,7 @@ handle_session_deletion_request (pfcp_msg_t * req,
   if ((r = pfcp_disable_session (sess)) != 0)
     {
       upf_debug ("PFCP Session %" PRIu64 " could no be disabled.\n",
-		 be64toh (req->hdr->session_hdr.seid));
+		 be64toh (msg->hdr->session_hdr.seid));
       goto out_send_resp;
     }
 
@@ -2728,29 +2729,29 @@ out_send_resp:
     }
 
 out_send_resp_no_session:
-  upf_pfcp_send_response (req, cp_seid, PFCP_SESSION_DELETION_RESPONSE,
+  upf_pfcp_send_response (msg, cp_seid, PFCP_SESSION_DELETION_RESPONSE,
 			  &resp.grp);
 
   return r;
 }
 
 static int
-handle_session_deletion_response (pfcp_msg_t * req,
-				  pfcp_session_procedure_response_t * msg)
+handle_session_deletion_response (pfcp_msg_t * msg,
+				  pfcp_session_procedure_response_t * resp)
 {
   return -1;
 }
 
 static int
-handle_session_report_request (pfcp_msg_t * req,
-			       pfcp_session_report_request_t * msg)
+handle_session_report_request (pfcp_msg_t * msg,
+			       pfcp_session_report_request_t * req)
 {
   return -1;
 }
 
 static int
-handle_session_report_response (pfcp_msg_t * req,
-				pfcp_session_report_response_t * msg)
+handle_session_report_response (pfcp_msg_t * msg,
+				pfcp_session_report_response_t * resp)
 {
   return -1;
 }
