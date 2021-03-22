@@ -84,32 +84,36 @@ format_enum (u8 * s, va_list * args)
 }
 
 u8 *
-format_network_instance (u8 * s, va_list * args)
+format_dns_labels (u8 * s, va_list * args)
 {
-  u8 **p = va_arg (*args, u8 **);
+  u8 *p = va_arg (*args, u8 *);
   u8 i = 0;
-  u8 *label;
 
-  if (!p || !*p)
+  if (!p)
     return format (s, "invalid");
 
-  label = *p;
-
-  if (*label > 64)
+  if (*p > 64)
     {
-      vec_append (s, label);
+      vec_append (s, p);
       return s;
     }
 
-  while (i < vec_len (label))
+  while (i < vec_len (p))
     {
       if (i != 0)
 	vec_add1 (s, '.');
-      vec_add (s, label + i + 1, label[i]);
-      i += label[i] + 1;
+      vec_add (s, p + i + 1, p[i]);
+      i += p[i] + 1;
     }
 
   return s;
+}
+
+u8 *
+format_network_instance (u8 * s, va_list * args)
+{
+  u8 **p = va_arg (*args, u8 **);
+  return p ? format (s, "%U", format_dns_labels, *p) : format (s, "invalid");
 }
 
 /*************************************************************************/
@@ -1781,7 +1785,7 @@ format_node_id (u8 * s, va_list * args)
       break;
 
     case NID_FQDN:
-      s = format (s, "%U", format_network_instance, &n->fqdn);
+      s = format (s, "%U", format_dns_labels, n->fqdn);
       break;
     }
   return s;
@@ -3110,7 +3114,7 @@ format_remote_gtp_u_peer (u8 * s, va_list * args)
       format (s, ",DI:%U", format_destination_interface,
 	      v->destination_interface);
   if (vec_len (v->network_instance) > 0)
-    s = format (s, ",NI: %U", format_network_instance, &v->network_instance);
+    s = format (s, ",NI: %U", format_dns_labels, v->network_instance);
 
   return s;
 }
@@ -3505,7 +3509,7 @@ format_user_plane_ip_resource_information (u8 * s, va_list * args)
 
   if (v->network_instance)
     s = format (s, "Network Instance: %U, ",
-		format_network_instance, &v->network_instance);
+		format_dns_labels, v->network_instance);
 
   if (v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_V4)
     s = format (s, "%U, ", format_ip4_address, &v->ip4);
