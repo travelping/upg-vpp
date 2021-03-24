@@ -437,6 +437,8 @@ pfcp_release_association (upf_node_assoc_t * n)
 
   upf_pfcp_server_deferred_free_msgs_by_node (node_id);
 
+  pool_put (gtm->nodes, n);
+
   vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
 

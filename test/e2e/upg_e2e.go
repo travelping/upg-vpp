@@ -523,7 +523,7 @@ var _ = ginkgo.Describe("Clearing message queue", func() {
 				time.Sleep(10 * time.Millisecond)
 			}
 
-			gomega.Eventually(listNodes, 2*time.Minute, 5*time.Second).Should(gomega.Equal("invalid,invalid,invalid"))
+			gomega.Eventually(listNodes, 2*time.Minute, 5*time.Second).Should(gomega.Equal(""))
 
 			ginkgo.By("Waiting for the extra PFCP associations to drop")
 			wg.Wait()
