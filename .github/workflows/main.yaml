@@ -125,3 +125,34 @@ jobs:
       with:
         name: test-artifacts-${{ matrix.kind }}-${{ matrix.variant }}
         path: artifacts/
+
+  # based on ergw GH Action config
+  slack:
+    needs:
+    - checkstyle
+    - test
+    runs-on: self-hosted
+    if: always()
+    steps:
+    - name: Set status
+      run: |
+        if [[ ${{ needs.checkstyle.result }} == "success" && ${{ needs.test.result }} == "success" ]]; then
+          echo '::set-output name=STATUS::success'
+        elif [[ ${{ needs.checkstyle.result }} == "failure" || ${{ needs.test.result }} == "failure" ]]; then
+          echo '::set-output name=STATUS::failure'
+        else
+          echo '::set-output name=STATUS::cancelled'
+        fi
+      id: set-status
+    - name: Slack notification
+      uses: 8398a7/action-slack@v3
+      with:
+        author_name: "GitHub Actions"
+        username: ${{ github.event.repository.name }}
+        icon_emoji: ':octocat:'
+        fields: repo, message, ref, commit, author, action, eventName, workflow, job, took
+        status: ${{ steps.set-status.outputs.STATUS }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        MATRIX_CONTEXT: ${{ toJson(matrix) }}
