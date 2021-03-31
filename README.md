@@ -118,7 +118,17 @@ If docker is used, one should set the following environment variable
 to enable wrapping the internally run commands in a docker container:
 
 ```
-export UPG_DOCKER_BUILDENV=1
+export UPG_BUILDENV=docker
+```
+
+It is also possible to use a k8s cluster to run the build container:
+```
+export UPG_BUILDENV=k8s
+```
+In this case, the buildenv is run as statefulset inside the cluster.
+It can be removed using
+```
+hack/buildenv.sh clean
 ```
 
 As an alternative, it’s possible to run commands such as
