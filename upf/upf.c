@@ -31,6 +31,7 @@
 #include <math.h>
 #include <vnet/vnet.h>
 #include <vnet/plugin/plugin.h>
+#include <vlib/unix/plugin.h>
 #include <vpp/app/version.h>
 #include <vnet/dpo/lookup_dpo.h>
 #include <vnet/fib/ip4_fib.h>
@@ -48,7 +49,232 @@
 
 #include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
 
+#if CLIB_DEBUG > 1
+#define upf_debug clib_warning
+#else
+#define upf_debug(...)                          \
+  do { } while (0)
+#endif
+
 static fib_source_t upf_fib_source;
+
+upf_nat_pool_t *
+get_nat_pool_by_name (u8 *name)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_nat_pool_t *np = NULL;
+  uword *p;
+
+  p = hash_get_mem (gtm->nat_pool_index_by_name, name);
+  if (!p)
+    return NULL;
+
+  np = pool_elt_at_index(gtm->nat_pools, p[0]);
+
+  return np;
+}
+
+upf_nat_binding_t *
+upf_get_nat_binding_in_pool (upf_nat_pool_t *np, ip4_address_t user_addr)
+{
+  uword *p;
+
+  p = mhash_get (&np->binding_index_by_ip, &user_addr);
+  if (!p)
+    return NULL;
+
+  return pool_elt_at_index (np->bindings, p[0]);
+}
+
+upf_nat_binding_t *
+upf_get_nat_binding (ip4_address_t user_addr)
+{
+  uword *p;
+  upf_nat_pool_t *np;
+  upf_main_t *gtm = &upf_main;
+
+  pool_foreach(np, gtm->nat_pools)
+  {
+  p = mhash_get (&np->binding_index_by_ip, &user_addr);
+  if (p)
+    return pool_elt_at_index (np->bindings, p[0]);
+  }
+
+  return NULL;
+
+}
+
+int
+verify_nat_binding (upf_nat_pool_t *np, upf_nat_binding_t * bn)
+{
+  upf_nat_binding_t *this_bn = NULL;
+
+  pool_foreach (this_bn, np->bindings)
+    {
+      if ((this_bn->external_addr.as_u32 == bn->external_addr.as_u32)
+          && (this_bn->start_port == bn->start_port)
+          && (this_bn->end_port == bn->end_port)
+          && (this_bn - np->bindings != bn - np->bindings))
+        {
+          upf_debug ("SMATOV: OOPS! Binding already exists");
+          return 1;
+        }
+    }
+  return 0;
+}
+
+int
+upf_nat_get_addr_and_port (ip4_address_t *in, ip4_address_t *out,
+			   u16 *start, u16 *end, u16 *block_size, u32 thread_index)
+{
+  upf_nat_binding_t *bn;
+  ip4_address_t user_addr;
+  user_addr.as_u32 = in->as_u32;
+
+  bn = upf_get_nat_binding (user_addr);
+
+  if (!bn)
+    return 1;
+
+  out->as_u32 = bn->external_addr.as_u32;
+  *start = bn->start_port;
+  *end = bn->end_port;
+  *block_size = bn->port_block_size;
+  bn->thread_index = thread_index;
+
+  return 0;
+
+}
+
+upf_nat_binding_t *
+upf_create_nat_binding (upf_nat_pool_t *np, ip4_address_t user_addr, ip4_address_t ext_addr,
+                         u16 start_port, u16 end_port, u32 vrf_id)
+{
+  upf_nat_binding_t *bn = NULL;
+  uword *p = NULL;
+
+  p = mhash_get (&np->binding_index_by_ip, &user_addr);
+      if (p)
+        return NULL;
+
+      pool_get (np->bindings, bn);
+      memset (bn, 0, sizeof (*bn));
+      bn->framed_addr = user_addr;
+      bn->external_addr = ext_addr;
+      bn->start_port = start_port;
+      bn->end_port = end_port;
+      bn->thread_index = vlib_get_thread_index ();
+      bn->port_block_size = np->port_block_size;
+
+      if (verify_nat_binding (np, bn)) {
+        pool_put (np->bindings, bn);
+        return NULL;
+      }
+
+      upf_debug ("SMATOV: Created NAT binding!");
+
+      upf_snat_add_addr = vlib_get_plugin_symbol ("nat_plugin.so", "nat_add_external_address");
+      if (!upf_snat_add_addr)
+      {upf_debug ("SMATOV: NO SNAT_ADDR_FUCN"); return NULL;}
+      
+      upf_snat_add_addr (ext_addr, vrf_id);
+
+      mhash_set (&np->binding_index_by_ip, &bn->framed_addr, bn - np->bindings, NULL);
+
+    return bn;
+
+}
+
+int
+upf_delete_nat_binding (upf_nat_pool_t *np, ip4_address_t user_addr)
+{
+  upf_nat_binding_t *bn;
+
+  //TODO: Delete NAT sessions implementation
+  upf_snat_delete_sessions = vlib_get_plugin_symbol ("nat_plugin.so", "nat_del_binding");
+  if (!upf_snat_delete_sessions)
+    upf_debug ("SMATOV: NO DELETE SESS FUNC");
+  
+  bn = upf_get_nat_binding_in_pool(np, user_addr);
+  upf_snat_delete_sessions (bn->framed_addr);
+
+  mhash_unset (&np->binding_index_by_ip, &bn->framed_addr, NULL);
+  pool_put (np->bindings, bn);
+  return 0;
+}
+
+int
+upf_init_nat_addresses (upf_nat_pool_t *np, ip4_address_t * start_addr,
+			ip4_address_t * end_addr)
+{
+  u32 start_host_order, end_host_order;
+  u32 count;
+  ip4_address_t addr = *start_addr;
+  ip4_address_t end = *end_addr;
+  u32 i = 0;
+
+  start_host_order = clib_host_to_net_u32 (addr.as_u32);
+  end_host_order = clib_host_to_net_u32 (end.as_u32);
+  count = (end_host_order - start_host_order) + 1;
+  vec_reset_length (np->addresses);
+
+  do
+    {
+      upf_nat_addr_t *ap;
+      vec_add2(np->addresses, ap, 1);
+      ap->ext_addr = addr;
+      ap->used_blocks = 0;
+      increment_v4_address (&addr);
+      upf_debug ("SMATOV: adding addr %U", format_ip4_address, &addr);
+      ++i;
+    } while (i < count);
+  return 0;
+}
+
+int
+vnet_upf_nat_pool_add_del (ip4_address_t * start_addr, ip4_address_t * end_addr,
+			   u8 *name, u16 port_block_size, u16 min_port, u16 max_port,
+			   u32 vrf_id, u8 is_add)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_nat_pool_t *nat_pool = NULL;
+  uword *p;
+
+  p = hash_get_mem (gtm->nat_pool_index_by_name, name);
+
+  if (is_add)
+    {
+      if (p)
+	return VNET_API_ERROR_VALUE_EXIST;
+
+      pool_get(gtm->nat_pools, nat_pool);
+      nat_pool->name = vec_dup (name);
+      nat_pool->port_block_size = port_block_size;
+      nat_pool->min_port = UPF_NAT_MIN_PORT;
+      nat_pool->max_port = UPF_NAT_MAX_PORT;
+      nat_pool->vrf_id = vrf_id;
+      nat_pool->max_blocks_per_addr = (u16)((nat_pool->max_port - nat_pool->min_port) / port_block_size);
+
+      mhash_init (&nat_pool->binding_index_by_ip, sizeof (uword), sizeof (ip4_address_t));
+
+      upf_init_nat_addresses(nat_pool, start_addr, end_addr);
+
+      upf_debug ("SMATOV: Creating NAT POOl name %s\n SMATOV: vrf_id = %u", name, vrf_id);
+      hash_set_mem (gtm->nat_pool_index_by_name, name, nat_pool - gtm->nat_pools);
+
+    }
+  else 
+    {
+      if (!p)
+	return VNET_API_ERROR_NO_SUCH_ENTRY;
+
+      nat_pool = pool_elt_at_index (gtm->nat_pools, p[0]);
+      //TBD: nat pool cleanup upf_delete_nat_addresses(nat_pool);
+      hash_unset_mem (gtm->nat_pool_index_by_name, name);
+      pool_put (gtm->nat_pools, nat_pool);
+    }
+  return 0;
+}
 
 int
 vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
@@ -402,6 +628,9 @@ upf_init (vlib_main_t * vm)
 
   sm->node_id.type = NID_FQDN;
   sm->node_id.fqdn = format (0, (char *) "\x03upg");
+
+  sm->nat_pool_index_by_name =
+    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
 
   error = flowtable_init (vm);
   if (error)

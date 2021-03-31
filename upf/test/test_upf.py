@@ -99,6 +99,7 @@ class IPv4Mixin(object):
             r"^https?://(.*\\.)*(example)\\.com/",
             "upf application TST rule 3001 add ipfilter " +
             "permit out ip from %s to assigned" % APP_RULE_IP_V4,
+            "nat44 enable sessions 1024 endpoint-dependent",
         ]
 
     @classmethod
@@ -114,6 +115,7 @@ class IPv4Mixin(object):
             (cls.if_sgi.remote_ip4, cls.if_sgi.name),
             "upf gtpu endpoint ip %s nwi cp teid 0x80000000/2" % cls.if_cp.local_ip4,
             "upf gtpu endpoint ip %s nwi epc teid 0x80000000/2" % cls.if_grx.local_ip4,
+            "nat44 enable sessions 1024 endpoint-dependent",
         ]
 
     @property

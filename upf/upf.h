@@ -340,6 +340,39 @@ typedef struct
 
 #define INTF_INVALID	((u8)~0)
 
+typedef struct
+{
+  /* framed IP address */
+  ip4_address_t framed_addr;
+  /* external IP address */
+  ip4_address_t external_addr;
+  /* pool of port blocks per binding */
+  //snat_port_block_t *blocks;
+  u16 start_port;
+  u16 end_port;
+  u32 thread_index;
+  u16 port_block_size;
+} upf_nat_binding_t;
+
+typedef struct
+{
+  ip4_address_t ext_addr;
+  u32 used_blocks;
+} upf_nat_addr_t;
+
+typedef struct
+{
+  u8 *name;
+  upf_nat_addr_t *addresses;
+  u16 port_block_size;
+  u16 min_port;
+  u16 max_port;
+  u32 vrf_id;
+  u16 max_blocks_per_addr;
+  upf_nat_binding_t *bindings;
+  mhash_t binding_index_by_ip;
+} upf_nat_pool_t;
+
 typedef enum
 {
   UPF_UL = 0,
@@ -672,6 +705,9 @@ typedef struct
   /* TEID table by choose_id */
   u32 *teid_by_chid;
 
+  ip4_address_t user_addr;
+  u8 *nat_pool_name;
+
   f64 unix_time_start;
 
   u16 generation;
@@ -879,6 +915,9 @@ typedef struct
   u32 rand_base;
 
   pfcp_node_id_t node_id;
+
+  upf_nat_pool_t *nat_pools;
+  uword *nat_pool_index_by_name;
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;
@@ -933,6 +972,11 @@ const dpo_id_t *upf_get_session_dpo_ip6 (upf_nwi_t * nwi,
 
 dpo_type_t upf_session_dpo_get_type (void);
 
+int
+vnet_upf_nat_pool_add_del (ip4_address_t * start_addr, ip4_address_t * end_addr,
+                           u8 *name, u16 port_block_size, u16 min_port, u16 max_port,
+                           u32 vrf_id, u8 is_add);
+
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
 {
@@ -941,6 +985,41 @@ upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
 }
 
 void upf_proxy_init (vlib_main_t * vm);
+
+#define UPF_NAT_MIN_PORT 10128
+#define UPF_NAT_MAX_PORT 64000
+
+upf_nat_pool_t *
+get_nat_pool_by_name (u8 *name);
+
+upf_nat_binding_t *
+upf_get_nat_binding_in_pool (upf_nat_pool_t *np, ip4_address_t user_addr);
+
+int
+upf_delete_nat_binding (upf_nat_pool_t *np, ip4_address_t user_addr);
+
+upf_nat_binding_t *
+upf_create_nat_binding (upf_nat_pool_t *np, ip4_address_t user_addr, ip4_address_t ext_addr,
+                         u16 start_port, u16 end_port, u32 vrf_id);
+
+__clib_export int
+upf_nat_get_addr_and_port (ip4_address_t *in, ip4_address_t *out,
+                           u16 *start, u16 *end, u16 *block_size, u32 thread_index);
+
+static int
+(*upf_snat_delete_sessions) (ip4_address_t addr);
+
+static int
+(*upf_snat_add_addr) (ip4_address_t addr, u32 vrf_id);
+
+static inline void
+increment_v4_address (ip4_address_t * a)
+{
+  u32 v;
+
+  v = clib_net_to_host_u32 (a->as_u32) + 1;
+  a->as_u32 = clib_host_to_net_u32 (v);
+}
 
 #endif /* __included_upf_h__ */
 
