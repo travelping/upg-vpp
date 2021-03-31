@@ -130,10 +130,16 @@ fi
 
 upg::version::get_version_vars
 
-branch="${CI_COMMIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
+if [[ ${GITHUB_REF:-} =~ refs/heads/(.*) ]]; then
+  branch="${BASH_REMATCH[1]}"
+else
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+fi
+
 if [ ${branch} = master -o ${branch} = HEAD ]; then
   branch_prefix=""
 else
   branch_prefix="$(echo ${branch} | tr / -)-"
 fi
+
 UPG_IMAGE_TAG=${branch_prefix}$(echo ${UPG_GIT_VERSION} | tr + -)
