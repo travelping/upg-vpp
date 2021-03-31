@@ -6,3 +6,4 @@ debug
 release
 # For local E2E artifacts
 artifacts
+*.log

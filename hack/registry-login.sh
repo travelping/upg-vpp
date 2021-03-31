@@ -1,7 +1,6 @@
 #!/bin/sh
 set -o errexit
 set -o nounset
-set -x
 
 registry="${1}"
 
