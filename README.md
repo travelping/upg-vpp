@@ -113,6 +113,7 @@ The following `make` commands are supported:
 * `make e2e-debug` and `make e2e-release` build UPG in debug and
   release mode respectively and run E2E tests for it. For more information,
   see [E2E test documentation](test/e2e/README.md)
+* `make checkstyle` performs style checks on the source code
 
 If docker is used, one should set the following environment variable
 to enable wrapping the internally run commands in a docker container:
