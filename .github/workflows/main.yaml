@@ -71,6 +71,9 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
+      with:
+        # the checkstyle script needs a bit of git history
+        fetch-depth: 2
     - name: Check the code style
       run: make checkstyle
     - name: Cleanup buildenv
