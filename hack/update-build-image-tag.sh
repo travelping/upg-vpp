@@ -9,7 +9,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${BUILD_IMAGE_NAME:=quay.io/travelping/upg-build}"
 
 . hack/build-image-name.sh
-files=(.gitlab-ci.yml Dockerfile Dockerfile.devel)
+files=(Dockerfile Dockerfile.devel)
 
 verify=
 if [[ ${1:-} = "-verify" ]]; then

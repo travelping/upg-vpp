@@ -20,7 +20,15 @@ fi
 
 . hack/build-image-name.sh
 
-if [[ ! $(docker images -q "${build_image}") ]] && ! docker pull "${build_image}"; then
+if [[ ${REGISTRY_LOGIN:-} && ${REGISTRY_PASSWORD:-} ]]; then
+  echo >&2 "registry login..."
+  # we don't want to include docker in the build image just to log into
+  # the registry
+  hack/registry-login.sh "${REGISTRY}"
+fi
+
+# TODO: >& /dev/null for 'docker manifest inspect'
+if [[ ! $(docker images -q "${build_image}") ]] && ! DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect  "${build_image}"; then
   if [[ ${USE_BUILDCTL} ]]; then
     # FIXME: can't export cache to quay.io:
     # https://github.com/moby/buildkit/issues/1440
@@ -34,7 +42,7 @@ if [[ ! $(docker images -q "${build_image}") ]] && ! docker pull "${build_image}
              --frontend dockerfile.v0 \
              --progress=plain \
              --local context=. \
-             --local dockerfile=extras/docker \
+             --local dockerfile=. \
              --opt filename=Dockerfile.build \
              --output type=image,name="${build_image}${push_opt}"
   else

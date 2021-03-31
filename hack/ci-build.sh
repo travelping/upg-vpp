@@ -3,12 +3,20 @@ set -o errexit
 set -o nounset
 set -o pipefail
 set -o errtrace
-set -x
 
 : ${REGISTRY:=quay.io}
 : ${CONTAINER_IMAGE:=travelping/upg-vpp}
-: ${DOCKERFILE:=Dockerfile.devel}
+: ${DOCKERFILE:=}
 : ${BUILDKITD_ADDR:=tcp://buildkitd:1234}
+: ${IMAGE_VARIANT:=debug}
+: ${NO_PUSH:=}
+
+if [[ ! ${DOCKERFILE} ]]; then
+  DOCKERFILE="Dockerfile"
+  if [[ ${IMAGE_VARIANT} = "debug" ]]; then
+    DOCKERFILE="Dockerfile.devel"
+  fi
+fi
 
 . vpp.spec
 function do_build {
@@ -27,7 +35,6 @@ function do_build {
            "$@"
 }
 
-IMAGE_VARIANT="${CI_BUILD_NAME##*:}"
 IMAGE_BASE_NAME=${REGISTRY}/${IMAGE_NAME}
 . hack/version.sh
 IMAGE_BASE_TAG=${UPG_IMAGE_TAG}
@@ -52,5 +59,9 @@ mkdir /tmp/_out
 do_build --opt target=artifacts --output type=local,dest=/tmp/_out
 
 echo >&2 "Building the image from ${DOCKERFILE} ..."
+push=",push=true"
+if [[ ${NO_PUSH} ]]; then
+  push=""
+fi
 do_build --opt target=final-stage \
-         --output type=image,name="${IMAGE_FULL_NAME}",push=true
+         --output type=image,name="${IMAGE_FULL_NAME}""${push}"
