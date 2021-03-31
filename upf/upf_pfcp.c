@@ -35,6 +35,7 @@
 #include <vnet/udp/udp_packet.h>
 #include <search.h>
 #include <netinet/ip.h>
+#include <vlib/unix/plugin.h>
 
 #include "pfcp.h"
 #include "upf.h"
@@ -44,7 +45,7 @@
 #include "upf_pfcp_server.h"
 #include "upf_ipfilter.h"
 
-#if CLIB_DEBUG > 2
+#if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
 #define upf_debug(...)				\
@@ -1032,6 +1033,12 @@ pfcp_free_session (upf_session_t * sx)
     pfcp_free_rules (sx, i);
 
   sparse_vec_free (sx->teid_by_chid);
+
+  if (sx->nat_pool_name)
+    {
+      upf_nat_pool_t *np = get_nat_pool_by_name (sx->nat_pool_name);
+      upf_delete_nat_binding (np, sx->user_addr);
+    }
 
   clib_spinlock_free (&sx->lock);
   pool_put (gtm->sessions, sx);

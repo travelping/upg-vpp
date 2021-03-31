@@ -45,6 +45,8 @@
 #include "upf_app_db.h"
 #include "upf_ipfilter.h"
 
+#include <vlib/unix/plugin.h>
+
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -687,6 +689,54 @@ validate_ue_ip (upf_session_t * sx, upf_nwi_t * nwi,
     response->failed_rule_id.id = pdr->pdr_id;				\
   } while (0)
 
+upf_nat_addr_t *
+get_nat_addr (upf_nat_pool_t *np)
+{
+  upf_nat_addr_t *this_addr = NULL, *addr = NULL;
+  u32 least_locked_ports = ~0;
+  vec_foreach (this_addr, np->addresses)
+    {
+      if ((this_addr->used_blocks < least_locked_ports)
+	  && (this_addr->used_blocks < np->max_blocks_per_addr))
+	{
+	  least_locked_ports = this_addr->used_blocks;
+	  addr = this_addr;
+	}
+    }
+  return addr;
+}
+
+int
+upf_alloc_and_assign_nat_binding (upf_nat_pool_t *np, upf_nat_addr_t *addr,
+			ip4_address_t user_ip, upf_session_t *sx)
+{
+  upf_nat_binding_t *bn;
+  u16 port_start, port_end;
+  int err = 1;
+
+  port_start = np->min_port;
+  port_end = port_start + np->port_block_size;
+  upf_debug ("SMATOV: Allocating binding");
+  upf_debug ("SMATOV: Pool name %s user addr %U ext addr %U", np->name,
+	     format_ip4_address, &user_ip, format_ip4_address, &addr->ext_addr);
+
+  do
+    {
+      bn = upf_create_nat_binding (np, user_ip, addr->ext_addr, port_start, port_end,  np->vrf_id);
+      if (bn)
+	{
+	  addr->used_blocks += 1;
+	  sx->nat_pool_name = vec_dup(np->name);
+	  sx->user_addr = user_ip;
+	  return 0;
+	}
+      port_start += np->port_block_size;
+      port_end = port_start + np->port_block_size;
+    } while (port_end < np->max_port);
+  return err;
+
+}
+
 static int
 handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 		   pfcp_session_procedure_response_t * response)
@@ -766,8 +816,22 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 
     if (ISSET_BIT (pdr->pdi.grp.fields, PDI_UE_IP_ADDRESS))
       {
+	u8 *pool_name = 0;
+	pool_name = format (pool_name, "testing");
 	create->pdi.fields |= F_PDI_UE_IP_ADDR;
 	create->pdi.ue_addr = pdr->pdi.ue_ip_address;
+	if (create->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
+	  {
+	    upf_nat_pool_t *np = get_nat_pool_by_name (pool_name); //TBD: pick from PFCP
+	    if (!np)
+	    {
+	      upf_debug ("No Pool with name %s found", pool_name);
+	      goto out_error;
+	    }
+	    upf_nat_addr_t *ap = get_nat_addr (np);
+	    upf_alloc_and_assign_nat_binding (np, ap, create->pdi.ue_addr.ip4, sx);
+	  }
+	vec_free (pool_name);
 
 	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
 	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))

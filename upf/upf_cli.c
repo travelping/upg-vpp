@@ -35,6 +35,13 @@
 #include <upf/flowtable.h>
 #include <upf/upf_app_db.h>
 
+#if CLIB_DEBUG > 1
+#define upf_debug clib_warning
+#else
+#define upf_debug(...)                          \
+  do { } while (0)
+#endif
+
 static clib_error_t *
 upf_pfcp_endpoint_ip_add_del_command_fn (vlib_main_t * vm,
 					 unformat_input_t * main_input,
@@ -202,6 +209,89 @@ upf_name_to_labels (u8 * name)
 
   return rv;
 }
+
+static clib_error_t *
+upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
+				  unformat_input_t * main_input,
+				  vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  clib_error_t *error = NULL;
+  u8 *name;
+  u32 vrf_id = 0;
+  ip4_address_t start, end;
+  u16 min_port; u16 max_port; u16 port_block_size;
+  //u32 vrf_id;
+  u8 is_add = 1;
+  int rv;
+
+  min_port = UPF_NAT_MIN_PORT;
+  max_port = UPF_NAT_MAX_PORT;
+
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    return 0;
+
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "%U - %U",
+                    unformat_ip4_address, &start,
+                    unformat_ip4_address, &end))
+        ;
+      else if (unformat (line_input, "block_size %u", &port_block_size))
+	;
+      else if (unformat (line_input, "vrf %u", &vrf_id))
+        ;
+      else if (unformat (line_input, "name %_%v%_", &name))
+	;
+      else if (unformat (line_input, "del"))
+        is_add = 0;
+    }
+
+  upf_debug ("POOL\n  START %U END %U\n PORTSTART %u PORTEND %u PORTBLOCK %u VRF %u",
+                     format_ip4_address, &start, format_ip4_address, &end, min_port, max_port, port_block_size, vrf_id);
+
+  rv = vnet_upf_nat_pool_add_del (&start, &end, name, port_block_size, min_port, max_port, vrf_id, is_add);
+  return error;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_nat_pool_add_del_command, static) =
+{
+  .path = "upf nat pool",
+  .short_help =
+  "upf nat pool start <ip4-addr> end <ip4-addr> min_port <min-port> max_port <max-port> block_size <port-block-size> name <name> [del]",
+  .function = upf_nat_pool_add_del_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_show_nat_bindings_command_fn (vlib_main_t * vm, unformat_input_t * input,
+                                 vlib_cli_command_t * cmd)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_nat_pool_t *np;
+  upf_nat_binding_t *bn;
+
+  pool_foreach (np, gtm->nat_pools)
+  {
+  vlib_cli_output (vm, "POOL NAME: %s", np->name);
+  pool_foreach (bn, np->bindings)
+    {
+      vlib_cli_output (vm, "  FRAMED: %U", format_ip4_address, &bn->framed_addr);
+      vlib_cli_output (vm, "  EXTERNAL: %U", format_ip4_address, &bn->external_addr);
+      vlib_cli_output (vm, "  port start %u port end %u\n", bn->start_port, bn->end_port);
+    }
+  }
+  return NULL;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_show_nat_bindings_command, static) = {
+  .path = "show upf nat bindings",
+  .short_help = "show upf nat bindings",
+  .function = upf_show_nat_bindings_command_fn,
+};
+/* *INDENT-ON* */
 
 static clib_error_t *
 upf_nwi_add_del_command_fn (vlib_main_t * vm,
