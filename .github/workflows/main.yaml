@@ -1,0 +1,127 @@
+name: CI
+
+on: [push]
+
+env:
+  REGISTRY: "quay.io"
+  IMAGE_NAME: travelping/upg-vpp
+  # this points to buildkitd k8s service
+  BUILDKITD_ADDR: tcp://buildkitd:1234
+  # Make 'git am' work
+  GIT_AUTHOR_NAME: Dummy
+  GIT_AUTHOR_EMAIL: dummy@example.com
+  GIT_COMMITTER_NAME: Dummy
+  GIT_COMMITTER_EMAIL: dummy@example.com
+  UPG_BUILDENV: k8s
+  # FIXME: rm!
+  NO_PUSH: y
+  # FIXME: 5
+  E2E_PARALLEL_NODES: "10"
+  # FIXME: rm / comment
+  E2E_FOCUS: "TDF.*IPv4.*no proxy.*counts plain HTTP traffic"
+
+jobs:
+  prepare:
+    # runs-on: ubuntu-20.04
+    runs-on: self-hosted
+    env:
+      REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
+      REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Ensure build image
+      run: make ensure-build-image USE_BUILDCTL=1 PUSH_BUILD_IMAGE=1
+
+  build:
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        variant: [debug, release]
+    needs: prepare
+    env:
+      REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
+      REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }} 
+      # avoid conflicts between parallel jobs
+      K8S_ID_SUFFIX: ${{ matrix.variant }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        # for git describe
+        fetch-depth: 0
+    - name: Build UPG image
+      run: |
+        make ci-build IMAGE_VARIANT="${{ matrix.variant }}"
+        mv /tmp/_out _out
+    - name: Upload debs
+      uses: actions/upload-artifact@v2
+      with:
+        name: debs-${{ matrix.variant }}
+        path: _out/debs
+    - name: Upload testfiles
+      uses: actions/upload-artifact@v2
+      with:
+        name: testfiles-${{ matrix.variant }}
+        path: _out/testfiles.tar.gz
+
+  checkstyle:
+    runs-on: self-hosted
+    needs: prepare
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Check the code style
+      run: make checkstyle
+    - name: Cleanup buildenv
+      if: always()
+      run: hack/buildenv.sh clean
+
+  test:
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [test, e2e]
+        variant: [debug, release]
+    needs: build
+    env:
+      # avoid conflicts between parallel jobs
+      K8S_ID_SUFFIX: ${{matrix.kind}}-${{ matrix.variant }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download testfiles
+      uses: actions/download-artifact@v2
+      with:
+        name: testfiles-${{ matrix.variant }}
+    - name: Prepare repo
+      run: make update-vpp
+    - name: Inject testfiles
+      run: hack/buildenv.sh inject-testfiles testfiles.tar.gz
+    - name: Run tests
+      if: ${{ matrix.kind == 'test' }}
+      # FIXME: VPP unit test runs produce filenames that
+      run: make retest-${{ matrix.variant }} GRAB_ARTIFACTS=1
+    - name: Run e2e
+      if: ${{ matrix.kind == 'e2e' }}
+      run: |
+        mkdir junit-output
+        make e2e-${{ matrix.variant }} \
+             E2E_RETEST=y \
+             E2E_PARALLEL=y \
+             E2E_PARALLEL_NODES="${E2E_PARALLEL_NODES}" \
+             E2E_QUICK=y \
+             E2E_ARTIFACTS_DIR="/src/artifacts" \
+             E2E_JUNIT_DIR="/src/artifacts/junit-output" \
+             E2E_FOCUS="${E2E_FOCUS}" \
+             GRAB_ARTIFACTS=1
+    - name: Cleanup buildenv
+      if: always()
+      run: hack/buildenv.sh clean
+    - name: Upload artifacts for failed tests
+      if: failure()
+      uses: actions/upload-artifact@v2
+      with:
+        name: test-artifacts-${{ matrix.kind }}-${{ matrix.variant }}
+        path: artifacts/

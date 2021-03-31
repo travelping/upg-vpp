@@ -1,5 +1,6 @@
 User Plane Gateway (UPG) based on VPP
 =====================================
+[![CI](https://github.com/travelping/upg-vpp/actions/workflows/main.yaml/badge.svg?branch=feature%2Fgh-actions)](https://github.com/travelping/upg-vpp/actions/workflows/main.yaml)
 
 UPG implements a GTP-U user plane based on [3GPP TS 23.214][TS23214]
 and [3GPP TS 29.244][TS29244] Release 15. It is implemented as an
@@ -104,7 +105,7 @@ The following `make` commands are supported:
 * `make ensure-build-image` checks if the build image exists or can be
   pulled and builds it otherwise
 * `make update-build-image-tag` updates the build image tag in
-  `.gitlab-ci.yaml` and Dockerfiles according to the hash calculated
+  the Dockerfiles according to the hash calculated
   from `Dockerfile.build` and VPP external dependencies
 * `make install-hooks` installs git hooks in the repo which prevent
   the user from making commits that contain `ZZZZZ:` substring. This
