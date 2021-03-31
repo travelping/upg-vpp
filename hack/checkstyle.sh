@@ -120,11 +120,11 @@ for i in ${FILELIST}; do
                 echo "Checkstyle failed for ${i}."
                 if [ "${CMD}" == "clang-format" ]; then
                     echo "Run clang-format as shown to fix the problem:"
-                    echo "clang-format -i ${VPP_DIR}${i}"
+                    echo "clang-format -i ${i}"
                 else
                     echo "Run indent (twice!) as shown to fix the problem:"
-                    echo "indent ${VPP_DIR}${i}"
-                    echo "indent ${VPP_DIR}${i}"
+                    echo "indent ${i}"
+                    echo "indent ${i}"
                 fi
             fi
             if [ -f ${i}.out1 ]; then
