@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VPP_DIR=`dirname $0`/..
 EXIT_CODE=0
 FIX="0"
 FULL="0"
 CHECKSTYLED_FILES=""
 UNCHECKSTYLED_FILES=""
+
+cd "$(dirname "${BASH_SOURCE}")/.."
 
 # If the user provides --fix, then actually fix things
 # Note: this is meant for use outside of the CI Jobs, by users cleaning things up
@@ -68,7 +69,6 @@ else
     fi
 fi
 
-cd ${VPP_DIR}
 git status
 for i in ${FILELIST}; do
     if [ -f ${i} ] && [ ${i} != "hack/checkstyle.sh" ] && [ ${i} != "extras/emacs/fix-coding-style.el" ]; then
