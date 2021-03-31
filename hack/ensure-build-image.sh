@@ -27,8 +27,16 @@ if [[ ${REGISTRY_LOGIN:-} && ${REGISTRY_PASSWORD:-} ]]; then
   hack/registry-login.sh "${REGISTRY}"
 fi
 
-# TODO: >& /dev/null for 'docker manifest inspect'
-if [[ ! $(docker images -q "${build_image}") ]] && ! DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect  "${build_image}"; then
+# Check if the build image already exists locally or in the
+# registry.
+# Note: 'docker images' will fail in the CI context when there's
+# no Docker daemon available, just buildkit. But that's ok as
+# "docker manifest inspect" will succeed after that if the image
+# is present in the registry, and the build image will not be
+# rebuilt.
+if [[ ! $(docker images -q "${build_image}" >& /dev/null) ]] &&
+     ! DOCKER_CLI_EXPERIMENTAL=enabled \
+       docker manifest inspect  "${build_image}" >& /dev/null; then
   if [[ ${USE_BUILDCTL} ]]; then
     # FIXME: can't export cache to quay.io:
     # https://github.com/moby/buildkit/issues/1440
