@@ -11,6 +11,11 @@ vpp:
 update-vpp:
 	hack/update-vpp.sh
 
+# TODO: checktyle shouldn't require VPP checkout but presently it's
+# needed for getting the build image tag
+checkstyle: vpp
+	SKIP_VPP_SOURCE_CHECK=1 hack/buildenv.sh ../hack/checkstyle.sh
+
 ci-build: vpp
 	hack/ci-build.sh
 
