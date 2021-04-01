@@ -1,6 +1,9 @@
 name: CI
 
-on: [push]
+on:
+  push:
+    branches:
+    - "**"
 
 env:
   REGISTRY: "quay.io"
@@ -67,6 +70,12 @@ jobs:
       with:
         name: testfiles-${{ matrix.variant }}
         path: _out/testfiles.tar.gz
+    # image.txt used by the release workflow
+    - name: Upload image.txt
+      uses: actions/upload-artifact@v2
+      with:
+        name: image-${{ matrix.variant }}
+        path: image-${{ matrix.variant }}.txt
 
   checkstyle:
     runs-on: self-hosted
@@ -132,20 +141,27 @@ jobs:
         name: test-artifacts-${{ matrix.kind }}-${{ matrix.variant }}
         path: artifacts/
 
-  # based on ergw GH Action config
-  slack:
+  # dummy job for release.yaml to wait on
+  conclude:
+    runs-on: self-hosted
     needs:
     - checkstyle
     - test
+    steps:
+    - name: Dummy step
+      run: echo ok
+
+  # based on ergw GH Action config
+  slack:
+    needs:
+    - conclude
     runs-on: self-hosted
     if: always()
     steps:
     - name: Set status
       run: |
-        if [[ ${{ needs.checkstyle.result }} == "success" && ${{ needs.test.result }} == "success" ]]; then
-          echo '::set-output name=STATUS::success'
-        elif [[ ${{ needs.checkstyle.result }} == "failure" || ${{ needs.test.result }} == "failure" ]]; then
-          echo '::set-output name=STATUS::failure'
+        if [[ ${{ needs.conclude.result }} =~ ^(success|failure)$ ]]; then
+          echo '::set-output name=STATUS::${{ needs.conclude.result }}'
         else
           echo '::set-output name=STATUS::cancelled'
         fi
