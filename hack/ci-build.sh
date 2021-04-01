@@ -10,6 +10,7 @@ set -o errtrace
 : ${BUILDKITD_ADDR:=tcp://buildkitd:1234}
 : ${IMAGE_VARIANT:=debug}
 : ${NO_PUSH:=}
+: ${IMAGE_EXPIRES_AFTER:=7d}
 
 if [[ ! ${DOCKERFILE} ]]; then
   DOCKERFILE="Dockerfile"
@@ -20,10 +21,10 @@ fi
 
 . vpp.spec
 function do_build {
-  # FIXME: can't export cache to quay.io:
-  # https://github.com/moby/buildkit/issues/1440
+  # TODO: build branch images and export cache to the corresponding branch image
   # --export-cache type=inline \
-  # --import-cache type=registry,ref="${IMAGE_REPO}" \
+  # --import-cache type=registry,ref="${IMAGE_BASE_NAME}" \
+  set -x
   buildctl --addr "${BUILDKITD_ADDR}" build \
            --frontend dockerfile.v0 \
            --progress=plain \
@@ -32,19 +33,16 @@ function do_build {
            --opt filename="${DOCKERFILE}" \
            --opt label:vpp.release="${VPP_RELEASE}" \
            --opt label:vpp.commit="${VPP_COMMIT}" \
+           --opt label:quay.expires-after="${IMAGE_EXPIRES_AFTER}" \
            "$@"
+   set +x
 }
 
-IMAGE_BASE_NAME=${REGISTRY}/${IMAGE_NAME}
+IMAGE_BASE_NAME="${REGISTRY}/${IMAGE_NAME}"
 . hack/version.sh
-IMAGE_BASE_TAG=${UPG_IMAGE_TAG}
-IMAGE_FULL_NAME=${IMAGE_BASE_NAME}:${IMAGE_BASE_TAG}_${IMAGE_VARIANT}
-
-# TODO: reenable this
-# case "${CI_COMMIT_REF_NAME}" in
-#   stable/* | feature/20* ) export LABELS="";;
-#   *)                       export LABELS="--label quay.expires-after=7d";;
-# esac
+IMAGE_BASE_TAG="${UPG_IMAGE_TAG}"
+IMAGE_FULL_NAME="${IMAGE_BASE_NAME}:${IMAGE_BASE_TAG}_${IMAGE_VARIANT}"
+PUSH_TO="${IMAGE_FULL_NAME}"
 
 if [[ ${REGISTRY_LOGIN:-} && ${REGISTRY_PASSWORD:-} ]]; then
   echo >&2 "registry login..."
@@ -63,5 +61,8 @@ push=",push=true"
 if [[ ${NO_PUSH} ]]; then
   push=""
 fi
+
 do_build --opt target=final-stage \
-         --output type=image,name="${IMAGE_FULL_NAME}""${push}"
+         --output type="image,\"name=${PUSH_TO}\"${push}"
+
+echo "${IMAGE_FULL_NAME}" > "image-${IMAGE_VARIANT}.txt"
