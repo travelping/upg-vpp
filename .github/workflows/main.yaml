@@ -13,10 +13,13 @@ env:
   GIT_COMMITTER_NAME: Dummy
   GIT_COMMITTER_EMAIL: dummy@example.com
   UPG_BUILDENV: k8s
-  # FIXME: rm!
-  NO_PUSH: y
-  # FIXME: 5
-  E2E_PARALLEL_NODES: "10"
+
+  # Uncomment to disable pushing the upg-vpp images.
+  # Build images will still be pushed in case if a new one needs to be built.
+  # This may be helpful during workflow debugging
+  # NO_PUSH: y
+
+  E2E_PARALLEL_NODES: "5"
   # FIXME: rm / comment
   E2E_FOCUS: "TDF.*IPv4.*no proxy.*counts plain HTTP traffic"
 
