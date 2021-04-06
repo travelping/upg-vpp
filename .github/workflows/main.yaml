@@ -21,10 +21,11 @@ env:
   # Build images will still be pushed in case if a new one needs to be built.
   # This may be helpful during workflow debugging
   # NO_PUSH: y
+  # Uncomment/change the following to run only a subset of tests.
+  # But don't forget to comment it back for a finished PR!
+  # E2E_FOCUS: "TDF.*IPv4.*no proxy.*counts plain HTTP traffic"
 
-  E2E_PARALLEL_NODES: "5"
-  # FIXME: rm / comment
-  E2E_FOCUS: "TDF.*IPv4.*no proxy.*counts plain HTTP traffic"
+  E2E_PARALLEL_NODES: "4"
 
 jobs:
   prepare:
