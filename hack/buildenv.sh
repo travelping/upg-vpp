@@ -74,11 +74,23 @@ spec:
   selector:
     matchLabels:
       app: ${name}
+      upg-build: "1"
   template:
     metadata:
       labels:
         app: ${name}
+        upg-build: "1"
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: upg-build
+                operator: In
+                values:
+                - "1"
+            topologyKey: kubernetes.io/hostname
       initContainers:
       - name: prepare
         image: busybox:stable
@@ -107,7 +119,7 @@ spec:
         - name: data
           mountPath: /src
       - name: rsyncd
-        image: ivan4th/rsyncd
+        image: quay.io/travelping/rsyncd
         ports:
         - name: rsyncd
           containerPort: 873
