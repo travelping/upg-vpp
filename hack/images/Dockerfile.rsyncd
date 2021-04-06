@@ -1,0 +1,5 @@
+FROM alpine
+ADD ./rsyncd.sh /
+RUN apk add bash rsync
+
+ENTRYPOINT ["/rsyncd.sh"]
