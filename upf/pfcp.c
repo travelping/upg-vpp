@@ -147,19 +147,26 @@ static const char *msg_desc[] = {
 };
 
 u8 *
+format_pfcp_msg_type (u8 * s, va_list * args)
+{
+  u8 type = va_arg (*args, int);
+  return type < ARRAY_LEN (msg_desc) && msg_desc[type] ?
+    format (s, "%s (%d)", msg_desc[type], type) :
+    format (s, "UNKNOWN (%d)", type);
+}
+
+u8 *
 format_pfcp_msg_hdr (u8 * s, va_list * args)
 {
   pfcp_header_t *pfcp = va_arg (*args, pfcp_header_t *);
   u8 type = pfcp->type;
 
   if (type < ARRAY_LEN (msg_desc) && msg_desc[type])
-    s = format (s, "PFCP: V:%d,S:%d,MP:%d, %s (%d), Length: %d",
+    s = format (s, "PFCP: V:%d,S:%d,MP:%d, %U, Length: %d",
 		pfcp->version, pfcp->s_flag, pfcp->mp_flag,
-		msg_desc[type], type, clib_net_to_host_u16 (pfcp->length));
-  else
-    s = format (s, "PFCP: V:%d,S:%d,MP:%d, %d, Length: %d",
-		pfcp->version, pfcp->s_flag, pfcp->mp_flag,
-		type, clib_net_to_host_u16 (pfcp->length));
+		format_pfcp_msg_type, type,
+		clib_net_to_host_u16 (pfcp->length));
+
   return pfcp->s_flag ?
     format (s, ", SEID: 0x%016" PRIx64 ".",
 	    be64toh (pfcp->session_hdr.seid)) : format (s, ".");
@@ -7990,10 +7997,8 @@ format_dmsg (u8 * s, va_list * args)
   ASSERT (msg_specs[dmsg->type].size == 0
 	  || msg_specs[dmsg->type].group != NULL);
 
-  s = format (s, "PFCP: seq %d, ", dmsg->seq_no);
-  s = dmsg->type < ARRAY_LEN (msg_desc) && msg_desc[dmsg->type] ?
-    format (s, "%s (%d)", msg_desc[dmsg->type], dmsg->type) :
-    format (s, "UNKNOWN (%d)", dmsg->type);
+  s = format (s, "PFCP: seq %d, %U", dmsg->seq_no,
+	      format_pfcp_msg_type, dmsg->type);
 
   s = pfcp_is_session_msg (dmsg->type) ?
     format (s, ", SEID: 0x%016" PRIx64 ".\n", dmsg->seid) : format (s, ".\n");
