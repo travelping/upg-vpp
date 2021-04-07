@@ -2709,6 +2709,7 @@ typedef struct
 u8 *format_flags (u8 * s, va_list * args);
 u8 *format_enum (u8 * s, va_list * args);
 u8 *format_dns_labels (u8 * s, va_list * args);
+u8 *format_pfcp_msg_type (u8 * s, va_list * args);
 u8 *format_pfcp_msg_hdr (u8 * s, va_list * args);
 u8 *format_user_plane_ip_resource_information (u8 * s, va_list * args);
 u8 *format_redirect_information (u8 * s, va_list * args);
