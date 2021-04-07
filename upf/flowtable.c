@@ -143,22 +143,27 @@ flowtable_entry_remove (flowtable_main_per_cpu_t * fmt, flow_entry_t * f)
   BV (clib_bihash_add_del) (&fmt->flows_ht, &kv, 0 /* is_add */ );
 }
 
-always_inline void
+always_inline bool
 expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 		    flow_entry_t * f, dlist_elt_t * e, u32 now)
 {
+  bool keep = f->active + f->lifetime > now;
   ASSERT (f->timer_index == (e - fmt->timers));
   ASSERT (f->active <= now);
-
-  /* timers unlink */
-  clib_dlist_remove (fmt->timers, e - fmt->timers);
 
   upf_debug ("Flow Timeout Check %d: %u (%u) > %u (%u)",
 	     f - fm->flows, f->active + f->lifetime,
 	     (f->active + f->lifetime) % fm->timer_max_lifetime,
 	     now, fmt->time_index);
-  if (f->active + f->lifetime > now ||
-      (flow_expiration_hook && flow_expiration_hook (f) != 0))
+  if (!keep && flow_expiration_hook && flow_expiration_hook (f) != 0)
+    {
+      /* flow still in use, wait for another lifetime */
+      upf_debug ("Flow %d: expiration blocked by the hook", f - fm->flows);
+      f->active += f->lifetime;
+      keep = true;
+    }
+
+  if (keep)
     {
       /* There was activity on the entry, so the idle timeout
          has not passed. Enqueue for another time period. */
@@ -166,14 +171,27 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 
       timer_slot_head_index =
 	(f->active + f->lifetime) % fm->timer_max_lifetime;
-      upf_debug ("Flow Reshedule %d to %u", f - fm->flows,
-		 timer_slot_head_index);
-      clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
+      if (timer_slot_head_index != f->timer_index)
+	{
+	  upf_debug ("Flow Reshedule %d to %u", f - fm->flows,
+		     timer_slot_head_index);
+	  /* timers unlink */
+	  clib_dlist_remove (fmt->timers, f->timer_index);
+	  clib_dlist_addtail (fmt->timers, timer_slot_head_index,
+			      f->timer_index);
+	  return true;
+	}
+
+      return false;
     }
   else
     {
       upf_main_t *gtm = &upf_main;
       upf_debug ("Flow Remove %d", f - fm->flows);
+
+      /* timers unlink */
+      clib_dlist_remove (fmt->timers, e - fmt->timers);
+
       pool_put (fmt->timers, e);
 
       /* hashtable unlink */
@@ -185,6 +203,7 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 
       /* free to flow cache && pool (last) */
       flow_entry_free (fm, fmt, f);
+      return true;
     }
 }
 
@@ -192,13 +211,18 @@ u64
 flowtable_timer_expire (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 			u32 now)
 {
-  u32 time_slot_curr_index =
-    fmt->next_check != ~0 ? fmt->next_check : fmt->time_index;
+  u32 t;
   flow_entry_t *f;
   dlist_elt_t *time_slot_curr;
   u32 index;
   dlist_elt_t *e;
-  u64 total_expired = 0;
+  u64 expire_cpt = 0;
+
+  /*
+   * Must call flowtable_timer_expire() only after timer_wheel_index_update()
+   * with the same 'now' value
+   */
+  ASSERT (now % fm->timer_max_lifetime == fmt->time_index);
 
   /*
    * In case some of the time slots were skipped e.g. due to low traffic
@@ -208,9 +232,27 @@ flowtable_timer_expire (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
    * if there's low traffic currently, though, so we apply
    * TIMER_MAX_EXPIRE limit per step, not per this function run.
    */
-  do
+
+  t = now;
+  if (PREDICT_TRUE (fmt->next_check != ~0))
     {
-      u64 expire_cpt = 0;
+      /*
+       * This happens when flowtable_timer_expire() is called
+       * multiple times per second and max number of expired flows
+       * hasn't been previously reached, as fmt->next_check is set
+       * to the next second after last flowtable_timer_expire()
+       * call.
+       */
+      if (PREDICT_TRUE (now < fmt->next_check))
+	return 0;
+
+      /* check the skipped slots */
+      t = fmt->next_check;
+    }
+
+  for (; t <= now; t++)
+    {
+      u32 time_slot_curr_index = t % fm->timer_max_lifetime;
       if (PREDICT_TRUE (!dlist_is_empty (fmt->timers, time_slot_curr_index)))
 	{
 	  time_slot_curr =
@@ -224,19 +266,23 @@ flowtable_timer_expire (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 	      f = pool_elt_at_index (fm->flows, e->value);
 
 	      index = e->next;
-	      expire_single_flow (fm, fmt, f, e, now);
-	      expire_cpt++;
+	      if (expire_single_flow (fm, fmt, f, e, now))
+		expire_cpt++;
 	    }
 	}
-      index = time_slot_curr_index;
-      time_slot_curr_index =
-	(time_slot_curr_index + 1) % fm->timer_max_lifetime;
-      total_expired += expire_cpt;
-    }
-  while (index != fmt->time_index);
 
-  fmt->next_check = time_slot_curr_index;
-  return total_expired;
+      /*
+       * If max N of expirations has been reached, the timer wheel
+       * entry corresponding to this moment will be revisited upon
+       * the next flowtable_timer_expire() call
+       */
+      if (expire_cpt == TIMER_MAX_EXPIRE)
+	break;
+    }
+
+  fmt->next_check = t;
+
+  return expire_cpt;
 }
 
 static inline u16
@@ -282,7 +328,7 @@ recycle_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt, u32 now)
       dlist_elt_t *e = pool_elt_at_index (fmt->timers, head->next);
 
       f = pool_elt_at_index (fm->flows, e->value);
-      return expire_single_flow (fm, fmt, f, e, now);
+      expire_single_flow (fm, fmt, f, e, now);
     }
 
   /*
@@ -372,61 +418,7 @@ void
 timer_wheel_index_update (flowtable_main_t * fm,
 			  flowtable_main_per_cpu_t * fmt, u32 now)
 {
-  u32 new_index = now % fm->timer_max_lifetime;
-
-  if (PREDICT_FALSE (fmt->time_index == ~0))
-    {
-      fmt->time_index = new_index;
-      return;
-    }
-
-  if (new_index != fmt->time_index)
-    {
-      /* reschedule all remaining flows on current time index
-       * at the begining of the next one */
-
-      u32 curr_slot_index = fmt->time_index;
-      dlist_elt_t *curr_head =
-	pool_elt_at_index (fmt->timers, curr_slot_index);
-
-      u32 next_slot_index = new_index;
-      dlist_elt_t *next_head =
-	pool_elt_at_index (fmt->timers, next_slot_index);
-
-      if (PREDICT_FALSE (dlist_is_empty (fmt->timers, curr_slot_index)))
-	{
-	  fmt->time_index = new_index;
-	  return;
-	}
-
-      dlist_elt_t *curr_prev =
-	pool_elt_at_index (fmt->timers, curr_head->prev);
-      dlist_elt_t *curr_next =
-	pool_elt_at_index (fmt->timers, curr_head->next);
-
-      /* insert timer list of current time slot at the begining of the next slot */
-      if (PREDICT_FALSE (dlist_is_empty (fmt->timers, next_slot_index)))
-	{
-	  next_head->next = curr_head->next;
-	  next_head->prev = curr_head->prev;
-	  curr_prev->next = next_slot_index;
-	  curr_next->prev = next_slot_index;
-	}
-      else
-	{
-	  dlist_elt_t *next_next =
-	    pool_elt_at_index (fmt->timers, next_head->next);
-	  curr_prev->next = next_head->next;
-	  next_head->next = curr_head->next;
-	  next_next->prev = curr_head->prev;
-	  curr_next->prev = next_slot_index;
-	}
-
-      /* reset current time slot as an empty list */
-      memset (curr_head, 0xff, sizeof (*curr_head));
-
-      fmt->time_index = new_index;
-    }
+  fmt->time_index = now % fm->timer_max_lifetime;
 }
 
 u8 *

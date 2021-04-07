@@ -245,11 +245,15 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  FLOW_DEBUG (fm, flow1);
 
 	  /* timer management */
-	  flow_update_lifetime (flow0, p0, is_ip4);
-	  flow_update_lifetime (flow1, p1, is_ip4);
-
 	  flow_update_active (flow0, current_time);
 	  flow_update_active (flow1, current_time);
+
+	  /*
+	   * Should update lifetime after updating flow activity to
+	   * avoid scheduling flows "in the past"
+	   */
+	  flow_update_lifetime (flow0, p0, is_ip4);
+	  flow_update_lifetime (flow1, p1, is_ip4);
 
 	  /* flow statistics */
 	  flow0->stats[is_reverse0].pkts++;
@@ -377,8 +381,13 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 		      flow->is_reverse, created);
 
 	  /* timer management */
-	  flow_update_lifetime (flow, p, is_ip4);
 	  flow_update_active (flow, current_time);
+
+	  /*
+	   * Should update lifetime after updating flow activity to
+	   * avoid scheduling flows "in the past"
+	   */
+	  flow_update_lifetime (flow, p, is_ip4);
 
 	  /* flow statistics */
 	  flow->stats[is_reverse].pkts++;

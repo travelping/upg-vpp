@@ -347,8 +347,15 @@ flow_tcp_update_lifetime (flow_entry_t * f, tcp_header_t * hdr)
       u32 cpu_index = os_get_thread_index ();
       flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
       u32 timer_slot_head_index;
-      f->tcp_state = new_state;
 
+      /*
+       * Make sure we're not scheduling this flow "in the past",
+       * otherwise it may add the period of the "wheel turn" to its
+       * expiration time
+       */
+      ASSERT (fmt->next_check == ~0
+	      || f->active + f->lifetime >= fmt->next_check);
+      f->tcp_state = new_state;
       f->lifetime = tcp_lifetime[new_state];
       /* reschedule */
       clib_dlist_remove (fmt->timers, f->timer_index);
