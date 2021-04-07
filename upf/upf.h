@@ -879,6 +879,9 @@ typedef struct
   u32 rand_base;
 
   pfcp_node_id_t node_id;
+
+  /* when to perform the next flow expiration check */
+  f64 next_flow_expiration;
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;

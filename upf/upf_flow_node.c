@@ -32,6 +32,12 @@
   do { } while (0)
 #endif
 
+/*
+ * Minimum flow expiration interval in seconds. The flow expiration
+ * check will not be performed more often than that.
+ */
+#define MIN_FLOW_EXPIRATION_INTERVAL 0.5
+
 typedef struct
 {
   u32 session_index;
@@ -110,6 +116,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
   flowtable_main_t *fm = &flowtable_main;
   u32 cpu_index = os_get_thread_index ();
   flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+  f64 precise_time = vlib_time_now (vm);
+  u32 current_time = (u32) precise_time;
 
 #define _(sym, str) u32 CPT_ ## sym = 0;
   foreach_flowtable_error
@@ -118,7 +126,6 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
   n_left_from = frame->n_vectors;
   next_index = node->cached_next_index;
 
-  u32 current_time = (u32) vlib_time_now (vm);
   timer_wheel_index_update (fm, fmt, current_time);
 
   while (n_left_from > 0)
@@ -426,8 +433,12 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
 
-  /* handle expirations */
-  CPT_TIMER_EXPIRE += flowtable_timer_expire (fm, fmt, current_time);
+  /* handle expirations, but don't do that too often */
+  if (precise_time >= gtm->next_flow_expiration)
+    {
+      gtm->next_flow_expiration = precise_time + MIN_FLOW_EXPIRATION_INTERVAL;
+      CPT_TIMER_EXPIRE += flowtable_timer_expire (fm, fmt, current_time);
+    }
 
 #define _(sym, str)							\
   vlib_node_increment_counter(vm, node->node_index,			\
