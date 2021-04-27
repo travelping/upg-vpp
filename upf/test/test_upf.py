@@ -100,6 +100,7 @@ class IPv4Mixin(object):
             "upf application TST rule 3001 add ipfilter " +
             "permit out ip from %s to assigned" % APP_RULE_IP_V4,
             "nat44 enable sessions 1024 endpoint-dependent",
+            "upf nat pool 78.32.0.2 - 78.32.0.25 block_size 512 vrf 200 name testing",
         ]
 
     @classmethod
@@ -116,6 +117,7 @@ class IPv4Mixin(object):
             "upf gtpu endpoint ip %s nwi cp teid 0x80000000/2" % cls.if_cp.local_ip4,
             "upf gtpu endpoint ip %s nwi epc teid 0x80000000/2" % cls.if_grx.local_ip4,
             "nat44 enable sessions 1024 endpoint-dependent",
+            "upf nat pool 78.32.0.2 - 78.32.0.250 block_size 512 vrf 200 name testing",
         ]
 
     @property

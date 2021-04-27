@@ -342,20 +342,6 @@ typedef struct
 
 typedef struct
 {
-  /* framed IP address */
-  ip4_address_t framed_addr;
-  /* external IP address */
-  ip4_address_t external_addr;
-  /* pool of port blocks per binding */
-  //snat_port_block_t *blocks;
-  u16 start_port;
-  u16 end_port;
-  u32 thread_index;
-  u16 port_block_size;
-} upf_nat_binding_t;
-
-typedef struct
-{
   ip4_address_t ext_addr;
   u32 used_blocks;
 } upf_nat_addr_t;
@@ -369,8 +355,6 @@ typedef struct
   u16 max_port;
   u32 vrf_id;
   u16 max_blocks_per_addr;
-  upf_nat_binding_t *bindings;
-  mhash_t binding_index_by_ip;
 } upf_nat_pool_t;
 
 typedef enum
@@ -707,6 +691,7 @@ typedef struct
 
   ip4_address_t user_addr;
   u8 *nat_pool_name;
+  upf_nat_addr_t *nat_addr;
 
   f64 unix_time_start;
 
@@ -992,25 +977,11 @@ void upf_proxy_init (vlib_main_t * vm);
 upf_nat_pool_t *
 get_nat_pool_by_name (u8 *name);
 
-upf_nat_binding_t *
-upf_get_nat_binding_in_pool (upf_nat_pool_t *np, ip4_address_t user_addr);
-
-int
-upf_delete_nat_binding (upf_nat_pool_t *np, ip4_address_t user_addr);
-
-upf_nat_binding_t *
-upf_create_nat_binding (upf_nat_pool_t *np, ip4_address_t user_addr, ip4_address_t ext_addr,
-                         u16 start_port, u16 end_port, u32 vrf_id);
-
-__clib_export int
-upf_nat_get_addr_and_port (ip4_address_t *in, ip4_address_t *out,
-                           u16 *start, u16 *end, u16 *block_size, u32 thread_index);
+static int
+(*upf_nat_del_binding) (ip4_address_t user_addr);
 
 static int
-(*upf_snat_delete_sessions) (ip4_address_t addr);
-
-static int
-(*upf_snat_add_addr) (ip4_address_t addr, u32 vrf_id);
+(*upf_nat_create_binding) (ip4_address_t user_addr, ip4_address_t ext_addr, u16 start, u16 end, u32 vrf);
 
 static inline void
 increment_v4_address (ip4_address_t * a)

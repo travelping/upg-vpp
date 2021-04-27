@@ -745,9 +745,8 @@ int
 upf_alloc_and_assign_nat_binding (upf_nat_pool_t *np, upf_nat_addr_t *addr,
 			ip4_address_t user_ip, upf_session_t *sx)
 {
-  upf_nat_binding_t *bn;
   u16 port_start, port_end;
-  int err = 1;
+  int err = 0;
 
   port_start = np->min_port;
   port_end = port_start + np->port_block_size;
@@ -755,14 +754,17 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t *np, upf_nat_addr_t *addr,
   upf_debug ("SMATOV: Pool name %s user addr %U ext addr %U", np->name,
 	     format_ip4_address, &user_ip, format_ip4_address, &addr->ext_addr);
 
+  upf_nat_create_binding = vlib_get_plugin_symbol ("nat_plugin.so", "nat_create_binding");
+
   do
     {
-      bn = upf_create_nat_binding (np, user_ip, addr->ext_addr, port_start, port_end,  np->vrf_id);
-      if (bn)
+      err = upf_nat_create_binding (user_ip, addr->ext_addr, port_start, port_end, np->vrf_id);
+      if (!err)
 	{
 	  addr->used_blocks += 1;
 	  sx->nat_pool_name = vec_dup(np->name);
 	  sx->user_addr = user_ip;
+	  sx->nat_addr = addr;
 	  return 0;
 	}
       port_start += np->port_block_size;
@@ -864,7 +866,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	      goto out_error;
 	    }
 	    upf_nat_addr_t *ap = get_nat_addr (np);
-	    upf_alloc_and_assign_nat_binding (np, ap, create->pdi.ue_addr.ip4, sx);
+	    if (ap)
+	      upf_alloc_and_assign_nat_binding (np, ap, create->pdi.ue_addr.ip4, sx);
 	  }
 	vec_free (pool_name);
 

@@ -1022,6 +1022,16 @@ pfcp_disable_session (upf_session_t * sx)
 }
 
 void
+upf_delete_nat_binding (upf_session_t *sx)
+{
+  upf_nat_addr_t *ap = sx->nat_addr;
+  if (ap->used_blocks > 0)
+    ap->used_blocks -= 1;
+  upf_nat_del_binding = vlib_get_plugin_symbol ("nat_plugin.so", "nat_del_binding");
+  upf_nat_del_binding (sx->user_addr);
+}
+
+void
 pfcp_free_session (upf_session_t * sx)
 {
   vlib_main_t *vm = vlib_get_main ();
@@ -1036,8 +1046,7 @@ pfcp_free_session (upf_session_t * sx)
 
   if (sx->nat_pool_name)
     {
-      upf_nat_pool_t *np = get_nat_pool_by_name (sx->nat_pool_name);
-      upf_delete_nat_binding (np, sx->user_addr);
+      upf_delete_nat_binding (sx);
     }
 
   clib_spinlock_free (&sx->lock);
