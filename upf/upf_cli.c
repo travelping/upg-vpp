@@ -259,37 +259,8 @@ VLIB_CLI_COMMAND (upf_nat_pool_add_del_command, static) =
 {
   .path = "upf nat pool",
   .short_help =
-  "upf nat pool start <ip4-addr> end <ip4-addr> min_port <min-port> max_port <max-port> block_size <port-block-size> name <name> [del]",
+  "upf nat pool start <ip4-addr> end <ip4-addr> min_port <min-port> max_port <max-port> block_size <port-block-size> vrf <vrf-id> name <name> [del]",
   .function = upf_nat_pool_add_del_command_fn,
-};
-/* *INDENT-ON* */
-
-static clib_error_t *
-upf_show_nat_bindings_command_fn (vlib_main_t * vm, unformat_input_t * input,
-                                 vlib_cli_command_t * cmd)
-{
-  upf_main_t *gtm = &upf_main;
-  upf_nat_pool_t *np;
-  upf_nat_binding_t *bn;
-
-  pool_foreach (np, gtm->nat_pools)
-  {
-  vlib_cli_output (vm, "POOL NAME: %s", np->name);
-  pool_foreach (bn, np->bindings)
-    {
-      vlib_cli_output (vm, "  FRAMED: %U", format_ip4_address, &bn->framed_addr);
-      vlib_cli_output (vm, "  EXTERNAL: %U", format_ip4_address, &bn->external_addr);
-      vlib_cli_output (vm, "  port start %u port end %u\n", bn->start_port, bn->end_port);
-    }
-  }
-  return NULL;
-}
-
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_nat_bindings_command, static) = {
-  .path = "show upf nat bindings",
-  .short_help = "show upf nat bindings",
-  .function = upf_show_nat_bindings_command_fn,
 };
 /* *INDENT-ON* */
 
