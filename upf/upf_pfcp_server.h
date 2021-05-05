@@ -66,6 +66,7 @@ typedef struct
   u32 node;
   u32 session_index;
 
+  f64 expires_at;		/* message timestamp */
   u32 timer;
   u32 n1;
   u32 t1;
