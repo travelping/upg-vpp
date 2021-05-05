@@ -390,6 +390,7 @@ enqueue_request (pfcp_msg_t * msg, u32 n1, u32 t1)
   hash_set (psm->request_q, msg->seq_no, id);
   msg->timer =
     upf_pfcp_server_start_timer (PFCP_SERVER_T1, msg->seq_no, msg->t1);
+  msg->expires_at = psm->now + msg->t1;
 }
 
 static void
@@ -414,6 +415,7 @@ request_t1_expired (u32 seq_no)
       upf_debug ("resend...\n");
       msg->timer =
 	upf_pfcp_server_start_timer (PFCP_SERVER_T1, msg->seq_no, msg->t1);
+      msg->expires_at = psm->now + msg->t1;
 
       upf_pfcp_send_data (msg);
     }
@@ -493,6 +495,7 @@ restart_response_timer (pfcp_msg_t * msg)
   upf_pfcp_server_stop_msg_timer (msg);
   msg->timer =
     upf_pfcp_server_start_timer (PFCP_SERVER_RESPONSE, id, RESPONSE_TIMEOUT);
+  msg->expires_at = psm->now + RESPONSE_TIMEOUT;
 }
 
 static void
@@ -506,6 +509,7 @@ enqueue_response (pfcp_msg_t * msg)
   mhash_set (&psm->response_q, msg->request_key, id, NULL);
   msg->timer =
     upf_pfcp_server_start_timer (PFCP_SERVER_RESPONSE, id, RESPONSE_TIMEOUT);
+  msg->expires_at = psm->now + RESPONSE_TIMEOUT;
 }
 
 static void
@@ -1297,10 +1301,28 @@ static uword
       /* *INDENT-OFF* */
       pool_foreach (msg, psm->msg_pool,
       ({
-	if (!msg->is_valid_pool_item ||
-	    (!hash_get(psm->free_msgs_by_node, msg->node) &&
-	     !hash_get(psm->free_msgs_by_sidx, msg->session_index)))
+	if (!msg->is_valid_pool_item)
 	  continue;
+
+	ASSERT (msg->expires_at);
+
+	if (!hash_get (psm->free_msgs_by_node, msg->node) &&
+	    !hash_get (psm->free_msgs_by_sidx, msg->session_index))
+	  {
+	    /*
+	     * This should not happen unless a timer didn't fire for some reason
+	     */
+	    if (psm->now > msg->expires_at + 1)
+	      clib_warning
+		("Deleting expired message from %U:%d to %U:%d, seq_no %d, expired %f seconds ago",
+		 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+		 clib_net_to_host_u16 (msg->lcl.port), format_ip46_address,
+		 &msg->rmt.address, IP46_TYPE_ANY,
+		 clib_net_to_host_u16 (msg->rmt.port), msg->seq_no,
+		 psm->now - msg->expires_at);
+	    else
+	      continue;
+	  }
 
 	hash_unset (psm->request_q, msg->seq_no);
 	mhash_unset (&psm->response_q, msg->request_key, NULL);
