@@ -211,16 +211,65 @@ upf_name_to_labels (u8 * name)
 }
 
 static clib_error_t *
-upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
+upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
 				  unformat_input_t * main_input,
 				  vlib_cli_command_t * cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
   u8 *name;
+  u8 *nwi_s;
+  u8 *nwi_name;
+  int rc = 0;
+  int is_add = 1;
+
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    return 0;
+
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "id %_%v%_", &name))
+	;
+      else if (unformat (line_input, "del"))
+	is_add = 0;
+      else if (unformat (line_input, "nwi %_%v%_", &nwi_s))
+	;
+    }
+
+  nwi_name = upf_name_to_labels (nwi_s);
+  vec_free (nwi_s);
+
+  rc = vnet_upf_ueip_pool_add_del (name, nwi_name, is_add);
+
+  return error;
+
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_ueip_pool_add_del_command, static) =
+{
+  .path = "upf ueip pool",
+  .short_help =
+  "upf ueip pool nwi <nwi-name> id <identity> [del]",
+  .function = upf_ueip_pool_add_del_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
+				 unformat_input_t * main_input,
+				 vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  clib_error_t *error = NULL;
+  u8 *name;
+  u8 *nwi_name;
+  u8 *nwi_s = 0;
   u32 vrf_id = 0;
   ip4_address_t start, end;
-  u16 min_port; u16 max_port; u16 port_block_size;
+  u16 min_port;
+  u16 max_port;
+  u16 port_block_size;
   //u32 vrf_id;
   u8 is_add = 1;
   int rv;
@@ -234,23 +283,31 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "%U - %U",
-                    unformat_ip4_address, &start,
-                    unformat_ip4_address, &end))
-        ;
+		    unformat_ip4_address, &start, unformat_ip4_address, &end))
+	;
       else if (unformat (line_input, "block_size %u", &port_block_size))
 	;
       else if (unformat (line_input, "vrf %u", &vrf_id))
-        ;
+	;
       else if (unformat (line_input, "name %_%v%_", &name))
 	;
       else if (unformat (line_input, "del"))
-        is_add = 0;
+	is_add = 0;
+      else if (unformat (line_input, "nwi %_%v%_", &nwi_s))
+	;
     }
 
-  upf_debug ("POOL\n  START %U END %U\n PORTSTART %u PORTEND %u PORTBLOCK %u VRF %u",
-                     format_ip4_address, &start, format_ip4_address, &end, min_port, max_port, port_block_size, vrf_id);
+  nwi_name = upf_name_to_labels (nwi_s);
+  vec_free (nwi_s);
 
-  rv = vnet_upf_nat_pool_add_del (&start, &end, name, port_block_size, min_port, max_port, vrf_id, is_add);
+  upf_debug
+    ("POOL\n  START %U END %U\n PORTSTART %u PORTEND %u PORTBLOCK %u VRF %u",
+     format_ip4_address, &start, format_ip4_address, &end, min_port, max_port,
+     port_block_size, vrf_id);
+
+  rv =
+    vnet_upf_nat_pool_add_del (nwi_name, &start, &end, name, port_block_size,
+			       min_port, max_port, vrf_id, is_add);
   return error;
 }
 
@@ -259,7 +316,7 @@ VLIB_CLI_COMMAND (upf_nat_pool_add_del_command, static) =
 {
   .path = "upf nat pool",
   .short_help =
-  "upf nat pool start <ip4-addr> end <ip4-addr> min_port <min-port> max_port <max-port> block_size <port-block-size> vrf <vrf-id> name <name> [del]",
+  "upf nat pool nwi <nwi-name> start <ip4-addr> end <ip4-addr> min_port <min-port> max_port <max-port> block_size <port-block-size> vrf <vrf-id> name <name> [del]",
   .function = upf_nat_pool_add_del_command_fn,
 };
 /* *INDENT-ON* */
