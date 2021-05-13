@@ -1145,6 +1145,13 @@ typedef struct
   ip6_address_t ip6;
 } pfcp_alternative_smf_ip_address_t;
 
+#define PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION		233
+
+#define PFCP_IE_IP_VERSION				258
+typedef u8 pfcp_ip_version_t;
+#define IP_VERSION_4					BIT(0)
+#define IP_VERSION_6					BIT(1)
+
 #define VENDOR_TRAVELPING   18681
 
 #define PFCP_IE_TP_PACKET_MEASUREMENT			1
@@ -2377,6 +2384,24 @@ typedef struct
 
 } pfcp_association_release_request_t;
 
+
+enum
+{
+  UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY,
+  UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE,
+  UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION,
+  UE_IP_ADDRESS_POOL_INFORMATION_POOL_LAST =
+    UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION
+};
+
+typedef struct
+{
+  struct pfcp_group grp;
+
+  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
+  pfcp_network_instance_t network_instance;
+  pfcp_ip_version_t ip_version;
+} pfcp_ue_ip_address_pool_information_t;
 enum
 {
   ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID,
@@ -2388,8 +2413,9 @@ enum
   ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION,
   ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID,
   ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY,
+  ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION,
   ASSOCIATION_PROCEDURE_RESPONSE_LAST =
-    ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY
+    ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION
 };
 
 typedef struct
@@ -2406,6 +2432,7 @@ typedef struct
     * user_plane_ip_resource_information;
   pfcp_tp_build_id_t tp_build_id;
   pfcp_ue_ip_address_pool_identity_t *ue_ip_address_pool_identity;
+  pfcp_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
 } pfcp_association_procedure_response_t;
 
 enum

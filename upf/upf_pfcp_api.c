@@ -148,6 +148,13 @@ init_tp_error_report (pfcp_tp_error_report_t * report,
 /* message helpers */
 
 static void
+build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
+				 ue_pool_info)
+{
+  return;
+}
+
+static void
   build_user_plane_ip_resource_information
   (pfcp_user_plane_ip_resource_information_t ** upip)
 {
@@ -332,6 +339,10 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   if (gtm->pfcp_spec_version >= 16)
     {
       resp->up_function_features |= F_UPFF_FTUP;
+      build_ue_ip_address_information (&resp->ue_ip_address_pool_information);
+      if (vec_len (resp->ue_ip_address_pool_information) != 0)
+	SET_BIT (resp->grp.fields,
+		 ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION);
     }
   else
     {

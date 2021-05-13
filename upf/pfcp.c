@@ -6003,6 +6003,41 @@ static struct pfcp_group_ie_def pfcp_update_access_forwarding_action_information
     },
   };
 
+static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] =
+  {
+    [UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+			 ue_ip_address_pool_identity)
+    },
+    [UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE] = {
+      .type = PFCP_IE_NETWORK_INSTANCE,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+			 network_instance)
+    },
+    [UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION] = {
+      .type = PFCP_IE_IP_VERSION,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+			 ip_version)
+    },
+  };
+
+#define encode_ip_version encode_u8_ie
+#define decode_ip_version decode_u8_ie
+
+static u8 *
+format_ip_version (u8 * s, va_list * args)
+{
+  pfcp_ip_version_t *v = va_arg (*args, pfcp_ip_version_t *);
+
+  if (!!(*v & IP_VERSION_4))
+    s = format (s, "IPv4");
+  else
+    s = format (s, "IPv6");
+
+  return s;
+}
+
 static struct pfcp_group_ie_def pfcp_tp_error_report_group[] =
   {
     [TP_ERROR_REPORT_TP_ERROR_MESSAGE] = {
@@ -6602,6 +6637,14 @@ static struct pfcp_ie_def tgpp_specs[] =
     },
     SIMPLE_IE(PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY, ue_ip_address_pool_identity, "UE IP address Pool Identity"),
     SIMPLE_IE(PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS, alternative_smf_ip_address, "Alternative SMF IP Address"),
+    [PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION] =
+    {
+      .name = "UE IP Address Pool Information",
+      .length = sizeof(pfcp_ue_ip_address_pool_information_t),
+      .size = ARRAY_LEN(pfcp_ue_ip_address_pool_group),
+      .group = (pfcp_ue_ip_address_pool_group),
+    },
+    SIMPLE_IE(PFCP_IE_IP_VERSION, ip_version, "IP Version"),
   };
 
 static struct pfcp_ie_def vendor_tp_specs[] =
@@ -6783,6 +6826,11 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
       .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
       .is_array = true,
       .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_identity)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_information)
     },
   };
 
