@@ -355,7 +355,14 @@ typedef struct
   u16 max_port;
   u32 vrf_id;
   u16 max_blocks_per_addr;
+  u8 *network_instance;
 } upf_nat_pool_t;
+
+typedef struct
+{
+  u8 *identity;
+  u8 *nwi_name;
+} upf_ueip_pool_info_t;
 
 typedef enum
 {
@@ -903,6 +910,9 @@ typedef struct
 
   upf_nat_pool_t *nat_pools;
   uword *nat_pool_index_by_name;
+  upf_ueip_pool_info_t *ueip_pools;
+  uword *ueip_pool_index_by_identity;
+
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;
@@ -958,9 +968,12 @@ const dpo_id_t *upf_get_session_dpo_ip6 (upf_nwi_t * nwi,
 dpo_type_t upf_session_dpo_get_type (void);
 
 int
-vnet_upf_nat_pool_add_del (ip4_address_t * start_addr, ip4_address_t * end_addr,
+vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t * start_addr, ip4_address_t * end_addr,
                            u8 *name, u16 port_block_size, u16 min_port, u16 max_port,
                            u32 vrf_id, u8 is_add);
+
+int
+vnet_upf_ueip_pool_add_del (u8 *identity, u8 *nwi_name, int is_add);
 
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)

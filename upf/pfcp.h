@@ -1145,7 +1145,40 @@ typedef struct
   ip6_address_t ip6;
 } pfcp_alternative_smf_ip_address_t;
 
-#define VENDOR_TRAVELPING   18681
+#define PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION		233
+
+#define PFCP_IE_IP_VERSION				258
+typedef u8 pfcp_ip_version_t;
+#define IP_VERSION_4					BIT(0)
+#define IP_VERSION_6					BIT(1)
+
+#define VENDOR_BBF					3561
+
+#define PFCP_IE_BBF_UP_FUNCTION_FEATURES		0
+typedef u32 pfcp_bbf_up_function_features_t;
+
+#define BBF_UP_NAT					BIT(6)
+
+#define PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS			14
+typedef ip4_address_t pfcp_bbf_nat_outside_address_t;
+
+#define PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE		16
+typedef struct
+{
+  u16 start_port;
+  u16 end_port;
+} pfcp_bbf_nat_external_port_range_t;
+
+#define PFCP_IE_BBF_APPLY_ACTION			15
+
+#define BBF_APPLY_ACTION_NAT				BIT(0)
+
+typedef u8 pfcp_bbf_apply_action_t;
+
+#define PFCP_IE_BBF_NAT_PORT_BLOCK			18
+typedef u8 *pfcp_bbf_nat_port_block_t;
+
+#define VENDOR_TRAVELPING				18681
 
 #define PFCP_IE_TP_PACKET_MEASUREMENT			1
 typedef pfcp_volume_threshold_t pfcp_tp_packet_measurement_t;
@@ -1174,29 +1207,6 @@ typedef u8 *pfcp_tp_file_name_t;
 typedef u32 pfcp_tp_line_number_t;
 
 #define PFCP_IE_TP_CREATED_NAT_BINDING			10
-
-/*BBF specific */
-#define VENDOR_BBF					3561
-
-#define PFCP_IE_BBF_UP_FUNCTION_FEATURES                0
-typedef u8 pfcp_bbf_up_function_features_t;
-
-#define PFCP_BBF_UPFF_NAT_CP				BIT(6)
-#define PFCP_BBF_UPFF_NAT_UP				BIT(7)
-
-#define PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS			14
-typedef ip4_address_t pfcp_bbf_nat_outside_address_t;
-
-#define PFCP_IE_BBF_APPLY_ACTION			15
-typedef u8 pfcp_bbf_apply_action_t;
-
-#define PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE		16
-
-typedef struct
-{
-  u16 port_start;
-  u16 port_end;
-} pfcp_bbf_nat_external_port_range_t;
 
 /* Grouped PFCP Information Elements */
 
@@ -1464,8 +1474,10 @@ enum
   FORWARDING_PARAMETERS_LINKED_TRAFFIC_ENDPOINT_ID,
   FORWARDING_PARAMETERS_PROXYING,
   FORWARDING_PARAMETERS_DESTINATION_INTERFACE_TYPE,
+  FORWARDING_PARAMETERS_BBF_APPLY_ACTION,
+  FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK,
   FORWARDING_PARAMETERS_LAST =
-    FORWARDING_PARAMETERS_DESTINATION_INTERFACE_TYPE
+    FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK
 };
 
 typedef struct
@@ -1482,6 +1494,8 @@ typedef struct
   pfcp_traffic_endpoint_id_t linked_traffic_endpoint_id;
   pfcp_proxying_t proxying;
   pfcp_tgpp_interface_type_t destination_interface_type;
+  pfcp_bbf_apply_action_t bbf_apply_action;
+  pfcp_bbf_nat_port_block_t nat_port_block;
 } pfcp_forwarding_parameters_t;
 
 enum
@@ -1574,7 +1588,6 @@ typedef struct
   pfcp_forwarding_parameters_t forwarding_parameters;
   pfcp_duplicating_parameters_t duplicating_parameters;
   pfcp_bar_id_t bar_id;
-  pfcp_tp_apply_action_t nat_apply_action;
 } pfcp_create_far_t;
 
 enum
@@ -2242,6 +2255,24 @@ typedef struct
   pfcp_tp_line_number_t line_number;
 } pfcp_tp_error_report_t;
 
+enum
+{
+  TP_CREATED_BINDING_NAT_PORT_BLOCK,
+  TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS,
+  TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE,
+  TP_CREATED_BINDING_LAST =
+    TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE
+};
+
+typedef struct
+{
+  struct pfcp_group grp;
+
+  pfcp_bbf_nat_port_block_t block;
+  pfcp_bbf_nat_outside_address_t outside_addr;
+  pfcp_bbf_nat_external_port_range_t port_range;
+} pfcp_tp_created_binding_t;
+
 
 /* PFCP Methods */
 
@@ -2355,7 +2386,7 @@ typedef struct
     pfcp_user_plane_ip_resource_information_t
     * user_plane_ip_resource_information;
   pfcp_tp_build_id_t tp_build_id;
-  pfcp_ue_ip_address_pool_identity_t *ue_ip_address_pool_identity;
+  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
 } pfcp_association_setup_request_t;
 
@@ -2386,7 +2417,7 @@ typedef struct
     pfcp_user_plane_ip_resource_information_t
     * user_plane_ip_resource_information;
   pfcp_pfcpaureq_flags_t pfcpaureq_flags;
-  pfcp_ue_ip_address_pool_identity_t *ue_ip_address_pool_identity;
+  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
 } pfcp_association_update_request_t;
 
@@ -2403,6 +2434,26 @@ typedef struct
 
 } pfcp_association_release_request_t;
 
+
+enum
+{
+  UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY,
+  UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE,
+  UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION,
+  UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK,
+  UE_IP_ADDRESS_POOL_INFORMATION_POOL_LAST =
+    UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK
+};
+
+typedef struct
+{
+  struct pfcp_group grp;
+
+  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
+  pfcp_network_instance_t network_instance;
+  pfcp_ip_version_t ip_version;
+  pfcp_bbf_nat_port_block_t *port_blocks;
+} pfcp_ue_ip_address_pool_information_t;
 enum
 {
   ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID,
@@ -2411,11 +2462,13 @@ enum
   ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP,
   ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES,
   ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES,
+  ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES,
   ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION,
   ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID,
   ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY,
+  ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION,
   ASSOCIATION_PROCEDURE_RESPONSE_LAST =
-    ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY
+    ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION
 };
 
 typedef struct
@@ -2428,11 +2481,12 @@ typedef struct
   pfcp_recovery_time_stamp_t recovery_time_stamp;
   pfcp_cp_function_features_t cp_function_features;
   pfcp_up_function_features_t up_function_features;
+  pfcp_bbf_up_function_features_t bbf_up_function_features;
     pfcp_user_plane_ip_resource_information_t
     * user_plane_ip_resource_information;
   pfcp_tp_build_id_t tp_build_id;
-  pfcp_ue_ip_address_pool_identity_t *ue_ip_address_pool_identity;
-  pfcp_tp_nat_pool_t *tp_nat_pool;
+  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
+  pfcp_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
 } pfcp_association_procedure_response_t;
 
 enum
@@ -2582,22 +2636,6 @@ typedef struct
   struct pfcp_group grp;
 } pfcp_session_deletion_request_t;
 
-//TP_BBF_NAT
-
-enum
-{
-  TP_CREATED_NAT_BINDING_EXT_ADDR,
-  TP_CREATED_NAT_BINDING_PORT_RANGE,
-};
-
-typedef struct
-{
-  struct pfcp_group grp;
-
-  pfcp_bbf_nat_external_address_t ext_addr;
-  pfcp_bbf_nat_external_port_range_t *ranges;
-} pfcp_tp_created_nat_binding_t;
-
 enum
 {
   SESSION_PROCEDURE_RESPONSE_NODE_ID,
@@ -2613,8 +2651,9 @@ enum
   SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID,
   SESSION_PROCEDURE_RESPONSE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
   SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT,
+  SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING,
   SESSION_PROCEDURE_RESPONSE_LAST =
-    SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT
+    SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING
 };
 
 typedef struct
@@ -2635,6 +2674,7 @@ typedef struct
     pfcp_additional_usage_reports_information_t
     additional_usage_reports_information;
   pfcp_created_traffic_endpoint_t *created_traffic_endpoint;
+  pfcp_tp_created_binding_t created_binding;
 } pfcp_session_procedure_response_t;
 
 enum

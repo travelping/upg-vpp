@@ -4556,8 +4556,37 @@ format_priority (u8 * s, va_list * args)
 #define encode_priority encode_u8_ie
 
 #define format_ue_ip_address_pool_identity format_simple_vec_ie
-#define decode_ue_ip_address_pool_identity decode_simple_vec_ie
-#define encode_ue_ip_address_pool_identity encode_simple_vec_ie
+
+static int
+decode_ue_ip_address_pool_identity (u8 * data, u16 length, void *p)
+{
+  pfcp_ue_ip_address_pool_identity_t *v = p;
+  u16 id_len = 0;
+ 
+  if (length < 2)
+    return PFCP_CAUSE_INVALID_LENGTH;
+
+  id_len = get_u16 (data);
+  length -= 2;
+
+  if (length < id_len)
+    return PFCP_CAUSE_INVALID_LENGTH;
+
+  get_vec (v, id_len, data);
+
+  return 0; 
+}
+
+static int
+encode_ue_ip_address_pool_identity (void *p, u8 ** vec)
+{
+  pfcp_ue_ip_address_pool_identity_t **v = p;
+
+  put_u16 (*vec, vec_len (*v));
+  vec_append (*vec, *v);
+
+  return 0;
+}
 
 static u8 *
 format_alternative_smf_ip_address (u8 * s, va_list * args)
@@ -4673,6 +4702,135 @@ encode_alternative_smf_ip_address (void *p, u8 ** vec)
 #define format_tp_line_number format_u32_ie
 #define decode_tp_line_number decode_u32_ie
 #define encode_tp_line_number encode_u32_ie
+
+/* BBF Encoder-decoder */
+
+//BBF NAT port block
+#define format_bbf_nat_port_block format_simple_vec_ie
+#define decode_bbf_nat_port_block decode_simple_vec_ie
+#define encode_bbf_nat_port_block encode_simple_vec_ie
+#define free_bbf_nat_port_block free_simple_vec_ie
+
+//BBF NAT outside address
+static u8 *
+format_bbf_nat_outside_address (u8 * s, va_list * args)
+{
+  pfcp_bbf_nat_outside_address_t *n =
+    va_arg (*args, pfcp_bbf_nat_outside_address_t *);
+
+  s = format (s, "%U", format_ip4_address, n);
+
+  return s;
+}
+
+static int
+decode_bbf_nat_outside_address (u8 * data, u16 length, void *p)
+{
+  pfcp_bbf_nat_outside_address_t *v = p;
+
+  if (length < 4)
+    return PFCP_CAUSE_INVALID_LENGTH;
+
+  get_ip4 (*v, data);
+
+  return 0;
+}
+
+static int
+encode_bbf_nat_outside_address (void *p, u8 ** vec)
+{
+  pfcp_bbf_nat_outside_address_t *v = p;
+
+  put_ip4 (*vec, *v);
+
+  return 0;
+}
+
+//BBF NAT external port range
+
+static u8 *
+format_bbf_nat_external_port_range (u8 * s, va_list * args)
+{
+  pfcp_bbf_nat_external_port_range_t *n =
+    va_arg (*args, pfcp_bbf_nat_external_port_range_t *);
+
+  s = format (s, "Start:%u End:%u", n->start_port, n->end_port);
+  return s;
+}
+
+static int
+decode_bbf_nat_external_port_range (u8 * data, u16 length, void *p)
+{
+  pfcp_bbf_nat_external_port_range_t *v = p;
+
+  if (length < 4)
+    return PFCP_CAUSE_INVALID_LENGTH;
+
+  v->start_port = get_u16 (data);
+  length -= 2;
+
+  if (length < 2)
+    return PFCP_CAUSE_INVALID_LENGTH;
+
+  v->start_port = get_u16 (data);
+  return 0;
+}
+
+static int
+encode_bbf_nat_external_port_range (void *p, u8 ** vec)
+{
+  pfcp_bbf_nat_external_port_range_t *v = p;
+
+  put_u16 (*vec, v->start_port);
+  put_u16 (*vec, v->end_port);
+  return 0;
+}
+
+//BBF UE Function Features
+static u8 *
+format_bbf_up_function_features (u8 * s, va_list * args)
+{
+  pfcp_bbf_up_function_features_t *n =
+    va_arg (*args, pfcp_bbf_up_function_features_t *);
+
+  s = format (s, "NAT:%u", (*n & BBF_UP_NAT));
+  return s;
+}
+
+static int
+decode_bbf_up_function_features (u8 * data, u16 length, void *p)
+{
+  u64 *v = p;
+
+  if (length % 2 != 0 || length < 2)
+    return PFCP_CAUSE_INVALID_LENGTH;
+
+  *v = get_u16_little (data);
+  length -= 2;
+  if (length == 0)
+    return 0;
+
+  *v |= (u64) get_u16_little (data) << 16;
+
+  return 0;
+
+}
+
+static int
+encode_bbf_up_function_features (void *p, u8 ** vec)
+{
+  u32 *v = p;
+
+  put_u16_little (*vec, *v);
+  put_u16_little (*vec, *v >> 16);
+
+  return 0;
+}
+
+//BBF BBF Apply Action
+#define format_bbf_apply_action format_u8_ie
+#define decode_bbf_apply_action decode_u8_ie
+#define encode_bbf_apply_action encode_u8_ie
 
 /* Grouped Information Elements */
 
@@ -4854,6 +5012,16 @@ static struct pfcp_group_ie_def pfcp_forwarding_parameters_group[] =
     [FORWARDING_PARAMETERS_DESTINATION_INTERFACE_TYPE] = {
       .type = PFCP_IE_TGPP_INTERFACE_TYPE,
       .offset = offsetof(pfcp_forwarding_parameters_t, destination_interface_type)
+    },
+    [FORWARDING_PARAMETERS_BBF_APPLY_ACTION] = {
+      .type = PFCP_IE_BBF_APPLY_ACTION,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_forwarding_parameters_t, bbf_apply_action)
+    },
+    [FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK] = {
+      .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_forwarding_parameters_t, nat_port_block)
     },
   };
 
@@ -6003,6 +6171,48 @@ static struct pfcp_group_ie_def pfcp_update_access_forwarding_action_information
     },
   };
 
+static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] =
+  {
+    [UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+			 ue_ip_address_pool_identity)
+    },
+    [UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE] = {
+      .type = PFCP_IE_NETWORK_INSTANCE,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+			 network_instance)
+    },
+    [UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION] = {
+      .type = PFCP_IE_IP_VERSION,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+			 ip_version)
+    },
+    [UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK] = {
+      .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
+      .vendor = VENDOR_BBF,
+      .is_array = true,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+                         port_blocks)
+    },
+  };
+
+#define encode_ip_version encode_u8_ie
+#define decode_ip_version decode_u8_ie
+
+static u8 *
+format_ip_version (u8 * s, va_list * args)
+{
+  pfcp_ip_version_t *v = va_arg (*args, pfcp_ip_version_t *);
+
+  if (ISSET_BIT(*v, IP_VERSION_4))
+    s = format (s, "IPv4");
+  else
+    s = format (s, "IPv6");
+
+  return s;
+}
+
 static struct pfcp_group_ie_def pfcp_tp_error_report_group[] =
   {
     [TP_ERROR_REPORT_TP_ERROR_MESSAGE] = {
@@ -6019,6 +6229,25 @@ static struct pfcp_group_ie_def pfcp_tp_error_report_group[] =
       .type = PFCP_IE_TP_LINE_NUMBER,
       .vendor = VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_tp_error_report_t, line_number)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_tp_created_binding_group[] =
+  {
+    [TP_CREATED_BINDING_NAT_PORT_BLOCK] = {
+      .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_tp_created_binding_t, block)
+    },
+    [TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS] = {
+      .type = PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_tp_created_binding_t, outside_addr)
+    },
+    [TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE] = {
+      .type = PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_tp_created_binding_t, port_range)
     },
   };
 
@@ -6602,6 +6831,14 @@ static struct pfcp_ie_def tgpp_specs[] =
     },
     SIMPLE_IE(PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY, ue_ip_address_pool_identity, "UE IP address Pool Identity"),
     SIMPLE_IE(PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS, alternative_smf_ip_address, "Alternative SMF IP Address"),
+    [PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION] =
+    {
+      .name = "UE IP Address Pool Information",
+      .length = sizeof(pfcp_ue_ip_address_pool_information_t),
+      .size = ARRAY_LEN(pfcp_ue_ip_address_pool_group),
+      .group = (pfcp_ue_ip_address_pool_group),
+    },
+    SIMPLE_IE(PFCP_IE_IP_VERSION, ip_version, "IP Version"),
   };
 
 static struct pfcp_ie_def vendor_tp_specs[] =
@@ -6619,9 +6856,25 @@ static struct pfcp_ie_def vendor_tp_specs[] =
      .size = ARRAY_LEN(pfcp_tp_error_report_group),
      .group = pfcp_tp_error_report_group,
     },
+   [PFCP_IE_TP_CREATED_NAT_BINDING] =
+   {
+     .name = "TP: Created Binding",
+     .length = sizeof(pfcp_tp_created_binding_t),
+     .size = ARRAY_LEN(pfcp_tp_created_binding_group),
+     .group = pfcp_tp_created_binding_group,
+    },
    SIMPLE_IE_FREE(PFCP_IE_TP_ERROR_MESSAGE, tp_error_message, "TP: Error Message"),
    SIMPLE_IE_FREE(PFCP_IE_TP_FILE_NAME, tp_file_name, "TP: File Name"),
    SIMPLE_IE(PFCP_IE_TP_LINE_NUMBER, tp_line_number, "TP: Line Number"),
+  };
+
+static struct pfcp_ie_def vendor_bbf_specs[] =
+  {
+   SIMPLE_IE(PFCP_IE_BBF_UP_FUNCTION_FEATURES, bbf_up_function_features, "BBF UP Function Features"),
+   SIMPLE_IE(PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS, bbf_nat_outside_address, "BBF NAT Outside Address"),
+   SIMPLE_IE(PFCP_IE_BBF_APPLY_ACTION, bbf_apply_action, "BBF Apply Action"),
+   SIMPLE_IE_FREE(PFCP_IE_BBF_NAT_PORT_BLOCK, bbf_nat_port_block, "BBF NAT Port Block"),
+   SIMPLE_IE(PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE, bbf_nat_external_port_range, "BBF NAT External Port Range"),
   };
 
 /**********************************************************/
@@ -6639,7 +6892,14 @@ format_pfcp_ie (u8 * s, va_list * args)
 
       type &= ~0x8000;
 
-      if (vendor == VENDOR_TRAVELPING &&
+      if (vendor == VENDOR_BBF &&
+          type < ARRAY_LEN (vendor_bbf_specs) && vendor_bbf_specs[type].name)
+        {
+          return format (s, "IE: %s (%d:%d), Length: %d.",
+                         vendor_bbf_specs[type].name, vendor, type,
+                         clib_net_to_host_u16 (ie->length));
+        }
+      else if (vendor == VENDOR_TRAVELPING &&
 	  type < ARRAY_LEN (vendor_tp_specs) && vendor_tp_specs[type].name)
 	{
 	  return format (s, "IE: %s (%d:%d), Length: %d.",
@@ -6769,6 +7029,11 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
       .type = PFCP_IE_UP_FUNCTION_FEATURES,
       .offset = offsetof(pfcp_association_procedure_response_t, up_function_features)
     },
+    [ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_BBF_UP_FUNCTION_FEATURES,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_association_procedure_response_t, bbf_up_function_features)
+    },
     [ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION] = {
       .type = PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
       .is_array = true,
@@ -6783,6 +7048,11 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
       .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
       .is_array = true,
       .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_identity)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_information)
     },
   };
 
@@ -7012,6 +7282,11 @@ static struct pfcp_group_ie_def pfcp_session_establishment_response_group[] =
       .type = PFCP_IE_CREATED_TRAFFIC_ENDPOINT,
       .is_array = true,
       .offset = offsetof(pfcp_session_procedure_response_t, created_traffic_endpoint)
+    },
+    [SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING] = {
+      .type = PFCP_IE_TP_CREATED_NAT_BINDING,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_procedure_response_t, created_binding)
     },
   };
 
@@ -7505,6 +7780,9 @@ get_ie_def (const struct pfcp_group_ie_def *item)
     case 0:
       return &tgpp_specs[item->type];
 
+    case VENDOR_BBF:
+      return &vendor_bbf_specs[item->type];
+
     case VENDOR_TRAVELPING:
       return &vendor_tp_specs[item->type];
     }
@@ -7597,6 +7875,9 @@ decode_group (u8 * p, int len, const struct pfcp_ie_def *grp_def,
 
 	  switch (vendor)
 	    {
+            case VENDOR_BBF:
+              ie_def = &vendor_bbf_specs[type];
+              break;
 	    case VENDOR_TRAVELPING:
 	      ie_def = &vendor_tp_specs[type];
 	      break;
@@ -7743,8 +8024,8 @@ encode_group (const struct pfcp_ie_def *def, struct pfcp_group *grp,
       const struct pfcp_ie_def *ie_def;
       u8 *v = ((u8 *) grp) + item->offset;
 
-      if (item->type == 0)
-	continue;
+      if (item->type == 0 && item->vendor == 0)
+        continue;
 
       if (!ISSET_BIT (grp->fields, i))
 	continue;

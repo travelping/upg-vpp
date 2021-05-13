@@ -58,6 +58,57 @@
 
 static fib_source_t upf_fib_source;
 
+/*upf_ueip_pool_info_t *
+get_ueip_pool_info_by_identity (u8 *name)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_ueip_pool_info_t *np = NULL;
+  uword *p;
+
+  p = hash_get_mem (gtm->uiep_pool_index_by_indentity, name);
+  if (!p)
+    return NULL;
+
+  np = pool_elt_at_index(gtm->ueip_pools, p[0]);
+
+  return np;
+}*/
+
+int
+vnet_upf_ueip_pool_add_del (u8 *identity, u8 *nwi_name, int is_add)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_ueip_pool_info_t *ueip_pool = NULL;
+  uword *p;
+
+  p = hash_get_mem (gtm->ueip_pool_index_by_identity, identity);
+
+  if (is_add)
+    {
+      if (p)
+        return VNET_API_ERROR_VALUE_EXIST;
+
+      pool_get(gtm->ueip_pools, ueip_pool);
+      ueip_pool->identity = vec_dup (identity);
+      ueip_pool->nwi_name = vec_dup (nwi_name);
+
+      hash_set_mem (gtm->ueip_pool_index_by_identity, identity, ueip_pool - gtm->ueip_pools);
+
+    }
+  else
+    {
+      if (!p)
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
+
+      ueip_pool = pool_elt_at_index (gtm->ueip_pools, p[0]);
+      hash_unset_mem (gtm->ueip_pool_index_by_identity, identity);
+      vec_free (ueip_pool->identity);
+      vec_free (ueip_pool->nwi_name);
+      pool_put (gtm->ueip_pools, ueip_pool);
+    }
+  return 0;
+}
+
 upf_nat_pool_t *
 get_nat_pool_by_name (u8 *name)
 {
@@ -103,7 +154,7 @@ upf_init_nat_addresses (upf_nat_pool_t *np, ip4_address_t * start_addr,
 }
 
 int
-vnet_upf_nat_pool_add_del (ip4_address_t * start_addr, ip4_address_t * end_addr,
+vnet_upf_nat_pool_add_del (u8 *nwi_name, ip4_address_t * start_addr, ip4_address_t * end_addr,
 			   u8 *name, u16 port_block_size, u16 min_port, u16 max_port,
 			   u32 vrf_id, u8 is_add)
 {
@@ -120,6 +171,7 @@ vnet_upf_nat_pool_add_del (ip4_address_t * start_addr, ip4_address_t * end_addr,
 
       pool_get(gtm->nat_pools, nat_pool);
       nat_pool->name = vec_dup (name);
+      nat_pool->network_instance = vec_dup (nwi_name);
       nat_pool->port_block_size = port_block_size;
       nat_pool->min_port = UPF_NAT_MIN_PORT;
       nat_pool->max_port = UPF_NAT_MAX_PORT;
@@ -140,6 +192,8 @@ vnet_upf_nat_pool_add_del (ip4_address_t * start_addr, ip4_address_t * end_addr,
       nat_pool = pool_elt_at_index (gtm->nat_pools, p[0]);
       //TBD: nat pool cleanup upf_delete_nat_addresses(nat_pool);
       hash_unset_mem (gtm->nat_pool_index_by_name, name);
+      vec_free (nat_pool->name);
+      vec_free (nat_pool->network_instance);
       pool_put (gtm->nat_pools, nat_pool);
     }
   return 0;
@@ -499,6 +553,9 @@ upf_init (vlib_main_t * vm)
   sm->node_id.fqdn = format (0, (char *) "\x03upg");
 
   sm->nat_pool_index_by_name =
+    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
+
+  sm->ueip_pool_index_by_identity =
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
 
   error = flowtable_init (vm);
