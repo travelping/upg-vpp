@@ -133,7 +133,10 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
   session_t *s;
 
   if (rev->conn_index == ~0)
-    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    {
+      flow->splice_status = SPLICE_NO_REV_CONN;
+      return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    }
 
   if (flow->dont_splice)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
@@ -143,16 +146,25 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
     transport_get_connection (TRANSPORT_PROTO_TCP, ftc->conn_index,
 			      ftc->thread_index);
   if (!tc)
-    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    {
+      flow->splice_status = SPLICE_NO_TC;
+      return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    }
 
   s = session_get_if_valid (tc->s_index, tc->thread_index);
   if (!s)
-    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    {
+      flow->splice_status = SPLICE_NO_SESSION;
+      return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    }
 
   // check fifo, proxy Tx/Rx are connected...
   if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
       svm_fifo_max_dequeue (s->tx_fifo) != 0)
-    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    {
+      flow->splice_status = SPLICE_PROXY_DIRTY_FIFOS;
+      return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    }
 
   tcpRx = tcp_get_connection_from_transport
     (transport_get_connection
@@ -165,8 +177,17 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
   ASSERT (tcp_flow_is_valid (tcpRx, flow, direction));
   ASSERT (tcp_flow_is_valid (tcpTx, flow, FT_REVERSE ^ direction));
 
-  if (!tcpRx || !tcpTx)
-    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+  if (!tcpRx)
+    {
+      flow->splice_status = SPLICE_NO_TCP_RX;
+      return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    }
+
+  if (!tcpTx)
+    {
+      flow->splice_status = SPLICE_NO_TCP_TX;
+      return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+    }
 
   /* check TCP connection properties */
   if ((tcpRx->snd_mss > tcpTx->rcv_opts.mss) ||
@@ -174,6 +195,14 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
+      flow->splice_status = SPLICE_MSS_MISMATCH;
+      clib_warning ("Splicing MSS check failure: "
+		    "txSide/snd_mss: %d, "
+		    "txSide/rcv_mss: %d, "
+		    "rxSide/snd_mss: %d, "
+		    "rxSide/rcv_mss: %d",
+		    tcpTx->snd_mss, tcpTx->rcv_opts.mss,
+		    tcpRx->snd_mss, tcpRx->rcv_opts.mss);
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
@@ -182,6 +211,7 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
+      flow->splice_status = SPLICE_TSTAMP_OPT_MISMATCH;
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
@@ -190,6 +220,7 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
+      flow->splice_status = SPLICE_SACK_PERMITTED_OPT_MISMATCH;
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
@@ -205,6 +236,7 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
 
   /* switch to direct spliceing */
   flow->is_spliced = 1;
+  flow->splice_status = SPLICE_OK;
 
   return UPF_PROXY_INPUT_NEXT_TCP_FORWARD;
 }
@@ -313,7 +345,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  n_left_to_next -= 1;
 
 	  b = vlib_get_buffer (vm, bi);
-          UPF_CHECK_INNER_NODE (b);
+	  UPF_CHECK_INNER_NODE (b);
 
 	  error = 0;
 	  next = UPF_FORWARD_NEXT_DROP;
@@ -393,6 +425,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    }
 	  else
 	    {
+	      /* flow->splice_status = SPLICE_NO_CONN_INDEX; */
 	      /* ftc->conn_index == ~0 */
 
 	      if (ftc->thread_index != ~0)

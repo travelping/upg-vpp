@@ -434,6 +434,20 @@ format_flow_key (u8 * s, va_list * args)
 		 clib_net_to_host_u16 (key->port[FT_REVERSE]), key->seid);
 }
 
+static const char *splice_statuses[SPLICE_STATUS_COUNT] = {
+  "OK",
+  "No Rev Conn",
+  "No Session",
+  "No TC",
+  "Dirty Proxy FIFOs",
+  "No TCP Tx",
+  "No TCP Rx",
+  "No Conn Index",
+  "MSS Mismatch",
+  "TStamp Opt Mismatch",
+  "SACK Permitted Opt Mismatch"
+};
+
 u8 *
 format_flow (u8 * s, va_list * args)
 {
@@ -465,9 +479,10 @@ format_flow (u8 * s, va_list * args)
 	      flow_pdr_id (flow, FT_ORIGIN),
 	      flow_pdr_id (flow, FT_REVERSE), app_name, flow->lifetime,
 	      flow->is_l3_proxy, flow->is_spliced);
-#if CLIB_DEBUG > 0
-  s = format (s, ", dont_splice %d", flow->dont_splice);
-#endif
+  /* #if CLIB_DEBUG > 0 */
+  ASSERT (flow->splice_status < SPLICE_STATUS_COUNT);
+  s = format (s, ", splice_status %s", splice_statuses[flow->splice_status]);
+  /* #endif */
 #if CLIB_DEBUG > 1
   s = format (s, ", cpu %u", flow->cpu_index);
 #endif

@@ -102,6 +102,22 @@ typedef enum
   FT_TIMEOUT_TYPE_MAX
 } flowtable_timeout_type_t;
 
+typedef enum
+{
+  SPLICE_OK = 0,
+  SPLICE_NO_REV_CONN,
+  SPLICE_NO_SESSION,
+  SPLICE_NO_TC,
+  SPLICE_PROXY_DIRTY_FIFOS,
+  SPLICE_NO_TCP_TX,
+  SPLICE_NO_TCP_RX,
+  SPLICE_NO_CONN_INDEX,
+  SPLICE_MSS_MISMATCH,
+  SPLICE_TSTAMP_OPT_MISMATCH,
+  SPLICE_SACK_PERMITTED_OPT_MISMATCH,
+  SPLICE_STATUS_COUNT
+} nosplice_reason_t;
+
 typedef struct flow_tc
 {
   u32 conn_index;
@@ -122,6 +138,7 @@ typedef struct flow_entry
   u8 is_spliced:1;
   u8 dont_splice:1;
   u8 app_detection_done:1;
+  u8 splice_status;
   u16 tcp_state;
   u32 ps_index;
 
