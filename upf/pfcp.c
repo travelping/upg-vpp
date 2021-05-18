@@ -7764,10 +7764,10 @@ static struct pfcp_ie_def msg_specs[] =
 /* *INDENT-ON* */
 
 static const struct pfcp_group_ie_def *
-get_ie_spec (const pfcp_ie_t * ie, const struct pfcp_ie_def *def)
+get_ie_spec (const struct pfcp_ie_def *def, u16 type)
 {
   for (int i = 0; i < def->size; i++)
-    if (def->group[i].type != 0 && def->group[i].type == ntohs (ie->type))
+    if (def->group[i].type != 0 && def->group[i].type == type)
       return &def->group[i];
 
   return NULL;
@@ -7848,22 +7848,13 @@ decode_group (u8 * p, int len, const struct pfcp_ie_def *grp_def,
       const struct pfcp_ie_def *ie_def;
       u16 length = ntohs (ie->length);
       i16 type = ntohs (ie->type);
+      int id = 0;
 
       pfcp_debug ("%U", format_pfcp_ie, ie);
 
       pos += 4;
       if (pos + length > len)
 	return PFCP_CAUSE_INVALID_LENGTH;
-
-      item = get_ie_spec (ie, grp_def);
-
-      if (!item)
-	{
-	  vec_add1 (grp->ies, ie);
-	  goto next;
-	}
-
-      int id = item - grp_def->group;
 
       if (type & 0x8000)
 	{
@@ -7891,6 +7882,16 @@ decode_group (u8 * p, int len, const struct pfcp_ie_def *grp_def,
 	{
 	  ie_def = &tgpp_specs[type];
 	}
+
+      item = get_ie_spec (grp_def, type);
+
+      if (!item)
+	{
+	  vec_add1 (grp->ies, ie);
+	  goto next;
+	}
+
+      id = item - grp_def->group;
 
       u8 *v = ((u8 *) grp) + item->offset;
 

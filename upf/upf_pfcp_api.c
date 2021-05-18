@@ -805,7 +805,6 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t * np, upf_nat_addr_t * addr,
       if (!err)
 	{
 	  addr->used_blocks += 1;
-	  sx->nat_pool_name = vec_dup (np->name);
 	  sx->nat_addr = addr;
 	  created_binding->block = vec_dup (np->name);
 	  created_binding->outside_addr.as_u32 = addr->ext_addr.as_u32;
@@ -1508,10 +1507,6 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	      }
 	  }
 
-	u8 *pool_name = 0;
-	pool_name = format (pool_name, "testing");
-	handle_nat_binding_creation (sx, pool_name, response);
-	vec_free (pool_name);
 	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
 		       FORWARDING_PARAMETERS_OUTER_HEADER_CREATION))
 	  {
