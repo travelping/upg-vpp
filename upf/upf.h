@@ -696,8 +696,9 @@ typedef struct
   /* TEID table by choose_id */
   u32 *teid_by_chid;
 
+  //TODO: this is temporary, should be removed
   ip4_address_t user_addr;
-  u8 *nat_pool_name;
+
   upf_nat_addr_t *nat_addr;
 
   f64 unix_time_start;
@@ -991,7 +992,7 @@ upf_nat_pool_t *get_nat_pool_by_name (u8 * name);
 
 static int (*upf_nat_del_binding) (ip4_address_t user_addr);
 
-static int
+static u16
   (*upf_nat_create_binding) (ip4_address_t user_addr, ip4_address_t ext_addr,
 			     u16 start, u16 end, u32 vrf);
 
