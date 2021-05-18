@@ -35,6 +35,7 @@
 #include <vnet/udp/udp_packet.h>
 #include <search.h>
 #include <netinet/ip.h>
+#include <vlib/unix/plugin.h>
 
 #include "pfcp.h"
 #include "upf.h"
@@ -44,7 +45,7 @@
 #include "upf_pfcp_server.h"
 #include "upf_ipfilter.h"
 
-#if CLIB_DEBUG > 2
+#if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
 #define upf_debug(...)				\
@@ -1023,6 +1024,17 @@ pfcp_disable_session (upf_session_t * sx)
 }
 
 void
+upf_delete_nat_binding (upf_session_t * sx)
+{
+  upf_nat_addr_t *ap = sx->nat_addr;
+  if (ap->used_blocks > 0)
+    ap->used_blocks -= 1;
+  upf_nat_del_binding =
+    vlib_get_plugin_symbol ("nat_plugin.so", "nat_del_binding");
+  upf_nat_del_binding (sx->user_addr);
+}
+
+void
 pfcp_free_session (upf_session_t * sx)
 {
   vlib_main_t *vm = vlib_get_main ();
@@ -1034,6 +1046,11 @@ pfcp_free_session (upf_session_t * sx)
     pfcp_free_rules (sx, i);
 
   sparse_vec_free (sx->teid_by_chid);
+
+  if (sx->nat_addr)
+    {
+      upf_delete_nat_binding (sx);
+    }
 
   clib_spinlock_free (&sx->lock);
   pool_put (gtm->sessions, sx);
