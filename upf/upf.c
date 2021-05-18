@@ -49,33 +49,10 @@
 
 #include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
 
-#if CLIB_DEBUG > 1
-#define upf_debug clib_warning
-#else
-#define upf_debug(...)                          \
-  do { } while (0)
-#endif
-
 static fib_source_t upf_fib_source;
 
-/*upf_ueip_pool_info_t *
-get_ueip_pool_info_by_identity (u8 *name)
-{
-  upf_main_t *gtm = &upf_main;
-  upf_ueip_pool_info_t *np = NULL;
-  uword *p;
-
-  p = hash_get_mem (gtm->uiep_pool_index_by_indentity, name);
-  if (!p)
-    return NULL;
-
-  np = pool_elt_at_index(gtm->ueip_pools, p[0]);
-
-  return np;
-}*/
-
 int
-vnet_upf_ueip_pool_add_del (u8 *identity, u8 *nwi_name, int is_add)
+vnet_upf_ueip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
 {
   upf_main_t *gtm = &upf_main;
   upf_ueip_pool_info_t *ueip_pool = NULL;
@@ -86,19 +63,20 @@ vnet_upf_ueip_pool_add_del (u8 *identity, u8 *nwi_name, int is_add)
   if (is_add)
     {
       if (p)
-        return VNET_API_ERROR_VALUE_EXIST;
+	return VNET_API_ERROR_VALUE_EXIST;
 
-      pool_get(gtm->ueip_pools, ueip_pool);
+      pool_get (gtm->ueip_pools, ueip_pool);
       ueip_pool->identity = vec_dup (identity);
       ueip_pool->nwi_name = vec_dup (nwi_name);
 
-      hash_set_mem (gtm->ueip_pool_index_by_identity, identity, ueip_pool - gtm->ueip_pools);
+      hash_set_mem (gtm->ueip_pool_index_by_identity, identity,
+		    ueip_pool - gtm->ueip_pools);
 
     }
   else
     {
       if (!p)
-        return VNET_API_ERROR_NO_SUCH_ENTRY;
+	return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       ueip_pool = pool_elt_at_index (gtm->ueip_pools, p[0]);
       hash_unset_mem (gtm->ueip_pool_index_by_identity, identity);
@@ -110,7 +88,7 @@ vnet_upf_ueip_pool_add_del (u8 *identity, u8 *nwi_name, int is_add)
 }
 
 upf_nat_pool_t *
-get_nat_pool_by_name (u8 *name)
+get_nat_pool_by_name (u8 * name)
 {
   upf_main_t *gtm = &upf_main;
   upf_nat_pool_t *np = NULL;
@@ -120,13 +98,13 @@ get_nat_pool_by_name (u8 *name)
   if (!p)
     return NULL;
 
-  np = pool_elt_at_index(gtm->nat_pools, p[0]);
+  np = pool_elt_at_index (gtm->nat_pools, p[0]);
 
   return np;
 }
 
 int
-upf_init_nat_addresses (upf_nat_pool_t *np, ip4_address_t * start_addr,
+upf_init_nat_addresses (upf_nat_pool_t * np, ip4_address_t * start_addr,
 			ip4_address_t * end_addr)
 {
   u32 start_host_order, end_host_order;
@@ -143,19 +121,20 @@ upf_init_nat_addresses (upf_nat_pool_t *np, ip4_address_t * start_addr,
   do
     {
       upf_nat_addr_t *ap;
-      vec_add2(np->addresses, ap, 1);
+      vec_add2 (np->addresses, ap, 1);
       ap->ext_addr = addr;
       ap->used_blocks = 0;
       increment_v4_address (&addr);
-      upf_debug ("SMATOV: adding addr %U", format_ip4_address, &addr);
       ++i;
-    } while (i < count);
+    }
+  while (i < count);
   return 0;
 }
 
 int
-vnet_upf_nat_pool_add_del (u8 *nwi_name, ip4_address_t * start_addr, ip4_address_t * end_addr,
-			   u8 *name, u16 port_block_size, u16 min_port, u16 max_port,
+vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t * start_addr,
+			   ip4_address_t * end_addr, u8 * name,
+			   u16 port_block_size, u16 min_port, u16 max_port,
 			   u32 vrf_id, u8 is_add)
 {
   upf_main_t *gtm = &upf_main;
@@ -169,22 +148,23 @@ vnet_upf_nat_pool_add_del (u8 *nwi_name, ip4_address_t * start_addr, ip4_address
       if (p)
 	return VNET_API_ERROR_VALUE_EXIST;
 
-      pool_get(gtm->nat_pools, nat_pool);
+      pool_get (gtm->nat_pools, nat_pool);
       nat_pool->name = vec_dup (name);
       nat_pool->network_instance = vec_dup (nwi_name);
       nat_pool->port_block_size = port_block_size;
       nat_pool->min_port = UPF_NAT_MIN_PORT;
       nat_pool->max_port = UPF_NAT_MAX_PORT;
       nat_pool->vrf_id = vrf_id;
-      nat_pool->max_blocks_per_addr = (u16)((nat_pool->max_port - nat_pool->min_port) / port_block_size);
+      nat_pool->max_blocks_per_addr =
+	(u16) ((nat_pool->max_port - nat_pool->min_port) / port_block_size);
 
-      upf_init_nat_addresses(nat_pool, start_addr, end_addr);
+      upf_init_nat_addresses (nat_pool, start_addr, end_addr);
 
-      upf_debug ("SMATOV: Creating NAT POOl name %s\n SMATOV: vrf_id = %u", name, vrf_id);
-      hash_set_mem (gtm->nat_pool_index_by_name, name, nat_pool - gtm->nat_pools);
+      hash_set_mem (gtm->nat_pool_index_by_name, name,
+		    nat_pool - gtm->nat_pools);
 
     }
-  else 
+  else
     {
       if (!p)
 	return VNET_API_ERROR_NO_SUCH_ENTRY;

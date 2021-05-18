@@ -212,8 +212,8 @@ upf_name_to_labels (u8 * name)
 
 static clib_error_t *
 upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
-                                  unformat_input_t * main_input,
-                                  vlib_cli_command_t * cmd)
+				  unformat_input_t * main_input,
+				  vlib_cli_command_t * cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -229,14 +229,14 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "id %_%v%_", &name))
-        ;
+	;
       else if (unformat (line_input, "del"))
-        is_add = 0;
+	is_add = 0;
       else if (unformat (line_input, "nwi %_%v%_", &nwi_s))
-        ;
+	;
     }
 
-  nwi_name = upf_name_to_labels(nwi_s);
+  nwi_name = upf_name_to_labels (nwi_s);
   vec_free (nwi_s);
 
   rc = vnet_upf_ueip_pool_add_del (name, nwi_name, is_add);
@@ -257,8 +257,8 @@ VLIB_CLI_COMMAND (upf_ueip_pool_add_del_command, static) =
 
 static clib_error_t *
 upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
-				  unformat_input_t * main_input,
-				  vlib_cli_command_t * cmd)
+				 unformat_input_t * main_input,
+				 vlib_cli_command_t * cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -267,7 +267,9 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
   u8 *nwi_s = 0;
   u32 vrf_id = 0;
   ip4_address_t start, end;
-  u16 min_port; u16 max_port; u16 port_block_size;
+  u16 min_port;
+  u16 max_port;
+  u16 port_block_size;
   //u32 vrf_id;
   u8 is_add = 1;
   int rv;
@@ -281,28 +283,31 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "%U - %U",
-                    unformat_ip4_address, &start,
-                    unformat_ip4_address, &end))
-        ;
+		    unformat_ip4_address, &start, unformat_ip4_address, &end))
+	;
       else if (unformat (line_input, "block_size %u", &port_block_size))
 	;
       else if (unformat (line_input, "vrf %u", &vrf_id))
-        ;
+	;
       else if (unformat (line_input, "name %_%v%_", &name))
 	;
       else if (unformat (line_input, "del"))
-        is_add = 0;
+	is_add = 0;
       else if (unformat (line_input, "nwi %_%v%_", &nwi_s))
-        ;
+	;
     }
 
-  nwi_name = upf_name_to_labels(nwi_s);
+  nwi_name = upf_name_to_labels (nwi_s);
   vec_free (nwi_s);
 
-  upf_debug ("POOL\n  START %U END %U\n PORTSTART %u PORTEND %u PORTBLOCK %u VRF %u",
-                     format_ip4_address, &start, format_ip4_address, &end, min_port, max_port, port_block_size, vrf_id);
+  upf_debug
+    ("POOL\n  START %U END %U\n PORTSTART %u PORTEND %u PORTBLOCK %u VRF %u",
+     format_ip4_address, &start, format_ip4_address, &end, min_port, max_port,
+     port_block_size, vrf_id);
 
-  rv = vnet_upf_nat_pool_add_del (nwi_name, &start, &end, name, port_block_size, min_port, max_port, vrf_id, is_add);
+  rv =
+    vnet_upf_nat_pool_add_del (nwi_name, &start, &end, name, port_block_size,
+			       min_port, max_port, vrf_id, is_add);
   return error;
 }
 

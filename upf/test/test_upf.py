@@ -101,6 +101,7 @@ class IPv4Mixin(object):
             "permit out ip from %s to assigned" % APP_RULE_IP_V4,
             "nat44 enable sessions 1024 endpoint-dependent",
             "upf nat pool nwi sgi 78.32.0.2 - 78.32.0.25 block_size 512 vrf 200 name testing",
+            "upf nat pool nwi sgi 78.32.20.2 - 78.32.20.25 block_size 512 vrf 200 name not-testing",
             "upf ueip pool nwi sgi id mypool",
         ]
 
@@ -119,6 +120,7 @@ class IPv4Mixin(object):
             "upf gtpu endpoint ip %s nwi epc teid 0x80000000/2" % cls.if_grx.local_ip4,
             "nat44 enable sessions 1024 endpoint-dependent",
             "upf nat pool nwi sgi 78.32.0.2 - 78.32.0.250 block_size 512 vrf 200 name testing",
+            "upf nat pool nwi sgi 78.32.20.2 - 78.32.20.25 block_size 512 vrf 200 name not-testing",
             "upf ueip pool nwi sgi id mypool",
         ]
 

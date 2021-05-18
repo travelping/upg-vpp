@@ -968,12 +968,12 @@ const dpo_id_t *upf_get_session_dpo_ip6 (upf_nwi_t * nwi,
 dpo_type_t upf_session_dpo_get_type (void);
 
 int
-vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t * start_addr, ip4_address_t * end_addr,
-                           u8 *name, u16 port_block_size, u16 min_port, u16 max_port,
-                           u32 vrf_id, u8 is_add);
+vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t * start_addr,
+			   ip4_address_t * end_addr, u8 * name,
+			   u16 port_block_size, u16 min_port, u16 max_port,
+			   u32 vrf_id, u8 is_add);
 
-int
-vnet_upf_ueip_pool_add_del (u8 *identity, u8 *nwi_name, int is_add);
+int vnet_upf_ueip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add);
 
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
@@ -987,14 +987,13 @@ void upf_proxy_init (vlib_main_t * vm);
 #define UPF_NAT_MIN_PORT 10128
 #define UPF_NAT_MAX_PORT 64000
 
-upf_nat_pool_t *
-get_nat_pool_by_name (u8 *name);
+upf_nat_pool_t *get_nat_pool_by_name (u8 * name);
+
+static int (*upf_nat_del_binding) (ip4_address_t user_addr);
 
 static int
-(*upf_nat_del_binding) (ip4_address_t user_addr);
-
-static int
-(*upf_nat_create_binding) (ip4_address_t user_addr, ip4_address_t ext_addr, u16 start, u16 end, u32 vrf);
+  (*upf_nat_create_binding) (ip4_address_t user_addr, ip4_address_t ext_addr,
+			     u16 start, u16 end, u32 vrf);
 
 static inline void
 increment_v4_address (ip4_address_t * a)

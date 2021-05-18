@@ -4562,7 +4562,7 @@ decode_ue_ip_address_pool_identity (u8 * data, u16 length, void *p)
 {
   pfcp_ue_ip_address_pool_identity_t *v = p;
   u16 id_len = 0;
- 
+
   if (length < 2)
     return PFCP_CAUSE_INVALID_LENGTH;
 
@@ -4574,7 +4574,7 @@ decode_ue_ip_address_pool_identity (u8 * data, u16 length, void *p)
 
   get_vec (v, id_len, data);
 
-  return 0; 
+  return 0;
 }
 
 static int
@@ -7875,9 +7875,9 @@ decode_group (u8 * p, int len, const struct pfcp_ie_def *grp_def,
 
 	  switch (vendor)
 	    {
-            case VENDOR_BBF:
-              ie_def = &vendor_bbf_specs[type];
-              break;
+	    case VENDOR_BBF:
+	      ie_def = &vendor_bbf_specs[type];
+	      break;
 	    case VENDOR_TRAVELPING:
 	      ie_def = &vendor_tp_specs[type];
 	      break;
@@ -8025,7 +8025,7 @@ encode_group (const struct pfcp_ie_def *def, struct pfcp_group *grp,
       u8 *v = ((u8 *) grp) + item->offset;
 
       if (item->type == 0 && item->vendor == 0)
-        continue;
+	continue;
 
       if (!ISSET_BIT (grp->fields, i))
 	continue;

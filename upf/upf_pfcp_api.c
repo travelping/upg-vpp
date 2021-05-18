@@ -160,30 +160,28 @@ build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
   vec_alloc (*ue_pool_info, pool_elts (gtm->ueip_pools));
 
   pool_foreach (ue_p, gtm->ueip_pools)
+  {
+    pfcp_ue_ip_address_pool_information_t *ueif;
+    vec_add2 (*ue_pool_info, ueif, 1);
+    ueif->ue_ip_address_pool_identity = vec_dup (ue_p->identity);
+    SET_BIT (ueif->grp.fields, UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY);
+
+    ueif->network_instance = vec_dup (ue_p->nwi_name);
+    SET_BIT (ueif->grp.fields,
+	     UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE);
+
+    pool_foreach (np, gtm->nat_pools)
     {
-      upf_debug ("SMATOV: adding ue ip pool info");
-      pfcp_ue_ip_address_pool_information_t *ueif;
-      vec_add2 (*ue_pool_info, ueif, 1);
-      ueif->ue_ip_address_pool_identity = vec_dup (ue_p->identity);
-      SET_BIT (ueif->grp.fields, UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY);
-
-      ueif->network_instance = vec_dup (ue_p->nwi_name);
-      SET_BIT (ueif->grp.fields, UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE);
-
-      pool_foreach (np, gtm->nat_pools)
-	{
-	  if (!(vec_is_equal (np->network_instance, ue_p->nwi_name)))
-	    continue;
-	  pfcp_bbf_nat_port_block_t *block;
-	  vec_add2 (ueif->port_blocks, block, 1);
-	  *block = vec_dup (np->name);
-	  SET_BIT (ueif->grp.fields, UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK);
-	}
-
-      upf_debug ("SMATOV: added UE IP Pool Information: %U %U %u",
-		 format_dns_labels, ueif->ue_ip_address_pool_identity,
-		 format_dns_labels, ueif->network_instance, ueif->ip_version);
+      if (!(vec_is_equal (np->network_instance, ue_p->nwi_name)))
+	continue;
+      pfcp_bbf_nat_port_block_t *block;
+      vec_add2 (ueif->port_blocks, block, 1);
+      *block = vec_dup (np->name);
+      SET_BIT (ueif->grp.fields,
+	       UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK);
     }
+
+  }
 }
 
 static void
@@ -372,11 +370,9 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
     {
       resp->up_function_features |= F_UPFF_FTUP;
       build_ue_ip_address_information (&resp->ue_ip_address_pool_information);
-      upf_debug ("SMATOV: UE IP ADDR INFO vec_len = %d", vec_len (resp->ue_ip_address_pool_information));
       if (vec_len (resp->ue_ip_address_pool_information) != 0)
 	SET_BIT (resp->grp.fields,
 		 ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION);
-      upf_debug ("SMATOV: BFF UE Function Features");
       SET_BIT (resp->grp.fields,
 	       ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES);
       resp->bbf_up_function_features |= BBF_UP_NAT;
@@ -736,25 +732,26 @@ validate_ue_ip (upf_session_t * sx, upf_nwi_t * nwi,
   } while (0)
 
 upf_nat_addr_t *
-get_nat_addr (upf_nat_pool_t *np)
+get_nat_addr (upf_nat_pool_t * np)
 {
   upf_nat_addr_t *this_addr = NULL, *addr = NULL;
   u32 least_locked_ports = ~0;
   vec_foreach (this_addr, np->addresses)
-    {
-      if ((this_addr->used_blocks < least_locked_ports)
-	  && (this_addr->used_blocks < np->max_blocks_per_addr))
-	{
-	  least_locked_ports = this_addr->used_blocks;
-	  addr = this_addr;
-	}
-    }
+  {
+    if ((this_addr->used_blocks < least_locked_ports)
+	&& (this_addr->used_blocks < np->max_blocks_per_addr))
+      {
+	least_locked_ports = this_addr->used_blocks;
+	addr = this_addr;
+      }
+  }
   return addr;
 }
 
 int
-upf_alloc_and_assign_nat_binding (upf_nat_pool_t *np, upf_nat_addr_t *addr,
-			ip4_address_t user_ip, upf_session_t *sx, pfcp_tp_created_binding_t * created_binding)
+upf_alloc_and_assign_nat_binding (upf_nat_pool_t * np, upf_nat_addr_t * addr,
+				  ip4_address_t user_ip, upf_session_t * sx,
+				  pfcp_tp_created_binding_t * created_binding)
 {
   u16 port_start, port_end;
   int err = 0;
@@ -762,28 +759,35 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t *np, upf_nat_addr_t *addr,
   port_start = np->min_port;
   port_end = port_start + np->port_block_size;
 
-  upf_nat_create_binding = vlib_get_plugin_symbol ("nat_plugin.so", "nat_create_binding");
+  upf_nat_create_binding =
+    vlib_get_plugin_symbol ("nat_plugin.so", "nat_create_binding");
 
   do
     {
-      err = upf_nat_create_binding (user_ip, addr->ext_addr, port_start, port_end, np->vrf_id);
+      err =
+	upf_nat_create_binding (user_ip, addr->ext_addr, port_start, port_end,
+				np->vrf_id);
       if (!err)
 	{
 	  addr->used_blocks += 1;
-	  sx->nat_pool_name = vec_dup(np->name);
+	  sx->nat_pool_name = vec_dup (np->name);
 	  sx->nat_addr = addr;
-	  created_binding->block = vec_dup(np->name);
+	  created_binding->block = vec_dup (np->name);
 	  created_binding->outside_addr.as_u32 = addr->ext_addr.as_u32;
 	  created_binding->port_range.start_port = port_start;
 	  created_binding->port_range.end_port = port_end;
-	  SET_BIT (created_binding->grp.fields, TP_CREATED_BINDING_NAT_PORT_BLOCK);
-	  SET_BIT (created_binding->grp.fields, TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS);
-	  SET_BIT (created_binding->grp.fields, TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE);
+	  SET_BIT (created_binding->grp.fields,
+		   TP_CREATED_BINDING_NAT_PORT_BLOCK);
+	  SET_BIT (created_binding->grp.fields,
+		   TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS);
+	  SET_BIT (created_binding->grp.fields,
+		   TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE);
 	  return 0;
 	}
       port_start += np->port_block_size;
       port_end = port_start + np->port_block_size;
-    } while (port_end < np->max_port);
+    }
+  while (port_end < np->max_port);
   return err;
 
 }
@@ -1362,7 +1366,8 @@ upf_ip46_get_resolving_interface (u32 fib_index, ip46_address_t * pa46,
   } while (0)
 
 static int
-handle_nat_binding_creation (upf_session_t * sx, u8 * nat_pool_name, pfcp_tp_created_binding_t * created_binding)
+handle_nat_binding_creation (upf_session_t * sx, u8 * nat_pool_name,
+			     pfcp_session_procedure_response_t * response)
 {
   upf_nat_pool_t *np;
   upf_nat_addr_t *ap;
@@ -1380,7 +1385,11 @@ handle_nat_binding_creation (upf_session_t * sx, u8 * nat_pool_name, pfcp_tp_cre
   if (!ap)
     return -1;
 
-  rc = upf_alloc_and_assign_nat_binding (np, ap, sx->user_addr, sx, created_binding);
+  rc =
+    upf_alloc_and_assign_nat_binding (np, ap, sx->user_addr, sx,
+				      &response->created_binding);
+  SET_BIT (response->grp.fields,
+	   SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING);
 
   return rc;
 
@@ -1447,25 +1456,26 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 
 	  }
 
-        if (ISSET_BIT (far->forwarding_parameters.grp.fields,
-                       FORWARDING_PARAMETERS_BBF_APPLY_ACTION))
-          {
-	    if (far->forwarding_parameters.bbf_apply_action &= BBF_APPLY_ACTION_NAT)
+	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
+		       FORWARDING_PARAMETERS_BBF_APPLY_ACTION))
+	  {
+	    if (far->forwarding_parameters.bbf_apply_action &=
+		BBF_APPLY_ACTION_NAT)
 	      {
 		if (ISSET_BIT (far->forwarding_parameters.grp.fields,
 			       FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK))
 		  {
 		    pfcp_bbf_nat_port_block_t pool_name =
-			vec_dup (far->forwarding_parameters.nat_port_block);
-		    if (handle_nat_binding_creation (sx, pool_name, &response->created_binding))
+		      vec_dup (far->forwarding_parameters.nat_port_block);
+		    if (handle_nat_binding_creation (sx, pool_name, response))
 		      goto out_error;
 		  }
 	      }
-          }
+	  }
 
 	u8 *pool_name = 0;
 	pool_name = format (pool_name, "testing");
-	handle_nat_binding_creation (sx, pool_name, &response->created_binding);
+	handle_nat_binding_creation (sx, pool_name, response);
 	vec_free (pool_name);
 	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
 		       FORWARDING_PARAMETERS_OUTER_HEADER_CREATION))
