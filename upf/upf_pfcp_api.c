@@ -202,6 +202,7 @@ build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
 
   vec_alloc (*ue_pool_info, pool_elts (gtm->ueip_pools));
 
+  /* *INDENT-OFF* */
   pool_foreach (ue_p, gtm->ueip_pools,
   ({
     pfcp_ue_ip_address_pool_information_t *ueif;
@@ -225,6 +226,7 @@ build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
     }));
 
   }));
+  /* *INDENT-ON* */
 }
 
 static void
@@ -408,7 +410,7 @@ handle_association_setup_request (pfcp_msg_t * req,
       resp.up_function_features |= F_UPFF_FTUP;
       build_ue_ip_address_information (&resp.ue_ip_address_pool_information);
       if (vec_len (resp.ue_ip_address_pool_information) != 0)
-        SET_BIT (resp.grp.fields,
+	SET_BIT (resp.grp.fields,
 		 ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION);
       SET_BIT (resp.grp.fields,
 	       ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES);
@@ -1034,8 +1036,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	if (create->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
 	  sx->user_addr.as_u32 = create->pdi.ue_addr.ip4.as_u32;
 
-        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
-            !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
 	  {
 	    /* neither SDF, nor Application Id, generate a wildcard
 	       ACL to make ACL scanning simpler */
@@ -1093,12 +1095,12 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 	create->pdi.adr.db_id = upf_adf_get_adr_db (p[0]);
 	create->pdi.adr.flags = app->flags;
 
-        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
-            (create->pdi.adr.flags & UPF_ADR_IP_RULES))
-          {
-            create->pdi.fields |= F_PDI_SDF_FILTER;
-            vec_add1 (create->pdi.acl, wildcard_acl);
-          }
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+	    (create->pdi.adr.flags & UPF_ADR_IP_RULES))
+	  {
+	    create->pdi.fields |= F_PDI_SDF_FILTER;
+	    vec_add1 (create->pdi.acl, wildcard_acl);
+	  }
 	upf_debug ("app: %v, ADR DB id %u", app->name, create->pdi.adr.db_id);
       }
 
@@ -1220,8 +1222,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	update->pdi.fields |= F_PDI_UE_IP_ADDR;
 	update->pdi.ue_addr = pdr->pdi.ue_ip_address;
 
-        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
-            !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
+	    !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
 	  {
 	    /* neither SDF, nor Application Id, generate a wildcard
 	       ACL to make ACL scanning simpler */
@@ -1281,15 +1283,15 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 	update->pdi.adr.db_id = upf_adf_get_adr_db (p[0]);
 	update->pdi.adr.flags = app->flags;
 
-        if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
-          {
-          vec_reset_length (update->pdi.acl);
-          if (update->pdi.adr.flags & UPF_ADR_IP_RULES)
-            {
-              update->pdi.fields |= F_PDI_SDF_FILTER;
-              vec_add1 (update->pdi.acl, wildcard_acl);
-            }
-          }
+	if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
+	  {
+	    vec_reset_length (update->pdi.acl);
+	    if (update->pdi.adr.flags & UPF_ADR_IP_RULES)
+	      {
+		update->pdi.fields |= F_PDI_SDF_FILTER;
+		vec_add1 (update->pdi.acl, wildcard_acl);
+	      }
+	  }
 
 	upf_debug ("app: %v, ADR DB id %u", app->name, update->pdi.adr.db_id);
       }
@@ -1549,8 +1551,9 @@ handle_nat_binding_creation (upf_session_t * sx, u8 * nat_pool_name,
   rc =
     upf_alloc_and_assign_nat_binding (np, ap, sx->user_addr, sx,
 				      &response->created_binding);
-  SET_BIT (response->grp.fields,
-	   SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING);
+  if (!rc)
+    SET_BIT (response->grp.fields,
+	     SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING);
 
   return rc;
 
@@ -1620,7 +1623,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
 		       FORWARDING_PARAMETERS_BBF_APPLY_ACTION))
 	  {
-	    if (far->forwarding_parameters.bbf_apply_action &=
+	    if (far->forwarding_parameters.bbf_apply_action &
 		BBF_APPLY_ACTION_NAT)
 	      {
 		if (ISSET_BIT (far->forwarding_parameters.grp.fields,
@@ -1634,11 +1637,6 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	      }
 	  }
 
-	//SMATOV: TEST
-	//u8 *pool_name = 0;
-	//pool_name = format (pool_name, "testing");
-	//handle_nat_binding_creation (sx, pool_name, response);
-	//vec_free (pool_name);
 	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
 		       FORWARDING_PARAMETERS_OUTER_HEADER_CREATION))
 	  {

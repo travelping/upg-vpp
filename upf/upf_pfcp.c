@@ -1687,12 +1687,12 @@ build_pfcp_rules (upf_session_t * sx)
       }
 
     if ((pdr->pdi.fields & F_PDI_APPLICATION_ID) &&
-        (pdr->pdi.adr.flags & UPF_ADR_PROXY) &&
-        pdr->precedence < pending->proxy_precedence)
+	(pdr->pdi.adr.flags & UPF_ADR_PROXY) &&
+	pdr->precedence < pending->proxy_precedence)
       {
-        pending->proxy_precedence = pdr->precedence;
-        pending->proxy_pdr_idx = idx;
-        pending->flags |= PFCP_ADR;
+	pending->proxy_precedence = pdr->precedence;
+	pending->proxy_pdr_idx = idx;
+	pending->flags |= PFCP_ADR;
       }
   }
 

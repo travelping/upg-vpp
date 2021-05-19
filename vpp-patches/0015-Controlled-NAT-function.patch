@@ -1,19 +1,22 @@
-From c7b232f57a24e14ec8d41adb70c1c8150ad4b6a7 Mon Sep 17 00:00:00 2001
+From 7658001729b6258d1d1d168d43427e27487a5249 Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Tue, 18 May 2021 17:07:31 +0400
-Subject: [PATCH] [UPG-NAT] Controlled NAT function
+Subject: [PATCH] Controlled NAT function
 
+Allow to override ED NAT address and port selection in slow path
+by dedicated NAT bindings per user address. Bindings are created via
+UPG plugin and stored in bihash table.
 ---
- src/plugins/nat/in2out_ed.c   | 109 ++++++++++++++++++---
- src/plugins/nat/nat.c         | 174 +++++++++++++++++++++++++++++++++-
+ src/plugins/nat/in2out_ed.c   | 133 ++++++++++++++++++++-----
+ src/plugins/nat/nat.c         | 177 +++++++++++++++++++++++++++++++++-
  src/plugins/nat/nat.h         |  43 +++++++++
- src/plugins/nat/nat44_cli.c   |  71 ++++++++++++++
+ src/plugins/nat/nat44_cli.c   |  72 ++++++++++++++
  src/plugins/nat/nat_format.c  |  17 ++++
  src/plugins/nat/nat_inlines.h |  39 ++++++++
- 6 files changed, 436 insertions(+), 17 deletions(-)
+ 6 files changed, 452 insertions(+), 29 deletions(-)
 
 diff --git a/src/plugins/nat/in2out_ed.c b/src/plugins/nat/in2out_ed.c
-index 7153a6035..5f48a0e48 100644
+index 7153a6035..7a7895a72 100644
 --- a/src/plugins/nat/in2out_ed.c
 +++ b/src/plugins/nat/in2out_ed.c
 @@ -196,6 +196,65 @@ icmp_in2out_ed_slow_path (snat_main_t * sm, vlib_buffer_t * b0,
@@ -23,13 +26,13 @@ index 7153a6035..5f48a0e48 100644
 +
 +static int
 +nat_controlled_alloc_addr_and_port (snat_main_t * sm, u32 rx_fib_index,
-+                                    u32 nat_proto, u32 thread_index,
-+                                    ip4_address_t r_addr, u16 r_port,
-+                                    u8 proto, u16 port_per_thread,
-+                                    u32 snat_thread_index, snat_session_t * s,
-+                                    ip4_address_t * outside_addr,
-+                                    u16 * outside_port,
-+                                    clib_bihash_kv_16_8_t * out2in_ed_kv)
++				    u32 nat_proto, u32 thread_index,
++				    ip4_address_t r_addr, u16 r_port,
++				    u8 proto, u16 port_per_thread,
++				    u32 snat_thread_index, snat_session_t * s,
++				    ip4_address_t * outside_addr,
++				    u16 * outside_port,
++				    clib_bihash_kv_16_8_t * out2in_ed_kv)
 +{
 +  snat_main_per_thread_data_t *tsm = &sm->per_thread_data[thread_index];
 +  snat_binding_t *bn;
@@ -56,18 +59,18 @@ index 7153a6035..5f48a0e48 100644
 +  do
 +    {
 +      init_ed_kv (out2in_ed_kv, ext_addr, clib_host_to_net_u16 (port),
-+                  r_addr, r_port, s->out2in.fib_index, proto,
-+                  thread_index, s - tsm->sessions);
++		  r_addr, r_port, s->out2in.fib_index, proto,
++		  thread_index, s - tsm->sessions);
 +      int rv = rv =
-+        clib_bihash_add_del_16_8 (&sm->out2in_ed, out2in_ed_kv, 2);
++	clib_bihash_add_del_16_8 (&sm->out2in_ed, out2in_ed_kv, 2);
 +      if (rv == 0)
-+        {
-+          outside_addr->as_u32 = ext_addr.as_u32;
-+          *outside_port = clib_host_to_net_u16 (port);
-+          vec_add1 (bn->bound_sessions, s - tsm->sessions);
-+          s->binding = bn;
-+          return 0;
-+        }
++	{
++	  outside_addr->as_u32 = ext_addr.as_u32;
++	  *outside_port = clib_host_to_net_u16 (port);
++	  vec_add1 (bn->bound_sessions, s - tsm->sessions);
++	  s->binding = bn;
++	  return 0;
++	}
 +      ++port;
 +      --attempts;
 +    }
@@ -82,50 +85,69 @@ index 7153a6035..5f48a0e48 100644
  static int
  nat_ed_alloc_addr_and_port (snat_main_t * sm, u32 rx_fib_index,
  			    u32 nat_proto, u32 thread_index,
-@@ -340,7 +399,7 @@ slow_path_ed (snat_main_t * sm,
+@@ -340,16 +399,16 @@ slow_path_ed (snat_main_t * sm,
    snat_session_t *s = NULL;
    lb_nat_type_t lb = 0;
  
 -  if (PREDICT_TRUE (nat_proto == NAT_PROTOCOL_TCP))
-+  /*if (PREDICT_TRUE (nat_proto == NAT_PROTOCOL_TCP))
-     {
-       if (PREDICT_FALSE
- 	  (!tcp_flags_is_init
-@@ -349,7 +408,7 @@ slow_path_ed (snat_main_t * sm,
- 	  b->error = node->errors[NAT_IN2OUT_ED_ERROR_NON_SYN];
- 	  return NAT_NEXT_DROP;
- 	}
+-    {
+-      if (PREDICT_FALSE
+-	  (!tcp_flags_is_init
+-	   (vnet_buffer (b)->ip.reass.icmp_type_or_tcp_flags)))
+-	{
+-	  b->error = node->errors[NAT_IN2OUT_ED_ERROR_NON_SYN];
+-	  return NAT_NEXT_DROP;
+-	}
 -    }
-+    }*/
++  /*if (PREDICT_TRUE (nat_proto == NAT_PROTOCOL_TCP))
++     {
++     if (PREDICT_FALSE
++     (!tcp_flags_is_init
++     (vnet_buffer (b)->ip.reass.icmp_type_or_tcp_flags)))
++     {
++     b->error = node->errors[NAT_IN2OUT_ED_ERROR_NON_SYN];
++     return NAT_NEXT_DROP;
++     }
++     } */
  
    if (PREDICT_FALSE
        (nat44_ed_maximum_sessions_exceeded (sm, rx_fib_index, thread_index)))
-@@ -395,7 +454,24 @@ slow_path_ed (snat_main_t * sm,
+@@ -395,12 +454,29 @@ slow_path_ed (snat_main_t * sm,
  
        /* Try to create dynamic translation */
        outside_port = l_port;	// suggest using local port to allocation function
 -      if (nat_ed_alloc_addr_and_port (sm, rx_fib_index, nat_proto,
+-				      thread_index, r_addr, r_port, proto,
+-				      sm->port_per_thread,
+-				      tsm->snat_thread_index, s,
+-				      &outside_addr,
+-				      &outside_port, &out2in_ed_kv))
 +      if (sm->controlled)
-+        {
-+          if (nat_controlled_alloc_addr_and_port (sm, rx_fib_index, nat_proto,
-+                                                  thread_index, r_addr,
-+                                                  r_port, proto,
-+                                                  sm->port_per_thread,
-+                                                  tsm->snat_thread_index, s,
-+                                                  &outside_addr,
-+                                                  &outside_port,
-+                                                  &out2in_ed_kv))
-+            {
-+              nat_elog_notice ("addresses exhausted");
-+              b->error = node->errors[NAT_IN2OUT_ED_ERROR_OUT_OF_PORTS];
-+              nat_ed_session_delete (sm, s, thread_index, 1);
-+              return NAT_NEXT_DROP;
-+            }
-+        }
++	{
++	  if (nat_controlled_alloc_addr_and_port (sm, rx_fib_index, nat_proto,
++						  thread_index, r_addr,
++						  r_port, proto,
++						  sm->port_per_thread,
++						  tsm->snat_thread_index, s,
++						  &outside_addr,
++						  &outside_port,
++						  &out2in_ed_kv))
++	    {
++	      nat_elog_notice ("addresses exhausted");
++	      b->error = node->errors[NAT_IN2OUT_ED_ERROR_OUT_OF_PORTS];
++	      nat_ed_session_delete (sm, s, thread_index, 1);
++	      return NAT_NEXT_DROP;
++	    }
++	}
 +      else if (nat_ed_alloc_addr_and_port (sm, rx_fib_index, nat_proto,
- 				      thread_index, r_addr, r_port, proto,
- 				      sm->port_per_thread,
- 				      tsm->snat_thread_index, s,
++					   thread_index, r_addr, r_port,
++					   proto, sm->port_per_thread,
++					   tsm->snat_thread_index, s,
++					   &outside_addr, &outside_port,
++					   &out2in_ed_kv))
+ 	{
+ 	  nat_elog_notice ("addresses exhausted");
+ 	  b->error = node->errors[NAT_IN2OUT_ED_ERROR_OUT_OF_PORTS];
 @@ -772,8 +848,9 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
    ip_csum_t sum;
    snat_main_per_thread_data_t *tsm = &sm->per_thread_data[thread_index];
@@ -141,10 +163,11 @@ index 7153a6035..5f48a0e48 100644
        	      }
        	  });
        	  /* *INDENT-ON* */
-+          bn = nat_get_binding (tsm, ip->src_address);
++	  bn = nat_get_binding (tsm, ip->src_address);
  
 -	  for (i = 0; i < vec_len (sm->addresses); i++)
--	    {
++	  if (!bn)
+ 	    {
 -	      init_ed_k (&s_kv, sm->addresses[i].addr, 0, ip->dst_address, 0,
 -			 outside_fib_index, ip->protocol);
 -	      if (clib_bihash_search_16_8 (&sm->out2in_ed, &s_kv, &s_value))
@@ -153,17 +176,15 @@ index 7153a6035..5f48a0e48 100644
 -		    sm->addresses[i].addr.as_u32;
 -		  goto create_ses;
 -		}
-+          if (!bn)
-+            {
-+              return NULL;
-+            }
-+          ext_addr = bn->external_addr;
-+          init_ed_k (&s_kv, ext_addr, 0, ip->dst_address, 0,
-+                     outside_fib_index, ip->protocol);
-+          if (clib_bihash_search_16_8 (&sm->out2in_ed, &s_kv, &s_value))
-+            {
-+              new_addr = ip->src_address.as_u32 = ext_addr.as_u32;
-+              goto create_ses;
++	      return NULL;
++	    }
++	  ext_addr = bn->external_addr;
++	  init_ed_k (&s_kv, ext_addr, 0, ip->dst_address, 0,
++		     outside_fib_index, ip->protocol);
++	  if (clib_bihash_search_16_8 (&sm->out2in_ed, &s_kv, &s_value))
++	    {
++	      new_addr = ip->src_address.as_u32 = ext_addr.as_u32;
++	      goto create_ses;
  	    }
  	  return 0;
  	}
@@ -177,7 +198,7 @@ index 7153a6035..5f48a0e48 100644
        /* Add to lookup tables */
        init_ed_kv (&s_kv, s->in2out.addr, 0, ip->dst_address, 0, rx_fib_index,
 diff --git a/src/plugins/nat/nat.c b/src/plugins/nat/nat.c
-index fa62250cb..6848c4c73 100644
+index fa62250cb..5d1303097 100644
 --- a/src/plugins/nat/nat.c
 +++ b/src/plugins/nat/nat.c
 @@ -37,6 +37,13 @@
@@ -205,8 +226,8 @@ index fa62250cb..6848c4c73 100644
 +
 +  if (!sm->controlled)
 +    snat_free_outside_address_and_port (sm->addresses, thread_index,
-+                                        &s->out2in.addr, s->out2in.port,
-+                                        s->nat_proto);
++					&s->out2in.addr, s->out2in.port,
++					s->nat_proto);
 +
  }
  
@@ -236,7 +257,7 @@ index fa62250cb..6848c4c73 100644
 +  clib_bihash_kv_8_8_t *v = va_arg (*args, clib_bihash_kv_8_8_t *);
 +
 +  s = format (s, "%U binding-mapping-index %llu",
-+              format_binding_key, v->key, v->value);
++	      format_binding_key, v->key, v->value);
 +
 +  return s;
 +}
@@ -250,21 +271,21 @@ index fa62250cb..6848c4c73 100644
    clib_bihash_set_kvp_format_fn_8_8 (&tsm->user_hash, format_user_kvp);
 +
 +  mhash_init (&tsm->binding_index_by_ip, sizeof (uword),
-+              sizeof (ip4_address_t));
++	      sizeof (ip4_address_t));
  }
  
  void
-@@ -4155,11 +4184,150 @@ snat_config (vlib_main_t * vm, unformat_input_t * input)
+@@ -4155,11 +4184,153 @@ snat_config (vlib_main_t * vm, unformat_input_t * input)
  					 format_static_mapping_kvp);
      }
  
 +  sm->controlled = 0;
 +
 +  clib_bihash_init_8_8 (&sm->binding_mapping_by_external,
-+                        "binding_mapping_by_external",
-+                        sm->translation_buckets, sm->translation_memory_size);
++			"binding_mapping_by_external",
++			sm->translation_buckets, sm->translation_memory_size);
 +  clib_bihash_set_kvp_format_fn_8_8 (&sm->binding_mapping_by_external,
-+                                     format_binding_mapping_kvp);
++				     format_binding_mapping_kvp);
 +
    return 0;
  }
@@ -284,7 +305,7 @@ index fa62250cb..6848c4c73 100644
 +
 +void
 +nat_del_sessions_per_binding (snat_main_per_thread_data_t * tsm,
-+                              snat_binding_t * bn)
++			      snat_binding_t * bn)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_session_t *ses;
@@ -300,12 +321,12 @@ index fa62250cb..6848c4c73 100644
 +    if (!this_bn)
 +      return;
 +    if ((this_bn->external_addr.as_u32 == bn->external_addr.as_u32)
-+        && (this_bn->framed_addr.as_u32 == bn->framed_addr.as_u32)
-+        && (this_bn->start_port == bn->start_port)
-+        && (this_bn->end_port == bn->end_port))
++	&& (this_bn->framed_addr.as_u32 == bn->framed_addr.as_u32)
++	&& (this_bn->start_port == bn->start_port)
++	&& (this_bn->end_port == bn->end_port))
 +      {
-+        nat_free_session_data (sm, ses, tsm - sm->per_thread_data, 0);
-+        nat_ed_session_delete (sm, ses, tsm - sm->per_thread_data, 1);
++	nat_free_session_data (sm, ses, tsm - sm->per_thread_data, 0);
++	nat_ed_session_delete (sm, ses, tsm - sm->per_thread_data, 1);
 +      }
 +  }
 +
@@ -329,7 +350,7 @@ index fa62250cb..6848c4c73 100644
 +
 +int
 +nat_add_binding (snat_main_per_thread_data_t * tsm, ip4_address_t user_addr,
-+                 ip4_address_t ext_addr, u16 start_port, u16 end_port)
++		 ip4_address_t ext_addr, u16 start_port, u16 end_port)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_binding_t *bn = NULL;
@@ -354,9 +375,9 @@ index fa62250cb..6848c4c73 100644
 +    }
 +
 +  mhash_set (&tsm->binding_index_by_ip, &bn->framed_addr, bn - tsm->bindings,
-+             NULL);
++	     NULL);
 +  init_binding_kv (&kv, bn->external_addr, bn->start_port, bn->end_port,
-+                   bn - tsm->bindings);
++		   bn - tsm->bindings);
 +  clib_bihash_add_del_8_8 (&sm->binding_mapping_by_external, &kv, 1);
 +
 +  return 0;
@@ -364,13 +385,16 @@ index fa62250cb..6848c4c73 100644
 +
 +int
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+                    u16 start, u16 end, u32 vrf)
++		    u16 start, u16 end, u32 vrf)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_main_per_thread_data_t *tsm = &sm->per_thread_data[0];
 +  int err;
 +
 +  err = nat_add_binding (tsm, user_addr, ext_addr, start, end);
++  nat_debug ("SMATOV: Created binding");
++  nat_debug ("SMATOV: ext %U start %u end %u", format_ip4_address, &ext_addr,
++	     start, end);
 +  return err;
 +}
 +
@@ -388,15 +412,15 @@ index fa62250cb..6848c4c73 100644
 +    p = mhash_get (&tsm->binding_index_by_ip, &user_addr);
 +    if (p)
 +      {
-+        bn = pool_elt_at_index (tsm->bindings, p[0]);
-+        nat_del_sessions_per_binding (tsm, bn);
-+        mhash_unset (&tsm->binding_index_by_ip, &bn->framed_addr, NULL);
-+        init_binding_k (&kv, bn->external_addr, bn->start_port, bn->end_port);
-+        if (clib_bihash_add_del_8_8
-+            (&sm->binding_mapping_by_external, &kv, 0))
-+          nat_debug ("Binding by external key del failed");
-+        vec_free (bn->bound_sessions);
-+        pool_put (tsm->bindings, bn);
++	bn = pool_elt_at_index (tsm->bindings, p[0]);
++	nat_del_sessions_per_binding (tsm, bn);
++	mhash_unset (&tsm->binding_index_by_ip, &bn->framed_addr, NULL);
++	init_binding_k (&kv, bn->external_addr, bn->start_port, bn->end_port);
++	if (clib_bihash_add_del_8_8
++	    (&sm->binding_mapping_by_external, &kv, 0))
++	  nat_debug ("Binding by external key del failed");
++	vec_free (bn->bound_sessions);
++	pool_put (tsm->bindings, bn);
 +      }
 +  }
 +  return 0;
@@ -406,7 +430,7 @@ index fa62250cb..6848c4c73 100644
  nat_ip4_add_del_addr_only_sm_cb (ip4_main_t * im,
  				 uword opaque,
 diff --git a/src/plugins/nat/nat.h b/src/plugins/nat/nat.h
-index 1885ab57d..6cf01aaab 100644
+index 1885ab57d..ebdda3613 100644
 --- a/src/plugins/nat/nat.h
 +++ b/src/plugins/nat/nat.h
 @@ -227,6 +227,16 @@ typedef enum
@@ -482,37 +506,38 @@ index 1885ab57d..6cf01aaab 100644
  void nat_set_alloc_addr_and_port_range (u16 start_port, u16 end_port);
  
 +snat_binding_t *nat_get_binding (snat_main_per_thread_data_t * tsm,
-+                                 ip4_address_t addr);
++				 ip4_address_t addr);
 +
 +void
 +nat_del_sessions_per_binding (snat_main_per_thread_data_t * tsm,
-+                              snat_binding_t * bn);
++			      snat_binding_t * bn);
 +
 +int
 +nat_add_binding (snat_main_per_thread_data_t * tsm, ip4_address_t user_addr,
-+                 ip4_address_t ext_addr, u16 start_port, u16 end_port);
++		 ip4_address_t ext_addr, u16 start_port, u16 end_port);
 +
 +int nat_del_binding (ip4_address_t user_addr);
 +
 +int
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+                    u16 start, u16 end, u32 vrf);
++		    u16 start, u16 end, u32 vrf);
 +
  /**
   * @brief Set address and port assignment algorithm to default/standard
   */
 diff --git a/src/plugins/nat/nat44_cli.c b/src/plugins/nat/nat44_cli.c
-index 7d74f36c7..f6c7c9e9d 100644
+index 7d74f36c7..20c1cede8 100644
 --- a/src/plugins/nat/nat44_cli.c
 +++ b/src/plugins/nat/nat44_cli.c
-@@ -39,6 +39,64 @@
+@@ -39,6 +39,65 @@
  #define SUPPORTED_ONLY_IN_DET_MODE_STR \
    "This command is supported only in deterministic mode"
  
 +
 +static clib_error_t *
-+nat44_show_nat_bindings_command_fn (vlib_main_t * vm, unformat_input_t * input,
-+                                   vlib_cli_command_t * cmd)
++nat44_show_nat_bindings_command_fn (vlib_main_t * vm,
++				    unformat_input_t * input,
++				    vlib_cli_command_t * cmd)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_main_per_thread_data_t *tsm = &sm->per_thread_data[0];
@@ -536,8 +561,8 @@ index 7d74f36c7..f6c7c9e9d 100644
 +
 +static clib_error_t *
 +snat_controlled_set_command_fn (vlib_main_t * vm,
-+                                unformat_input_t * input,
-+                                vlib_cli_command_t * cmd)
++				unformat_input_t * input,
++				vlib_cli_command_t * cmd)
 +{
 +  snat_main_t *sm = &snat_main;
 +  unformat_input_t _line_input, *line_input = &_line_input;
@@ -549,18 +574,18 @@ index 7d74f36c7..f6c7c9e9d 100644
 +  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
 +    {
 +      if (unformat (line_input, "enable"))
-+        {
-+          sm->controlled = 1;
-+        }
++	{
++	  sm->controlled = 1;
++	}
 +      else if (unformat (line_input, "disable"))
-+        {
-+          sm->controlled = 0;
-+        }
++	{
++	  sm->controlled = 0;
++	}
 +      else
-+        {
-+          error = clib_error_return (0, "unknown input '%U'",
-+                                     format_unformat_error, line_input);
-+        }
++	{
++	  error = clib_error_return (0, "unknown input '%U'",
++				     format_unformat_error, line_input);
++	}
 +    }
 +
 +  return error;
@@ -570,7 +595,7 @@ index 7d74f36c7..f6c7c9e9d 100644
  static clib_error_t *
  set_workers_command_fn (vlib_main_t * vm,
  			unformat_input_t * input, vlib_cli_command_t * cmd)
-@@ -2893,6 +2951,19 @@ VLIB_CLI_COMMAND (snat_det_close_session_in_command, static) = {
+@@ -2893,6 +2952,19 @@ VLIB_CLI_COMMAND (snat_det_close_session_in_command, static) = {
    .function = snat_det_close_session_in_fn,
  };
  
@@ -591,7 +616,7 @@ index 7d74f36c7..f6c7c9e9d 100644
  
  /*
 diff --git a/src/plugins/nat/nat_format.c b/src/plugins/nat/nat_format.c
-index 8287968e0..c7042c6d5 100644
+index 8287968e0..645cf9fba 100644
 --- a/src/plugins/nat/nat_format.c
 +++ b/src/plugins/nat/nat_format.c
 @@ -73,6 +73,23 @@ format_nat_addr_and_port_alloc_alg (u8 * s, va_list * args)
@@ -610,8 +635,8 @@ index 8287968e0..c7042c6d5 100644
 +  split_binding_key (key, &addr, &s_port, &e_port);
 +
 +  s = format (s, "%U start_port %d end_port %d",
-+              format_ip4_address, &addr,
-+              clib_net_to_host_u16 (s_port), clib_net_to_host_u16 (e_port));
++	      format_ip4_address, &addr,
++	      clib_net_to_host_u16 (s_port), clib_net_to_host_u16 (e_port));
 +  return s;
 +}
 +
@@ -619,7 +644,7 @@ index 8287968e0..c7042c6d5 100644
  format_snat_key (u8 * s, va_list * args)
  {
 diff --git a/src/plugins/nat/nat_inlines.h b/src/plugins/nat/nat_inlines.h
-index 01c866a07..9d75ce72b 100644
+index 01c866a07..6f78d1493 100644
 --- a/src/plugins/nat/nat_inlines.h
 +++ b/src/plugins/nat/nat_inlines.h
 @@ -32,6 +32,12 @@ calc_nat_key (ip4_address_t addr, u16 port, u32 fib_index, u8 proto)
@@ -658,7 +683,7 @@ index 01c866a07..9d75ce72b 100644
 +
 +always_inline void
 +init_binding_k (clib_bihash_kv_8_8_t * kv, ip4_address_t addr, u16 sport,
-+                u16 eport)
++		u16 eport)
 +{
 +  kv->key = calc_binding_key (addr, sport, eport);
 +  kv->value = ~0ULL;
@@ -666,7 +691,7 @@ index 01c866a07..9d75ce72b 100644
 +
 +always_inline void
 +init_binding_kv (clib_bihash_kv_8_8_t * kv, ip4_address_t addr, u16 sport,
-+                 u16 eport, u64 value)
++		 u16 eport, u64 value)
 +{
 +  init_binding_k (kv, addr, sport, eport);
 +  kv->value = value;
