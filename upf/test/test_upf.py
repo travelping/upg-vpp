@@ -367,6 +367,10 @@ class PFCPHelper(object):
             IE_NodeId(id_type="FQDN", id="ergw")
         ]), PFCPAssociationSetupResponse)
         self.assertEqual(CauseValues[resp[IE_Cause].cause], "Request accepted")
+        #FIXME: There are new 3GPP and BBF PFCP IEs introduced, need changes to
+        #       scapy pfcp module since decoding is done wrong for TP/BBF IEs
+        #FIXME: Proper build ID handling required
+        #self.assertIn(b"vpp", resp[IE_EnterpriseSpecific].data)
         if IE_NodeId in resp:
             if resp[IE_NodeId].id_type is 2:
                 self.assertEqual(resp[IE_NodeId].id, b"upg")
