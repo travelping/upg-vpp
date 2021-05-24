@@ -2240,6 +2240,26 @@ typedef struct
 
 enum
 {
+  UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY,
+  UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE,
+  UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION,
+  UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK,
+  UE_IP_ADDRESS_POOL_INFORMATION_POOL_LAST =
+    UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK
+};
+
+typedef struct
+{
+  struct pfcp_group grp;
+
+  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
+  pfcp_network_instance_t network_instance;
+  pfcp_ip_version_t ip_version;
+  pfcp_bbf_nat_port_block_t *port_blocks;
+} pfcp_ue_ip_address_pool_information_t;
+
+enum
+{
   TP_ERROR_REPORT_TP_ERROR_MESSAGE,
   TP_ERROR_REPORT_TP_FILE_NAME,
   TP_ERROR_REPORT_TP_LINE_NUMBER,
@@ -2367,8 +2387,8 @@ enum
   ASSOCIATION_SETUP_REQUEST_UP_FUNCTION_FEATURES,
   ASSOCIATION_SETUP_REQUEST_CP_FUNCTION_FEATURES,
   ASSOCIATION_SETUP_REQUEST_USER_PLANE_IP_RESOURCE_INFORMATION,
+  ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION,
   ASSOCIATION_SETUP_REQUEST_TP_BUILD_ID,
-  ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_IDENTITY,
   ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS,
   ASSOCIATION_SETUP_REQUEST_LAST =
     ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS
@@ -2382,10 +2402,10 @@ typedef struct
   pfcp_recovery_time_stamp_t recovery_time_stamp;
   pfcp_cp_function_features_t cp_function_features;
   pfcp_up_function_features_t up_function_features;
+  pfcp_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
     pfcp_user_plane_ip_resource_information_t
     * user_plane_ip_resource_information;
   pfcp_tp_build_id_t tp_build_id;
-  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
 } pfcp_association_setup_request_t;
 
@@ -2396,6 +2416,7 @@ enum
   ASSOCIATION_UPDATE_REQUEST_UP_FUNCTION_FEATURES,
   ASSOCIATION_UPDATE_REQUEST_PFCP_ASSOCIATION_RELEASE_REQUEST,
   ASSOCIATION_UPDATE_REQUEST_GRACEFUL_RELEASE_PERIOD,
+  ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION,
   ASSOCIATION_UPDATE_REQUEST_USER_PLANE_IP_RESOURCE_INFORMATION,
   ASSOCIATION_UPDATE_REQUEST_PFCPAUREQ_FLAGS,
   ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_IDENTITY,
@@ -2413,10 +2434,10 @@ typedef struct
   pfcp_up_function_features_t up_function_features;
   pfcp_pfcp_association_release_request_t pfcp_association_release_request;
   pfcp_graceful_release_period_t graceful_release_period;
+  pfcp_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
     pfcp_user_plane_ip_resource_information_t
     * user_plane_ip_resource_information;
   pfcp_pfcpaureq_flags_t pfcpaureq_flags;
-  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
 } pfcp_association_update_request_t;
 
@@ -2433,41 +2454,20 @@ typedef struct
 
 } pfcp_association_release_request_t;
 
-
-enum
-{
-  UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY,
-  UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE,
-  UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION,
-  UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK,
-  UE_IP_ADDRESS_POOL_INFORMATION_POOL_LAST =
-    UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK
-};
-
-typedef struct
-{
-  struct pfcp_group grp;
-
-  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
-  pfcp_network_instance_t network_instance;
-  pfcp_ip_version_t ip_version;
-  pfcp_bbf_nat_port_block_t *port_blocks;
-} pfcp_ue_ip_address_pool_information_t;
 enum
 {
   ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID,
   ASSOCIATION_PROCEDURE_RESPONSE_CAUSE,
-  ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT,
   ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP,
   ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES,
   ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES,
   ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES,
-  ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION,
-  ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID,
-  ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY,
   ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION,
+  ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION,
+  ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT,
+  ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID,
   ASSOCIATION_PROCEDURE_RESPONSE_LAST =
-    ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION
+    ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID
 };
 
 typedef struct
@@ -2480,12 +2480,11 @@ typedef struct
   pfcp_recovery_time_stamp_t recovery_time_stamp;
   pfcp_cp_function_features_t cp_function_features;
   pfcp_up_function_features_t up_function_features;
-  pfcp_bbf_up_function_features_t bbf_up_function_features;
+  pfcp_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
     pfcp_user_plane_ip_resource_information_t
     * user_plane_ip_resource_information;
+  pfcp_bbf_up_function_features_t bbf_up_function_features;
   pfcp_tp_build_id_t tp_build_id;
-  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
-  pfcp_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
 } pfcp_association_procedure_response_t;
 
 enum
