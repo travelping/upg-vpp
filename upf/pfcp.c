@@ -4768,11 +4768,8 @@ decode_bbf_nat_external_port_range (u8 * data, u16 length, void *p)
 
   v->start_port = get_u16 (data);
   length -= 2;
-
-  if (length < 2)
-    return PFCP_CAUSE_INVALID_LENGTH;
-
   v->start_port = get_u16 (data);
+
   return 0;
 }
 
@@ -4793,24 +4790,22 @@ format_bbf_up_function_features (u8 * s, va_list * args)
   pfcp_bbf_up_function_features_t *n =
     va_arg (*args, pfcp_bbf_up_function_features_t *);
 
-  s = format (s, "NAT:%u", (*n & BBF_UP_NAT));
+  s = format (s, "NAT:%u", !!(*n & BBF_UP_NAT));
   return s;
 }
 
 static int
 decode_bbf_up_function_features (u8 * data, u16 length, void *p)
 {
-  u64 *v = p;
+  u32 *v = p;
 
-  if (length % 2 != 0 || length < 2)
+  if (length % 2 != 0 || length < 4)
     return PFCP_CAUSE_INVALID_LENGTH;
 
   *v = get_u16_little (data);
   length -= 2;
-  if (length == 0)
-    return 0;
 
-  *v |= (u64) get_u16_little (data) << 16;
+  *v |= (u32) get_u16_little (data) << 16;
 
   return 0;
 
@@ -4821,8 +4816,7 @@ encode_bbf_up_function_features (void *p, u8 ** vec)
 {
   u32 *v = p;
 
-  put_u16_little (*vec, *v);
-  put_u16_little (*vec, *v >> 16);
+  put_u32 (*vec, *v);
 
   return 0;
 }
@@ -6197,20 +6191,48 @@ static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] =
     },
   };
 
-#define encode_ip_version encode_u8_ie
-#define decode_ip_version decode_u8_ie
-
 static u8 *
 format_ip_version (u8 * s, va_list * args)
 {
   pfcp_ip_version_t *v = va_arg (*args, pfcp_ip_version_t *);
 
-  if (ISSET_BIT(*v, IP_VERSION_4))
-    s = format (s, "IPv4");
-  else
-    s = format (s, "IPv6");
+  s = format (s, "IPv4:%u IPv6 %u", !!(*v & IP_VERSION_4),
+	      !!(*v & IP_VERSION_6));
 
   return s;
+}
+
+static int
+decode_ip_version (u8 * data, u16 length, void *p)
+{
+  pfcp_ip_version_t *v = p;
+
+  *v = get_u8 (data);
+
+  if (!(*v & IP_VERSION_4) && !(*v & IP_VERSION_6))
+    {
+      pfcp_debug
+	("PFCP: IP Version should have at least IPv4 or IPv6 bits set");
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+encode_ip_version (void *p, u8 ** vec)
+{
+  pfcp_ip_version_t *v = p;
+
+  if (!(*v & IP_VERSION_4) && !(*v & IP_VERSION_6))
+    {
+      pfcp_debug
+        ("PFCP: IP Version should have at least IPv4 or IPv6 bits set");
+      return -1;
+    }
+
+  put_u8 (*vec, *v);
+  return 0;
 }
 
 static struct pfcp_group_ie_def pfcp_tp_error_report_group[] =
@@ -6990,10 +7012,10 @@ static struct pfcp_group_ie_def pfcp_association_setup_request_group[] =
       .vendor = VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_association_setup_request_t, tp_build_id)
     },
-    [ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_IDENTITY] = {
-      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
+    [ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_setup_request_t, ue_ip_address_pool_identity)
+      .offset = offsetof(pfcp_association_setup_request_t, ue_ip_address_pool_information)
     },
     [ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = {
       .type = PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
@@ -7044,11 +7066,6 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
       .vendor = VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_association_procedure_response_t, tp_build_id)
     },
-    [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY] = {
-      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
-      .is_array = true,
-      .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_identity)
-    },
     [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION] = {
       .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
       .is_array = true,
@@ -7087,10 +7104,10 @@ static struct pfcp_group_ie_def pfcp_association_update_request_group[] =
       .type = PFCP_IE_PFCPAUREQ_FLAGS,
       .offset = offsetof(pfcp_association_update_request_t, pfcpaureq_flags)
     },
-    [ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_IDENTITY] = {
-      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
+    [ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_update_request_t, ue_ip_address_pool_identity)
+      .offset = offsetof(pfcp_association_update_request_t, ue_ip_address_pool_information)
     },
     [ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = {
       .type = PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,

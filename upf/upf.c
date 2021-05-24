@@ -49,16 +49,23 @@
 
 #include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
 
+#if CLIB_DEBUG > 1
+#define upf_debug clib_warning
+#else
+#define upf_debug(...)                          \
+  do { } while (0)
+#endif
+
 static fib_source_t upf_fib_source;
 
 int
-vnet_upf_ueip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
+vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
 {
   upf_main_t *gtm = &upf_main;
-  upf_ueip_pool_info_t *ueip_pool = NULL;
+  upf_ue_ip_pool_info_t *ueip_pool = NULL;
   uword *p;
 
-  p = hash_get_mem (gtm->ueip_pool_index_by_identity, identity);
+  p = hash_get_mem (gtm->ue_ip_pool_index_by_identity, identity);
 
   if (is_add)
     {
@@ -69,7 +76,7 @@ vnet_upf_ueip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
       ueip_pool->identity = vec_dup (identity);
       ueip_pool->nwi_name = vec_dup (nwi_name);
 
-      hash_set_mem (gtm->ueip_pool_index_by_identity, identity,
+      hash_set_mem (gtm->ue_ip_pool_index_by_identity, identity,
 		    ueip_pool - gtm->ueip_pools);
 
     }
@@ -79,7 +86,7 @@ vnet_upf_ueip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
 	return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       ueip_pool = pool_elt_at_index (gtm->ueip_pools, p[0]);
-      hash_unset_mem (gtm->ueip_pool_index_by_identity, identity);
+      hash_unset_mem (gtm->ue_ip_pool_index_by_identity, identity);
       vec_free (ueip_pool->identity);
       vec_free (ueip_pool->nwi_name);
       pool_put (gtm->ueip_pools, ueip_pool);
@@ -104,36 +111,29 @@ get_nat_pool_by_name (u8 * name)
 }
 
 int
-upf_init_nat_addresses (upf_nat_pool_t * np, ip4_address_t * start_addr,
-			ip4_address_t * end_addr)
+upf_init_nat_addresses (upf_nat_pool_t * np, ip4_address_t start_addr,
+			ip4_address_t end_addr)
 {
-  u32 start_host_order, end_host_order;
-  u32 count;
-  ip4_address_t addr = *start_addr;
-  ip4_address_t end = *end_addr;
   u32 i = 0;
 
-  start_host_order = clib_host_to_net_u32 (addr.as_u32);
-  end_host_order = clib_host_to_net_u32 (end.as_u32);
-  count = (end_host_order - start_host_order) + 1;
   vec_reset_length (np->addresses);
 
-  do
+  for (i = clib_net_to_host_u32 (start_addr.as_u32);
+       i <= clib_net_to_host_u32 (end_addr.as_u32); i++)
     {
       upf_nat_addr_t *ap;
+
       vec_add2 (np->addresses, ap, 1);
-      ap->ext_addr = addr;
+      ap->ext_addr.as_u32 = clib_host_to_net_u32 (i);
       ap->used_blocks = 0;
-      increment_v4_address (&addr);
-      ++i;
-    }
-  while (i < count);
+    };
+
   return 0;
 }
 
 int
-vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t * start_addr,
-			   ip4_address_t * end_addr, u8 * name,
+vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
+			   ip4_address_t end_addr, u8 * name,
 			   u16 port_block_size, u16 min_port, u16 max_port,
 			   u32 vrf_id, u8 is_add)
 {
@@ -535,7 +535,7 @@ upf_init (vlib_main_t * vm)
   sm->nat_pool_index_by_name =
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
 
-  sm->ueip_pool_index_by_identity =
+  sm->ue_ip_pool_index_by_identity =
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
 
   error = flowtable_init (vm);

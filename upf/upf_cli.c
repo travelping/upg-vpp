@@ -239,7 +239,7 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
   nwi_name = upf_name_to_labels (nwi_s);
   vec_free (nwi_s);
 
-  rc = vnet_upf_ueip_pool_add_del (name, nwi_name, is_add);
+  rc = vnet_upf_ue_ip_pool_add_del (name, nwi_name, is_add);
 
   return error;
 
@@ -306,8 +306,9 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
      port_block_size, vrf_id);
 
   rv =
-    vnet_upf_nat_pool_add_del (nwi_name, &start, &end, name, port_block_size,
+    vnet_upf_nat_pool_add_del (nwi_name, start, end, name, port_block_size,
 			       min_port, max_port, vrf_id, is_add);
+
   return error;
 }
 
