@@ -40,6 +40,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     /debs/vpp_*.deb \
     /debs/vpp-dbg_*.deb \
     /debs/vpp-plugin-core_*.deb \
+    /debs/vpp-plugin-dpdk*.deb \
     /debs/libvppinfra_*.deb \
     /debs/vpp-api-python_*.deb
 
