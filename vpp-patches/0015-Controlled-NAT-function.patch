@@ -1,4 +1,4 @@
-From 7658001729b6258d1d1d168d43427e27487a5249 Mon Sep 17 00:00:00 2001
+From a514f7d0b2d03d4f34ad33118fd0e871f2eea537 Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Tue, 18 May 2021 17:07:31 +0400
 Subject: [PATCH] Controlled NAT function
@@ -7,13 +7,13 @@ Allow to override ED NAT address and port selection in slow path
 by dedicated NAT bindings per user address. Bindings are created via
 UPG plugin and stored in bihash table.
 ---
- src/plugins/nat/in2out_ed.c   | 133 ++++++++++++++++++++-----
- src/plugins/nat/nat.c         | 177 +++++++++++++++++++++++++++++++++-
- src/plugins/nat/nat.h         |  43 +++++++++
- src/plugins/nat/nat44_cli.c   |  72 ++++++++++++++
- src/plugins/nat/nat_format.c  |  17 ++++
- src/plugins/nat/nat_inlines.h |  39 ++++++++
- 6 files changed, 452 insertions(+), 29 deletions(-)
+ src/plugins/nat/in2out_ed.c   | 133 +++++++++++++++++-----
+ src/plugins/nat/nat.c         | 208 +++++++++++++++++++++++++++++++++-
+ src/plugins/nat/nat.h         |  44 +++++++
+ src/plugins/nat/nat44_cli.c   |  72 ++++++++++++
+ src/plugins/nat/nat_format.c  |  17 +++
+ src/plugins/nat/nat_inlines.h |  39 +++++++
+ 6 files changed, 484 insertions(+), 29 deletions(-)
 
 diff --git a/src/plugins/nat/in2out_ed.c b/src/plugins/nat/in2out_ed.c
 index 7153a6035..7a7895a72 100644
@@ -198,7 +198,7 @@ index 7153a6035..7a7895a72 100644
        /* Add to lookup tables */
        init_ed_kv (&s_kv, s->in2out.addr, 0, ip->dst_address, 0, rx_fib_index,
 diff --git a/src/plugins/nat/nat.c b/src/plugins/nat/nat.c
-index fa62250cb..5d1303097 100644
+index fa62250cb..c3b732085 100644
 --- a/src/plugins/nat/nat.c
 +++ b/src/plugins/nat/nat.c
 @@ -37,6 +37,13 @@
@@ -275,7 +275,7 @@ index fa62250cb..5d1303097 100644
  }
  
  void
-@@ -4155,11 +4184,153 @@ snat_config (vlib_main_t * vm, unformat_input_t * input)
+@@ -4155,11 +4184,184 @@ snat_config (vlib_main_t * vm, unformat_input_t * input)
  					 format_static_mapping_kvp);
      }
  
@@ -348,18 +348,56 @@ index fa62250cb..5d1303097 100644
 +  return 0;
 +}
 +
-+int
++u16
++nat_calc_block (ip4_address_t ext_addr, u16 start_port, u16 block_size)
++{
++  snat_main_t *sm = &snat_main;
++  clib_bihash_kv_8_8_t kv, value;
++  u16 start, end = 0;
++
++  start = start_port;
++  end = start + block_size;
++
++  while (end < NAT_CONTROLLED_MAX_PORT)
++    {
++      init_binding_k (&kv, ext_addr, start, end);
++      if (clib_bihash_search_8_8
++	  (&sm->binding_mapping_by_external, &kv, &value))
++	return start;
++
++      start += block_size;
++      end += block_size;
++    }
++
++  return 0;
++
++}
++
++u16
 +nat_add_binding (snat_main_per_thread_data_t * tsm, ip4_address_t user_addr,
-+		 ip4_address_t ext_addr, u16 start_port, u16 end_port)
++		 ip4_address_t ext_addr, u16 min_port, u16 block_size)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_binding_t *bn = NULL;
 +  clib_bihash_kv_8_8_t kv;
++  u16 start_port;
++  u16 end_port;
 +  uword *p = NULL;
 +
 +  p = mhash_get (&tsm->binding_index_by_ip, &user_addr);
 +  if (p)
-+    return 1;
++    return 0;
++
++  start_port = nat_calc_block (ext_addr, min_port, block_size);
++
++  if (!start_port)
++    {
++      nat_debug ("NAT Controlled: Can't find start port for given addr %U",
++		 format_ip4_address, &ext_addr);
++      return 0;
++    }
++
++  end_port = start_port + block_size;
 +
 +  pool_get (tsm->bindings, bn);
 +  memset (bn, 0, sizeof (*bn));
@@ -368,34 +406,27 @@ index fa62250cb..5d1303097 100644
 +  bn->start_port = start_port;
 +  bn->end_port = end_port;
 +
-+  if (verify_nat_binding (tsm, bn))
-+    {
-+      pool_put (tsm->bindings, bn);
-+      return 1;
-+    }
-+
 +  mhash_set (&tsm->binding_index_by_ip, &bn->framed_addr, bn - tsm->bindings,
 +	     NULL);
 +  init_binding_kv (&kv, bn->external_addr, bn->start_port, bn->end_port,
 +		   bn - tsm->bindings);
 +  clib_bihash_add_del_8_8 (&sm->binding_mapping_by_external, &kv, 1);
 +
-+  return 0;
++  return start_port;
 +}
 +
-+int
++u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 start, u16 end, u32 vrf)
++		    u16 min_port, u16 block_size, u32 vrf)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_main_per_thread_data_t *tsm = &sm->per_thread_data[0];
-+  int err;
++  u16 start_block;
 +
-+  err = nat_add_binding (tsm, user_addr, ext_addr, start, end);
-+  nat_debug ("SMATOV: Created binding");
-+  nat_debug ("SMATOV: ext %U start %u end %u", format_ip4_address, &ext_addr,
-+	     start, end);
-+  return err;
++  start_block =
++    nat_add_binding (tsm, user_addr, ext_addr, min_port, block_size);
++
++  return start_block;
 +}
 +
 +int
@@ -430,7 +461,7 @@ index fa62250cb..5d1303097 100644
  nat_ip4_add_del_addr_only_sm_cb (ip4_main_t * im,
  				 uword opaque,
 diff --git a/src/plugins/nat/nat.h b/src/plugins/nat/nat.h
-index 1885ab57d..ebdda3613 100644
+index 1885ab57d..a66533a55 100644
 --- a/src/plugins/nat/nat.h
 +++ b/src/plugins/nat/nat.h
 @@ -227,6 +227,16 @@ typedef enum
@@ -501,27 +532,28 @@ index 1885ab57d..ebdda3613 100644
  format_function_t format_snat_user;
  format_function_t format_snat_static_mapping;
  format_function_t format_snat_static_map_to_resolve;
-@@ -1341,6 +1367,23 @@ void nat_set_alloc_addr_and_port_mape (u16 psid, u16 psid_offset,
+@@ -1341,6 +1367,24 @@ void nat_set_alloc_addr_and_port_mape (u16 psid, u16 psid_offset,
   */
  void nat_set_alloc_addr_and_port_range (u16 start_port, u16 end_port);
  
 +snat_binding_t *nat_get_binding (snat_main_per_thread_data_t * tsm,
 +				 ip4_address_t addr);
 +
++#define NAT_CONTROLLED_MAX_PORT 64000
++
 +void
 +nat_del_sessions_per_binding (snat_main_per_thread_data_t * tsm,
 +			      snat_binding_t * bn);
 +
-+int
++u16
 +nat_add_binding (snat_main_per_thread_data_t * tsm, ip4_address_t user_addr,
-+		 ip4_address_t ext_addr, u16 start_port, u16 end_port);
++		 ip4_address_t ext_addr, u16 min_port, u16 block_size);
 +
 +int nat_del_binding (ip4_address_t user_addr);
 +
-+int
++u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 start, u16 end, u32 vrf);
-+
++		    u16 min_port, u16 block_size, u32 vrf);
  /**
   * @brief Set address and port assignment algorithm to default/standard
   */
