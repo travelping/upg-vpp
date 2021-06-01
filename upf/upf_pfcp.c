@@ -1027,10 +1027,14 @@ void
 upf_delete_nat_binding (upf_session_t * sx)
 {
   upf_nat_addr_t *ap = sx->nat_addr;
-  if (ap->used_blocks > 0)
-    ap->used_blocks -= 1;
+
+  ASSERT (ap->used_blocks > 0);
+
+  --ap->used_blocks;
+
   upf_nat_del_binding =
     vlib_get_plugin_symbol ("nat_plugin.so", "nat_del_binding");
+
   upf_nat_del_binding (sx->user_addr);
 }
 
