@@ -1,4 +1,4 @@
-From 364ff51880813b37d46183a5026a6fc5c08e799c Mon Sep 17 00:00:00 2001
+From ed9246f02b1fe76ee1fd5c55b17bb01b697ad777 Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Wed, 31 Mar 2021 15:19:02 +0400
 Subject: [PATCH] Controlled NAT function
@@ -12,13 +12,13 @@ When a packet hits ED slowpath, external address and port are
 picked from dedicated binding. If there is no binding for given
 user address or port range exceeded, packet should be dropped.
 ---
- src/plugins/nat/in2out_ed.c   | 118 +++++++++++++++++----
- src/plugins/nat/nat.c         | 188 +++++++++++++++++++++++++++++++++-
- src/plugins/nat/nat.h         |  41 ++++++++
- src/plugins/nat/nat44_cli.c   |  69 +++++++++++++
+ src/plugins/nat/in2out_ed.c   | 118 +++++++++++++++---
+ src/plugins/nat/nat.c         | 221 +++++++++++++++++++++++++++++++++-
+ src/plugins/nat/nat.h         |  44 +++++++
+ src/plugins/nat/nat44_cli.c   |  69 +++++++++++
  src/plugins/nat/nat_format.c  |  17 +++
- src/plugins/nat/nat_inlines.h |  39 +++++++
- 6 files changed, 449 insertions(+), 23 deletions(-)
+ src/plugins/nat/nat_inlines.h |  39 ++++++
+ 6 files changed, 485 insertions(+), 23 deletions(-)
 
 diff --git a/src/plugins/nat/in2out_ed.c b/src/plugins/nat/in2out_ed.c
 index 776efdf13..fc91d6f13 100644
@@ -209,7 +209,7 @@ index 776efdf13..fc91d6f13 100644
        /* Add to lookup tables */
        init_ed_kv (&s_kv, s->in2out.addr, 0, ip->dst_address, 0, rx_fib_index,
 diff --git a/src/plugins/nat/nat.c b/src/plugins/nat/nat.c
-index eeaa443bf..256529130 100644
+index eeaa443bf..fea0f5f8b 100644
 --- a/src/plugins/nat/nat.c
 +++ b/src/plugins/nat/nat.c
 @@ -36,6 +36,13 @@
@@ -269,7 +269,7 @@ index eeaa443bf..256529130 100644
            return VNET_API_ERROR_VALUE_EXIST;
          }
      }
-@@ -2982,12 +3003,164 @@ nat44_plugin_enable (nat44_config_t c)
+@@ -2982,12 +3003,197 @@ nat44_plugin_enable (nat44_config_t c)
    vlib_zero_simple_counter (&sm->total_sessions, 0);
    vlib_zero_simple_counter (&sm->user_limit_reached, 0);
  
@@ -341,12 +341,11 @@ index eeaa443bf..256529130 100644
 +}
 +
 +int
-+verify_nat_binding (snat_main_per_thread_data_t * tsm, snat_binding_t * bn)
++verify_nat_binding (snat_binding_t * bn)
 +{
 +  snat_main_t *sm = &snat_main;
 +
 +  clib_bihash_kv_8_8_t kv, value;
-+
 +
 +  init_binding_k (&kv, bn->external_addr, bn->start_port, bn->end_port);
 +  if (!clib_bihash_search_8_8 (&sm->binding_mapping_by_external, &kv, &value))
@@ -356,18 +355,56 @@ index eeaa443bf..256529130 100644
 +  return 0;
 +}
 +
-+int
++u16
++nat_calc_block (ip4_address_t ext_addr, u16 start_port, u16 block_size)
++{
++  snat_main_t *sm = &snat_main;
++  clib_bihash_kv_8_8_t kv, value;
++  u16 start, end = 0;
++
++  start = start_port;
++  end = start + block_size;
++
++  while (end < NAT_CONTROLLED_MAX_PORT)
++    {
++      init_binding_k (&kv, ext_addr, start, end);
++      if (clib_bihash_search_8_8
++	  (&sm->binding_mapping_by_external, &kv, &value))
++	return start;
++
++      start += block_size;
++      end += block_size;
++    }
++
++  return 0;
++
++}
++
++u16
 +nat_add_binding (snat_main_per_thread_data_t * tsm, ip4_address_t user_addr,
-+		 ip4_address_t ext_addr, u16 start_port, u16 end_port)
++		 ip4_address_t ext_addr, u16 min_port, u16 block_size)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_binding_t *bn = NULL;
 +  clib_bihash_kv_8_8_t kv;
++  u16 start_port;
++  u16 end_port;
 +  uword *p = NULL;
 +
 +  p = mhash_get (&tsm->binding_index_by_ip, &user_addr);
 +  if (p)
-+    return 1;
++    return 0;
++
++  start_port = nat_calc_block (ext_addr, min_port, block_size);
++
++  if (!start_port)
++    {
++      nat_debug ("NAT Controlled: Can't find start port for given addr %U",
++		 format_ip4_address, &ext_addr);
++      return 0;
++    }
++
++  end_port = start_port + block_size;
 +
 +  pool_get (tsm->bindings, bn);
 +  memset (bn, 0, sizeof (*bn));
@@ -376,31 +413,27 @@ index eeaa443bf..256529130 100644
 +  bn->start_port = start_port;
 +  bn->end_port = end_port;
 +
-+  if (verify_nat_binding (tsm, bn))
-+    {
-+      pool_put (tsm->bindings, bn);
-+      return 1;
-+    }
-+
 +  mhash_set (&tsm->binding_index_by_ip, &bn->framed_addr, bn - tsm->bindings,
 +	     NULL);
 +  init_binding_kv (&kv, bn->external_addr, bn->start_port, bn->end_port,
 +		   bn - tsm->bindings);
 +  clib_bihash_add_del_8_8 (&sm->binding_mapping_by_external, &kv, 1);
 +
-+  return 0;
++  return start_port;
 +}
 +
-+int
++u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 start, u16 end, u32 vrf)
++		    u16 min_port, u16 block_size, u32 vrf)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_main_per_thread_data_t *tsm = &sm->per_thread_data[0];
-+  int err;
++  u16 start_block;
 +
-+  err = nat_add_binding (tsm, user_addr, ext_addr, start, end);
-+  return err;
++  start_block =
++    nat_add_binding (tsm, user_addr, ext_addr, min_port, block_size);
++
++  return start_block;
 +}
 +
 +int
@@ -434,7 +467,7 @@ index eeaa443bf..256529130 100644
  void
  nat44_addresses_free (snat_address_t ** addresses)
  {
-@@ -3110,10 +3283,14 @@ snat_free_outside_address_and_port (snat_address_t * addresses,
+@@ -3110,10 +3316,14 @@ snat_free_outside_address_and_port (snat_address_t * addresses,
  				    ip4_address_t * addr,
  				    u16 port, nat_protocol_t protocol)
  {
@@ -449,7 +482,7 @@ index eeaa443bf..256529130 100644
    for (address_index = 0; address_index < vec_len (addresses);
         address_index++)
      {
-@@ -4341,6 +4518,9 @@ nat44_db_init (snat_main_per_thread_data_t * tsm)
+@@ -4341,6 +4551,9 @@ nat44_db_init (snat_main_per_thread_data_t * tsm)
    pool_alloc (tsm->list_pool, sm->max_translations_per_thread);
    clib_bihash_init_8_8 (&tsm->user_hash, "users", sm->user_buckets, 0);
    clib_bihash_set_kvp_format_fn_8_8 (&tsm->user_hash, format_user_kvp);
@@ -460,7 +493,7 @@ index eeaa443bf..256529130 100644
  
  void
 diff --git a/src/plugins/nat/nat.h b/src/plugins/nat/nat.h
-index daebe451f..9602a113e 100644
+index daebe451f..080632048 100644
 --- a/src/plugins/nat/nat.h
 +++ b/src/plugins/nat/nat.h
 @@ -226,6 +226,16 @@ typedef enum
@@ -529,7 +562,7 @@ index daebe451f..9602a113e 100644
  format_function_t format_snat_user;
  format_function_t format_snat_static_mapping;
  format_function_t format_snat_static_map_to_resolve;
-@@ -1434,6 +1458,23 @@ void nat_set_alloc_addr_and_port_range (u16 start_port, u16 end_port);
+@@ -1434,6 +1458,26 @@ void nat_set_alloc_addr_and_port_range (u16 start_port, u16 end_port);
   */
  void nat_set_alloc_addr_and_port_default (void);
  
@@ -540,15 +573,18 @@ index daebe451f..9602a113e 100644
 +nat_del_sessions_per_binding (snat_main_per_thread_data_t * tsm,
 +			      snat_binding_t * bn);
 +
-+int
++u16
 +nat_add_binding (snat_main_per_thread_data_t * tsm, ip4_address_t user_addr,
 +		 ip4_address_t ext_addr, u16 start_port, u16 end_port);
 +
++#define NAT_CONTROLLED_MAX_PORT 64000
 +__clib_export int nat_del_binding (ip4_address_t user_addr);
 +
-+__clib_export int
++__clib_export u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 start, u16 end, u32 vrf);
++		    u16 min_port, u16 block_size, u32 vrf);
++__clib_export u16 nat_calc_block (ip4_address_t ext_addr, u16 start_port,
++				  u16 block_size);
 +
  /**
   * @brief Free outside address and port pair

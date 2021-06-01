@@ -992,7 +992,7 @@ upf_nat_pool_t *get_nat_pool_by_name (u8 * name);
 
 static int (*upf_nat_del_binding) (ip4_address_t user_addr);
 
-static int
+static u16
   (*upf_nat_create_binding) (ip4_address_t user_addr, ip4_address_t ext_addr,
 			     u16 min_port, u16 block_size, u32 vrf);
 
