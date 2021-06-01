@@ -4745,9 +4745,6 @@ decode_bbf_nat_external_port_range (u8 * data, u16 length, void *p)
   v->start_port = get_u16 (data);
   length -= 2;
 
-  if (length < 2)
-    return PFCP_CAUSE_INVALID_LENGTH;
-
   v->start_port = get_u16 (data);
   return 0;
 }
@@ -4778,7 +4775,7 @@ decode_bbf_up_function_features (u8 * data, u16 length, void *p)
 {
   u64 *v = p;
 
-  if (length % 2 != 0 || length < 2)
+  if (length % 2 != 0 || length < 4)
     return PFCP_CAUSE_INVALID_LENGTH;
 
   *v = get_u16_little (data);
@@ -4797,8 +4794,7 @@ encode_bbf_up_function_features (void *p, u8 ** vec)
 {
   u32 *v = p;
 
-  put_u16_little (*vec, *v);
-  put_u16_little (*vec, *v >> 16);
+  put_u32 (*vec, *v);
 
   return 0;
 }
@@ -6173,20 +6169,48 @@ static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] =
     },
   };
 
-#define encode_ip_version encode_u8_ie
-#define decode_ip_version decode_u8_ie
-
 static u8 *
 format_ip_version (u8 * s, va_list * args)
 {
   pfcp_ip_version_t *v = va_arg (*args, pfcp_ip_version_t *);
 
-  if (ISSET_BIT(*v, IP_VERSION_4))
-    s = format (s, "IPv4");
-  else
-    s = format (s, "IPv6");
+  s = format (s, "IPv4:%u IPv6 %u", !!(*v & IP_VERSION_4),
+              !!(*v & IP_VERSION_6));
 
   return s;
+}
+
+static int
+decode_ip_version (u8 * data, u16 length, void *p)
+{
+  pfcp_ip_version_t *v = p;
+
+  *v = get_u8 (data);
+
+  if (!(*v & IP_VERSION_4) && !(*v & IP_VERSION_6))
+    {
+      pfcp_debug
+        ("PFCP: IP Version should have at least IPv4 or IPv6 bits set");
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+encode_ip_version (void *p, u8 ** vec)
+{
+  pfcp_ip_version_t *v = p;
+
+  if (!(*v & IP_VERSION_4) && !(*v & IP_VERSION_6))
+    {
+      pfcp_debug
+        ("PFCP: IP Version should have at least IPv4 or IPv6 bits set");
+      return -1;
+    }
+
+  put_u8 (*vec, *v);
+  return 0;
 }
 
 static struct pfcp_group_ie_def pfcp_tp_error_report_group[] =
@@ -6966,10 +6990,10 @@ static struct pfcp_group_ie_def pfcp_association_setup_request_group[] =
       .vendor = VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_association_setup_request_t, tp_build_id)
     },
-    [ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_IDENTITY] = {
-      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
+    [ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_setup_request_t, ue_ip_address_pool_identity)
+      .offset = offsetof(pfcp_association_setup_request_t, ue_ip_address_pool_information)
     },
     [ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = {
       .type = PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
@@ -7020,11 +7044,6 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
       .vendor = VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_association_procedure_response_t, tp_build_id)
     },
-    [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_IDENTITY] = {
-      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
-      .is_array = true,
-      .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_identity)
-    },
     [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION] = {
       .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
       .is_array = true,
@@ -7063,10 +7082,10 @@ static struct pfcp_group_ie_def pfcp_association_update_request_group[] =
       .type = PFCP_IE_PFCPAUREQ_FLAGS,
       .offset = offsetof(pfcp_association_update_request_t, pfcpaureq_flags)
     },
-    [ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_IDENTITY] = {
-      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
+    [ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_update_request_t, ue_ip_address_pool_identity)
+      .offset = offsetof(pfcp_association_update_request_t, ue_ip_address_pool_information)
     },
     [ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = {
       .type = PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
@@ -7739,10 +7758,10 @@ static struct pfcp_ie_def msg_specs[] =
 /* *INDENT-ON* */
 
 static const struct pfcp_group_ie_def *
-get_ie_spec (const pfcp_ie_t * ie, const struct pfcp_ie_def *def)
+get_ie_spec (const struct pfcp_ie_def *def, u16 type)
 {
   for (int i = 0; i < def->size; i++)
-    if (def->group[i].type != 0 && def->group[i].type == ntohs (ie->type))
+    if (def->group[i].type != 0 && def->group[i].type == type)
       return &def->group[i];
 
   return NULL;
@@ -7821,22 +7840,13 @@ decode_group (u8 * p, int len, const struct pfcp_ie_def *grp_def,
       const struct pfcp_ie_def *ie_def;
       u16 length = ntohs (ie->length);
       i16 type = ntohs (ie->type);
+      int id = 0;
 
       pfcp_debug ("%U", format_pfcp_ie, ie);
 
       pos += 4;
       if (pos + length > len)
 	return PFCP_CAUSE_INVALID_LENGTH;
-
-      item = get_ie_spec (ie, grp_def);
-
-      if (!item)
-	{
-	  vec_add1 (grp->ies, ie);
-	  goto next;
-	}
-
-      int id = item - grp_def->group;
 
       if (type & 0x8000)
 	{
@@ -7864,6 +7874,16 @@ decode_group (u8 * p, int len, const struct pfcp_ie_def *grp_def,
 	{
 	  ie_def = &tgpp_specs[type];
 	}
+
+      item = get_ie_spec (grp_def, type);
+
+      if (!item)
+	{
+	  vec_add1 (grp->ies, ie);
+	  goto next;
+	}
+
+      id = item - grp_def->group;
 
       u8 *v = ((u8 *) grp) + item->offset;
 

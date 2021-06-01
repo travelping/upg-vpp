@@ -362,7 +362,7 @@ typedef struct
 {
   u8 *identity;
   u8 *nwi_name;
-} upf_ueip_pool_info_t;
+} upf_ue_ip_pool_info_t;
 
 typedef enum
 {
@@ -911,7 +911,7 @@ typedef struct
 
   upf_nat_pool_t *nat_pools;
   uword *nat_pool_index_by_name;
-  upf_ueip_pool_info_t *ueip_pools;
+  upf_ue_ip_pool_info_t *ueip_pools;
   uword *ueip_pool_index_by_identity;
 
 } upf_main_t;
@@ -969,8 +969,8 @@ const dpo_id_t *upf_get_session_dpo_ip6 (upf_nwi_t * nwi,
 dpo_type_t upf_session_dpo_get_type (void);
 
 int
-vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t * start_addr,
-			   ip4_address_t * end_addr, u8 * name,
+vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
+			   ip4_address_t end_addr, u8 * name,
 			   u16 port_block_size, u16 min_port, u16 max_port,
 			   u32 vrf_id, u8 is_add);
 
@@ -994,7 +994,7 @@ static int (*upf_nat_del_binding) (ip4_address_t user_addr);
 
 static int
   (*upf_nat_create_binding) (ip4_address_t user_addr, ip4_address_t ext_addr,
-			     u16 start, u16 end, u32 vrf);
+			     u16 min_port, u16 block_size, u32 vrf);
 
 static inline void
 increment_v4_address (ip4_address_t * a)

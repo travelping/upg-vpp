@@ -198,7 +198,7 @@ build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
 {
   upf_main_t *gtm = &upf_main;
   upf_nat_pool_t *np;
-  upf_ueip_pool_info_t *ue_p;
+  upf_ue_ip_pool_info_t *ue_p;
 
   vec_alloc (*ue_pool_info, pool_elts (gtm->ueip_pools));
 
@@ -206,6 +206,7 @@ build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
   pool_foreach (ue_p, gtm->ueip_pools,
   ({
     pfcp_ue_ip_address_pool_information_t *ueif;
+
     vec_add2 (*ue_pool_info, ueif, 1);
     ueif->ue_ip_address_pool_identity = vec_dup (ue_p->identity);
     SET_BIT (ueif->grp.fields, UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY);
@@ -218,7 +219,9 @@ build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
     ({
       if (!(vec_is_equal (np->network_instance, ue_p->nwi_name)))
 	continue;
+
       pfcp_bbf_nat_port_block_t *block;
+
       vec_add2 (ueif->port_blocks, block, 1);
       *block = vec_dup (np->name);
       SET_BIT (ueif->grp.fields,
@@ -948,41 +951,32 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t * np, upf_nat_addr_t * addr,
 				  pfcp_tp_created_binding_t * created_binding)
 {
   u16 port_start, port_end;
-  int err = 0;
-
-  port_start = np->min_port;
-  port_end = port_start + np->port_block_size;
 
   upf_nat_create_binding =
     vlib_get_plugin_symbol ("nat_plugin.so", "nat_create_binding");
 
-  do
+  port_start =
+    upf_nat_create_binding (user_ip, addr->ext_addr, np->min_port,
+			    np->port_block_size, np->vrf_id);
+  if (port_start)
     {
-      err =
-	upf_nat_create_binding (user_ip, addr->ext_addr, port_start, port_end,
-				np->vrf_id);
-      if (!err)
-	{
-	  addr->used_blocks += 1;
-	  sx->nat_addr = addr;
-	  created_binding->block = vec_dup (np->name);
-	  created_binding->outside_addr.as_u32 = addr->ext_addr.as_u32;
-	  created_binding->port_range.start_port = port_start;
-	  created_binding->port_range.end_port = port_end;
-	  SET_BIT (created_binding->grp.fields,
-		   TP_CREATED_BINDING_NAT_PORT_BLOCK);
-	  SET_BIT (created_binding->grp.fields,
-		   TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS);
-	  SET_BIT (created_binding->grp.fields,
-		   TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE);
-	  return 0;
-	}
-      port_start += np->port_block_size;
       port_end = port_start + np->port_block_size;
+      addr->used_blocks += 1;
+      sx->nat_addr = addr;
+      created_binding->block = vec_dup (np->name);
+      created_binding->outside_addr.as_u32 = addr->ext_addr.as_u32;
+      created_binding->port_range.start_port = port_start;
+      created_binding->port_range.end_port = port_end;
+      SET_BIT (created_binding->grp.fields,
+	       TP_CREATED_BINDING_NAT_PORT_BLOCK);
+      SET_BIT (created_binding->grp.fields,
+	       TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS);
+      SET_BIT (created_binding->grp.fields,
+	       TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE);
+      return 0;
     }
-  while (port_end < np->max_port);
-  return err;
 
+  return 1;
 }
 
 static int
@@ -1655,21 +1649,19 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 
 	  }
 
-	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
-		       FORWARDING_PARAMETERS_BBF_APPLY_ACTION))
+	if ((ISSET_BIT (far->forwarding_parameters.grp.fields,
+			FORWARDING_PARAMETERS_BBF_APPLY_ACTION))
+	    && (far->
+		forwarding_parameters.bbf_apply_action & BBF_APPLY_ACTION_NAT)
+	    &&
+	    (ISSET_BIT
+	     (far->forwarding_parameters.grp.fields,
+	      FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK)))
 	  {
-	    if (far->forwarding_parameters.bbf_apply_action &
-		BBF_APPLY_ACTION_NAT)
-	      {
-		if (ISSET_BIT (far->forwarding_parameters.grp.fields,
-			       FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK))
-		  {
-		    pfcp_bbf_nat_port_block_t pool_name =
-		      vec_dup (far->forwarding_parameters.nat_port_block);
-		    if (handle_nat_binding_creation (sx, pool_name, response))
-		      goto out_error;
-		  }
-	      }
+	    pfcp_bbf_nat_port_block_t pool_name =
+	      vec_dup (far->forwarding_parameters.nat_port_block);
+	    if (handle_nat_binding_creation (sx, pool_name, response))
+	      goto out_error;
 	  }
 
 	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
