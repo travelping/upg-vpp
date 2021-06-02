@@ -19,29 +19,36 @@ package pfcp
 import (
 	"testing"
 	"time"
-
-	"github.com/wmnsk/go-pfcp/message"
 )
 
-func sampleMsg(seq uint32) message.Message {
-	return message.NewSessionEstablishmentRequest(0, 0, 0, seq, 0)
+type testMsg struct {
+	seq uint32
+}
+
+var _ queueEntry = &testMsg{}
+
+func (m testMsg) Sequence() uint32 { return m.seq }
+
+func sampleMsg(seq uint32) testMsg {
+	return testMsg{seq: seq}
 }
 
 func TestRequestQueue(t *testing.T) {
 	rq := newRequestQueue(time.Second)
-	ms := []message.Message{
+	ms := []testMsg{
 		sampleMsg(1),
 		sampleMsg(2),
 		sampleMsg(3),
 	}
 	now := time.Now()
 
-	if m, _ := rq.next(); m != nil {
+	m, _ := rq.next()
+	if m != nil {
 		t.Error("queue not empty at the start")
 	}
 
 	for i := 0; i < 3; i++ {
-		rq.add(ms[0], now.Add(10*time.Second))
+		rq.add(ms[0], now.Add(10*time.Second), 100)
 
 		nm, ts := rq.next()
 		if nm != ms[0] {
@@ -51,7 +58,7 @@ func TestRequestQueue(t *testing.T) {
 			t.Error("bad ts")
 		}
 
-		rq.add(ms[1], now.Add(5*time.Second))
+		rq.add(ms[1], now.Add(5*time.Second), 100)
 		nm, ts = rq.next()
 		if nm != ms[1] {
 			t.Error("bad next")
@@ -60,7 +67,7 @@ func TestRequestQueue(t *testing.T) {
 			t.Error("bad ts")
 		}
 
-		rq.add(ms[2], now.Add(7*time.Second))
+		rq.add(ms[2], now.Add(7*time.Second), 100)
 		nm, ts = rq.next()
 		if nm != ms[1] {
 			t.Error("bad next")
@@ -70,6 +77,7 @@ func TestRequestQueue(t *testing.T) {
 		}
 
 		rq.reschedule(ms[1], now.Add(20*time.Second))
+
 		nm, ts = rq.next()
 		if nm != ms[2] {
 			t.Error("bad next")
@@ -78,8 +86,9 @@ func TestRequestQueue(t *testing.T) {
 			t.Error("bad ts")
 		}
 
-		if !rq.remove(ms[2]) {
-			t.Error("remove returned false")
+		// sampleMsg(3) has the same seq as ms[2]
+		if *rq.remove(sampleMsg(3)) != ms[2] {
+			t.Error("remove returned wrong value")
 		}
 		nm, ts = rq.next()
 		if nm != ms[0] {
@@ -89,11 +98,11 @@ func TestRequestQueue(t *testing.T) {
 			t.Error("bad ts")
 		}
 
-		if !rq.remove(ms[0]) {
-			t.Error("remove returned false")
+		if *rq.remove(ms[0]) != ms[0] {
+			t.Error("remove returned wrong value")
 		}
-		if rq.remove(ms[0]) {
-			t.Error("duplicate remove returned true")
+		if rq.remove(ms[0]) != nil {
+			t.Error("duplicate remove returned non-nil")
 		}
 		nm, ts = rq.next()
 		if nm != ms[1] {
@@ -103,24 +112,27 @@ func TestRequestQueue(t *testing.T) {
 			t.Error("bad ts")
 		}
 
-		if !rq.remove(ms[1]) {
-			t.Error("remove returned false")
+		if *rq.remove(ms[1]) != ms[1] {
+			t.Error("remove returned wrong value")
 		}
-		if m, _ := rq.next(); m != nil {
+		m, _ := rq.next()
+		if m != nil {
 			t.Error("queue not empty at the end")
 		}
 
-		if rq.remove(ms[1]) {
-			t.Error("duplicate remove returned true")
+		if rq.remove(ms[1]) != nil {
+			t.Error("duplicate remove returned non-nil")
 		}
 	}
 
-	rq.add(ms[0], now.Add(10*time.Second))
+	rq.add(ms[0], now.Add(10*time.Second), 100)
 	rq.clear()
-	if m, _ := rq.next(); m != nil {
+
+	m, _ = rq.next()
+	if m != nil {
 		t.Error("queue not empty after clear")
 	}
-	if rq.remove(ms[0]) {
-		t.Error("remove succeeded after clear")
+	if rq.remove(ms[0]) != nil {
+		t.Error("remove returned non-nil after clear")
 	}
 }

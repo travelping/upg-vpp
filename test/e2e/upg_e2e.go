@@ -472,7 +472,7 @@ var _ = ginkgo.Describe("Clearing message queue", func() {
 					UEIP: f.AddUEIP(),
 					Mode: f.Mode,
 				}
-				seid, err := pc.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+				seid, err := pc.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 				framework.ExpectNoError(err)
 
 				wg.Add(1)
@@ -550,7 +550,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			}
 			for i := 0; i < leakTestNumIterations; i++ {
 				framework.Logf("creating %d sessions", leakTestNumSessions)
-				var seids []pfcp.SEID
+				specs := make([]pfcp.SessionOpSpec, leakTestNumSessions)
 				for j := 0; j < leakTestNumSessions; j++ {
 					sessionCfg := &framework.SessionConfig{
 						IdBase:  1,
@@ -558,15 +558,16 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 						Mode:    f.Mode,
 						AppName: framework.HTTPAppName,
 					}
-					seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+					specs[j].IEs = sessionCfg.SessionIEs()
+				}
+
+				seids, errs := f.PFCP.EstablishSessions(f.Context, specs)
+				for _, err := range errs {
 					framework.ExpectNoError(err)
-					seids = append(seids, seid)
 				}
 
 				framework.Logf("deleting %d sessions", leakTestNumSessions)
-				for _, seid := range seids {
-					deleteSession(f, seid, false)
-				}
+				deleteSessions(f, seids, false)
 			}
 
 			ginkgo.By("Waiting 40 seconds for the queues to be emptied")
