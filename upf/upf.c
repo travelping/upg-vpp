@@ -91,16 +91,13 @@ upf_nat_pool_t *
 get_nat_pool_by_name (u8 * name)
 {
   upf_main_t *gtm = &upf_main;
-  upf_nat_pool_t *np = NULL;
   uword *p;
 
   p = hash_get_mem (gtm->nat_pool_index_by_name, name);
   if (!p)
     return NULL;
 
-  np = pool_elt_at_index (gtm->nat_pools, p[0]);
-
-  return np;
+  return pool_elt_at_index (gtm->nat_pools, p[0]);
 }
 
 int
@@ -109,7 +106,9 @@ upf_init_nat_addresses (upf_nat_pool_t * np, ip4_address_t start_addr,
 {
   u32 i = 0;
 
-  vec_reset_length (np->addresses);
+  vec_validate (np->addresses,
+		clib_net_to_host_u32 (end_addr.as_u32) -
+		clib_net_to_host_u32 (start_addr.as_u32) + 1);
 
   for (i = clib_net_to_host_u32 (start_addr.as_u32);
        i <= clib_net_to_host_u32 (end_addr.as_u32); i++)

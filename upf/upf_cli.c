@@ -270,7 +270,6 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
   u16 min_port;
   u16 max_port;
   u16 port_block_size;
-  //u32 vrf_id;
   u8 is_add = 1;
   int rv;
 
