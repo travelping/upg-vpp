@@ -8,4 +8,7 @@ Usage Report SRR
   End Time: 2019/12/30 09:53:21:000
   Volume Measurement: V:[T:0,U:0,D:0],P:[T:0,U:0,D:0]
   Duration Measurement: 10
+  TP: Now: 2019/12/30 09:53:21:218
+  TP: Start Time: 2019/12/30 09:53:11:218
+  TP: End Time: 2019/12/30 09:53:21:218
 
