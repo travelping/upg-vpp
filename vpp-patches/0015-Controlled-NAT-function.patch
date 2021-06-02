@@ -1,4 +1,4 @@
-From ed9246f02b1fe76ee1fd5c55b17bb01b697ad777 Mon Sep 17 00:00:00 2001
+From 5619620e46927fc45ef4da5d128ba2301d6d08e3 Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Wed, 31 Mar 2021 15:19:02 +0400
 Subject: [PATCH] Controlled NAT function
@@ -209,7 +209,7 @@ index 776efdf13..fc91d6f13 100644
        /* Add to lookup tables */
        init_ed_kv (&s_kv, s->in2out.addr, 0, ip->dst_address, 0, rx_fib_index,
 diff --git a/src/plugins/nat/nat.c b/src/plugins/nat/nat.c
-index eeaa443bf..fea0f5f8b 100644
+index eeaa443bf..c396f89ce 100644
 --- a/src/plugins/nat/nat.c
 +++ b/src/plugins/nat/nat.c
 @@ -36,6 +36,13 @@
@@ -424,7 +424,7 @@ index eeaa443bf..fea0f5f8b 100644
 +
 +u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 min_port, u16 block_size, u32 vrf)
++		    u16 min_port, u16 block_size)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_main_per_thread_data_t *tsm = &sm->per_thread_data[0];
@@ -493,7 +493,7 @@ index eeaa443bf..fea0f5f8b 100644
  
  void
 diff --git a/src/plugins/nat/nat.h b/src/plugins/nat/nat.h
-index daebe451f..080632048 100644
+index daebe451f..c5dc852d7 100644
 --- a/src/plugins/nat/nat.h
 +++ b/src/plugins/nat/nat.h
 @@ -226,6 +226,16 @@ typedef enum
@@ -582,7 +582,7 @@ index daebe451f..080632048 100644
 +
 +__clib_export u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 min_port, u16 block_size, u32 vrf);
++		    u16 min_port, u16 block_size);
 +__clib_export u16 nat_calc_block (ip4_address_t ext_addr, u16 start_port,
 +				  u16 block_size);
 +
