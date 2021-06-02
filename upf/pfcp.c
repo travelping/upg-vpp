@@ -6846,7 +6846,7 @@ static struct pfcp_ie_def vendor_tp_specs[] =
    SIMPLE_IE_FREE(PFCP_IE_TP_BUILD_ID, tp_build_id, "TP: Build Identifier"),
    SIMPLE_IE(PFCP_IE_TP_NOW, tp_now, "TP: Now"),
    SIMPLE_IE(PFCP_IE_TP_START_TIME, tp_start_time, "TP: Start Time"),
-   SIMPLE_IE(PFCP_IE_TP_END_TIME, tp_end_time, "TP: Start Time"),
+   SIMPLE_IE(PFCP_IE_TP_END_TIME, tp_end_time, "TP: End Time"),
    [PFCP_IE_TP_ERROR_REPORT] =
    {
      .name = "TP: Error Report",
