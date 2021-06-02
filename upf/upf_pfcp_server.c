@@ -1095,12 +1095,6 @@ void upf_pfcp_server_deferred_free_msgs_by_node (u32 node)
   hash_set (psm->free_msgs_by_node, node, 1);
 }
 
-void upf_pfcp_server_deferred_free_msgs_by_sidx (u32 sidx)
-{
-  pfcp_server_main_t *psm = &pfcp_server_main;
-  hash_set (psm->free_msgs_by_sidx, sidx, 1);
-}
-
 void upf_server_send_heartbeat (u32 node_idx)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
@@ -1306,8 +1300,7 @@ static uword
 
 	ASSERT (msg->expires_at);
 
-	if (!hash_get (psm->free_msgs_by_node, msg->node) &&
-	    !hash_get (psm->free_msgs_by_sidx, msg->session_index))
+	if (!hash_get (psm->free_msgs_by_node, msg->node))
 	  {
 	    /*
 	     * This should not happen unless a timer didn't fire for some reason
@@ -1334,7 +1327,6 @@ static uword
       vec_reset_length (psm->expired);
       vec_reset_length (event_data);
       hash_free (psm->free_msgs_by_node);
-      hash_free (psm->free_msgs_by_sidx);
 
 #if CLIB_DEBUG > 10
       upf_validate_session_timers ();

@@ -2678,7 +2678,6 @@ static int
 handle_session_deletion_request (pfcp_msg_t * req,
 				 pfcp_session_deletion_request_t * msg)
 {
-  upf_main_t *gtm = &upf_main;
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_session_procedure_response_t resp;
   struct rules *active;
@@ -2709,8 +2708,6 @@ handle_session_deletion_request (pfcp_msg_t * req,
 		 be64toh (req->hdr->session_hdr.seid));
       goto out_send_resp;
     }
-
-  upf_pfcp_server_deferred_free_msgs_by_sidx (sess - gtm->sessions);
 
   active = pfcp_get_rules (sess, PFCP_ACTIVE);
   if (vec_len (active->urr) != 0)
