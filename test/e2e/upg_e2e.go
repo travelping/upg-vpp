@@ -33,6 +33,7 @@ import (
 	"github.com/pkg/errors"
 	gtpumessage "github.com/wmnsk/go-gtp/gtpv1/message"
 	"github.com/wmnsk/go-pfcp/ie"
+	"github.com/wmnsk/go-pfcp/message"
 
 	"github.com/travelping/upg-vpp/test/e2e/framework"
 	"github.com/travelping/upg-vpp/test/e2e/network"
@@ -472,7 +473,7 @@ var _ = ginkgo.Describe("Clearing message queue", func() {
 					UEIP: f.AddUEIP(),
 					Mode: f.Mode,
 				}
-				seid, err := pc.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+				seid, err := pc.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 				framework.ExpectNoError(err)
 
 				wg.Add(1)
@@ -550,7 +551,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			}
 			for i := 0; i < leakTestNumIterations; i++ {
 				framework.Logf("creating %d sessions", leakTestNumSessions)
-				var seids []pfcp.SEID
+				specs := make([]pfcp.SessionOpSpec, leakTestNumSessions)
 				for j := 0; j < leakTestNumSessions; j++ {
 					sessionCfg := &framework.SessionConfig{
 						IdBase:  1,
@@ -558,15 +559,16 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 						Mode:    f.Mode,
 						AppName: framework.HTTPAppName,
 					}
-					seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+					specs[j].IEs = sessionCfg.SessionIEs()
+				}
+
+				seids, errs := f.PFCP.EstablishSessions(f.Context, specs)
+				for _, err := range errs {
 					framework.ExpectNoError(err)
-					seids = append(seids, seid)
 				}
 
 				framework.Logf("deleting %d sessions", leakTestNumSessions)
-				for _, seid := range seids {
-					deleteSession(f, seid, false)
-				}
+				deleteSessions(f, seids, false)
 			}
 
 			ginkgo.By("Waiting 40 seconds for the queues to be emptied")
@@ -587,27 +589,57 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				UEIP:   f.UEIP(),
 				Mode:   f.Mode,
 			}
-			seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			reportCh := f.PFCP.AcquireReportCh()
+			seid, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)
 			// with older UPG versions, the duplicate session creation attempts
 			// succeed till some amount of sessions is reached (about 256), after
 			// which it crashes
 			unexpectedSuccess := false
+			var newSEID pfcp.SEID
 			for i := 0; i < 1000; i++ {
-				_, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+				newSEID = f.PFCP.NewSEID()
+				_, err := f.PFCP.EstablishSession(f.Context, newSEID, sessionCfg.SessionIEs()...)
 				if err == nil {
 					unexpectedSuccess = true
 				} else {
 					var serverErr *pfcp.PFCPServerError
 					gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
+					framework.ExpectEqual(newSEID, serverErr.SEID)
 					framework.ExpectEqual(serverErr.Cause, ie.CauseRuleCreationModificationFailure)
+					framework.Logf("Server error (expected): %v", err)
 					// TODO: decode and verify TP error report
 					break
 				}
 
 			}
 			gomega.Expect(unexpectedSuccess).To(gomega.BeFalse(), "EstablishSession succeeded unexpectedly")
-			deleteSession(f, seid, true)
+			var m message.Message
+			gomega.Eventually(reportCh, 10*time.Second, 50*time.Millisecond).Should(gomega.Receive(&m))
+			framework.ExpectEqual(m.MessageType(), message.MsgTypeSessionReportRequest)
+
+			rr := m.(*message.SessionReportRequest)
+			gomega.Expect(rr.ReportType).NotTo(gomega.BeNil())
+			_, err = rr.ReportType.ReportType()
+			framework.ExpectNoError(err)
+			gomega.Expect(rr.ReportType.HasUPIR()).To(gomega.BeFalse())
+			gomega.Expect(rr.ReportType.HasERIR()).To(gomega.BeFalse())
+			gomega.Expect(rr.ReportType.HasUSAR()).To(gomega.BeTrue())
+			gomega.Expect(rr.ReportType.HasDLDR()).To(gomega.BeFalse())
+
+			gomega.Expect(rr.PFCPSRReqFlags).NotTo(gomega.BeNil())
+			gomega.Expect(rr.PFCPSRReqFlags.HasPSDBU()).To(gomega.BeTrue())
+
+			gomega.Expect(rr.UsageReport).To(gomega.HaveLen(2))
+			for _, ur := range rr.UsageReport {
+				urt, err := ur.FindByType(ie.UsageReportTrigger)
+				framework.ExpectNoError(err)
+				gomega.Expect(len(urt.Payload)).To(gomega.BeNumerically(">=", 3))
+				gomega.Expect(urt.Payload[2] & 2).NotTo(gomega.BeZero()) // TEBUR bit is set
+			}
+
+			verifyNoSession(f, seid)
+			verifyNoSession(f, newSEID)
 		})
 
 		ginkgo.It("should not be allowed to conflict on SEIDs", func() {
@@ -616,18 +648,19 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				UEIP:   f.UEIP(),
 				Mode:   f.Mode,
 			}
-			seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			seid, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)
 
 			f.PFCP.ForgetSession(seid)
 			sessionCfg.UEIP = f.AddUEIP()
-			ies := append(sessionCfg.SessionIEs(), ie.NewFSEID(uint64(seid), nil, nil, nil))
-			_, err = f.PFCP.EstablishSession(f.Context, ies...)
+			_, err = f.PFCP.EstablishSession(f.Context, seid, sessionCfg.SessionIEs()...)
 			framework.ExpectError(err)
 
 			var serverErr *pfcp.PFCPServerError
 			gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
+			gomega.Expect(serverErr.SEID).To(gomega.Equal(seid))
 			framework.ExpectEqual(serverErr.Cause, ie.CauseRequestRejected)
+			framework.Logf("Server error (expected): %v", err)
 			// TODO: decode and verify TP error report
 		})
 	})
@@ -644,7 +677,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				PGWIP:      f.VPPCfg.GetVPPAddress("grx").IP,
 				SGWIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
 			}
-			seid, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			seid, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)
 			defer deleteSession(f, seid, true)
 
@@ -658,13 +691,13 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				PGWIP:      f.VPPCfg.GetVPPAddress("grx").IP,
 				SGWIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
 			}
-			_, err = f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			_, err = f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 			var serverErr *pfcp.PFCPServerError
 			gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
 			framework.ExpectEqual(serverErr.Cause, ie.CauseRuleCreationModificationFailure)
 
 			sessionCfg.TEIDPGWs5u += 10
-			seid1, err := f.PFCP.EstablishSession(f.Context, sessionCfg.SessionIEs()...)
+			seid1, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)
 			deleteSession(f, seid1, true)
 		})
@@ -752,7 +785,7 @@ func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
 				ProxyCoreIP:     f.VPPCfg.GetVPPAddress("core").IP,
 			}
 			var err error
-			seid, err = f.PFCP.EstablishSession(f.Context, cfg.SessionIEs()...)
+			seid, err = f.PFCP.EstablishSession(f.Context, 0, cfg.SessionIEs()...)
 			framework.ExpectNoError(err)
 		})
 
@@ -817,7 +850,7 @@ func startMeasurementSession(f *framework.Framework, cfg *framework.SessionConfi
 		cfg.PGWIP = f.VPPCfg.GetVPPAddress("grx").IP
 		cfg.SGWIP = f.VPPCfg.GetNamespaceAddress("grx").IP
 	}
-	seid, err := f.PFCP.EstablishSession(f.Context, cfg.SessionIEs()...)
+	seid, err := f.PFCP.EstablishSession(f.Context, 0, cfg.SessionIEs()...)
 	framework.ExpectNoError(err)
 	return seid
 }
@@ -830,6 +863,24 @@ func deleteSession(f *framework.Framework, seid pfcp.SEID, showInfo bool) *pfcp.
 
 	ms, err := f.PFCP.DeleteSession(f.Context, seid)
 	framework.ExpectNoError(err)
+	return ms
+}
+
+func deleteSessions(f *framework.Framework, seids []pfcp.SEID, showInfo bool) []*pfcp.PFCPMeasurement {
+	if showInfo {
+		f.VPP.Ctl("show upf session")
+		f.VPP.Ctl("show upf flows")
+	}
+
+	specs := make([]pfcp.SessionOpSpec, len(seids))
+	for n, seid := range seids {
+		specs[n].SEID = seid
+	}
+
+	ms, errs := f.PFCP.DeleteSessions(f.Context, specs)
+	for _, err := range errs {
+		framework.ExpectNoError(err)
+	}
 	return ms
 }
 
@@ -1071,4 +1122,14 @@ func verifyActiveSessions(f *framework.Framework, expectedSEIDs []pfcp.SEID) {
 		return actualSEIDs[i] < actualSEIDs[j]
 	})
 	framework.ExpectEqual(actualSEIDs, expectedSEIDs, "active sessions")
+}
+
+func verifyNoSession(f *framework.Framework, seid pfcp.SEID) {
+	_, err := f.PFCP.DeleteSession(f.Context, seid)
+	framework.ExpectError(err)
+	var serverErr *pfcp.PFCPServerError
+	gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
+	// // 3GPP TS 29.244 Clause 7.2.2.4.2: Conditions for Sending SEID=0 in PFCP Header
+	// framework.ExpectEqual(serverErr.SEID, pfcp.SEID(0))
+	framework.ExpectEqual(serverErr.Cause, ie.CauseSessionContextNotFound)
 }

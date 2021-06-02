@@ -33,11 +33,40 @@ import (
 	"github.com/travelping/upg-vpp/test/e2e/network"
 )
 
+type SessionOpSpec struct {
+	SEID SEID
+	IEs  []*ie.IE
+}
+
 type pfcpState string
-type pfcpEvent string
+type pfcpEventType string
+
+type eventResult struct {
+	seid    SEID
+	payload interface{}
+	err     error
+}
+
+type pfcpEvent struct {
+	msg          message.Message
+	eventType    pfcpEventType
+	resultCh     chan eventResult
+	attemptsLeft int
+	// seid is used in the requests that were not sent yet.  It's
+	// needed b/c SessionEstablishmentRequest doesn't have the
+	// session's SEID in it
+	seid SEID
+}
+
+func (e pfcpEvent) Sequence() uint32 {
+	if e.msg == nil {
+		return 0
+	}
+	return e.msg.Sequence()
+}
 
 type sessionState string
-type sessionEvent string
+type sessionEventType string
 
 type SEID uint64
 
@@ -56,10 +85,7 @@ const (
 	OuterHeaderRemoval_GTPUUDPIPV4 = 0
 	OuterHeaderRemoval_GTPUUDPIPV6 = 1
 
-	AssociationTimeout          = 10 * time.Second
-	SessionEstablishmentTimeout = 10 * time.Second
-	SessionModificationTimeout  = 15 * time.Second
-	PFCPStopTimeout             = 15 * time.Second
+	maxRequestAttempts = 10
 
 	pfcpStateInitial              pfcpState = "INITIAL"
 	pfcpStateFailed               pfcpState = "FAILED"
@@ -68,20 +94,22 @@ const (
 	pfcpStateReleasingAssociation pfcpState = "RELEASING_ASSOCIATION"
 	pfcpStateCancelAssociation    pfcpState = "CANCEL_ASSOCIATION"
 
-	pfcpEventNone                         pfcpEvent = ""
-	pfcpEventTimeout                      pfcpEvent = "TIMEOUT"
-	pfcpEventAssociationSetupResponse     pfcpEvent = "ASSOCIATION_SETUP_RESPONSE"
-	pfcpEventAssociationReleaseResponse   pfcpEvent = "ASSOCIATION_RELEASE_RESPONSE"
-	pfcpEventSessionEstablishmentResponse pfcpEvent = "SESSION_ESTABLISHMENT_REQUEST"
-	pfcpEventSessionModificationResponse  pfcpEvent = "SESSION_MODIFICATION_RESPONSE"
-	pfcpEventSessionDeletionResponse      pfcpEvent = "SESSION_DELETION_RESPONSE"
-	pfcpEventHeartbeatRequest             pfcpEvent = "HEARTBEAT_REQUEST"
-	pfcpEventActBegin                     pfcpEvent = "ACTION_BEGIN"
-	pfcpEventActStop                      pfcpEvent = "ACTION_STOP"
-	pfcpEventActEstablishSession          pfcpEvent = "ACTION_ESTABLISH_SESSION"
-	pfcpEventActModifySession             pfcpEvent = "ACTION_MODIFY_SESSION"
-	pfcpEventActDeleteSession             pfcpEvent = "ACTION_DELETE_SESSION"
+	pfcpEventNone                         pfcpEventType = ""
+	pfcpEventTimeout                      pfcpEventType = "TIMEOUT"
+	pfcpEventAssociationSetupResponse     pfcpEventType = "ASSOCIATION_SETUP_RESPONSE"
+	pfcpEventAssociationReleaseResponse   pfcpEventType = "ASSOCIATION_RELEASE_RESPONSE"
+	pfcpEventSessionEstablishmentResponse pfcpEventType = "SESSION_ESTABLISHMENT_REQUEST"
+	pfcpEventSessionModificationResponse  pfcpEventType = "SESSION_MODIFICATION_RESPONSE"
+	pfcpEventSessionDeletionResponse      pfcpEventType = "SESSION_DELETION_RESPONSE"
+	pfcpEventSessionReportRequest         pfcpEventType = "SESSION_REPORT_REQUEST"
+	pfcpEventHeartbeatRequest             pfcpEventType = "HEARTBEAT_REQUEST"
+	pfcpEventActBegin                     pfcpEventType = "ACTION_BEGIN"
+	pfcpEventActStop                      pfcpEventType = "ACTION_STOP"
+	pfcpEventActEstablishSession          pfcpEventType = "ACTION_ESTABLISH_SESSION"
+	pfcpEventActModifySession             pfcpEventType = "ACTION_MODIFY_SESSION"
+	pfcpEventActDeleteSession             pfcpEventType = "ACTION_DELETE_SESSION"
 
+	sessionStateNone         sessionState = ""
 	sessionStateEstablishing sessionState = "ESTABLISHING"
 	sessionStateEstablished  sessionState = "ESTABLISHED"
 	sessionStateModifying    sessionState = "MODIFYING"
@@ -89,11 +117,11 @@ const (
 	sessionStateDeleted      sessionState = "DELETED"
 	sessionStateFailed       sessionState = "FAILED"
 
-	sessionEventEstablished sessionEvent = "ESTABLISHED"
-	sessionEventModified    sessionEvent = "MODIFIED"
-	sessionEventDeleted     sessionEvent = "DELETED"
-	sessionEventActModify   sessionEvent = "MODIFY"
-	sessionEventActDelete   sessionEvent = "DELETE"
+	sessionEventEstablished sessionEventType = "ESTABLISHED"
+	sessionEventModified    sessionEventType = "MODIFIED"
+	sessionEventDeleted     sessionEventType = "DELETED"
+	sessionEventActModify   sessionEventType = "MODIFY"
+	sessionEventActDelete   sessionEventType = "DELETE"
 )
 
 var (
@@ -122,6 +150,7 @@ var (
 
 type PFCPServerError struct {
 	Cause uint8
+	SEID  SEID
 }
 
 func (e *PFCPServerError) Error() string {
@@ -133,30 +162,45 @@ func (e *PFCPServerError) Error() string {
 	return fmt.Sprintf("server error, cause: %s", s)
 }
 
-type pfcpTransitionFunc func(pc *PFCPConnection, m message.Message) error
+type pfcpTransitionFunc func(pc *PFCPConnection, ev pfcpEvent) error
 
-var pfcpIgnore pfcpTransitionFunc = func(pc *PFCPConnection, m message.Message) error { return nil }
+var pfcpIgnore pfcpTransitionFunc = func(pc *PFCPConnection, ev pfcpEvent) error { return nil }
 
-func pfcpSessionRequest(event sessionEvent) pfcpTransitionFunc {
-	return func(pc *PFCPConnection, m message.Message) error {
-		if err := pc.sessionEvent(event, m); err != nil {
+func pfcpSessionRequest(et sessionEventType) pfcpTransitionFunc {
+	return func(pc *PFCPConnection, ev pfcpEvent) error {
+		if _, err := pc.sessionEvent(et, ev); err != nil {
 			return err
 		}
-		return pc.sendRequest(m)
+		return pc.sendRequest(ev)
 	}
 }
 
-func pfcpSessionResponse(event sessionEvent) pfcpTransitionFunc {
-	return func(pc *PFCPConnection, m message.Message) error {
-		if handled, err := pc.acceptResponse(m); err != nil {
+func pfcpSessionResponse(et sessionEventType) pfcpTransitionFunc {
+	return func(pc *PFCPConnection, ev pfcpEvent) error {
+		if reqEv, err := pc.acceptResponse(ev); err != nil {
+			if reqEv != nil {
+				reqEv.resultCh <- eventResult{
+					seid: reqEv.seid,
+					err:  err,
+				}
+			}
 			var serverErr *PFCPServerError
 			if errors.As(err, &serverErr) {
-				return pc.sessionError(serverErr, m)
-			} else {
-				return err
+				s, found := pc.sessions[serverErr.SEID]
+				if found {
+					s.error(err)
+				}
+				// the association is still possibly fine
+				return nil
 			}
-		} else if handled {
-			return pc.sessionEvent(event, m)
+			return err
+		} else if reqEv != nil {
+			result, err := pc.sessionEvent(et, ev)
+			reqEv.resultCh <- eventResult{
+				seid:    reqEv.seid,
+				payload: result,
+				err:     err,
+			}
 		}
 
 		return nil
@@ -164,89 +208,96 @@ func pfcpSessionResponse(event sessionEvent) pfcpTransitionFunc {
 }
 
 type pfcpTransitionKey struct {
-	state pfcpState
-	event pfcpEvent
+	state     pfcpState
+	eventType pfcpEventType
 }
 
 var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
-	{pfcpStateInitial, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, m message.Message) error {
+	{pfcpStateInitial, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		if pc.cfg.IgnoreHeartbeatRequests {
 			// ignore heartbeat requests, so UPG will drop
 			// this association eventually
 			return nil
 		}
-		return pc.sendHeartbeatResponse(m.(*message.HeartbeatRequest))
+		return pc.sendHeartbeatResponse(ev.msg.(*message.HeartbeatRequest))
 	},
 
-	{pfcpStateInitial, pfcpEventActBegin}: func(pc *PFCPConnection, m message.Message) error {
+	{pfcpStateInitial, pfcpEventActBegin}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		pc.setState(pfcpStateAssociating)
 		return pc.sendAssociationSetupRequest()
 	},
 
-	{pfcpStateAssociating, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, m message.Message) error {
+	{pfcpStateAssociating, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		if pc.cfg.IgnoreHeartbeatRequests {
 			return nil
 		}
-		return pc.sendHeartbeatResponse(m.(*message.HeartbeatRequest))
+		return pc.sendHeartbeatResponse(ev.msg.(*message.HeartbeatRequest))
 	},
 
-	{pfcpStateAssociating, pfcpEventAssociationSetupResponse}: func(pc *PFCPConnection, m message.Message) error {
-		if handled, err := pc.acceptResponse(m); err != nil {
+	{pfcpStateAssociating, pfcpEventAssociationSetupResponse}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		if reqEv, err := pc.acceptResponse(ev); err != nil {
+			if reqEv != nil {
+				reqEv.resultCh <- eventResult{err: err}
+			}
 			return err
-		} else if handled {
+		} else if reqEv != nil {
 			pc.setTimeout(pc.cfg.HeartbeatTimeout)
 			pc.setState(pfcpStateAssociated)
+			reqEv.resultCh <- eventResult{}
 		}
 		return nil
 	},
 
-	{pfcpStateAssociating, pfcpEventActStop}: func(pc *PFCPConnection, m message.Message) error {
+	{pfcpStateAssociating, pfcpEventActStop}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		pc.setState(pfcpStateCancelAssociation)
 		return nil
 	},
 
-	{pfcpStateCancelAssociation, pfcpEventAssociationSetupResponse}: func(pc *PFCPConnection, m message.Message) error {
-		if handled, err := pc.acceptResponse(m); err != nil {
+	{pfcpStateCancelAssociation, pfcpEventAssociationSetupResponse}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		if reqEv, err := pc.acceptResponse(ev); err != nil {
+			if reqEv != nil {
+				reqEv.resultCh <- eventResult{err: err}
+			}
 			return err
-		} else if handled {
-			// TODO: delete all the active sessions
+		} else if reqEv != nil {
+			pc.cleanAndDone()
 			pc.setState(pfcpStateInitial)
-			pc.rq.clear()
-			pc.notifyDone()
-			return nil
+			reqEv.resultCh <- eventResult{
+				err: errors.New("association cancelled"),
+			}
 		}
 		return nil
 	},
 
-	{pfcpStateAssociating, pfcpEventTimeout}: func(pc *PFCPConnection, m message.Message) error {
+	{pfcpStateAssociating, pfcpEventTimeout}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		return errHeartbeatTimeout
 	},
 
-	{pfcpStateAssociated, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, m message.Message) error {
+	{pfcpStateAssociated, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		if pc.cfg.IgnoreHeartbeatRequests {
 			return nil
 		}
 		pc.setTimeout(pc.cfg.HeartbeatTimeout)
-		return pc.sendHeartbeatResponse(m.(*message.HeartbeatRequest))
+		return pc.sendHeartbeatResponse(ev.msg.(*message.HeartbeatRequest))
 	},
 
-	{pfcpStateAssociated, pfcpEventActStop}: func(pc *PFCPConnection, m message.Message) error {
+	{pfcpStateAssociated, pfcpEventTimeout}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		pc.cleanAndDone()
+		return errors.New("heartbeat timeout")
+	},
+
+	{pfcpStateAssociated, pfcpEventActStop}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		// TODO: delete all the active sessions
+		pc.cleanAndDone()
 		pc.setState(pfcpStateInitial)
-		pc.rq.clear()
-		pc.notifyDone()
 		return nil
 	},
 
-	{pfcpStateAssociated, pfcpEventActEstablishSession}: func(pc *PFCPConnection, m message.Message) error {
-		seid, err := cpfseid(m)
-		if err != nil {
+	{pfcpStateAssociated, pfcpEventActEstablishSession}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		if err := pc.createSession(ev.seid); err != nil {
 			return errors.Wrap(err, "error creating session")
 		}
-		if err := pc.createSession(seid); err != nil {
-			return errors.Wrap(err, "error creating session")
-		}
-		return pc.sendRequest(m)
+		return pc.sendRequest(ev)
 	},
 
 	{pfcpStateAssociated, pfcpEventActModifySession}: pfcpSessionRequest(sessionEventActModify),
@@ -259,23 +310,38 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 
 	{pfcpStateAssociated, pfcpEventSessionDeletionResponse}: pfcpSessionResponse(sessionEventDeleted),
 
+	{pfcpStateAssociated, pfcpEventSessionReportRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		if pc.reportCh != nil {
+			pc.log.Trace("captured SessionReportRequest")
+			pc.reportCh <- ev.msg
+		} else {
+			pc.log.Warn("ignoring SessionReportRequest (no report channel)")
+		}
+		return nil
+	},
+
 	/* TODO: do association release (not handled by UPG ATM)
 	{pfcpStateReleasingAssociation, pfcpEventActStop}: pfcpIgnore,
 
-	{pfcpStateReleasingAssociation, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, m message.Message) error {
+	{pfcpStateReleasingAssociation, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		if pc.cfg.IgnoreHeartbeatRequests {
 			return nil
 		}
 		return pc.sendHeartbeatResponse(m.(*message.HeartbeatRequest))
 	},
 
-	{pfcpStateReleasingAssociation, pfcpEventAssociationReleaseResponse}: func(pc *PFCPConnection, m message.Message) error {
-		if handled, err := pc.acceptResponse(m); err != nil {
+	{pfcpStateReleasingAssociation, pfcpEventAssociationReleaseResponse}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		if handled, err := pc.acceptResponse(ev.msg); err != nil {
+			if ev.resultCh != nil {
+				ev.resultCh <- eventResult{err: err}
+			}
 			return err
 		} else if handled {
-			pc.setState(pfcpStateInitial)
+			pc.cleanAndDone()
+			if ev.resultCh != nil {
+				ev.resultCh <- eventResult{}
+			}
 		}
-		pc.notifyDone()
 		return nil
 	},
 	*/
@@ -288,6 +354,7 @@ type PFCPConfig struct {
 	NodeID           string
 	RequestTimeout   time.Duration
 	HeartbeatTimeout time.Duration
+	MaxInFlight      int
 	// IgnoreHeartbeatRequests makes PFCPConnection ignore incoming
 	// PFCP Heartbeat Requests, thus simulating a faulty CP.
 	IgnoreHeartbeatRequests bool
@@ -300,11 +367,13 @@ func (cfg *PFCPConfig) setDefaults() {
 	if cfg.HeartbeatTimeout == 0 {
 		cfg.HeartbeatTimeout = 30 * time.Second
 	}
+	if cfg.MaxInFlight == 0 {
+		cfg.MaxInFlight = 100
+	}
 }
 
 type PFCPConnection struct {
 	sync.Mutex
-	stateCond   *sync.Cond
 	cfg         PFCPConfig
 	conn        *net.UDPConn
 	seq         uint32
@@ -315,12 +384,12 @@ type PFCPConnection struct {
 	listenErrCh chan error
 	done        bool
 	sessions    map[SEID]*pfcpSession
-	// TODO: use a single event channel instead of these 3
-	messageCh chan message.Message
-	requestCh chan message.Message
-	log       *logrus.Entry
-	t         *tomb.Tomb
-	skipMsgs  int
+	eventCh     chan pfcpEvent
+	startCh     chan eventResult
+	log         *logrus.Entry
+	t           *tomb.Tomb
+	skipMsgs    int
+	reportCh    chan message.Message
 }
 
 type PFCPReport struct {
@@ -359,7 +428,6 @@ func NewPFCPConnection(cfg PFCPConfig) *PFCPConnection {
 		cfg: cfg,
 		log: logrus.WithField("NodeID", cfg.NodeID),
 	}
-	pc.stateCond = sync.NewCond(&pc.Mutex)
 	return pc
 }
 
@@ -376,34 +444,56 @@ func (pc *PFCPConnection) setTimeout(d time.Duration) {
 	pc.timer = time.NewTimer(d)
 }
 
-func (pc *PFCPConnection) event(event pfcpEvent, m message.Message) error {
+func (pc *PFCPConnection) simpleEvent(eventType pfcpEventType) error {
+	return pc.event(pfcpEvent{
+		eventType: eventType,
+	})
+}
+
+func (pc *PFCPConnection) event(event pfcpEvent) error {
+	if event.resultCh != nil && event.msg == nil {
+		panic("bad event with resultCh but no msg")
+	}
+
 	pc.Lock()
+
+	var err error
 	oldState := pc.state
 	defer func() {
 		if oldState == pc.state {
 			pc.log.WithFields(logrus.Fields{
-				"oldState": oldState,
-				"event":    event,
+				"state": pc.state,
+				"event": event.eventType,
 			}).Trace("PFCP state machine event w/o transition")
 		} else {
 			pc.log.WithFields(logrus.Fields{
 				"oldState": oldState,
-				"event":    event,
+				"event":    event.eventType,
 				"newState": pc.state,
 			}).Trace("PFCP state machine transition")
 		}
-		pc.stateCond.Broadcast()
 		pc.Unlock()
 	}()
-	tk := pfcpTransitionKey{state: pc.state, event: event}
+	tk := pfcpTransitionKey{state: pc.state, eventType: event.eventType}
 	tf, found := pfcpTransitions[tk]
 	if !found {
-		pc.state = pfcpStateFailed
-		return errors.Errorf("can't handle event %s in state %s", event, pc.state)
+		err = errors.Errorf("can't handle event %s in state %s", event.eventType, pc.state)
 	}
 
-	if err := tf(pc, m); err != nil {
+	if err == nil {
+		err = tf(pc, event)
+	}
+
+	if err != nil {
 		pc.state = pfcpStateFailed
+		pc.cleanAndDone()
+		if event.resultCh != nil {
+			event.resultCh <- eventResult{
+				err:  err,
+				seid: event.seid,
+			}
+		}
+
 		return err
 	}
 
@@ -417,7 +507,7 @@ func (pc *PFCPConnection) run() error {
 	}
 	defer pc.close()
 
-	if err := pc.event(pfcpEventActBegin, nil); err != nil {
+	if err := pc.simpleEvent(pfcpEventActBegin); err != nil {
 		return err
 	}
 
@@ -435,19 +525,34 @@ LOOP:
 		// do all of the retransmits that are already due
 	RETRANS_LOOP:
 		for {
-			nextRetransmitMsg, ts := pc.rq.next()
-			switch {
-			case nextRetransmitMsg == nil:
+			e, ts := pc.rq.next()
+			if e == nil && err == nil {
 				// ok, no retransmits for now
+				break
+			}
+			ev := e.(pfcpEvent)
+			switch {
+			case err != nil:
+				pc.log.WithError(err).WithField("messageType", ev.msg.MessageTypeName()).
+					Error("no retransmit attempts left")
+				pc.t.Kill(err)
+				break RETRANS_LOOP
+			case !ts.After(now) && ev.attemptsLeft == 0:
+				pc.log.WithField("messageType", ev.msg.MessageTypeName()).
+					Error("out of retransmit attempts")
+				err := errors.New("out of retransmit attempts")
+				pc.t.Kill(err)
 				break RETRANS_LOOP
 			case !ts.After(now):
-				pc.log.WithField("messageType", nextRetransmitMsg.MessageTypeName()).
+				pc.log.WithField("messageType", ev.msg.MessageTypeName()).
 					Warn("retransmit")
-				if err := pc.send(nextRetransmitMsg); err != nil {
-					pc.log.WithError(err).WithField("messageType", nextRetransmitMsg.MessageTypeName()).Error("retransmit failed")
+				if err := pc.send(ev.msg); err != nil {
+					pc.log.WithError(err).WithField("messageType", ev.msg.MessageTypeName()).Error("retransmit failed")
 					pc.t.Kill(errors.Wrap(err, "retransmit failed"))
+					break RETRANS_LOOP
 				}
-				pc.rq.reschedule(nextRetransmitMsg, now)
+				ev.attemptsLeft--
+				pc.rq.reschedule(ev, now)
 				continue
 			case retransmitTimer != nil:
 				retransmitTimer.Stop()
@@ -461,43 +566,38 @@ LOOP:
 
 		select {
 		case <-dying:
+			pc.log.Info("stopping PFCP connection loop")
 			dying = nil
 			if pc.t.Err() == errHardStop {
 				break LOOP
 			}
-			if err = pc.event(pfcpEventActStop, nil); err != nil {
+			if err = pc.simpleEvent(pfcpEventActStop); err != nil {
 				err = errors.Wrapf(err, "stop in state %s", pc.state)
 				break LOOP
 			}
 		case <-retransmitCh:
 			// proceed to next iteration to handle the retransmits
-		case msg := <-pc.requestCh:
-			if ev, ok := requestToEvent(msg); ok {
-				err = pc.event(ev, msg)
-			} else {
-				err = errors.New("unhandled message type")
+		case ev := <-pc.eventCh:
+			seid := ev.seid
+			if seid == 0 {
+				seid = SEID(ev.msg.SEID())
 			}
-			if err != nil {
-				err = errors.Wrapf(err, "error handling request %s in state %s", msg.MessageTypeName(), pc.state)
-				break LOOP
-			}
-		case msg := <-pc.messageCh:
 			pc.log.WithFields(logrus.Fields{
-				"messageType": msg.MessageTypeName(),
-				"seq":         msg.Sequence(),
-				"SEID":        fmt.Sprintf("%016x", msg.SEID()),
-			}).Trace("receive")
-			if ev, ok := peerMessageToEvent(msg); ok {
-				err = pc.event(ev, msg)
-			} else {
-				err = errors.New("unhandled message type")
-			}
-			if err != nil {
-				err = errors.Wrapf(err, "error handling peer message %s in state %s", msg.MessageTypeName(), pc.state)
+				"eventType":   ev.eventType,
+				"messageType": ev.msg.MessageTypeName(),
+				"seq":         ev.msg.Sequence(),
+				"SEID":        fmt.Sprintf("%016x", seid),
+			}).Trace("incoming event")
+			if err = pc.event(ev); err != nil {
+				msgType := "<none>"
+				if ev.msg != nil {
+					msgType = ev.msg.MessageTypeName()
+				}
+				err = errors.Wrapf(err, "error handling event %s / msg type %s in state %s", ev.eventType, msgType, pc.state)
 				break LOOP
 			}
 		case <-timerCh:
-			if err = pc.event(pfcpEventTimeout, nil); err != nil {
+			if err = pc.simpleEvent(pfcpEventTimeout); err != nil {
 				err = errors.Wrapf(err, "timeout in state %s", pc.state)
 				break LOOP
 			}
@@ -507,161 +607,44 @@ LOOP:
 		}
 	}
 
+	pc.cleanAndDone()
 	return err
 }
 
-func (pc *PFCPConnection) notifyDone() {
+func (pc *PFCPConnection) cleanAndDone() {
+	err := errors.New("PFCP connection is closed")
+LOOP:
+	for {
+		select {
+		case ev := <-pc.eventCh:
+			if ev.resultCh != nil {
+				ev.resultCh <- eventResult{
+					err:  err,
+					seid: ev.seid,
+				}
+			}
+		default:
+			break LOOP
+		}
+	}
+
+	// TODO: clear all of the active sessions
+	for {
+		e, _ := pc.rq.next()
+		if e == nil {
+			break
+		}
+		pc.rq.remove(e)
+		ev := e.(pfcpEvent)
+		if ev.resultCh != nil {
+			ev.resultCh <- eventResult{
+				err:  err,
+				seid: ev.seid,
+			}
+		}
+	}
+	pc.rq.clear()
 	pc.done = true
-}
-
-func (pc *PFCPConnection) waitForState(ctx context.Context, state pfcpState, timeout time.Duration) error {
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
-	done := false
-	doneCh := make(chan struct{})
-	go func() {
-		pc.Lock()
-		defer func() {
-			pc.Unlock()
-			close(doneCh)
-		}()
-
-		for pc.state != state && !done {
-			pc.stateCond.Wait()
-		}
-	}()
-
-	defer func() {
-		pc.Lock()
-		defer pc.Unlock()
-		done = true
-		pc.stateCond.Broadcast()
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-			pc.HardStop()
-			return errors.New("session setup timeout")
-		case <-pc.t.Dying():
-			if err := pc.t.Err(); err != nil {
-				return err
-			} else {
-				return errors.New("PFCPConnection stopped prematurely (?)")
-			}
-		case <-doneCh:
-			return nil
-		}
-	}
-}
-
-func (pc *PFCPConnection) sessionInStateUnlocked(seid SEID, states ...sessionState) bool {
-	s, found := pc.sessions[seid]
-	if !found {
-		return false
-	}
-	for _, state := range states {
-		if s.state == state {
-			return true
-		}
-	}
-	return false
-}
-
-func (pc *PFCPConnection) getSessionError(seid SEID) error {
-	pc.Lock()
-	defer pc.Unlock()
-	s, found := pc.sessions[seid]
-	switch {
-	case !found:
-		return errors.New("session not found")
-	case s.state == sessionStateFailed:
-		return s.err
-	default:
-		return nil
-	}
-}
-
-func (pc *PFCPConnection) waitForSessionState(ctx context.Context, seid SEID, state sessionState, timeout time.Duration) error {
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
-	done := false
-	doneCh := make(chan struct{})
-	go func() {
-		pc.Lock()
-		defer func() {
-			pc.Unlock()
-			close(doneCh)
-		}()
-
-		for !pc.sessionInStateUnlocked(seid, state, sessionStateFailed) && !done {
-			pc.stateCond.Wait()
-		}
-	}()
-
-	defer func() {
-		pc.Lock()
-		defer pc.Unlock()
-		done = true
-		pc.stateCond.Broadcast()
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-			pc.HardStop()
-			return errors.New("session setup timeout")
-		case <-pc.t.Dying():
-			if err := pc.t.Err(); err != nil {
-				return err
-			} else {
-				return errors.New("PFCPConnection stopped prematurely (?)")
-			}
-		case <-doneCh:
-			return pc.getSessionError(seid)
-		}
-	}
-}
-
-func (pc *PFCPConnection) getSessionModCh(seid SEID) chan *PFCPMeasurement {
-	pc.Lock()
-	defer pc.Unlock()
-	s, found := pc.sessions[seid]
-	if !found {
-		return nil
-	}
-	return s.modCh
-}
-
-func (pc *PFCPConnection) waitForSessionModification(ctx context.Context, seid SEID, ies ...ie.IE) (*PFCPMeasurement, error) {
-	modCh := pc.getSessionModCh(seid)
-	if modCh == nil {
-		return nil, errors.Errorf("session %016x not found", seid)
-	}
-
-	timer := time.NewTimer(SessionModificationTimeout)
-	defer timer.Stop()
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-timer.C:
-		return nil, errors.Errorf("session modification timed out for %016x", seid)
-	case <-pc.t.Dead():
-		if err := pc.t.Err(); err != nil {
-			return nil, err
-		} else {
-			return nil, errors.New("PFCPConnection stopped prematurely (?)")
-		}
-	case ms := <-modCh:
-		return ms, pc.getSessionError(seid)
-	}
 }
 
 func (pc *PFCPConnection) shouldSkipMessage() bool {
@@ -673,6 +656,15 @@ func (pc *PFCPConnection) shouldSkipMessage() bool {
 	}
 
 	return false
+}
+
+func (pc *PFCPConnection) AcquireReportCh() <-chan message.Message {
+	pc.Lock()
+	defer pc.Unlock()
+	if pc.reportCh == nil {
+		pc.reportCh = make(chan message.Message, 100)
+	}
+	return pc.reportCh
 }
 
 func (pc *PFCPConnection) SkipMessages(n int) {
@@ -701,7 +693,7 @@ func (pc *PFCPConnection) dial() error {
 
 	conn := pc.conn
 	listenErrCh := pc.listenErrCh
-	messageCh := pc.messageCh
+	eventCh := pc.eventCh
 	go func() {
 		buf := make([]byte, PFCP_BUF_SIZE)
 		for {
@@ -711,14 +703,36 @@ func (pc *PFCPConnection) dial() error {
 				break
 			}
 
-			msg, err := message.Parse(buf[:n])
+			// go-pfcp uses slices from the buffer we pass
+			// to message.Parse, so we want to avoid overwriting
+			// any stored messages
+			// FIXME: need to make a new slice of just n bytes,
+			// but that fails due to bugs in go-pfcp code
+			bs := make([]byte, PFCP_BUF_SIZE)
+			copy(bs, buf)
+			msg, err := message.Parse(bs[:n])
 			if err != nil {
 				listenErrCh <- errors.Wrapf(err, "error decoding message from %s", addr)
 				break
 			}
 
+			pc.log.WithFields(logrus.Fields{
+				"messageType": msg.MessageTypeName(),
+				"seq":         msg.Sequence(),
+				"SEID":        fmt.Sprintf("%016x", msg.SEID()),
+			}).Trace("receive")
+
+			eventType, ok := peerMessageToEventType(msg)
+			if !ok {
+				listenErrCh <- errors.Errorf("unhandled message type %s", msg.MessageTypeName())
+				break
+			}
+
 			if !pc.shouldSkipMessage() {
-				messageCh <- msg
+				eventCh <- pfcpEvent{
+					eventType: eventType,
+					msg:       msg,
+				}
 			} else {
 				pc.log.WithField("messageType", msg.MessageTypeName()).Info("forced skip")
 			}
@@ -737,11 +751,11 @@ func (pc *PFCPConnection) close() error {
 	return nil
 }
 
-func (pc *PFCPConnection) sendRequest(m message.Message) error {
-	m.(pfcpRequest).SetSequenceNumber(pc.seq)
-	pc.rq.add(m, time.Now())
+func (pc *PFCPConnection) sendRequest(ev pfcpEvent) error {
+	ev.msg.(pfcpRequest).SetSequenceNumber(pc.seq)
+	pc.rq.add(ev, time.Now(), maxRequestAttempts)
 	pc.seq++
-	return pc.send(m)
+	return pc.send(ev.msg)
 }
 
 func (pc *PFCPConnection) send(m message.Message) error {
@@ -762,26 +776,36 @@ func (pc *PFCPConnection) send(m message.Message) error {
 	return nil
 }
 
-func (pc *PFCPConnection) acceptResponse(m message.Message) (bool, error) {
-	if !pc.rq.remove(m) {
+func (pc *PFCPConnection) acceptResponse(ev pfcpEvent) (*pfcpEvent, error) {
+	req := pc.rq.remove(ev)
+	if req == nil {
 		pc.log.WithFields(logrus.Fields{
-			"messageType":  m.MessageTypeName(),
-			"wrong_seq":    m.Sequence(),
+			"messageType":  ev.msg.MessageTypeName(),
+			"wrong_seq":    ev.msg.Sequence(),
 			"expected_seq": pc.seq,
 		}).Warn("skipping a message with wrong seq")
-		return false, nil
+		return nil, nil
 	}
-	if err := verifyCause(m); err != nil {
-		return true, errors.Wrapf(err, "%s", m.MessageTypeName())
+	reqEv := (*req).(pfcpEvent)
+	if err := verifyCause(ev.msg, SEID(reqEv.msg.SEID())); err != nil {
+		return &reqEv, errors.Wrapf(err, "%s", ev.msg.MessageTypeName())
 	}
-	return true, nil
+	return &reqEv, nil
 }
 
 func (pc *PFCPConnection) sendAssociationSetupRequest() error {
-	return pc.sendRequest(message.NewAssociationSetupRequest(
+	msg := message.NewAssociationSetupRequest(
 		0,
 		ie.NewRecoveryTimeStamp(pc.timestamp),
-		ie.NewNodeID("", "", pc.cfg.NodeID)))
+		ie.NewNodeID("", "", pc.cfg.NodeID))
+	if err := pc.sendRequest(pfcpEvent{
+		msg:          msg,
+		resultCh:     pc.startCh,
+		attemptsLeft: maxRequestAttempts,
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 /* TODO: not handled by UPG atm
@@ -804,7 +828,6 @@ func (pc *PFCPConnection) createSession(seid SEID) error {
 		pc:    pc,
 		seid:  seid,
 		state: sessionStateEstablishing,
-		modCh: make(chan *PFCPMeasurement, 10),
 	}
 	return nil
 }
@@ -822,24 +845,15 @@ func (pc *PFCPConnection) sessionFromMessage(m message.Message) (*pfcpSession, e
 	return s, nil
 }
 
-func (pc *PFCPConnection) sessionError(sessionErr error, m message.Message) error {
-	s, err := pc.sessionFromMessage(m)
+func (pc *PFCPConnection) sessionEvent(et sessionEventType, ev pfcpEvent) (interface{}, error) {
+	s, err := pc.sessionFromMessage(ev.msg)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	s.error(sessionErr)
-	return nil
+	return s.event(et, ev)
 }
 
-func (pc *PFCPConnection) sessionEvent(event sessionEvent, m message.Message) error {
-	s, err := pc.sessionFromMessage(m)
-	if err != nil {
-		return err
-	}
-	return s.event(event, m)
-}
-
-func (pc *PFCPConnection) newSEID() SEID {
+func (pc *PFCPConnection) NewSEID() SEID {
 	pc.Lock()
 	defer pc.Unlock()
 	for {
@@ -857,8 +871,7 @@ func (pc *PFCPConnection) Start(ctx context.Context) error {
 	}
 
 	pc.conn = nil
-	pc.messageCh = make(chan message.Message, 1)
-	pc.requestCh = make(chan message.Message, 1)
+	pc.eventCh = make(chan pfcpEvent, 110000)
 	pc.listenErrCh = make(chan error, 1)
 	pc.timestamp = time.Now()
 	pc.seq = 1
@@ -867,11 +880,21 @@ func (pc *PFCPConnection) Start(ctx context.Context) error {
 	pc.done = false
 	pc.state = pfcpStateInitial
 	pc.sessions = make(map[SEID]*pfcpSession)
+	pc.startCh = make(chan eventResult)
 
 	pc.t = &tomb.Tomb{}
 	pc.t.Go(pc.run)
 
-	return pc.waitForState(ctx, pfcpStateAssociated, AssociationTimeout)
+	// If no result is yielded within this interval, something is
+	// broken in PFCPConnection code
+	tch := time.After(pc.cfg.RequestTimeout * (maxRequestAttempts + 3))
+	select {
+	case r := <-pc.startCh:
+		close(pc.startCh)
+		return r.err
+	case <-tch:
+		panic("Association Setup Request over timeout")
+	}
 }
 
 func (pc *PFCPConnection) stop(err error) error {
@@ -897,6 +920,10 @@ func (pc *PFCPConnection) HardStop() {
 func (pc *PFCPConnection) ForgetSession(seid SEID) bool {
 	pc.Lock()
 	defer pc.Unlock()
+	return pc.forgetSessionUnlocked(seid)
+}
+
+func (pc *PFCPConnection) forgetSessionUnlocked(seid SEID) bool {
 	_, found := pc.sessions[seid]
 	if !found {
 		return false
@@ -905,94 +932,233 @@ func (pc *PFCPConnection) ForgetSession(seid SEID) bool {
 	return true
 }
 
-func (pc *PFCPConnection) EstablishSession(ctx context.Context, ies ...*ie.IE) (SEID, error) {
-	seid := pc.newSEID()
-	var fseid *ie.IE
-	var filteredIEs []*ie.IE
-	for _, curIE := range ies {
-		if curIE.Type == ie.FSEID {
-			fseidFields, err := curIE.FSEID()
-			if err != nil {
-				panic(err)
-			}
+func (pc *PFCPConnection) EstablishSession(ctx context.Context, seid SEID, ies ...*ie.IE) (SEID, error) {
+	spec := SessionOpSpec{SEID: seid, IEs: ies}
+	seids, errs := pc.EstablishSessions(ctx, []SessionOpSpec{spec})
+	return seids[0], errs[0]
+}
 
-			seid = SEID(fseidFields.SEID)
-
+func (pc *PFCPConnection) EstablishSessions(ctx context.Context, specs []SessionOpSpec) ([]SEID, []error) {
+	seids := make([]SEID, len(specs))
+	reqs := make([]message.Message, len(specs))
+	for n := range specs {
+		spec := &specs[n]
+		if spec.SEID == 0 {
+			spec.SEID = pc.NewSEID()
+		} else {
 			// do not break existing session entry if creating a new
 			// session with duplicate SEID is attempted without forgetting
 			// the previous one using ForgetSession()
 			pc.Lock()
-			_, found := pc.sessions[seid]
+			_, found := pc.sessions[spec.SEID]
 			pc.Unlock()
 			if found {
-				return 0, errors.Errorf("session with SEID 0x%016x already present", seid)
+				panic("duplicate SEID used without forgetting")
 			}
-		} else {
-			filteredIEs = append(filteredIEs, curIE)
 		}
+		seids[n] = spec.SEID
+		reqs[n] = pc.sessionEstablishmentRequest(*spec)
 	}
 
-	if pc.cfg.CNodeIP.To4() == nil {
-		fseid = ie.NewFSEID(uint64(seid), nil, pc.cfg.CNodeIP, nil)
-	} else {
-		fseid = ie.NewFSEID(uint64(seid), pc.cfg.CNodeIP.To4(), nil, nil)
-	}
-
-	filteredIEs = append(filteredIEs, fseid, ie.NewNodeID("", "", pc.cfg.NodeID))
-	pc.requestCh <- message.NewSessionEstablishmentRequest(0, 0, 0, 0, 0, filteredIEs...)
-	return seid, pc.waitForSessionState(ctx, seid, sessionStateEstablished, SessionEstablishmentTimeout)
+	_, err := pc.pipelineRequests(ctx, specs, reqs, sessionStateEstablished)
+	return seids, err
 }
 
 func (pc *PFCPConnection) ModifySession(ctx context.Context, seid SEID, ies ...*ie.IE) (*PFCPMeasurement, error) {
-	pc.requestCh <- message.NewSessionModificationRequest(0, 0, uint64(seid), 0, 0, ies...)
-	return pc.waitForSessionModification(ctx, seid)
+	spec := SessionOpSpec{SEID: seid, IEs: ies}
+	ms, errs := pc.ModifySessions(ctx, []SessionOpSpec{spec})
+	return ms[0], errs[0]
+}
+
+func (pc *PFCPConnection) ModifySessions(ctx context.Context, specs []SessionOpSpec) ([]*PFCPMeasurement, []error) {
+	return pc.pipelineSessionRequests(
+		ctx, specs, sessionStateEstablished, func(spec SessionOpSpec) message.Message {
+			return message.NewSessionModificationRequest(0, 0, uint64(spec.SEID), 0, 0, spec.IEs...)
+		})
 }
 
 func (pc *PFCPConnection) DeleteSession(ctx context.Context, seid SEID, ies ...*ie.IE) (*PFCPMeasurement, error) {
-	pc.requestCh <- message.NewSessionDeletionRequest(0, 0, uint64(seid), 0, 0, ies...)
-	if err := pc.waitForSessionState(ctx, seid, sessionStateDeleted, SessionEstablishmentTimeout); err != nil {
-		return nil, err
-	}
-
-	modCh := pc.getSessionModCh(seid)
-	if modCh == nil {
-		panic("modCh must not be nil!")
-	}
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case ms := <-modCh:
-		return ms, nil
-	default:
-		panic("incorrect session deletion")
-	}
+	spec := SessionOpSpec{SEID: seid, IEs: ies}
+	ms, errs := pc.DeleteSessions(ctx, []SessionOpSpec{spec})
+	return ms[0], errs[0]
 }
 
-type sessionTransitionFunc func(s *pfcpSession, m message.Message) error
+func (pc *PFCPConnection) DeleteSessions(ctx context.Context, specs []SessionOpSpec) ([]*PFCPMeasurement, []error) {
+	return pc.pipelineSessionRequests(
+		ctx, specs, sessionStateNone, func(spec SessionOpSpec) message.Message {
+			return message.NewSessionDeletionRequest(0, 0, uint64(spec.SEID), 0, 0, spec.IEs...)
+		})
+}
+
+func (pc *PFCPConnection) pipelineSessionRequests(
+	ctx context.Context,
+	specs []SessionOpSpec,
+	expectedSessionState sessionState,
+	makeRequest func(spec SessionOpSpec) message.Message) ([]*PFCPMeasurement, []error) {
+	reqs := make([]message.Message, len(specs))
+	for n, spec := range specs {
+		reqs[n] = makeRequest(spec)
+	}
+
+	results, errs := pc.pipelineRequests(ctx, specs, reqs, expectedSessionState)
+
+	ms := make([]*PFCPMeasurement, len(specs))
+	for n, r := range results {
+		if r != nil {
+			ms[n] = r.(*PFCPMeasurement)
+		}
+	}
+
+	return ms, errs
+}
+
+func (pc *PFCPConnection) pipelineRequests(
+	ctx context.Context,
+	specs []SessionOpSpec,
+	reqs []message.Message,
+	expectedSessionState sessionState) ([]interface{}, []error) {
+	errs := make([]error, len(specs))
+	m := make(map[SEID]int)
+	resultCh := make(chan eventResult, len(reqs))
+	inFlight := 0
+	cur := 0
+	results := make([]interface{}, len(specs))
+	// For len(specs) == 1:
+	// If no result is yielded within this interval, something is
+	// broken in PFCPConnection code.
+	// TODO: fix head-of-line blocking problem with the request queue,
+	// then remove/adjust " * time.Duration(len(specs))"
+	tch := time.After(pc.cfg.RequestTimeout * (maxRequestAttempts + 3) *
+		time.Duration(len(specs)))
+
+	for cur < len(specs) || inFlight > 0 {
+		for ; cur < len(specs) && inFlight < pc.cfg.MaxInFlight; cur++ {
+			pc.log.WithFields(logrus.Fields{
+				"cur":         cur,
+				"inFlight":    inFlight,
+				"messageType": reqs[cur].MessageTypeName(),
+				"SEID":        fmt.Sprintf("%016x", specs[cur].SEID),
+				"seq":         reqs[cur].Sequence(),
+			}).Trace("enqeue")
+			if err := pc.enqueueRequest(specs[cur].SEID, reqs[cur], resultCh); err != nil {
+				errs[cur] = err
+			} else {
+				inFlight++
+			}
+			m[specs[cur].SEID] = cur
+		}
+
+		if inFlight == 0 {
+			continue
+		}
+		var r eventResult
+		select {
+		case <-ctx.Done():
+			// FIXME: should be able to cancel the requests that were not issued yet
+			// For now, we just stop waiting as the cancellation is only used
+			// when VPP dies.
+			for n := range specs {
+				errs[n] = ctx.Err()
+			}
+			return results, errs
+		case r = <-resultCh:
+		case <-tch:
+			panic("pipelined request over timeout")
+		}
+
+		n, found := m[r.seid]
+		if !found {
+			panic("Internal error: unexpected SEID in event response")
+		}
+
+		inFlight--
+		if r.err != nil {
+			errs[n] = errors.Wrapf(r.err, "SEID %016x", r.seid)
+		} else {
+			results[n] = r.payload
+		}
+		pc.log.WithFields(logrus.Fields{
+			"cur":      cur,
+			"inFlight": inFlight,
+			"SEID":     fmt.Sprintf("%016x", r.seid),
+			"err":      r.err,
+			"seq":      reqs[n].Sequence(),
+		}).Trace("response for a pipelined request")
+	}
+
+	return results, errs
+}
+
+func (pc *PFCPConnection) sessionEstablishmentRequest(spec SessionOpSpec) message.Message {
+	var fseid *ie.IE
+	if pc.cfg.CNodeIP.To4() == nil {
+		fseid = ie.NewFSEID(uint64(spec.SEID), nil, pc.cfg.CNodeIP, nil)
+	} else {
+		fseid = ie.NewFSEID(uint64(spec.SEID), pc.cfg.CNodeIP.To4(), nil, nil)
+	}
+
+	ies := append(spec.IEs, fseid, ie.NewNodeID("", "", pc.cfg.NodeID))
+	return message.NewSessionEstablishmentRequest(0, 0, 0, 0, 0, ies...)
+}
+
+func (pc *PFCPConnection) enqueueRequest(seid SEID, msg message.Message, resultCh chan eventResult) error {
+	if !pc.t.Alive() {
+		return errors.New("PFCPConnection not active")
+	}
+
+	eventType, ok := requestToEventType(msg)
+	if !ok {
+		panic("bad request type")
+	}
+
+	pc.log.WithFields(logrus.Fields{
+		"eventType":   eventType,
+		"messageType": msg.MessageTypeName(),
+		"seq":         msg.Sequence(),
+		"SEID":        fmt.Sprintf("%016x", msg.SEID()),
+	}).Trace("enqueue")
+
+	pc.eventCh <- pfcpEvent{
+		eventType:    eventType,
+		msg:          msg,
+		resultCh:     resultCh,
+		attemptsLeft: maxRequestAttempts,
+		seid:         seid,
+	}
+
+	return nil
+}
+
+type sessionTransitionFunc func(s *pfcpSession, ev pfcpEvent) (*PFCPMeasurement, error)
 
 func sessionToState(newState sessionState) sessionTransitionFunc {
-	return func(s *pfcpSession, m message.Message) error {
+	return func(s *pfcpSession, ev pfcpEvent) (*PFCPMeasurement, error) {
 		s.setState(newState)
-		return nil
+		return nil, nil
 	}
 }
 
 type sessionTransitionKey struct {
 	state sessionState
-	event sessionEvent
+	event sessionEventType
 }
 
 var sessionTransitions = map[sessionTransitionKey]sessionTransitionFunc{
 	{sessionStateEstablishing, sessionEventEstablished}: sessionToState(sessionStateEstablished),
 	{sessionStateEstablished, sessionEventActDelete}:    sessionToState(sessionStateDeleting),
 	{sessionStateEstablished, sessionEventActModify}:    sessionToState(sessionStateModifying),
-	{sessionStateModifying, sessionEventModified}: func(s *pfcpSession, m message.Message) error {
+	{sessionStateModifying, sessionEventModified}: func(s *pfcpSession, ev pfcpEvent) (*PFCPMeasurement, error) {
 		s.setState(sessionStateEstablished)
-		return s.postMeasurement(m)
+		return s.getMeasurement(ev.msg)
 	},
-	{sessionStateDeleting, sessionEventDeleted}: func(s *pfcpSession, m message.Message) error {
+	{sessionStateDeleting, sessionEventDeleted}: func(s *pfcpSession, ev pfcpEvent) (*PFCPMeasurement, error) {
 		s.setState(sessionStateDeleted)
-		return s.postMeasurement(m)
+		s.removeSelf()
+		return s.getMeasurement(ev.msg)
+	},
+	{sessionStateFailed, sessionEventActDelete}: func(s *pfcpSession, ev pfcpEvent) (*PFCPMeasurement, error) {
+		// allow deleting failed sessions
+		return nil, nil
 	},
 }
 
@@ -1000,12 +1166,14 @@ type pfcpSession struct {
 	pc    *PFCPConnection
 	seid  SEID
 	state sessionState
-	modCh chan *PFCPMeasurement
-	err   error
 }
 
 func (s *pfcpSession) setState(newState sessionState) {
 	s.state = newState
+}
+
+func (s *pfcpSession) removeSelf() {
+	s.pc.forgetSessionUnlocked(s.seid)
 }
 
 func (s *pfcpSession) error(err error) error {
@@ -1015,45 +1183,44 @@ func (s *pfcpSession) error(err error) error {
 		"error": err,
 	}).Debug("session error")
 	if s.state != sessionStateFailed {
-		close(s.modCh)
 		s.state = sessionStateFailed
 	}
-	s.err = err
 	return err
 }
 
-func (s *pfcpSession) event(event sessionEvent, m message.Message) error {
+func (s *pfcpSession) event(et sessionEventType, ev pfcpEvent) (*PFCPMeasurement, error) {
 	oldState := s.state
 	defer func() {
 		if oldState == s.state {
 			s.pc.log.WithFields(logrus.Fields{
 				"SEID":     fmt.Sprintf("%016x", s.seid),
 				"oldState": oldState,
-				"event":    event,
+				"event":    et,
 			}).Trace("session state machine event w/o transition")
 		} else {
 			s.pc.log.WithFields(logrus.Fields{
 				"SEID":     fmt.Sprintf("%016x", s.seid),
 				"oldState": oldState,
-				"event":    event,
+				"event":    et,
 				"newState": s.state,
 			}).Trace("session state machine transition")
 		}
 	}()
-	tk := sessionTransitionKey{state: s.state, event: event}
+	tk := sessionTransitionKey{state: s.state, event: et}
 	tf, found := sessionTransitions[tk]
 	if !found {
-		return s.error(errors.Errorf("Session %016x: can't handle event %s in state %s", s.seid, event, s.state))
+		return nil, s.error(errors.Errorf("Session %016x: can't handle event %s in state %s", s.seid, et, s.state))
 	}
 
-	if err := tf(s, m); err != nil {
-		return s.error(err)
+	result, err := tf(s, ev)
+	if err != nil {
+		return nil, s.error(err)
 	}
 
-	return nil
+	return result, nil
 }
 
-func (s *pfcpSession) postMeasurement(m message.Message) error {
+func (s *pfcpSession) getMeasurement(m message.Message) (*PFCPMeasurement, error) {
 	var urs []*ie.IE
 	switch m.MessageType() {
 	case message.MsgTypeSessionModificationResponse:
@@ -1065,8 +1232,7 @@ func (s *pfcpSession) postMeasurement(m message.Message) error {
 	}
 
 	if len(urs) == 0 {
-		s.modCh <- nil
-		return nil
+		return nil, nil
 	}
 
 	ms := PFCPMeasurement{
@@ -1079,23 +1245,23 @@ func (s *pfcpSession) postMeasurement(m message.Message) error {
 
 		urridIE, err := ur.FindByType(ie.URRID)
 		if err != nil {
-			return errors.Wrap(err, "can't find URR ID IE")
+			return nil, errors.Wrap(err, "can't find URR ID IE")
 		}
 
 		urrid, err := urridIE.URRID()
 		if err != nil {
-			return errors.Wrap(err, "can't parse URR ID IE")
+			return nil, errors.Wrap(err, "can't parse URR ID IE")
 		}
 
 		volMeasurement, err := ur.FindByType(ie.VolumeMeasurement)
 		if err != ie.ErrIENotFound {
 			if err != nil {
-				return errors.Wrap(err, "can't find VolumeMeasurement IE")
+				return nil, errors.Wrap(err, "can't find VolumeMeasurement IE")
 			}
 
 			parsedVolMeasurement, err := volMeasurement.VolumeMeasurement()
 			if err != nil {
-				return errors.Wrap(err, "can't parse VolumeMeasurement IE")
+				return nil, errors.Wrap(err, "can't parse VolumeMeasurement IE")
 			}
 
 			if parsedVolMeasurement.HasDLVOL() {
@@ -1114,12 +1280,12 @@ func (s *pfcpSession) postMeasurement(m message.Message) error {
 		durMeasurement, err := ur.FindByType(ie.DurationMeasurement)
 		if err != ie.ErrIENotFound {
 			if err != nil {
-				return errors.Wrap(err, "can't find DurationMeasurement IE")
+				return nil, errors.Wrap(err, "can't find DurationMeasurement IE")
 			}
 
 			duration, err := durMeasurement.DurationMeasurement()
 			if err != nil {
-				return errors.Wrap(err, "can't parse DurationMeasurement IE")
+				return nil, errors.Wrap(err, "can't parse DurationMeasurement IE")
 			}
 
 			r.Duration = &duration
@@ -1129,11 +1295,11 @@ func (s *pfcpSession) postMeasurement(m message.Message) error {
 			"messageType": m.MessageTypeName(),
 			"urrID":       urrid,
 			"report":      r.String(),
-		}).Trace("posting measurement")
+		}).Trace("PFCP measurement")
 		ms.Reports[urrid] = r
 	}
-	s.modCh <- &ms
-	return nil
+
+	return &ms, nil
 }
 
 func getCauseIE(m message.Message) *ie.IE {
@@ -1163,7 +1329,7 @@ func getCauseIE(m message.Message) *ie.IE {
 	}
 }
 
-func verifyCause(m message.Message) error {
+func verifyCause(m message.Message, seid SEID) error {
 	causeIE := getCauseIE(m)
 	if causeIE == nil {
 		return errors.New("no cause")
@@ -1178,10 +1344,13 @@ func verifyCause(m message.Message) error {
 		return nil
 	}
 
-	return &PFCPServerError{Cause: cause}
+	if m.SEID() != 0 {
+		seid = SEID(m.SEID())
+	}
+	return &PFCPServerError{Cause: cause, SEID: seid}
 }
 
-func requestToEvent(m message.Message) (pfcpEvent, bool) {
+func requestToEventType(m message.Message) (pfcpEventType, bool) {
 	switch m.MessageType() {
 	case message.MsgTypeSessionEstablishmentRequest:
 		return pfcpEventActEstablishSession, true
@@ -1194,7 +1363,7 @@ func requestToEvent(m message.Message) (pfcpEvent, bool) {
 	}
 }
 
-func peerMessageToEvent(m message.Message) (pfcpEvent, bool) {
+func peerMessageToEventType(m message.Message) (pfcpEventType, bool) {
 	switch m.MessageType() {
 	case message.MsgTypeAssociationSetupResponse:
 		return pfcpEventAssociationSetupResponse, true
@@ -1206,23 +1375,13 @@ func peerMessageToEvent(m message.Message) (pfcpEvent, bool) {
 		return pfcpEventSessionModificationResponse, true
 	case message.MsgTypeSessionDeletionResponse:
 		return pfcpEventSessionDeletionResponse, true
+	case message.MsgTypeSessionReportRequest:
+		return pfcpEventSessionReportRequest, true
 	case message.MsgTypeHeartbeatRequest:
 		return pfcpEventHeartbeatRequest, true
 	default:
 		return pfcpEventNone, false
 	}
-}
-
-func cpfseid(m message.Message) (SEID, error) {
-	cpfseid := m.(*message.SessionEstablishmentRequest).CPFSEID
-	if cpfseid == nil {
-		return 0, errors.New("no CP-FSEID in SessionEstablishmentRequest")
-	}
-	fields, err := cpfseid.FSEID()
-	if err != nil {
-		return 0, errors.Wrap(err, "error parsing F-SEID for the session")
-	}
-	return SEID(fields.SEID), nil
 }
 
 type pfcpRequest interface {
