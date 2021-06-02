@@ -8,4 +8,7 @@ Usage Report SMR
   End Time: 2019/11/07 11:31:06:000
   Volume Measurement: V:[T:0,U:0,D:0],P:[T:0,U:0,D:0]
   Duration Measurement: 0
+  TP: Now: 2019/11/07 11:31:06:021
+  TP: Start Time: 2019/11/07 11:31:06:010
+  TP: End Time: 2019/11/07 11:31:06:010
 
