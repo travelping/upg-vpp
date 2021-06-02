@@ -4,13 +4,20 @@ import (
 	"container/heap"
 	"time"
 
-	"github.com/wmnsk/go-pfcp/message"
+	"github.com/pkg/errors"
 )
 
+var NoMoreRetransmitsErr = errors.New("max number of retransmits reached")
+
+type queueEntry interface {
+	Sequence() uint32
+}
+
 type pendingRequest struct {
-	msg         message.Message
-	nextAttempt time.Time
-	index       int
+	entry        queueEntry
+	nextAttempt  time.Time
+	index        int
+	attemptsLeft int
 }
 
 type requestQueue struct {
@@ -55,40 +62,53 @@ func (rq *requestQueue) Pop() interface{} {
 	return r
 }
 
-func (rq *requestQueue) add(m message.Message, now time.Time) {
-	r := &pendingRequest{
-		msg:         m,
-		nextAttempt: now.Add(rq.timeout),
+func (rq *requestQueue) add(e queueEntry, now time.Time, maxAttempts int) {
+	if e.Sequence() == 0 {
+		panic("can't add an entry with zero sequence number")
 	}
-	rq.bySeq[m.Sequence()] = r
+	if maxAttempts <= 0 {
+		panic("N of attempts must be > 0")
+	}
+	r := &pendingRequest{
+		entry:        e,
+		nextAttempt:  now.Add(rq.timeout),
+		attemptsLeft: maxAttempts - 1,
+	}
+	rq.bySeq[e.Sequence()] = r
 	heap.Push(rq, r)
 }
 
-func (rq *requestQueue) remove(m message.Message) bool {
-	seq := m.Sequence()
+func (rq *requestQueue) remove(e queueEntry) *queueEntry {
+	seq := e.Sequence()
 	r, found := rq.bySeq[seq]
 	if !found {
-		return false
+		return nil
 	}
 	heap.Remove(rq, r.index)
 	delete(rq.bySeq, seq)
-	return true
+	return &r.entry
 }
 
-func (rq *requestQueue) reschedule(m message.Message, now time.Time) {
-	r, found := rq.bySeq[m.Sequence()]
+func (rq *requestQueue) reschedule(e queueEntry, now time.Time) {
+	r, found := rq.bySeq[e.Sequence()]
 	if !found {
-		return
+		panic("rescheduling non-existent message")
 	}
 	r.nextAttempt = now.Add(rq.timeout)
 	heap.Fix(rq, r.index)
 }
 
-func (rq *requestQueue) next() (message.Message, time.Time) {
+func (rq *requestQueue) next() (queueEntry, time.Time) {
 	if rq.Len() == 0 {
+		if len(rq.bySeq) != 0 {
+			panic("bySeq not empty")
+		}
 		return nil, time.Time{}
 	}
-	return rq.rs[0].msg, rq.rs[0].nextAttempt
+	if rq.rs[0].entry == nil {
+		panic("null entry")
+	}
+	return rq.rs[0].entry, rq.rs[0].nextAttempt
 }
 
 func (rq *requestQueue) clear() {
