@@ -2643,7 +2643,7 @@ free_flow_information (void *p)
   vec_free (v->flow_description);
 }
 
-static u8 *
+u8 *
 format_ue_ip_address (u8 * s, va_list * args)
 {
   pfcp_ue_ip_address_t *v = va_arg (*args, pfcp_ue_ip_address_t *);

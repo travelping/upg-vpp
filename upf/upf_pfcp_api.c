@@ -814,28 +814,63 @@ handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
 
 }
 
+/*
+ * Delete session that conflicts on UE IP if it resides
+ * on the same CP node as the new one.
+ */
+static void
+purge_conflicting_session (upf_session_t * sx_old,
+			   upf_session_t * sx_new,
+			   pfcp_ue_ip_address_t * ue_addr)
+{
+  if (sx_old->assoc.node != sx_new->assoc.node)
+    return;
+
+  clib_warning ("UE IP conflict: deleting session CP SEID=0x%016" PRIx64
+		" %U " "due to attempt to create CP SEID=0x%0x16" PRIx64,
+		sx_old->cp_seid, format_ue_ip_address, ue_addr,
+		sx_new->cp_seid);
+
+  upf_pfcp_session_up_deletion_report (sx_old);
+
+  if (pfcp_disable_session (sx_old) != 0)
+    clib_warning ("PFCP Session %" PRIu64 " could no be disabled\n",
+		  sx_old->cp_seid);
+  else
+    pfcp_free_session (sx_old);
+}
+
 static int
-validate_ue_ip (upf_session_t * sx, upf_nwi_t * nwi,
-		pfcp_ue_ip_address_t * ue_addr)
+resolve_ue_ip_conflicts (upf_session_t * sx, upf_nwi_t * nwi,
+			 pfcp_ue_ip_address_t * ue_addr)
 {
   upf_main_t *gtm = &upf_main;
   const dpo_id_t *dpo;
+  int r = 0;
 
   if (ue_addr->flags & IE_UE_IP_ADDRESS_V4)
     {
       dpo = upf_get_session_dpo_ip4 (nwi, &ue_addr->ip4);
       if (dpo && dpo->dpoi_index != sx - gtm->sessions)
-	return -1;
+	{
+	  purge_conflicting_session (gtm->sessions + dpo->dpoi_index, sx,
+				     ue_addr);
+	  r = -1;
+	}
     }
 
   if (ue_addr->flags & IE_UE_IP_ADDRESS_V6)
     {
       dpo = upf_get_session_dpo_ip6 (nwi, &ue_addr->ip6);
       if (dpo && dpo->dpoi_index != sx - gtm->sessions)
-	return -1;
+	{
+	  purge_conflicting_session (gtm->sessions + dpo->dpoi_index, sx,
+				     ue_addr);
+	  r = -1;
+	}
     }
 
-  return 0;
+  return r;
 }
 
 #define pdr_error(r, pdr, fmt, ...)					\
@@ -1022,7 +1057,7 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
       }
 
     if ((create->pdi.fields & F_PDI_UE_IP_ADDR) && nwi &&
-	validate_ue_ip (sx, nwi, &create->pdi.ue_addr))
+	resolve_ue_ip_conflicts (sx, nwi, &create->pdi.ue_addr) != 0)
       {
 	pdr_error (response, pdr, "duplicate UE IP");
 	goto out_error;
@@ -1216,7 +1251,7 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
       }
 
     if ((update->pdi.fields & F_PDI_UE_IP_ADDR) && nwi &&
-	validate_ue_ip (sx, nwi, &update->pdi.ue_addr))
+	resolve_ue_ip_conflicts (sx, nwi, &update->pdi.ue_addr) != 0)
       {
 	pdr_error (response, pdr, "duplicate UE IP");
 	goto out_error;

@@ -145,6 +145,8 @@ int upf_pfcp_send_request (upf_session_t * sx, u8 type,
 int upf_pfcp_send_response (pfcp_msg_t * req, u64 cp_seid, u8 type,
 			    struct pfcp_group *grp);
 
+void upf_pfcp_session_up_deletion_report (upf_session_t * sx);
+
 void upf_pfcp_server_session_usage_report (upf_event_urr_data_t * uev);
 
 clib_error_t *pfcp_server_main_init (vlib_main_t * vm);
