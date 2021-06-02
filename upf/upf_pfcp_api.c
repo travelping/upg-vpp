@@ -2520,7 +2520,6 @@ handle_session_modification_response (pfcp_msg_t * msg,
 static int
 handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 {
-  upf_main_t *gtm = &upf_main;
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t resp_dmsg = {
     .type = PFCP_SESSION_DELETION_RESPONSE,
@@ -2553,8 +2552,6 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 		 dmsg->seid);
       goto out_send_resp;
     }
-
-  upf_pfcp_server_deferred_free_msgs_by_sidx (sess - gtm->sessions);
 
   active = pfcp_get_rules (sess, PFCP_ACTIVE);
   if (vec_len (active->urr) != 0)

@@ -104,7 +104,6 @@ typedef struct
   vlib_main_t *vlib_main;
 
   uword *free_msgs_by_node;
-  uword *free_msgs_by_sidx;
   u32 *expired;
 } pfcp_server_main_t;
 
@@ -135,7 +134,6 @@ void upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t,
 u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds);
 void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg);
 void upf_pfcp_server_deferred_free_msgs_by_node (u32 node);
-void upf_pfcp_server_deferred_free_msgs_by_sidx (u32 sidx);
 
 int upf_pfcp_send_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg);
 
