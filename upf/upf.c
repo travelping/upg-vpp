@@ -98,16 +98,13 @@ upf_nat_pool_t *
 get_nat_pool_by_name (u8 * name)
 {
   upf_main_t *gtm = &upf_main;
-  upf_nat_pool_t *np = NULL;
   uword *p;
 
   p = hash_get_mem (gtm->nat_pool_index_by_name, name);
   if (!p)
     return NULL;
 
-  np = pool_elt_at_index (gtm->nat_pools, p[0]);
-
-  return np;
+  return pool_elt_at_index (gtm->nat_pools, p[0]);
 }
 
 int
@@ -116,10 +113,18 @@ upf_init_nat_addresses (upf_nat_pool_t * np, ip4_address_t start_addr,
 {
   u32 i = 0;
 
-  vec_reset_length (np->addresses);
+  u32 start;
+  u32 end;
 
-  for (i = clib_net_to_host_u32 (start_addr.as_u32);
-       i <= clib_net_to_host_u32 (end_addr.as_u32); i++)
+  start = clib_net_to_host_u32 (start_addr.as_u32);
+  end = clib_net_to_host_u32 (end_addr.as_u32);
+
+  if (start > end)
+    return -1;
+
+  vec_alloc (np->addresses, end - start + 1);
+
+  for (i = start; i <= end; i++)
     {
       upf_nat_addr_t *ap;
 
@@ -135,7 +140,7 @@ int
 vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
 			   ip4_address_t end_addr, u8 * name,
 			   u16 port_block_size, u16 min_port, u16 max_port,
-			   u32 vrf_id, u8 is_add)
+			   u8 is_add)
 {
   upf_main_t *gtm = &upf_main;
   upf_nat_pool_t *nat_pool = NULL;
@@ -149,16 +154,20 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
 	return VNET_API_ERROR_VALUE_EXIST;
 
       pool_get (gtm->nat_pools, nat_pool);
+
+      if (upf_init_nat_addresses (nat_pool, start_addr, end_addr))
+	{
+	  pool_put (gtm->nat_pools, nat_pool);
+	  return -1;
+	}
+
       nat_pool->name = vec_dup (name);
       nat_pool->network_instance = vec_dup (nwi_name);
       nat_pool->port_block_size = port_block_size;
       nat_pool->min_port = UPF_NAT_MIN_PORT;
       nat_pool->max_port = UPF_NAT_MAX_PORT;
-      nat_pool->vrf_id = vrf_id;
       nat_pool->max_blocks_per_addr =
 	(u16) ((nat_pool->max_port - nat_pool->min_port) / port_block_size);
-
-      upf_init_nat_addresses (nat_pool, start_addr, end_addr);
 
       hash_set_mem (gtm->nat_pool_index_by_name, name,
 		    nat_pool - gtm->nat_pools);
@@ -170,7 +179,7 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
 	return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       nat_pool = pool_elt_at_index (gtm->nat_pools, p[0]);
-      //TBD: nat pool cleanup upf_delete_nat_addresses(nat_pool);
+      vec_free (nat_pool->addresses);
       hash_unset_mem (gtm->nat_pool_index_by_name, name);
       vec_free (nat_pool->name);
       vec_free (nat_pool->network_instance);
