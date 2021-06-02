@@ -2713,6 +2713,7 @@ u8 *format_pfcp_msg_type (u8 * s, va_list * args);
 u8 *format_pfcp_msg_hdr (u8 * s, va_list * args);
 u8 *format_user_plane_ip_resource_information (u8 * s, va_list * args);
 u8 *format_redirect_information (u8 * s, va_list * args);
+u8 *format_ue_ip_address (u8 * s, va_list * args);
 u8 *format_node_id (u8 * s, va_list * args);
 u8 *format_outer_header_creation (u8 * s, va_list * args);
 u8 *format_dmsg (u8 * s, va_list * args);
