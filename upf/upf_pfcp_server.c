@@ -404,13 +404,15 @@ upf_pfcp_server_send_request (pfcp_msg_t * msg)
 
 static void
 upf_pfcp_server_send_session_request (upf_session_t * sx,
-				      pfcp_decoded_msg_t * dmsg)
+				      pfcp_decoded_msg_t * dmsg,
+				      bool outlives_session)
 {
   pfcp_msg_t *msg;
 
   if ((msg = build_pfcp_session_msg (sx, dmsg)))
     {
       upf_debug ("Msg: %p\n", msg);
+      msg->outlives_session = outlives_session;
       upf_pfcp_server_send_request (msg);
     }
 }
@@ -481,7 +483,8 @@ upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req)
 }
 
 int
-upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg)
+upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg,
+			bool outlives_session)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_msg_t *resp;
@@ -489,6 +492,7 @@ upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg)
 
   resp = pfcp_msg_pool_get (psm);
   upf_pfcp_make_response (resp, req);
+  resp->outlives_session = outlives_session;
   dmsg->seq_no = pfcp_msg_seq (req->data);
 
   if ((r = pfcp_encode_msg (dmsg, &resp->data)) != 0)
@@ -604,7 +608,7 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
     {
       upf_usage_report_build (sx, ue, active->urr, now, &report,
 			      &req->usage_report);
-      upf_pfcp_server_send_session_request (sx, &dmsg);
+      upf_pfcp_server_send_session_request (sx, &dmsg, false);
     }
 
   pfcp_free_dmsg_contents (&dmsg);
@@ -901,7 +905,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
     {
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
 			      &req->usage_report);
-      upf_pfcp_server_send_session_request (sx, &dmsg);
+      upf_pfcp_server_send_session_request (sx, &dmsg, false);
     }
 
   pfcp_free_dmsg_contents (&dmsg);
@@ -1238,7 +1242,8 @@ static uword
 	ASSERT (msg->expires_at);
 
 	if (!hash_get (psm->free_msgs_by_node, msg->node) &&
-	    !hash_get (psm->free_msgs_by_sidx, msg->session_index))
+	    (!hash_get (psm->free_msgs_by_sidx, msg->session_index) ||
+	     msg->outlives_session))
 	  {
 	    /*
 	     * This should not happen unless a timer didn't fire for some reason

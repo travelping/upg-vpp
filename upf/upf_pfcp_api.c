@@ -215,7 +215,7 @@ handle_heartbeat_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   upf_debug ("PFCP: start_time: %p, %d, %x.",
 	     &psm, psm->start_time, psm->start_time);
 
-  upf_pfcp_send_response (msg, &resp_dmsg);
+  upf_pfcp_send_response (msg, &resp_dmsg, false);
 
   return 0;
 }
@@ -349,7 +349,7 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
       resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
     }
 
-  upf_pfcp_send_response (msg, &resp_dmsg);
+  upf_pfcp_send_response (msg, &resp_dmsg, false);
 
   return r;
 }
@@ -458,7 +458,7 @@ send_simple_response (pfcp_msg_t * req, u64 seid, u8 type,
       resp->response.offending_ie = err[0];
     }
 
-  upf_pfcp_send_response (req, &resp_dmsg);
+  upf_pfcp_send_response (req, &resp_dmsg, false);
 }
 
 
@@ -2256,7 +2256,13 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       tp_session_error_report (resp, "no established PFCP association");
 
       resp->cause = PFCP_CAUSE_NO_ESTABLISHED_PFCP_ASSOCIATION;
-      upf_pfcp_send_response (msg, &resp_dmsg);
+      /*
+       * Edge case: an association is established, then session with
+       * this SEID is created and removed while this message is still
+       * in the queue. Let's keep the message in the queue in this
+       * case, so outlives_session=true
+       */
+      upf_pfcp_send_response (msg, &resp_dmsg, true);
 
       return -1;
     }
@@ -2329,7 +2335,7 @@ out_send_resp:
   if (r == 0)
     resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
-  upf_pfcp_send_response (msg, &resp_dmsg);
+  upf_pfcp_send_response (msg, &resp_dmsg, false);
 
   if (sess && r != 0)
     {
@@ -2367,6 +2373,7 @@ handle_session_modification_request (pfcp_msg_t * msg,
   };
   pfcp_session_procedure_response_t *resp =
     &resp_dmsg.session_procedure_response;
+  bool outlives_session = false;
 
   memset (resp, 0, sizeof (*resp));
   SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
@@ -2378,6 +2385,13 @@ handle_session_modification_request (pfcp_msg_t * msg,
       resp->cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
 
       r = -1;
+      /*
+       * Edge case: session with this SEID is created and deleted
+       * after this response while it's still in the queue. Let's keep
+       * the message in the queue in this case, so
+       * outlives_session=true
+       */
+      outlives_session = true;
       goto out_send_resp;
     }
 
@@ -2505,7 +2519,7 @@ out_send_resp:
   if (r == 0)
     resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
-  upf_pfcp_send_response (msg, &resp_dmsg);
+  upf_pfcp_send_response (msg, &resp_dmsg, outlives_session);
 
   return r;
 }
@@ -2579,7 +2593,8 @@ out_send_resp:
     }
 
 out_send_resp_no_session:
-  upf_pfcp_send_response (msg, &resp_dmsg);
+  /* Queued Session Deletion Responses should outlive the session */
+  upf_pfcp_send_response (msg, &resp_dmsg, true);
 
   return r;
 }

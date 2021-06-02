@@ -70,7 +70,15 @@ typedef struct
   u32 timer;
   u32 n1;
   u32 t1;
-  u8 is_valid_pool_item;
+  u8 is_valid_pool_item:1;
+  /*
+   * outlives_sesion is set to 1 in order not to drop the message from
+   * req/resp queues when its session is gone. It's used for Session
+   * Deletion Response and also for Session Report Request with an
+   * error indication in case if the session was dropped by the UP.
+   * This flag is not used for node messages.
+   */
+  u8 outlives_session:1;
 
 #if CLIB_DEBUG > 0
   char pool_put_loc[128];
@@ -139,7 +147,8 @@ void upf_pfcp_server_deferred_free_msgs_by_sidx (u32 sidx);
 
 int upf_pfcp_send_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg);
 
-int upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg);
+int upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg,
+			    bool outlives_session);
 
 void upf_pfcp_server_session_usage_report (upf_event_urr_data_t * uev);
 
