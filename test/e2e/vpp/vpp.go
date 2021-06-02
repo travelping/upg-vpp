@@ -558,7 +558,9 @@ func (vi *VPPInstance) Configure() error {
 		}
 	}
 
-	var allCmds []string
+	allCmds := []string{
+		"upf pfcp server set fifo-size 512",
+	}
 	for _, nsCfg := range vi.cfg.Namespaces {
 		allCmds = append(allCmds, vi.interfaceCmds(nsCfg)...)
 	}
