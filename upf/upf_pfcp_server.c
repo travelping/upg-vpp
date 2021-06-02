@@ -517,6 +517,48 @@ urr_check_counter (u64 bytes, u64 consumed, u64 threshold, u64 quota)
   return r;
 }
 
+void
+upf_pfcp_session_up_deletion_report (upf_session_t * sx)
+{
+  /*
+   * TS 29.244 clause 5.18.2: UP Function Initiated PFCP Session Release
+   */
+  pfcp_server_main_t *psm = &pfcp_server_main;
+  pfcp_decoded_msg_t dmsg = {
+    .type = PFCP_SESSION_REPORT_REQUEST
+  };
+  pfcp_session_report_request_t *req = &dmsg.session_report_request;
+  struct rules *active;
+  f64 now = psm->now;
+
+  memset (req, 0, sizeof (*req));
+  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
+  req->report_type = REPORT_TYPE_USAR;
+
+  active = pfcp_get_rules (sx, PFCP_ACTIVE);
+  if (vec_len (active->urr) != 0)
+    {
+      upf_usage_report_t report;
+
+      SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
+
+      upf_usage_report_init (&report, vec_len (active->urr));
+      upf_usage_report_set (&report,
+			    USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT,
+			    now);
+      upf_usage_report_build (sx, NULL, active->urr, now, &report,
+			      &req->usage_report);
+      upf_usage_report_free (&report);
+    }
+
+  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS);
+  /* PSDBU = PFCP Session Deleted By the UP function */
+  req->pfcpsrreq_flags = PFCPSRREQ_PSDBU;
+
+  upf_pfcp_server_send_session_request (sx, &dmsg);
+  pfcp_free_dmsg_contents (&dmsg);
+}
+
 static void
 upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
 			       upf_event_urr_data_t * uev, f64 now)

@@ -321,6 +321,7 @@ class IPv6Mixin(object):
     def IP(self):
         return IPv6
 
+global_seq = 1
 
 class PFCPHelper(object):
     """PFCP Helper class"""
@@ -332,7 +333,10 @@ class PFCPHelper(object):
 
     def setUp(self):
         super(PFCPHelper, self).setUp()
-        self.seq = 1
+        # avoid reusing sequence numbers so as not to receive cached responses
+        global global_seq
+        self.seq = global_seq
+        global_seq += 10000
 
     def chat(self, pkt, expectedResponse, seid=None):
         self.logger.info("REQ: %r" % pkt)
