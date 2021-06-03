@@ -533,12 +533,13 @@ upf_pfcp_session_up_deletion_report (upf_session_t * sx)
 
   memset (req, 0, sizeof (*req));
   SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
-  req->report_type = REPORT_TYPE_USAR;
 
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
   if (vec_len (active->urr) != 0)
     {
       upf_usage_report_t report;
+
+      req->report_type = REPORT_TYPE_USAR;
 
       SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
@@ -550,6 +551,8 @@ upf_pfcp_session_up_deletion_report (upf_session_t * sx)
 			      &req->usage_report);
       upf_usage_report_free (&report);
     }
+  else
+    req->report_type = REPORT_TYPE_UISR;
 
   SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS);
   /* PSDBU = PFCP Session Deleted By the UP function */

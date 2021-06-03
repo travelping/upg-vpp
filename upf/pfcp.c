@@ -1374,10 +1374,11 @@ format_report_type (u8 * s, va_list * args)
 {
   pfcp_report_type_t *v = va_arg (*args, pfcp_report_type_t *);
 
-  return format (s, "DLDR:%d,USAR:%d,ERIR:%d,UPIR:%d,PMIR:%d,SESR:%d",
+  return format (s, "DLDR:%d,USAR:%d,ERIR:%d,UPIR:%d,PMIR:%d,SESR:%d,UISR:%d",
 		 !!(*v & REPORT_TYPE_DLDR), !!(*v & REPORT_TYPE_USAR),
 		 !!(*v & REPORT_TYPE_ERIR), !!(*v & REPORT_TYPE_UPIR),
-		 !!(*v & REPORT_TYPE_PMIR), !!(*v & REPORT_TYPE_SESR));
+		 !!(*v & REPORT_TYPE_PMIR), !!(*v & REPORT_TYPE_SESR),
+		 !!(*v & REPORT_TYPE_UISR));
 }
 
 #define decode_report_type decode_u8_ie

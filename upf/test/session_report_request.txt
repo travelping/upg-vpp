@@ -1,5 +1,5 @@
 PFCP: seq 49, Session Report Request (56), SEID: 0x0ffde7210bf94000.
-Report Type: DLDR:0,USAR:1,ERIR:0,UPIR:0,PMIR:0,SESR:0
+Report Type: DLDR:0,USAR:1,ERIR:0,UPIR:0,PMIR:0,SESR:0,UISR:0
 Usage Report SRR
   URR ID: 3
   UR-SEQN: 24
