@@ -27,7 +27,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     libpython2.7-minimal libpython2.7-stdlib libpython3-stdlib \
     python python-cffi python-cffi-backend python-ipaddress \
     python-minimal python-ply python-pycparser python2.7 python2.7-minimal \
-    python3 python3-minimal python3.6 python3.6-minimal
+    python3 python3-minimal python3.6 python3.6-minimal libnuma1
 
 # TODO: add more packages above that are VPP deps
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
