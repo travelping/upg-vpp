@@ -29,8 +29,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     python python-cffi python-cffi-backend python-ipaddress \
     python2-minimal python-ply python-pycparser python2.7 python2.7-minimal \
     python3 python3-minimal python3.6 python3-minimal \
-    python3-cffi python3-cffi-backend && \
-    apt-get install -yy clang-9
+    python3-cffi python3-cffi-backend libnuma1
 
 # TODO: add more packages above that are VPP deps
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
