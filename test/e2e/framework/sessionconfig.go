@@ -22,6 +22,7 @@ type SessionConfig struct {
 	ProxyCoreIP     net.IP
 	ProxyAccessTEID uint32
 	ProxyCoreTEID   uint32
+	NoURRs          bool
 }
 
 const (
@@ -210,28 +211,37 @@ func (cfg SessionConfig) SessionIEs() []*ie.IE {
 	ies := []*ie.IE{
 		cfg.forwardFAR(1),
 		cfg.reverseFAR(2),
-		ie.NewCreateURR(
-			ie.NewURRID(1),
-			ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
-			ie.NewReportingTriggers(0)),
-		ie.NewCreateURR(
-			ie.NewURRID(2),
-			ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
-			ie.NewReportingTriggers(0)),
+	}
+	if !cfg.NoURRs {
+		ies = append(ies,
+			ie.NewCreateURR(
+				ie.NewURRID(1),
+				ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
+				ie.NewReportingTriggers(0)),
+			ie.NewCreateURR(
+				ie.NewURRID(2),
+				ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
+				ie.NewReportingTriggers(0)))
 	}
 
 	return append(ies, cfg.CreatePDRs()...)
 }
 
 func (cfg SessionConfig) CreatePDRs() []*ie.IE {
+	defaultURRId := uint32(1)
+	appURRId := uint32(2)
+	if cfg.NoURRs {
+		defaultURRId = 0
+		appURRId = 0
+	}
 	ies := []*ie.IE{
-		cfg.forwardPDR(cfg.IdBase, 1, 1, 200, ""),
-		cfg.reversePDR(cfg.IdBase+1, 2, 1, 200, ""),
+		cfg.forwardPDR(cfg.IdBase, 1, defaultURRId, 200, ""),
+		cfg.reversePDR(cfg.IdBase+1, 2, defaultURRId, 200, ""),
 	}
 	if cfg.AppName != "" {
 		ies = append(ies,
-			cfg.forwardPDR(cfg.IdBase+2, 1, 2, 100, cfg.AppName),
-			cfg.reversePDR(cfg.IdBase+3, 2, 2, 100, cfg.AppName))
+			cfg.forwardPDR(cfg.IdBase+2, 1, appURRId, 100, cfg.AppName),
+			cfg.reversePDR(cfg.IdBase+3, 2, appURRId, 100, cfg.AppName))
 	}
 	return ies
 }
