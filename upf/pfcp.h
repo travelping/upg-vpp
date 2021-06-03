@@ -323,6 +323,7 @@ typedef u8 pfcp_report_type_t;
 #define REPORT_TYPE_UPIR				BIT(3)
 #define REPORT_TYPE_PMIR				BIT(4)
 #define REPORT_TYPE_SESR				BIT(5)
+#define REPORT_TYPE_UISR				BIT(6)
 
 #define PFCP_IE_OFFENDING_IE				40
 typedef u32 pfcp_offending_ie_t;
