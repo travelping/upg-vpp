@@ -565,7 +565,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				"session-related memory leak detected")
 		})
 
-		ginkgo.It("should not be allowed to conflict on UE IPs", func() {
+		ginkgo.It("should not be allowed to conflict on UE IPs and drop the older conflicting session", func() {
 			sessionCfg := &framework.SessionConfig{
 				IdBase: 1,
 				UEIP:   f.UEIP(),
@@ -619,6 +619,53 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				gomega.Expect(len(urt.Payload)).To(gomega.BeNumerically(">=", 3))
 				gomega.Expect(urt.Payload[2] & 2).NotTo(gomega.BeZero()) // TEBUR bit is set
 			}
+
+			verifyNoSession(f, seid)
+			verifyNoSession(f, newSEID)
+		})
+
+		ginkgo.It("should not be allowed to conflict on UE IPs and drop the older conflicting session [no URRs]", func() {
+			sessionCfg := &framework.SessionConfig{
+				IdBase: 1,
+				UEIP:   f.UEIP(),
+				Mode:   f.Mode,
+				NoURRs: true,
+			}
+			reportCh := f.PFCP.AcquireReportCh()
+			seid, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			var newSEID pfcp.SEID
+			newSEID = f.PFCP.NewSEID()
+			_, err = f.PFCP.EstablishSession(f.Context, newSEID, sessionCfg.SessionIEs()...)
+			framework.ExpectError(err)
+
+			var serverErr *pfcp.PFCPServerError
+			gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
+			framework.ExpectEqual(newSEID, serverErr.SEID)
+			framework.ExpectEqual(serverErr.Cause, ie.CauseRuleCreationModificationFailure)
+			framework.Logf("Server error (expected): %v", err)
+
+			var m message.Message
+			gomega.Eventually(reportCh, 10*time.Second, 50*time.Millisecond).Should(gomega.Receive(&m))
+			framework.ExpectEqual(m.MessageType(), message.MsgTypeSessionReportRequest)
+
+			rr := m.(*message.SessionReportRequest)
+			gomega.Expect(rr.ReportType).NotTo(gomega.BeNil())
+			_, err = rr.ReportType.ReportType()
+			framework.ExpectNoError(err)
+			gomega.Expect(rr.ReportType.HasUPIR()).To(gomega.BeFalse())
+			gomega.Expect(rr.ReportType.HasERIR()).To(gomega.BeFalse())
+			gomega.Expect(rr.ReportType.HasUSAR()).To(gomega.BeFalse())
+			gomega.Expect(rr.ReportType.HasDLDR()).To(gomega.BeFalse())
+			// FIXME: UISR bit is not yet handled by go-pfcp
+			rt, _ := rr.ReportType.ReportType()
+			gomega.Expect(rt & 0x40).NotTo(gomega.BeZero())
+
+			gomega.Expect(rr.PFCPSRReqFlags).NotTo(gomega.BeNil())
+			gomega.Expect(rr.PFCPSRReqFlags.HasPSDBU()).To(gomega.BeTrue())
+
+			gomega.Expect(rr.UsageReport).To(gomega.HaveLen(0))
 
 			verifyNoSession(f, seid)
 			verifyNoSession(f, newSEID)
