@@ -1,4 +1,4 @@
-From a514f7d0b2d03d4f34ad33118fd0e871f2eea537 Mon Sep 17 00:00:00 2001
+From 3bd6d1740501750ba8612169199237c3f2dc235d Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Tue, 18 May 2021 17:07:31 +0400
 Subject: [PATCH] Controlled NAT function
@@ -198,7 +198,7 @@ index 7153a6035..7a7895a72 100644
        /* Add to lookup tables */
        init_ed_kv (&s_kv, s->in2out.addr, 0, ip->dst_address, 0, rx_fib_index,
 diff --git a/src/plugins/nat/nat.c b/src/plugins/nat/nat.c
-index fa62250cb..c3b732085 100644
+index fa62250cb..2e9cd0c6b 100644
 --- a/src/plugins/nat/nat.c
 +++ b/src/plugins/nat/nat.c
 @@ -37,6 +37,13 @@
@@ -417,7 +417,7 @@ index fa62250cb..c3b732085 100644
 +
 +u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 min_port, u16 block_size, u32 vrf)
++		    u16 min_port, u16 block_size)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_main_per_thread_data_t *tsm = &sm->per_thread_data[0];
@@ -461,7 +461,7 @@ index fa62250cb..c3b732085 100644
  nat_ip4_add_del_addr_only_sm_cb (ip4_main_t * im,
  				 uword opaque,
 diff --git a/src/plugins/nat/nat.h b/src/plugins/nat/nat.h
-index 1885ab57d..a66533a55 100644
+index 1885ab57d..ad9e21d7f 100644
 --- a/src/plugins/nat/nat.h
 +++ b/src/plugins/nat/nat.h
 @@ -227,6 +227,16 @@ typedef enum
@@ -553,7 +553,7 @@ index 1885ab57d..a66533a55 100644
 +
 +u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 min_port, u16 block_size, u32 vrf);
++		    u16 min_port, u16 block_size);
  /**
   * @brief Set address and port assignment algorithm to default/standard
   */

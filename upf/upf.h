@@ -972,7 +972,7 @@ int
 vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
 			   ip4_address_t end_addr, u8 * name,
 			   u16 port_block_size, u16 min_port, u16 max_port,
-			   u32 vrf_id, u8 is_add);
+			   u8 is_add);
 
 int vnet_upf_ueip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add);
 
@@ -994,7 +994,7 @@ static int (*upf_nat_del_binding) (ip4_address_t user_addr);
 
 static int
   (*upf_nat_create_binding) (ip4_address_t user_addr, ip4_address_t ext_addr,
-			     u16 min_port, u16 block_size, u32 vrf);
+			     u16 min_port, u16 block_size);
 
 static inline void
 increment_v4_address (ip4_address_t * a)
