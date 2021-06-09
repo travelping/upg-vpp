@@ -1565,6 +1565,10 @@ handle_nat_binding_creation (upf_session_t * sx, u8 * nat_pool_name,
   upf_nat_addr_t *ap;
   int rc = 0;
 
+  /* We already created NAT Binding for a session using different FAR */
+  if (sx->nat_addr)
+    return 0;
+
   if (!sx->user_addr.as_u32)
     return -1;
 
