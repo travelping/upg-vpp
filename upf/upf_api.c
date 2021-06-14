@@ -313,6 +313,67 @@ reply:
     vec_free (s);
 }
 
+static void
+send_upf_nat_pool_details (vl_api_registration_t * reg,
+			   upf_nat_pool_t * np, u32 context)
+{
+  vl_api_upf_nat_pool_details_t *mp;
+  upf_main_t *sm = &upf_main;
+  upf_nat_addr_t *ap;
+  u8 *nwi_name = 0;
+  u32 len;
+  u32 max_users = 0;
+  u32 current_users = 0;
+
+  mp = vl_msg_api_alloc (sizeof (*mp));
+  clib_memset (mp, 0, sizeof (*mp));
+
+  mp->_vl_msg_id = htons (VL_API_UPF_NAT_POOL_DETAILS + sm->msg_id_base);
+  mp->context = context;
+
+  len = clib_min (sizeof (mp->name) - 1, vec_len (np->name));
+  memcpy (mp->name, np->name, len);
+  mp->name[len] = 0;
+
+  nwi_name = format (nwi_name, "%U", format_dns_labels, np->network_instance);
+  len = clib_min (sizeof (mp->nwi) - 1, vec_len (nwi_name));
+  memcpy (mp->nwi, nwi_name, len);
+  mp->name[len] = 0;
+  vec_free (nwi_name);
+
+  max_users = vec_len (np->addresses) * np->max_blocks_per_addr;
+  mp->max_users = htonl (max_users);
+
+  vec_foreach (ap, np->addresses) current_users += ap->used_blocks;
+
+  mp->current_users = htonl (current_users);
+
+  mp->block_size = htons (np->port_block_size);
+
+  vl_api_send_msg (reg, (u8 *) mp);
+}
+
+/* API message handler */
+static void vl_api_upf_nat_pool_dump_t_handler
+  (vl_api_upf_nat_pool_dump_t * mp)
+{
+  upf_main_t *sm = &upf_main;
+  vl_api_registration_t *reg;
+  upf_nat_pool_t *np = NULL;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    {
+      return;
+    }
+
+  pool_foreach (np, sm->nat_pools)
+  {
+    send_upf_nat_pool_details (reg, np, mp->context);
+  }
+}
+
+
 #include <upf/upf.api.c>
 
 static clib_error_t *
