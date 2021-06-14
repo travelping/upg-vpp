@@ -149,3 +149,18 @@ define upf_application_l7_rule_dump {
 
   u8 app[64];
 };
+
+define upf_nat_pool_details {
+  u32 context;
+
+  u8 name[64];
+  u8 nwi[64];
+  u16 block_size;
+  u32 max_users;
+  u32 current_users;
+};
+
+define upf_nat_pool_dump {
+  u32 client_index;
+  u32 context;
+};
