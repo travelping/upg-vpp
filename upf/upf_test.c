@@ -71,6 +71,7 @@ api_upf_update_app (vat_main_t * vam)
 
 #define vl_api_upf_application_l7_rule_details_t_handler vl_noop_handler
 #define vl_api_upf_applications_details_t_handler vl_noop_handler
+#define vl_api_upf_nat_pool_details_t_handler vl_noop_handler
 
 static int
 api_upf_applications_dump (vat_main_t * vam)
@@ -110,6 +111,12 @@ static void vl_api_upf_pfcp_format_reply_t_handler
   vat_main_t *vam = upf_test_main.vat_main;
 
   fformat (vam->ofp, "retval %d text_len %u\n", mp->retval, mp->text_len);
+}
+
+static int
+api_upf_nat_pool_dump (vat_main_t * vam)
+{
+  return -1;
 }
 
 #include <upf/upf.api_test.c>
