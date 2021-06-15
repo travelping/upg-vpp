@@ -71,7 +71,7 @@ if [[ ${E2E_VERBOSE} ]]; then
 fi
 
 if [[ ${E2E_PARALLEL} ]]; then
-  ginkgo_args+=(-stream -nodes "${E2E_PARALLEL_NODES}")
+  ginkgo_args+=(-nodes "${E2E_PARALLEL_NODES}")
 fi
 
 if [[ ${E2E_FOCUS} ]]; then
