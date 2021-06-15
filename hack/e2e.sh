@@ -22,6 +22,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_PAUSE_ON_ERROR:=}"
 : "${E2E_MULTICORE:=}"
 : "${E2E_XDP:=}"
+: "${E2E_KEEP_ALL_ARTIFACTS:=}"
 
 if grep -q '^gtp ' /proc/modules; then
   echo >&2 "* Using kernel GTP-U support for IPv4 PGW tests"

@@ -36,10 +36,11 @@ import (
 )
 
 const (
-	TEIDPGWs5u      = 1000000000
-	TEIDSGWs5u      = 1000000001
-	ProxyAccessTEID = 1000000002
-	ProxyCoreTEID   = 1000000003
+	TEIDPGWs5u          = 1000000000
+	TEIDSGWs5u          = 1000000001
+	ProxyAccessTEID     = 1000000002
+	ProxyCoreTEID       = 1000000003
+	KeepAllArtifactsEnv = "E2E_KEEP_ALL_ARTIFACTS"
 )
 
 var artifactsDir string
@@ -225,7 +226,7 @@ func (f *Framework) AfterEach() {
 	}
 
 	if f.VPPCfg != nil && f.VPPCfg.BaseDir != "" {
-		if artifactsDir != "" && ginkgo.CurrentGinkgoTestDescription().Failed {
+		if needArtifacts() {
 			ExpectNoError(os.MkdirAll(artifactsDir, os.ModePerm))
 			/// XXXXXX: use proper test desc
 			targetDir := filepath.Join(artifactsDir, toFilename(ginkgo.CurrentGinkgoTestDescription().FullTestText))
@@ -316,4 +317,14 @@ func DefaultPFCPConfig(vppCfg vpp.VPPConfig) pfcp.PFCPConfig {
 		CNodeIP: vppCfg.GetNamespaceAddress("cp").IP,
 		NodeID:  "pfcpstub",
 	}
+}
+
+func needArtifacts() bool {
+	if artifactsDir == "" {
+		return false
+	}
+	if os.Getenv(KeepAllArtifactsEnv) != "" {
+		return true
+	}
+	return ginkgo.CurrentGinkgoTestDescription().Failed
 }
