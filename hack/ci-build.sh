@@ -5,7 +5,7 @@ set -o pipefail
 set -o errtrace
 
 : ${REGISTRY:=quay.io}
-: ${CONTAINER_IMAGE:=travelping/upg-vpp}
+: ${IMAGE_NAME:=travelping/upg-vpp}
 : ${DOCKERFILE:=}
 : ${BUILDKITD_ADDR:=tcp://buildkitd:1234}
 : ${IMAGE_VARIANT:=debug}
