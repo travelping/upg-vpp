@@ -123,9 +123,11 @@ to enable wrapping the internally run commands in a docker container:
 export UPG_BUILDENV=docker
 ```
 
-It is also possible to use a k8s cluster to run the build container:
+It is also possible to use a k8s cluster to run the build container in a pod:
 ```
 export UPG_BUILDENV=k8s
+# optional: specify the node to run the build pod
+export UPG_BUILDENV_NODE=somenode
 ```
 In this case, the buildenv is run as statefulset inside the cluster.
 It can be removed using
