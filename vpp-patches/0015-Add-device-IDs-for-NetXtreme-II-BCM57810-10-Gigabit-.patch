@@ -1,0 +1,102 @@
+From 028fab842dc0917b5ecd4ea1c874ca7758c2a0f3 Mon Sep 17 00:00:00 2001
+From: Ivan Shvedunov <ivan.shvedunov@travelping.com>
+Date: Tue, 15 Jun 2021 15:13:55 +0300
+Subject: [PATCH] Add device IDs for NetXtreme II BCM57810 10 Gigabit card
+
+TODO: VF/PF
+
+Signed-off-by: Ivan Shvedunov <ivan4th@gmail.com>
+Change-Id: Ic8ff61efc051cc3ff39a77d88bb29644f5bc88a7
+---
+ build/external/packages/dpdk.mk  | 1 -
+ src/plugins/dpdk/CMakeLists.txt  | 6 ++++++
+ src/plugins/dpdk/device/dpdk.h   | 3 ++-
+ src/plugins/dpdk/device/format.c | 4 ++++
+ src/plugins/dpdk/device/init.c   | 6 ++++++
+ 5 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/build/external/packages/dpdk.mk b/build/external/packages/dpdk.mk
+index c35ac84c2..62c0b2ada 100644
+--- a/build/external/packages/dpdk.mk
++++ b/build/external/packages/dpdk.mk
+@@ -54,7 +54,6 @@ DPDK_DRIVERS_DISABLED := baseband/\*,	\
+ 	event/\*,							\
+ 	mempool/dpaa,						\
+ 	net/af_packet,						\
+-	net/bnx2x,							\
+ 	net/bonding,						\
+ 	net/ipn3ke,							\
+ 	net/liquidio,						\
+diff --git a/src/plugins/dpdk/CMakeLists.txt b/src/plugins/dpdk/CMakeLists.txt
+index 1dd7507c0..75962ac23 100644
+--- a/src/plugins/dpdk/CMakeLists.txt
++++ b/src/plugins/dpdk/CMakeLists.txt
+@@ -82,6 +82,12 @@ endif()
+ vpp_plugin_find_library(dpdk NUMA_LIB "numa")
+ list(APPEND DPDK_LINK_LIBRARIES ${NUMA_LIB})
+ 
++##############################################################################
++# libz
++##############################################################################
++vpp_plugin_find_library(dpdk DPDK_Z_LIB z)
++list(APPEND DPDK_LINK_LIBRARIES ${DPDK_Z_LIB})
++
+ ##############################################################################
+ # Mellanox libraries
+ ##############################################################################
+diff --git a/src/plugins/dpdk/device/dpdk.h b/src/plugins/dpdk/device/dpdk.h
+index c81f23d76..76b0b77d2 100644
+--- a/src/plugins/dpdk/device/dpdk.h
++++ b/src/plugins/dpdk/device/dpdk.h
+@@ -91,7 +91,8 @@ extern vlib_node_registration_t admin_up_down_process_node;
+   _ ("net_liovf", LIOVF_ETHER)    \
+   _ ("net_qede", QEDE)		  \
+   _ ("net_netvsc", NETVSC)        \
+-  _ ("net_bnxt", BNXT)
++  _ ("net_bnxt", BNXT)            \
++  _ ("net_bnx2x", BNX2X)
+ 
+ typedef enum
+ {
+diff --git a/src/plugins/dpdk/device/format.c b/src/plugins/dpdk/device/format.c
+index 1baf314ac..710d1e211 100644
+--- a/src/plugins/dpdk/device/format.c
++++ b/src/plugins/dpdk/device/format.c
+@@ -349,6 +349,10 @@ format_dpdk_device_type (u8 * s, va_list * args)
+       dev_type = "Broadcom NetXtreme E/S-Series";
+       break;
+ 
++    case VNET_DPDK_PMD_BNX2X:
++      dev_type = "Broadcom NetXtreme II Series";
++      break;
++
+     default:
+     case VNET_DPDK_PMD_UNKNOWN:
+       dev_type = "### UNKNOWN ###";
+diff --git a/src/plugins/dpdk/device/init.c b/src/plugins/dpdk/device/init.c
+index 19898b186..953d5892b 100644
+--- a/src/plugins/dpdk/device/init.c
++++ b/src/plugins/dpdk/device/init.c
+@@ -450,6 +450,9 @@ dpdk_lib_init (dpdk_main_t * dm)
+ 	    case VNET_DPDK_PMD_BNXT:
+ 	      xd->port_type = port_type_from_speed_capa (&dev_info);
+ 	      break;
++	    case VNET_DPDK_PMD_BNX2X:
++	      xd->port_type = VNET_DPDK_PORT_TYPE_ETH_10G;
++	      break;
+ 
+ 	      /* SR-IOV VFs */
+ 	    case VNET_DPDK_PMD_IGBVF:
+@@ -983,6 +986,9 @@ dpdk_bind_devices_to_uio (dpdk_config_main_t * conf)
+ 	 d->device_id == 0x1614 || d->device_id == 0x1606 ||
+ 	 d->device_id == 0x1609 || d->device_id == 0x1614)))
+       ;
++    /* Broadcom Inc. and subsidiaries NetXtreme II BCM57810 */
++    else if (d->vendor_id == 0x14e4 && d->device_id == 0x168e)
++      ;
+     else
+       {
+         dpdk_log_warn ("Unsupported PCI device 0x%04x:0x%04x found "
+-- 
+2.30.2
+
