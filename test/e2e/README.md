@@ -36,6 +36,7 @@ The make commands accept following variables:
 * `E2E_DISPATCH_TRACE`: store the VPP dispatch trace as `dispatch-trace.pcap` in the test dir
 * `E2E_PAUSE_ON_ERROR`: pause on error for interactive debugging
 * `E2E_MULTICORE`: run tests with a single worker core enabled
+* `E2E_KEEP_ALL_ARTIFACTS`: store artifacts even for successful tests
 
 An example with multiple flags:
 
