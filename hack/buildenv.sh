@@ -9,6 +9,7 @@ set -o errtrace
 : ${K8S_NAMESPACE:=default}
 # FIXME: GRAB_ARTIFACTS is currently only supported in k8s mode
 : ${GRAB_ARTIFACTS:=}
+: ${UPG_BUILDENV_NODE:=}
 
 if [[ ${GITHUB_RUN_ID:-} ]]; then
   K8S_ID="${GITHUB_ACTOR}-${GITHUB_JOB}-${GITHUB_RUN_ID}"
@@ -48,6 +49,7 @@ function docker_buildenv {
          -e E2E_PAUSE_ON_ERROR="${E2E_PAUSE_ON_ERROR:-}" \
          -e E2E_MULTICORE="${E2E_MULTICORE:-}" \
          -e E2E_XDP="${E2E_XDP:-}" \
+         -e E2E_KEEP_ALL_ARTIFACTS="${E2E_KEEP_ALL_ARTIFACTS:-}" \
          -w /src/vpp \
          "${build_image}" \
          "$@"
@@ -63,6 +65,10 @@ function k8s_pod_name {
 
 function k8s_ensure_buildenv {
   local name=$(k8s_statefulset_name)
+  node_selector=
+  if [[ ${UPG_BUILDENV_NODE} ]]; then
+    node_selector="nodeSelector: { kubernetes.io/hostname: ${UPG_BUILDENV_NODE} }"
+  fi
   kubectl apply -f - <<EOF
 apiVersion: apps/v1
 kind: StatefulSet
@@ -92,6 +98,7 @@ spec:
                 values:
                 - "1"
             topologyKey: kubernetes.io/hostname
+      ${node_selector}
       initContainers:
       - name: prepare
         image: busybox:stable
