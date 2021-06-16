@@ -1662,9 +1662,12 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	     (far->forwarding_parameters.grp.fields,
 	      FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK)))
 	  {
+	    int rc = 0;
 	    pfcp_bbf_nat_port_block_t pool_name =
 	      vec_dup (far->forwarding_parameters.nat_port_block);
-	    if (handle_nat_binding_creation (sx, pool_name, response))
+	    rc = handle_nat_binding_creation (sx, pool_name, response);
+	    vec_free (pool_name);
+	    if (rc)
 	      goto out_error;
 	  }
 
