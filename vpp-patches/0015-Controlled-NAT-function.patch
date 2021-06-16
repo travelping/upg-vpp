@@ -1,4 +1,4 @@
-From 5619620e46927fc45ef4da5d128ba2301d6d08e3 Mon Sep 17 00:00:00 2001
+From 06174d9c37e47d1a6098aeafb8ae64ba0167d43f Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Wed, 31 Mar 2021 15:19:02 +0400
 Subject: [PATCH] Controlled NAT function
@@ -209,7 +209,7 @@ index 776efdf13..fc91d6f13 100644
        /* Add to lookup tables */
        init_ed_kv (&s_kv, s->in2out.addr, 0, ip->dst_address, 0, rx_fib_index,
 diff --git a/src/plugins/nat/nat.c b/src/plugins/nat/nat.c
-index eeaa443bf..c396f89ce 100644
+index eeaa443bf..be7da8877 100644
 --- a/src/plugins/nat/nat.c
 +++ b/src/plugins/nat/nat.c
 @@ -36,6 +36,13 @@
@@ -363,7 +363,7 @@ index eeaa443bf..c396f89ce 100644
 +  u16 start, end = 0;
 +
 +  start = start_port;
-+  end = start + block_size;
++  end = start + block_size - 1;
 +
 +  while (end < NAT_CONTROLLED_MAX_PORT)
 +    {
