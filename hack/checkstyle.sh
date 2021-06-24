@@ -39,7 +39,7 @@ done
 if [ "${FULL}" == "1" ]; then
 	FILELIST=$(git ls-tree -r HEAD --name-only)
 else
-	FILELIST=$((git diff HEAD~1.. --name-only; git ls-files -m ) | sort -u)
+	FILELIST=$((git diff HEAD~1.. --name-only; git ls-files -m ) | sort -u | egrep -v vpp-patches)
 fi
 
 # Check to make sure we have indent.  Exit if we don't with an error message, but
