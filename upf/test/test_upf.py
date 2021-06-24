@@ -541,13 +541,13 @@ class PFCPHelper(object):
 
     def verify_upg_counters(self, expected_assoc=0, expected_sessions=0,
                             expected_flows=0):
-        flow_counter = self.statistics.dump(self.statistics.ls('/upf/total_flows'))
-        session_counter = self.statistics.dump(self.statistics.ls('/upf/total_sessions'))
-        association_counter = self.statistics.dump(self.statistics.ls('/upf/total_assoc'))
+        flow_counter = self.statistics['/upf/total_flows']
+        session_counter = self.statistics['/upf/total_sessions']
+        association_counter = self.statistics['/upf/total_assoc']
         # Counter dir is implemented as a per-cpu vector of vectors
-        self.assertEqual(flow_counter['/upf/total_flows'][0][0], expected_flows)
-        self.assertEqual(session_counter['/upf/total_sessions'][0][0], expected_sessions)
-        self.assertEqual(association_counter['/upf/total_assoc'][0][0], expected_assoc)
+        self.assertEqual(flow_counter[0][0], expected_flows)
+        self.assertEqual(session_counter[0][0], expected_sessions)
+        self.assertEqual(association_counter[0][0], expected_assoc)
 
 class TestTDFBase(PFCPHelper):
     """Base TDF Test"""
