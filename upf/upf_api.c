@@ -338,7 +338,7 @@ send_upf_nat_pool_details (vl_api_registration_t * reg,
   nwi_name = format (nwi_name, "%U", format_dns_labels, np->network_instance);
   len = clib_min (sizeof (mp->nwi) - 1, vec_len (nwi_name));
   memcpy (mp->nwi, nwi_name, len);
-  mp->name[len] = 0;
+  mp->nwi[len] = 0;
   vec_free (nwi_name);
 
   max_users = vec_len (np->addresses) * np->max_blocks_per_addr;
