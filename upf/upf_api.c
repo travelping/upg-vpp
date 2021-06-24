@@ -241,7 +241,7 @@ send_upf_nat_pool_details (vl_api_registration_t * reg,
   upf_main_t *sm = &upf_main;
   upf_nat_addr_t *ap;
   u8 *nwi_name = 0;
-  u32 name_len;
+  u32 len;
   u32 max_users = 0;
   u32 current_users = 0;
 
@@ -251,14 +251,14 @@ send_upf_nat_pool_details (vl_api_registration_t * reg,
   mp->_vl_msg_id = htons (VL_API_UPF_NAT_POOL_DETAILS + sm->msg_id_base);
   mp->context = context;
 
-  name_len = clib_min (vec_len (np->name) + 1, ARRAY_LEN (mp->name));
-  memcpy (mp->name, np->name, name_len - 1);
-  ASSERT (0 == mp->name[name_len - 1]);
+  len = clib_min (sizeof (mp->name) - 1, vec_len (np->name));
+  memcpy (mp->name, np->name, len);
+  mp->name[len] = 0;
 
   nwi_name = format (nwi_name, "%U", format_dns_labels, np->network_instance);
-  name_len = clib_min (vec_len (nwi_name) + 1, ARRAY_LEN (mp->name));
-  memcpy (mp->nwi, nwi_name, name_len - 1);
-  ASSERT (0 == mp->nwi[name_len - 1]);
+  len = clib_min (sizeof (mp->nwi) - 1, vec_len (nwi_name));
+  memcpy (mp->nwi, nwi_name, len);
+  mp->nwi[len] = 0;
   vec_free (nwi_name);
 
   max_users = vec_len (np->addresses) * np->max_blocks_per_addr;
