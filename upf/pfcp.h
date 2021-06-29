@@ -237,8 +237,8 @@ typedef struct
 
 typedef struct
 {
-  u32 ul;
-  u32 dl;
+  u64 ul;
+  u64 dl;
 } pfcp_bit_rate_t;
 
 #define PFCP_IE_MBR					26

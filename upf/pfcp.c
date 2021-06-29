@@ -289,6 +289,27 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
     (V) += sizeof(u32);				\
     ntohl(*_V); })
 
+#define put_u40(V,I)					\
+  do {							\
+    (V)[_vec_len((V))] = (I) >> 32;			\
+    (V)[_vec_len((V)) + 1] = ((I) >> 24) & 0xff;	\
+    (V)[_vec_len((V)) + 2] = ((I) >> 16) & 0xff;	\
+    (V)[_vec_len((V)) + 3] = ((I) >> 8) & 0xff;		\
+    (V)[_vec_len((V)) + 4] = (I) & 0xff;		\
+    _vec_len((V)) += 5;					\
+  } while (0)
+
+#define get_u8_to_u64(V, Idx) ({u64 _V = (u8)((V)[(Idx)]); _V; })
+
+#define get_u40(V)					\
+  ({u64 _V = (get_u8_to_u64(V, 0) << 32) |		\
+      (get_u8_to_u64(V, 1) << 24) |			\
+      (get_u8_to_u64(V, 2) << 16) |			\
+      (get_u8_to_u64(V, 3) << 8) |			\
+      get_u8_to_u64(V, 4);				\
+    (V) += 5;						\
+    _V; })
+
 #define put_u64(V,I)					\
   do {							\
     *((u64 *)&(V)[_vec_len((V))]) = htobe64((I));	\
@@ -1095,11 +1116,11 @@ decode_bit_rate (u8 * data, u16 length, void *p)
 {
   pfcp_bit_rate_t *v = p;
 
-  if (length < 8)
+  if (length < 10)
     return PFCP_CAUSE_INVALID_LENGTH;
 
-  v->ul = get_u32 (data);
-  v->dl = get_u32 (data);
+  v->ul = get_u40 (data);
+  v->dl = get_u40 (data);
 
   return 0;
 }
@@ -1109,8 +1130,8 @@ encode_bit_rate (void *p, u8 ** vec)
 {
   pfcp_bit_rate_t *v = p;
 
-  put_u32 (*vec, v->ul);
-  put_u32 (*vec, v->dl);
+  put_u40 (*vec, v->ul);
+  put_u40 (*vec, v->dl);
 
   return 0;
 }
