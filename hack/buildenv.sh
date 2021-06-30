@@ -18,6 +18,8 @@ if [[ ${GITHUB_RUN_ID:-} ]]; then
   fi
 fi
 
+K8S_ID=$(echo ${K8S_ID} | awk '{print tolower($0)}')
+
 cd "$(dirname "${BASH_SOURCE}")/.."
 
 function docker_buildenv {
