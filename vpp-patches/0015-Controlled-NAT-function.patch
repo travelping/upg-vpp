@@ -1,4 +1,4 @@
-From b1b398a58c3823e32b422110a3d39f9447f2e82b Mon Sep 17 00:00:00 2001
+From a9d428c487150d2d5d7e5230aee38adac9ad7b9a Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Tue, 18 May 2021 17:07:31 +0400
 Subject: [PATCH] Controlled NAT function
@@ -7,32 +7,32 @@ Allow to override ED NAT address and port selection in slow path
 by dedicated NAT bindings per user address. Bindings are created via
 UPG plugin and stored in bihash table.
 ---
- src/plugins/nat/in2out_ed.c   | 133 +++++++++++++++++-----
+ src/plugins/nat/in2out_ed.c   | 142 ++++++++++++++++++-----
  src/plugins/nat/nat.c         | 208 +++++++++++++++++++++++++++++++++-
  src/plugins/nat/nat.h         |  44 +++++++
  src/plugins/nat/nat44_cli.c   |  72 ++++++++++++
  src/plugins/nat/nat_format.c  |  17 +++
  src/plugins/nat/nat_inlines.h |  39 +++++++
- 6 files changed, 484 insertions(+), 29 deletions(-)
+ 6 files changed, 492 insertions(+), 30 deletions(-)
 
 diff --git a/src/plugins/nat/in2out_ed.c b/src/plugins/nat/in2out_ed.c
-index 7153a6035..7a7895a72 100644
+index 7153a6035..d70901c9c 100644
 --- a/src/plugins/nat/in2out_ed.c
 +++ b/src/plugins/nat/in2out_ed.c
-@@ -196,6 +196,65 @@ icmp_in2out_ed_slow_path (snat_main_t * sm, vlib_buffer_t * b0,
+@@ -196,6 +196,67 @@ icmp_in2out_ed_slow_path (snat_main_t * sm, vlib_buffer_t * b0,
    return next0;
  }
  
 +
 +static int
-+nat_controlled_alloc_addr_and_port (snat_main_t * sm, u32 rx_fib_index,
-+				    u32 nat_proto, u32 thread_index,
-+				    ip4_address_t r_addr, u16 r_port,
-+				    u8 proto, u16 port_per_thread,
++nat_controlled_alloc_addr_and_port (snat_main_t * sm,
++				    u32 thread_index, ip4_address_t r_addr,
++				    u16 r_port, u8 proto,
 +				    u32 snat_thread_index, snat_session_t * s,
 +				    ip4_address_t * outside_addr,
 +				    u16 * outside_port,
-+				    clib_bihash_kv_16_8_t * out2in_ed_kv)
++				    clib_bihash_kv_16_8_t * out2in_ed_kv,
++				    u32 buf_out_fib_idx)
 +{
 +  snat_main_per_thread_data_t *tsm = &sm->per_thread_data[thread_index];
 +  snat_binding_t *bn;
@@ -47,6 +47,8 @@ index 7153a6035..7a7895a72 100644
 +    {
 +      return 1;
 +    }
++
++  s->out2in.fib_index = buf_out_fib_idx;
 +  start_port = bn->start_port;
 +  end_port = bn->end_port;
 +  block_size = end_port - start_port;
@@ -85,7 +87,13 @@ index 7153a6035..7a7895a72 100644
  static int
  nat_ed_alloc_addr_and_port (snat_main_t * sm, u32 rx_fib_index,
  			    u32 nat_proto, u32 thread_index,
-@@ -340,16 +399,16 @@ slow_path_ed (snat_main_t * sm,
+@@ -335,21 +396,22 @@ slow_path_ed (snat_main_t * sm,
+   ip4_address_t outside_addr;
+   u16 outside_port;
+   u8 identity_nat;
++  u32 out_fib_index = vnet_buffer (b)->sw_if_index[VLIB_TX];
+ 
+   u32 nat_proto = ip_proto_to_nat_proto (proto);
    snat_session_t *s = NULL;
    lb_nat_type_t lb = 0;
  
@@ -112,7 +120,7 @@ index 7153a6035..7a7895a72 100644
  
    if (PREDICT_FALSE
        (nat44_ed_maximum_sessions_exceeded (sm, rx_fib_index, thread_index)))
-@@ -395,12 +454,29 @@ slow_path_ed (snat_main_t * sm,
+@@ -395,12 +457,28 @@ slow_path_ed (snat_main_t * sm,
  
        /* Try to create dynamic translation */
        outside_port = l_port;	// suggest using local port to allocation function
@@ -124,14 +132,13 @@ index 7153a6035..7a7895a72 100644
 -				      &outside_port, &out2in_ed_kv))
 +      if (sm->controlled)
 +	{
-+	  if (nat_controlled_alloc_addr_and_port (sm, rx_fib_index, nat_proto,
-+						  thread_index, r_addr,
++	  if (nat_controlled_alloc_addr_and_port (sm, thread_index, r_addr,
 +						  r_port, proto,
-+						  sm->port_per_thread,
 +						  tsm->snat_thread_index, s,
 +						  &outside_addr,
 +						  &outside_port,
-+						  &out2in_ed_kv))
++						  &out2in_ed_kv,
++						  out_fib_index))
 +	    {
 +	      nat_elog_notice ("addresses exhausted");
 +	      b->error = node->errors[NAT_IN2OUT_ED_ERROR_OUT_OF_PORTS];
@@ -148,7 +155,7 @@ index 7153a6035..7a7895a72 100644
  	{
  	  nat_elog_notice ("addresses exhausted");
  	  b->error = node->errors[NAT_IN2OUT_ED_ERROR_OUT_OF_PORTS];
-@@ -772,8 +848,9 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
+@@ -772,8 +850,9 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
    ip_csum_t sum;
    snat_main_per_thread_data_t *tsm = &sm->per_thread_data[thread_index];
    snat_session_t *s;
@@ -159,7 +166,7 @@ index 7153a6035..7a7895a72 100644
    u8 is_sm = 0;
  
    switch (vec_len (sm->outside_fibs))
-@@ -840,17 +917,19 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
+@@ -840,17 +919,19 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
        	      }
        	  });
        	  /* *INDENT-ON* */
@@ -188,7 +195,19 @@ index 7153a6035..7a7895a72 100644
  	    }
  	  return 0;
  	}
-@@ -874,6 +953,8 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
+@@ -868,12 +949,19 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
+       s->flags |= SNAT_SESSION_FLAG_UNKNOWN_PROTO;
+       s->flags |= SNAT_SESSION_FLAG_ENDPOINT_DEPENDENT;
+       s->out2in.addr.as_u32 = new_addr;
+-      s->out2in.fib_index = outside_fib_index;
++
++      if (!bn)
++	s->out2in.fib_index = outside_fib_index;
++      else
++	s->out2in.fib_index = vnet_buffer (b)->sw_if_index[VLIB_TX];
++
+       s->in2out.addr.as_u32 = old_addr;
+       s->in2out.fib_index = rx_fib_index;
        s->in2out.port = s->out2in.port = ip->protocol;
        if (is_sm)
  	s->flags |= SNAT_SESSION_FLAG_STATIC_MAPPING;
