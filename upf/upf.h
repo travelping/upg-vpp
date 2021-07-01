@@ -356,6 +356,7 @@ typedef struct
   u32 vrf_id;
   u16 max_blocks_per_addr;
   u8 *network_instance;
+  u32 out_fib_index;
 } upf_nat_pool_t;
 
 typedef struct
@@ -992,9 +993,9 @@ upf_nat_pool_t *get_nat_pool_by_name (u8 * name);
 
 static int (*upf_nat_del_binding) (ip4_address_t user_addr);
 
-static int
+static u16
   (*upf_nat_create_binding) (ip4_address_t user_addr, ip4_address_t ext_addr,
-			     u16 min_port, u16 block_size);
+			     u16 min_port, u16 block_size, u32 out_fib_index);
 
 static inline void
 increment_v4_address (ip4_address_t * a)

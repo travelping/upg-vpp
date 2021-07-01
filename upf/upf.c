@@ -136,6 +136,7 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
 {
   upf_main_t *gtm = &upf_main;
   upf_nat_pool_t *nat_pool = NULL;
+  upf_nwi_t *nwi;
   uword *p;
 
   p = hash_get_mem (gtm->nat_pool_index_by_name, name);
@@ -160,6 +161,18 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
       nat_pool->max_port = UPF_NAT_MAX_PORT;
       nat_pool->max_blocks_per_addr =
 	(u16) ((nat_pool->max_port - nat_pool->min_port) / port_block_size);
+
+      /* Bind pool to NWI IP4 FIB table */
+      /* *INDENT-OFF* */
+      pool_foreach (nwi, gtm->nwis,
+	({
+	  if (!vec_is_equal(nwi_name, nwi->name))
+	    continue;
+
+	  nat_pool->out_fib_index = nwi->fib_index[FIB_PROTOCOL_IP4];
+
+	}));
+      /* *INDENT-ON* */
 
       hash_set_mem (gtm->nat_pool_index_by_name, name,
 		    nat_pool - gtm->nat_pools);

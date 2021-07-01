@@ -957,7 +957,7 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t * np, upf_nat_addr_t * addr,
 
   port_start =
     upf_nat_create_binding (user_ip, addr->ext_addr, np->min_port,
-			    np->port_block_size);
+			    np->port_block_size, np->out_fib_index);
   if (port_start)
     {
       port_end = port_start + np->port_block_size;

@@ -1,4 +1,4 @@
-From b1b398a58c3823e32b422110a3d39f9447f2e82b Mon Sep 17 00:00:00 2001
+From e88626f629b321509474f0acb78d587167ee8f06 Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Tue, 18 May 2021 17:07:31 +0400
 Subject: [PATCH] Controlled NAT function
@@ -7,19 +7,19 @@ Allow to override ED NAT address and port selection in slow path
 by dedicated NAT bindings per user address. Bindings are created via
 UPG plugin and stored in bihash table.
 ---
- src/plugins/nat/in2out_ed.c   | 133 +++++++++++++++++-----
- src/plugins/nat/nat.c         | 208 +++++++++++++++++++++++++++++++++-
- src/plugins/nat/nat.h         |  44 +++++++
+ src/plugins/nat/in2out_ed.c   | 142 ++++++++++++++++++-----
+ src/plugins/nat/nat.c         | 211 +++++++++++++++++++++++++++++++++-
+ src/plugins/nat/nat.h         |  46 ++++++++
  src/plugins/nat/nat44_cli.c   |  72 ++++++++++++
  src/plugins/nat/nat_format.c  |  17 +++
  src/plugins/nat/nat_inlines.h |  39 +++++++
- 6 files changed, 484 insertions(+), 29 deletions(-)
+ 6 files changed, 497 insertions(+), 30 deletions(-)
 
 diff --git a/src/plugins/nat/in2out_ed.c b/src/plugins/nat/in2out_ed.c
-index 7153a6035..7a7895a72 100644
+index 7153a6035..51fdb71bd 100644
 --- a/src/plugins/nat/in2out_ed.c
 +++ b/src/plugins/nat/in2out_ed.c
-@@ -196,6 +196,65 @@ icmp_in2out_ed_slow_path (snat_main_t * sm, vlib_buffer_t * b0,
+@@ -196,6 +196,67 @@ icmp_in2out_ed_slow_path (snat_main_t * sm, vlib_buffer_t * b0,
    return next0;
  }
  
@@ -47,6 +47,8 @@ index 7153a6035..7a7895a72 100644
 +    {
 +      return 1;
 +    }
++
++  s->out2in.fib_index = bn->out_fib_index;
 +  start_port = bn->start_port;
 +  end_port = bn->end_port;
 +  block_size = end_port - start_port;
@@ -85,7 +87,7 @@ index 7153a6035..7a7895a72 100644
  static int
  nat_ed_alloc_addr_and_port (snat_main_t * sm, u32 rx_fib_index,
  			    u32 nat_proto, u32 thread_index,
-@@ -340,16 +399,16 @@ slow_path_ed (snat_main_t * sm,
+@@ -340,16 +401,16 @@ slow_path_ed (snat_main_t * sm,
    snat_session_t *s = NULL;
    lb_nat_type_t lb = 0;
  
@@ -112,7 +114,7 @@ index 7153a6035..7a7895a72 100644
  
    if (PREDICT_FALSE
        (nat44_ed_maximum_sessions_exceeded (sm, rx_fib_index, thread_index)))
-@@ -395,12 +454,29 @@ slow_path_ed (snat_main_t * sm,
+@@ -395,12 +456,29 @@ slow_path_ed (snat_main_t * sm,
  
        /* Try to create dynamic translation */
        outside_port = l_port;	// suggest using local port to allocation function
@@ -148,7 +150,7 @@ index 7153a6035..7a7895a72 100644
  	{
  	  nat_elog_notice ("addresses exhausted");
  	  b->error = node->errors[NAT_IN2OUT_ED_ERROR_OUT_OF_PORTS];
-@@ -772,8 +848,9 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
+@@ -772,8 +850,9 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
    ip_csum_t sum;
    snat_main_per_thread_data_t *tsm = &sm->per_thread_data[thread_index];
    snat_session_t *s;
@@ -159,7 +161,7 @@ index 7153a6035..7a7895a72 100644
    u8 is_sm = 0;
  
    switch (vec_len (sm->outside_fibs))
-@@ -840,17 +917,19 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
+@@ -840,17 +919,19 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
        	      }
        	  });
        	  /* *INDENT-ON* */
@@ -188,7 +190,19 @@ index 7153a6035..7a7895a72 100644
  	    }
  	  return 0;
  	}
-@@ -874,6 +953,8 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
+@@ -868,12 +949,19 @@ nat44_ed_in2out_unknown_proto (snat_main_t * sm,
+       s->flags |= SNAT_SESSION_FLAG_UNKNOWN_PROTO;
+       s->flags |= SNAT_SESSION_FLAG_ENDPOINT_DEPENDENT;
+       s->out2in.addr.as_u32 = new_addr;
+-      s->out2in.fib_index = outside_fib_index;
++
++      if (!bn)
++	s->out2in.fib_index = outside_fib_index;
++      else
++	s->out2in.fib_index = bn->out_fib_index;
++
+       s->in2out.addr.as_u32 = old_addr;
+       s->in2out.fib_index = rx_fib_index;
        s->in2out.port = s->out2in.port = ip->protocol;
        if (is_sm)
  	s->flags |= SNAT_SESSION_FLAG_STATIC_MAPPING;
@@ -198,7 +212,7 @@ index 7153a6035..7a7895a72 100644
        /* Add to lookup tables */
        init_ed_kv (&s_kv, s->in2out.addr, 0, ip->dst_address, 0, rx_fib_index,
 diff --git a/src/plugins/nat/nat.c b/src/plugins/nat/nat.c
-index fa62250cb..a2d9901fb 100644
+index fa62250cb..6f9a80b6d 100644
 --- a/src/plugins/nat/nat.c
 +++ b/src/plugins/nat/nat.c
 @@ -37,6 +37,13 @@
@@ -275,7 +289,7 @@ index fa62250cb..a2d9901fb 100644
  }
  
  void
-@@ -4155,11 +4184,184 @@ snat_config (vlib_main_t * vm, unformat_input_t * input)
+@@ -4155,11 +4184,187 @@ snat_config (vlib_main_t * vm, unformat_input_t * input)
  					 format_static_mapping_kvp);
      }
  
@@ -375,7 +389,8 @@ index fa62250cb..a2d9901fb 100644
 +
 +u16
 +nat_add_binding (snat_main_per_thread_data_t * tsm, ip4_address_t user_addr,
-+		 ip4_address_t ext_addr, u16 min_port, u16 block_size)
++		 ip4_address_t ext_addr, u16 min_port, u16 block_size,
++		 u32 out_fib_index)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_binding_t *bn = NULL;
@@ -405,6 +420,7 @@ index fa62250cb..a2d9901fb 100644
 +  bn->external_addr = ext_addr;
 +  bn->start_port = start_port;
 +  bn->end_port = end_port;
++  bn->out_fib_index = out_fib_index;
 +
 +  mhash_set (&tsm->binding_index_by_ip, &bn->framed_addr, bn - tsm->bindings,
 +	     NULL);
@@ -417,14 +433,15 @@ index fa62250cb..a2d9901fb 100644
 +
 +u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 min_port, u16 block_size)
++		    u16 min_port, u16 block_size, u32 out_fib_index)
 +{
 +  snat_main_t *sm = &snat_main;
 +  snat_main_per_thread_data_t *tsm = &sm->per_thread_data[0];
 +  u16 start_block;
 +
 +  start_block =
-+    nat_add_binding (tsm, user_addr, ext_addr, min_port, block_size);
++    nat_add_binding (tsm, user_addr, ext_addr, min_port, block_size,
++		     out_fib_index);
 +
 +  return start_block;
 +}
@@ -461,10 +478,10 @@ index fa62250cb..a2d9901fb 100644
  nat_ip4_add_del_addr_only_sm_cb (ip4_main_t * im,
  				 uword opaque,
 diff --git a/src/plugins/nat/nat.h b/src/plugins/nat/nat.h
-index 1885ab57d..ad9e21d7f 100644
+index 1885ab57d..00fe9c2fd 100644
 --- a/src/plugins/nat/nat.h
 +++ b/src/plugins/nat/nat.h
-@@ -227,6 +227,16 @@ typedef enum
+@@ -227,6 +227,17 @@ typedef enum
  #define NAT_STATIC_MAPPING_FLAG_IDENTITY_NAT 4
  #define NAT_STATIC_MAPPING_FLAG_LB           8
  
@@ -476,12 +493,13 @@ index 1885ab57d..ad9e21d7f 100644
 +  u16 end_port;
 +  u16 block_size;
 +  u32 *bound_sessions;
++  u32 out_fib_index;
 +} snat_binding_t;
 +
  /* *INDENT-OFF* */
  typedef CLIB_PACKED(struct
  {
-@@ -287,6 +297,9 @@ typedef CLIB_PACKED(struct
+@@ -287,6 +298,9 @@ typedef CLIB_PACKED(struct
  
    /* user index */
    u32 user_index;
@@ -491,7 +509,7 @@ index 1885ab57d..ad9e21d7f 100644
  }) snat_session_t;
  /* *INDENT-ON* */
  
-@@ -438,6 +451,9 @@ typedef struct
+@@ -438,6 +452,9 @@ typedef struct
    u8 *tag;
  } snat_static_map_resolve_t;
  
@@ -501,7 +519,7 @@ index 1885ab57d..ad9e21d7f 100644
  typedef struct
  {
    /* Main lookup tables */
-@@ -473,6 +489,9 @@ typedef struct
+@@ -473,6 +490,9 @@ typedef struct
    /* real thread index */
    u32 thread_index;
  
@@ -511,7 +529,7 @@ index 1885ab57d..ad9e21d7f 100644
  } snat_main_per_thread_data_t;
  
  struct snat_main_s;
-@@ -669,6 +688,12 @@ typedef struct snat_main_s
+@@ -669,6 +689,12 @@ typedef struct snat_main_s
    ip4_main_t *ip4_main;
    ip_lookup_main_t *ip4_lookup_main;
    api_main_t *api_main;
@@ -524,7 +542,7 @@ index 1885ab57d..ad9e21d7f 100644
  } snat_main_t;
  
  typedef struct
-@@ -706,6 +731,7 @@ extern fib_source_t nat_fib_src_hi;
+@@ -706,6 +732,7 @@ extern fib_source_t nat_fib_src_hi;
  extern fib_source_t nat_fib_src_low;
  
  /* format functions */
@@ -532,7 +550,7 @@ index 1885ab57d..ad9e21d7f 100644
  format_function_t format_snat_user;
  format_function_t format_snat_static_mapping;
  format_function_t format_snat_static_map_to_resolve;
-@@ -1341,6 +1367,24 @@ void nat_set_alloc_addr_and_port_mape (u16 psid, u16 psid_offset,
+@@ -1341,6 +1368,25 @@ void nat_set_alloc_addr_and_port_mape (u16 psid, u16 psid_offset,
   */
  void nat_set_alloc_addr_and_port_range (u16 start_port, u16 end_port);
  
@@ -547,13 +565,14 @@ index 1885ab57d..ad9e21d7f 100644
 +
 +u16
 +nat_add_binding (snat_main_per_thread_data_t * tsm, ip4_address_t user_addr,
-+		 ip4_address_t ext_addr, u16 min_port, u16 block_size);
++		 ip4_address_t ext_addr, u16 min_port, u16 block_size,
++		 u32 out_fib_index);
 +
 +int nat_del_binding (ip4_address_t user_addr);
 +
 +u16
 +nat_create_binding (ip4_address_t user_addr, ip4_address_t ext_addr,
-+		    u16 min_port, u16 block_size);
++		    u16 min_port, u16 block_size, u32 out_fib_index);
  /**
   * @brief Set address and port assignment algorithm to default/standard
   */
