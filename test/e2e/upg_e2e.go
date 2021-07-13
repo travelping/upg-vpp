@@ -533,18 +533,48 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			}
 			for i := 0; i < leakTestNumIterations; i++ {
 				framework.Logf("creating %d sessions", leakTestNumSessions)
+				sessionCfgs := make([]*framework.SessionConfig, leakTestNumSessions)
 				specs := make([]pfcp.SessionOpSpec, leakTestNumSessions)
 				for j := 0; j < leakTestNumSessions; j++ {
-					sessionCfg := &framework.SessionConfig{
+					sessionCfgs[j] = &framework.SessionConfig{
 						IdBase:  1,
 						UEIP:    ueIPs[j],
 						Mode:    f.Mode,
 						AppName: framework.HTTPAppName,
+						// There was a bug in free_far() at some point
+						// so it was failing to free redirect information
+						Redirect: true,
 					}
-					specs[j].IEs = sessionCfg.SessionIEs()
+					specs[j].IEs = sessionCfgs[j].SessionIEs()
 				}
 
 				seids, errs := f.PFCP.EstablishSessions(f.Context, specs)
+				for _, err := range errs {
+					framework.ExpectNoError(err)
+				}
+
+				framework.Logf("disabling redirects")
+				for j := 0; j < leakTestNumSessions; j++ {
+					sessionCfgs[j].Redirect = false
+					specs[j].SEID = seids[j]
+					specs[j].IEs = append(
+						sessionCfgs[j].DeleteFARs(),
+						sessionCfgs[j].CreateFARs()...)
+				}
+				_, errs = f.PFCP.ModifySessions(f.Context, specs)
+				for _, err := range errs {
+					framework.ExpectNoError(err)
+				}
+
+				framework.Logf("enabling redirects")
+				for j := 0; j < leakTestNumSessions; j++ {
+					sessionCfgs[j].Redirect = true
+					specs[j].SEID = seids[j]
+					specs[j].IEs = append(
+						sessionCfgs[j].DeleteFARs(),
+						sessionCfgs[j].CreateFARs()...)
+				}
+				_, errs = f.PFCP.ModifySessions(f.Context, specs)
 				for _, err := range errs {
 					framework.ExpectNoError(err)
 				}
