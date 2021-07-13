@@ -635,7 +635,7 @@ upf_tdf_ul_table_show_fn (vlib_main_t * vm,
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND (upf_tdf_ul_table_show_command, static) = {
   .path = "show upf tdf ul tables",
-  .short_help = "Show UPF TDF UpLink tables",
+  .short_help = "show upf tdf ul tables",
   .function = upf_tdf_ul_table_show_fn,
 };
 /* *INDENT-ON* */
@@ -1352,10 +1352,10 @@ upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
 VLIB_CLI_COMMAND (upf_proxy_set_command, static) =
 {
   .path = "set upf proxy",
-  .short_help = "set upf proxy [mss <nn>] [fifo-size <nn>[k|m]]"
-      "[max-fifo-size <nn>[k|m]][high-watermark <nn>]"
-      "[low-watermark <nn>][prealloc-fifos <nn>]"
-      "[private-segment-size <mem>][private-segment-count <nn>]",
+  .short_help = "set upf proxy [mss <nn>] [fifo-size <nn>[k|m]] "
+      "[max-fifo-size <nn>[k|m]] [high-watermark <nn>] "
+      "[low-watermark <nn>] [prealloc-fifos <nn>] "
+      "[private-segment-size <mem>] [private-segment-count <nn>]",
   .function = upf_proxy_set_command_fn,
 };
 /* *INDENT-ON* */
