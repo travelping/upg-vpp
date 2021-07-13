@@ -223,11 +223,22 @@ func (cfg SessionConfig) reversePDR(pdrID uint16, farID, urrID, precedence uint3
 	return ie.NewCreatePDR(ies...)
 }
 
-func (cfg SessionConfig) SessionIEs() []*ie.IE {
-	ies := []*ie.IE{
+func (cfg SessionConfig) CreateFARs() []*ie.IE {
+	return []*ie.IE{
 		cfg.forwardFAR(1),
 		cfg.reverseFAR(2),
 	}
+}
+
+func (cfg SessionConfig) DeleteFARs() []*ie.IE {
+	return []*ie.IE{
+		ie.NewRemoveFAR(ie.NewFARID(uint32(cfg.IdBase))),
+		ie.NewRemoveFAR(ie.NewFARID(uint32(cfg.IdBase + 1))),
+	}
+}
+
+func (cfg SessionConfig) SessionIEs() []*ie.IE {
+	ies := cfg.CreateFARs()
 	if !cfg.NoURRs {
 		ies = append(ies,
 			ie.NewCreateURR(

@@ -759,6 +759,8 @@ static inline void
 pfcp_free_far (upf_far_t * far)
 {
   vec_free (far->forward.rewrite);
+  if (far->forward.flags & FAR_F_REDIRECT_INFORMATION)
+    free_redirect_information (&far->forward.redirect_information);
 }
 
 int
@@ -781,13 +783,17 @@ pfcp_make_pending_far (upf_session_t * sx)
 	upf_far_t *new = vec_elt_at_index (pending->far, i);
 
 	new->forward.rewrite = NULL;
-	if (!(old->apply_action & FAR_FORWARD)
-	    || old->forward.rewrite == NULL)
-	  {
-	    continue;
-	  }
+	clib_memset (&new->forward.redirect_information, 0,
+		     sizeof (new->forward.redirect_information));
 
-	new->forward.rewrite = vec_dup (old->forward.rewrite);
+	if (!(old->apply_action & FAR_FORWARD))
+	  continue;
+
+	if (old->forward.rewrite)
+	  new->forward.rewrite = vec_dup (old->forward.rewrite);
+	if (old->forward.flags & FAR_F_REDIRECT_INFORMATION)
+	  cpy_redirect_information (&new->forward.redirect_information,
+				    &old->forward.redirect_information);
       }
     }
 
