@@ -681,8 +681,8 @@ upf_tdf_ul_enable_command_fn (vlib_main_t * vm,
 
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND (upf_tdf_ul_enable_command, static) = {
-    .path = "upf tdf ul enable",
-    .short_help = "UPF TDF UpLink [enable|disable] [ip4|ip6] <interface>",
+    .path = "upf tdf ul",
+    .short_help = "upf tdf ul [enable|disable] [ip4|ip6] <interface>",
     .function = upf_tdf_ul_enable_command_fn,
 };
 /* *INDENT-ON* */
