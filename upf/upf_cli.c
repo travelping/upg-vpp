@@ -63,8 +63,6 @@ upf_pfcp_endpoint_ip_add_del_command_fn (vlib_main_t * vm,
     {
       if (unformat (line_input, "del"))
 	add = 0;
-      else if (unformat (line_input, "add"))
-	add = 1;
       else
 	if (unformat
 	    (line_input, "%U", unformat_ip46_address, &ip, IP46_TYPE_ANY))
@@ -336,8 +334,6 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
     {
       if (unformat (line_input, "del"))
 	add = 0;
-      else if (unformat (line_input, "add"))
-	add = 1;
       else if (unformat (line_input, "name %_%v%_", &s))
 	{
 	  name = upf_name_to_labels (s);
@@ -546,8 +542,6 @@ upf_tdf_ul_table_add_del_command_fn (vlib_main_t * vm,
     {
       if (unformat (line_input, "del"))
 	add = 0;
-      else if (unformat (line_input, "add"))
-	add = 1;
       else if (unformat (line_input, "vrf %u", &vrf))
 	;
       else if (unformat (line_input, "ip4"))
@@ -641,7 +635,7 @@ upf_tdf_ul_table_show_fn (vlib_main_t * vm,
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND (upf_tdf_ul_table_show_command, static) = {
   .path = "show upf tdf ul tables",
-  .short_help = "Show UPF TDF UpLink tables",
+  .short_help = "show upf tdf ul tables",
   .function = upf_tdf_ul_table_show_fn,
 };
 /* *INDENT-ON* */
@@ -687,8 +681,8 @@ upf_tdf_ul_enable_command_fn (vlib_main_t * vm,
 
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND (upf_tdf_ul_enable_command, static) = {
-    .path = "upf tdf ul enable",
-    .short_help = "UPF TDF UpLink [enable|disable] [ip4|ip6] <interface>",
+    .path = "upf tdf ul",
+    .short_help = "upf tdf ul [enable|disable] [ip4|ip6] <interface>",
     .function = upf_tdf_ul_enable_command_fn,
 };
 /* *INDENT-ON* */
@@ -846,8 +840,6 @@ upf_gtpu_endpoint_add_del_command_fn (vlib_main_t * vm,
     {
       if (unformat (line_input, "del"))
 	add = 0;
-      else if (unformat (line_input, "add"))
-	add = 1;
       else if (unformat (line_input, "ip %U", unformat_ip4_address, &ip4))
 	ip_set |= 1;
       else if (unformat (line_input, "ip6 %U", unformat_ip6_address, &ip6))
@@ -1360,10 +1352,10 @@ upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
 VLIB_CLI_COMMAND (upf_proxy_set_command, static) =
 {
   .path = "set upf proxy",
-  .short_help = "set upf proxy [mss <nn>] [fifo-size <nn>[k|m]]"
-      "[max-fifo-size <nn>[k|m]][high-watermark <nn>]"
-      "[low-watermark <nn>][prealloc-fifos <nn>]"
-      "[private-segment-size <mem>][private-segment-count <nn>]",
+  .short_help = "set upf proxy [mss <nn>] [fifo-size <nn>[k|m]] "
+      "[max-fifo-size <nn>[k|m]] [high-watermark <nn>] "
+      "[low-watermark <nn>] [prealloc-fifos <nn>] "
+      "[private-segment-size <mem>] [private-segment-count <nn>]",
   .function = upf_proxy_set_command_fn,
 };
 /* *INDENT-ON* */
