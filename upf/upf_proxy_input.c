@@ -122,7 +122,8 @@ kill_connection_hard (tcp_connection_t * tc)
 }
 
 static_always_inline u32
-splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
+splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
+		       flow_direction_t direction)
 {
   flow_direction_t origin = FT_ORIGIN ^ direction;
   flow_direction_t reverse = FT_REVERSE ^ direction;
@@ -149,11 +150,6 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
   if (!s)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
 
-  // check fifo, proxy Tx/Rx are connected...
-  if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
-      svm_fifo_max_dequeue (s->tx_fifo) != 0)
-    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
-
   tcpRx = tcp_get_connection_from_transport
     (transport_get_connection
      (TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index));
@@ -174,6 +170,9 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
+      vlib_increment_simple_counter (&gtm->upf_simple_counters
+				     [UPF_FLOWS_NOT_STITCHED_MSS_MISMATCH],
+				     vlib_get_thread_index (), 0, 1);
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
@@ -182,6 +181,9 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
+      vlib_increment_simple_counter (&gtm->upf_simple_counters
+				     [UPF_FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP],
+				     vlib_get_thread_index (), 0, 1);
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
@@ -190,6 +192,9 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
+      vlib_increment_simple_counter (&gtm->upf_simple_counters
+				     [UPF_FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT],
+				     vlib_get_thread_index (), 0, 1);
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
@@ -199,12 +204,26 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
   if (flow_seq_offs (flow, reverse) == 0)
     flow_seq_offs (flow, reverse) = tcpRx->snd_nxt - tcpTx->rcv_nxt;
 
+  /* check fifo, proxy Tx/Rx are connected... */
+  if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
+      svm_fifo_max_dequeue (s->tx_fifo) != 0)
+    {
+      flow->spliced_dirty = 1;
+      vlib_increment_simple_counter (&gtm->upf_simple_counters
+				     [UPF_FLOWS_STITCHED_DIRTY_FIFOS],
+				     vlib_get_thread_index (), 0, 1);
+    }
+
   /* kill the TCP connections, session and proxy session */
   kill_connection_hard (tcpRx);
   kill_connection_hard (tcpTx);
 
   /* switch to direct spliceing */
   flow->is_spliced = 1;
+
+  vlib_increment_simple_counter (&gtm->upf_simple_counters
+				 [UPF_FLOWS_STITCHED],
+				 vlib_get_thread_index (), 0, 1);
 
   return UPF_PROXY_INPUT_NEXT_TCP_FORWARD;
 }
@@ -313,7 +332,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  n_left_to_next -= 1;
 
 	  b = vlib_get_buffer (vm, bi);
-          UPF_CHECK_INNER_NODE (b);
+	  UPF_CHECK_INNER_NODE (b);
 
 	  error = 0;
 	  next = UPF_FORWARD_NEXT_DROP;
@@ -389,7 +408,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      vnet_buffer (b)->tcp.connection_index = ftc->conn_index;
 
 	      /* transport connection already setup */
-	      next = splice_tcp_connection (flow, direction);
+	      next = splice_tcp_connection (gtm, flow, direction);
 	    }
 	  else
 	    {

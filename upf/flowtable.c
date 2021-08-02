@@ -201,6 +201,16 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 				     [UPF_FLOW_COUNTER],
 				     vlib_get_thread_index (), 0, 1);
 
+      if (f->is_spliced)
+	vlib_decrement_simple_counter (&gtm->upf_simple_counters
+				       [UPF_FLOWS_STITCHED],
+				       vlib_get_thread_index (), 0, 1);
+      if (f->spliced_dirty)
+	vlib_decrement_simple_counter (&gtm->upf_simple_counters
+				       [UPF_FLOWS_STITCHED_DIRTY_FIFOS],
+				       vlib_get_thread_index (), 0, 1);
+
+
       /* free to flow cache && pool (last) */
       flow_entry_free (fm, fmt, f);
       return true;

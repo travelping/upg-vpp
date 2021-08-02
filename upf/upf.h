@@ -497,8 +497,23 @@ typedef enum
   UPF_ASSOC_COUNTER = 0,
   UPF_SESSIONS_COUNTER = 1,
   UPF_FLOW_COUNTER = 2,
-  UPF_N_COUNTERS = 3,
+  UPF_FLOWS_STITCHED = 3,
+  UPF_FLOWS_NOT_STITCHED_MSS_MISMATCH = 4,
+  UPF_FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP = 5,
+  UPF_FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT = 6,
+  UPF_FLOWS_STITCHED_DIRTY_FIFOS = 7,
+  UPF_N_COUNTERS = 8,
 } upf_counters_type_t;
+
+#define foreach_upf_counter_name   \
+  _(ASSOC_COUNTER, total_assoc, upf)     \
+  _(SESSIONS_COUNTER, total_sessions, upf)      \
+  _(FLOW_COUNTER, total_flows, upf)             \
+  _(FLOWS_STITCHED, total_stitched, upf)         \
+  _(FLOWS_NOT_STITCHED_MSS_MISMATCH, mss_mismatch, upf) \
+  _(FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP, tcp_ops_tstamp, upf) \
+  _(FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT, tcp_ops_sack_permit, upf) \
+  _(FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)
 
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */
