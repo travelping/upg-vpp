@@ -519,26 +519,14 @@ upf_init (vlib_main_t * vm)
 
   vec_validate (sm->upf_simple_counters, UPF_N_COUNTERS - 1);
 
-  sm->upf_simple_counters[UPF_ASSOC_COUNTER].name = "total_assoc";
-  sm->upf_simple_counters[UPF_ASSOC_COUNTER].stat_segment_name =
-    "/upf/total_assoc";
-  vlib_validate_simple_counter (&sm->upf_simple_counters
-				[UPF_ASSOC_COUNTER], 0);
-  vlib_zero_simple_counter (&sm->upf_simple_counters[UPF_ASSOC_COUNTER], 0);
-
-  sm->upf_simple_counters[UPF_SESSIONS_COUNTER].name = "total_sessions";
-  sm->upf_simple_counters[UPF_SESSIONS_COUNTER].stat_segment_name =
-    "/upf/total_sessions";
-  vlib_validate_simple_counter (&sm->upf_simple_counters
-				[UPF_SESSIONS_COUNTER], 0);
-  vlib_zero_simple_counter (&sm->upf_simple_counters
-			    [UPF_SESSIONS_COUNTER], 0);
-
-  sm->upf_simple_counters[UPF_FLOW_COUNTER].name = "total_flows";
-  sm->upf_simple_counters[UPF_FLOW_COUNTER].stat_segment_name =
-    "/upf/total_flows";
-
-  sm->node_id.type = NID_FQDN;
+#define _(E,n,p) \
+  sm->upf_simple_counters[UPF_##E].name = #n; \
+  sm->upf_simple_counters[UPF_##E].stat_segment_name = "/" #p "/" #n; \
+  vlib_validate_simple_counter (&sm->upf_simple_counters[UPF_##E], 0); \
+  vlib_zero_simple_counter (&sm->upf_simple_counters[UPF_##E], 0);
+  foreach_upf_counter_name
+#undef _
+    sm->node_id.type = NID_FQDN;
   sm->node_id.fqdn = format (0, (char *) "\x03upg");
 
   sm->nat_pool_index_by_name =

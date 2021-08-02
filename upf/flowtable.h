@@ -120,6 +120,7 @@ typedef struct flow_entry
   u8 is_redirect:1;
   u8 is_l3_proxy:1;
   u8 is_spliced:1;
+  u8 spliced_dirty:1;
   u8 dont_splice:1;
   u8 app_detection_done:1;
   u16 tcp_state;
