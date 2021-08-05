@@ -1,0 +1,130 @@
+From dbd5a43c93dbf284efc5ae390bd28bb6456c97c3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?J=C3=BAlius=20Milan?= <julius.milan@pantheon.tech>
+Date: Tue, 16 Feb 2021 19:20:47 +0100
+Subject: [PATCH] fib: fix sa selection for fib routed destinations
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The move from ip4(6)_src_address_for_packet to fib_sas4(6)_get changed
+the behavior, so that the new looked only to adjacent gleans. This
+caused a problem for destinations routed according to FIB table.
+
+To reproduce:
+vpp# create tap
+vpp# set interface state tap0 up
+vpp# set interface ip address tap0 192.168.11.1/24
+vpp# ip route add 192.168.20.0/24 via 192.168.11.2
+
+linux$ sudo ip addr add 192.168.20.1/24 dev lo
+linux$ sudo ip link set tap0 up
+linux$ sudo ip addr add 192.168.11.2/24 dev tap0
+
+vpp# ping 192.168.20.1
+Failed: no source address for egress interface
+
+Type: fix
+Signed-off-by: Július Milan <julius.milan@pantheon.tech>
+Signed-off-by: Neale Ranns <neale@graphiant.com>
+Change-Id: I22899f4dbbf8c1c85ccce72f801b92c183195b5d
+(cherry picked from commit 98874cda5853ea2d6b2dc32001b935d394b88430)
+---
+ src/vnet/adj/adj_glean.c | 18 ++++++++++++++----
+ test/test_ping.py        | 26 +++++++++++++++++++++++++-
+ 2 files changed, 39 insertions(+), 5 deletions(-)
+
+diff --git a/src/vnet/adj/adj_glean.c b/src/vnet/adj/adj_glean.c
+index c52e3d096..251ecde1a 100644
+--- a/src/vnet/adj/adj_glean.c
++++ b/src/vnet/adj/adj_glean.c
+@@ -258,8 +258,8 @@ adj_glean_get_src (fib_protocol_t proto,
+                    u32 sw_if_index,
+                    const ip46_address_t *nh)
+ {
++    const ip46_address_t *conn, *source;
+     const ip_adjacency_t *adj;
+-    ip46_address_t *conn;
+     adj_index_t ai;
+ 
+     if (vec_len(adj_gleans[proto]) <= sw_if_index ||
+@@ -274,23 +274,33 @@ adj_glean_get_src (fib_protocol_t proto,
+     if (nh)
+         pfx.fp_addr = *nh;
+ 
++    /*
++     * An interface can have more than one glean address. Where
++     * possible we want to return a source address from the same
++     * subnet as the destination. If this is not possible then any address
++     * will do.
++     */
++    source = NULL;
++
+     hash_foreach_mem(conn, ai, adj_gleans[proto][sw_if_index],
+     ({
+         adj = adj_get(ai);
+ 
+         if (adj->sub_type.glean.rx_pfx.fp_len > 0)
+         {
++            source = &adj->sub_type.glean.rx_pfx.fp_addr;
++
+             /* if no destination is specified use the just glean */
+             if (NULL == nh)
+-                return (&adj->sub_type.glean.rx_pfx.fp_addr);
++                return (source);
+ 
+             /* check the clean covers the desintation */
+             if (fib_prefix_is_cover(&adj->sub_type.glean.rx_pfx, &pfx))
+-                return (&adj->sub_type.glean.rx_pfx.fp_addr);
++                return (source);
+         }
+     }));
+ 
+-    return (NULL);
++    return (source);
+ }
+ 
+ void
+diff --git a/test/test_ping.py b/test/test_ping.py
+index 40ad9d4ef..8c5c087b0 100644
+--- a/test/test_ping.py
++++ b/test/test_ping.py
+@@ -7,7 +7,7 @@ from scapy.packet import Raw
+ 
+ from framework import VppTestCase
+ from util import ppp
+-from vpp_ip_route import VppIpInterfaceAddress
++from vpp_ip_route import VppIpInterfaceAddress, VppIpRoute, VppRoutePath
+ from vpp_neighbor import VppNeighbor
+ 
+ """ TestPing is a subclass of  VPPTestCase classes.
+@@ -150,3 +150,27 @@ class TestPing(VppTestCase):
+         for p in out:
+             icmp = self.verify_ping_request(p, "10.0.0.1", nbr_addr, icmp_seq)
+             icmp_seq = icmp_seq + 1
++
++    def test_ping_fib_routed_dst(self):
++        """ ping destination routed according to FIB table """
++
++        try:
++            self.pg1.generate_remote_hosts(1)
++            self.pg_enable_capture(self.pg_interfaces)
++            self.pg_start()
++            routed_dst = "10.0.2.0"
++            self.logger.info(self.vapi.cli("show ip4 neighbors"))
++            VppIpRoute(self, routed_dst, 24,
++                       [VppRoutePath(self.pg1.remote_hosts[0].ip4,
++                                     self.pg1.sw_if_index)]).add_vpp_config()
++            ping_cmd = "ping %s interval 0.01 repeat 3" % routed_dst
++            ret = self.vapi.cli(ping_cmd)
++            self.logger.info(ret)
++            out = self.pg1.get_capture(3)
++            icmp_seq = 1
++            for p in out:
++                self.verify_ping_request(p, self.pg1.local_ip4, routed_dst,
++                                         icmp_seq)
++                icmp_seq = icmp_seq + 1
++        finally:
++            self.vapi.cli("show error")
+-- 
+2.24.3 (Apple Git-128)
+
