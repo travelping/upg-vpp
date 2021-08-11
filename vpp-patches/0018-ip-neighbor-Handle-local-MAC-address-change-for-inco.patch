@@ -1,0 +1,292 @@
+From d8ccbe2b1b8448f78fa68c218af0178bfcd1fc17 Mon Sep 17 00:00:00 2001
+From: Neale Ranns <neale@graphiant.com>
+Date: Fri, 13 Aug 2021 08:10:59 +0000
+Subject: [PATCH] ip-neighbor: Handle local MAC address change for incomplete
+ adjacencies
+
+Type: fix
+
+When the local MAC address of an interface changes the rewrite strings
+of all adjacency types need to be updated - this patch fixes the missing
+case of incomplete adjacencies.
+I moved the update of all adj types into the adj module, since if the
+complete adjs were done by the ip-neighbour module and incomplete ones
+by adj module, that would mean two walks of the adj DB, as it is not
+possible to walk only a specific type.
+UT is updated to include the missing case.
+
+Signed-off-by: Neale Ranns <neale@graphiant.com>
+Signed-off-by: Ivan Shvedunov <ivan4th@gmail.com>
+Change-Id: I36af94976c645bdd0d4d3bc0093b24d7d077e9d7
+---
+ src/vnet/adj/adj_glean.c           | 22 +++++++++++-----
+ src/vnet/adj/adj_glean.h           |  1 -
+ src/vnet/adj/adj_nbr.c             | 35 +++++++++++++++++++++++++-
+ src/vnet/ethernet/interface.c      |  2 +-
+ src/vnet/ip-neighbor/ip_neighbor.c | 40 +++++-------------------------
+ test/test_neighbor.py              | 24 +++++++++++++++++-
+ 6 files changed, 80 insertions(+), 44 deletions(-)
+
+diff --git a/src/vnet/adj/adj_glean.c b/src/vnet/adj/adj_glean.c
+index 251ecde1a..be42031ac 100644
+--- a/src/vnet/adj/adj_glean.c
++++ b/src/vnet/adj/adj_glean.c
+@@ -186,12 +186,6 @@ adj_glean_update_rewrite_walk (adj_index_t ai,
+     return (ADJ_WALK_RC_CONTINUE);
+ }
+ 
+-void
+-adj_glean_update_rewrite_itf (u32 sw_if_index)
+-{
+-    adj_glean_walk (sw_if_index, adj_glean_update_rewrite_walk, NULL);
+-}
+-
+ void
+ adj_glean_walk (u32 sw_if_index,
+                 adj_walk_cb_t cb,
+@@ -425,6 +419,16 @@ adj_glean_interface_delete (vnet_main_t * vnm,
+ 
+ VNET_SW_INTERFACE_ADD_DEL_FUNCTION(adj_glean_interface_delete);
+ 
++/**
++ * Callback function invoked when an interface's MAC Address changes
++ */
++static void
++adj_glean_ethernet_change_mac (ethernet_main_t * em,
++                             u32 sw_if_index, uword opaque)
++{
++    adj_glean_walk (sw_if_index, adj_glean_update_rewrite_walk, NULL);
++}
++
+ u8*
+ format_adj_glean (u8* s, va_list *ap)
+ {
+@@ -508,4 +512,10 @@ void
+ adj_glean_module_init (void)
+ {
+     dpo_register(DPO_ADJACENCY_GLEAN, &adj_glean_dpo_vft, glean_nodes);
++
++    ethernet_address_change_ctx_t ctx = {
++        .function = adj_glean_ethernet_change_mac,
++        .function_opaque = 0,
++    };
++    vec_add1 (ethernet_main.address_change_callbacks, ctx);
+ }
+diff --git a/src/vnet/adj/adj_glean.h b/src/vnet/adj/adj_glean.h
+index a06b9e816..9e25fd9c9 100644
+--- a/src/vnet/adj/adj_glean.h
++++ b/src/vnet/adj/adj_glean.h
+@@ -67,7 +67,6 @@ extern adj_index_t adj_glean_get(fib_protocol_t proto,
+  * glean behaviour on an adjacency liked to a connected prefix.
+  */
+ extern void adj_glean_update_rewrite(adj_index_t adj_index);
+-extern void adj_glean_update_rewrite_itf(u32 sw_if_index);
+ 
+ /**
+  * Return the source address from the glean
+diff --git a/src/vnet/adj/adj_nbr.c b/src/vnet/adj/adj_nbr.c
+index 921588a7e..64bc6acda 100644
+--- a/src/vnet/adj/adj_nbr.c
++++ b/src/vnet/adj/adj_nbr.c
+@@ -886,12 +886,39 @@ adj_nbr_interface_add_del (vnet_main_t * vnm,
+     }
+ 
+     return (NULL);
+-   
+ }
+ 
+ VNET_SW_INTERFACE_ADD_DEL_FUNCTION(adj_nbr_interface_add_del);
+ 
+ 
++static adj_walk_rc_t
++adj_nbr_ethernet_mac_change_one (adj_index_t ai,
++                                 void *arg)
++{
++    vnet_update_adjacency_for_sw_interface(vnet_get_main(),
++                                           adj_get_sw_if_index(ai),
++                                           ai);
++
++    return (ADJ_WALK_RC_CONTINUE);
++}
++
++/**
++ * Callback function invoked when an interface's MAC Address changes
++ */
++static void
++adj_nbr_ethernet_change_mac (ethernet_main_t * em,
++                             u32 sw_if_index, uword opaque)
++{
++    fib_protocol_t proto;
++
++    FOR_EACH_FIB_IP_PROTOCOL(proto)
++    {
++	adj_nbr_walk(sw_if_index, proto,
++		     adj_nbr_ethernet_mac_change_one,
++		     NULL);
++    }
++}
++
+ static adj_walk_rc_t
+ adj_nbr_show_one (adj_index_t ai,
+ 		  void *arg)
+@@ -1130,4 +1157,10 @@ adj_nbr_module_init (void)
+     dpo_register(DPO_ADJACENCY_INCOMPLETE,
+                  &adj_nbr_incompl_dpo_vft,
+                  nbr_incomplete_nodes);
++
++    ethernet_address_change_ctx_t ctx = {
++        .function = adj_nbr_ethernet_change_mac,
++        .function_opaque = 0,
++    };
++    vec_add1 (ethernet_main.address_change_callbacks, ctx);
+ }
+diff --git a/src/vnet/ethernet/interface.c b/src/vnet/ethernet/interface.c
+index b5c48193b..8664870d1 100644
+--- a/src/vnet/ethernet/interface.c
++++ b/src/vnet/ethernet/interface.c
+@@ -216,6 +216,7 @@ ethernet_update_adjacency (vnet_main_t * vnm, u32 sw_if_index, u32 ai)
+ 	  adj_glean_update_rewrite (ai);
+ 	  break;
+ 	case IP_LOOKUP_NEXT_ARP:
++	case IP_LOOKUP_NEXT_REWRITE:
+ 	  ip_neighbor_update (vnm, ai);
+ 	  break;
+ 	case IP_LOOKUP_NEXT_BCAST:
+@@ -257,7 +258,6 @@ ethernet_update_adjacency (vnet_main_t * vnm, u32 sw_if_index, u32 ai)
+ 	case IP_LOOKUP_NEXT_DROP:
+ 	case IP_LOOKUP_NEXT_PUNT:
+ 	case IP_LOOKUP_NEXT_LOCAL:
+-	case IP_LOOKUP_NEXT_REWRITE:
+ 	case IP_LOOKUP_NEXT_MCAST_MIDCHAIN:
+ 	case IP_LOOKUP_NEXT_MIDCHAIN:
+ 	case IP_LOOKUP_NEXT_ICMP_ERROR:
+diff --git a/src/vnet/ip-neighbor/ip_neighbor.c b/src/vnet/ip-neighbor/ip_neighbor.c
+index 8637e16fd..6c97356dd 100644
+--- a/src/vnet/ip-neighbor/ip_neighbor.c
++++ b/src/vnet/ip-neighbor/ip_neighbor.c
+@@ -692,13 +692,18 @@ ip_neighbor_update (vnet_main_t * vnm, adj_index_t ai)
+ 	  ip_neighbor_probe (adj);
+ 	}
+       break;
++    case IP_LOOKUP_NEXT_REWRITE:
++      /* Update of an existing rewrite adjacency happens e.g. when the
++       * interface's MAC address changes */
++      if (NULL != ipn)
++	ip_neighbor_mk_complete (ai, ipn);
++      break;
+     case IP_LOOKUP_NEXT_GLEAN:
+     case IP_LOOKUP_NEXT_BCAST:
+     case IP_LOOKUP_NEXT_MCAST:
+     case IP_LOOKUP_NEXT_DROP:
+     case IP_LOOKUP_NEXT_PUNT:
+     case IP_LOOKUP_NEXT_LOCAL:
+-    case IP_LOOKUP_NEXT_REWRITE:
+     case IP_LOOKUP_NEXT_MCAST_MIDCHAIN:
+     case IP_LOOKUP_NEXT_MIDCHAIN:
+     case IP_LOOKUP_NEXT_ICMP_ERROR:
+@@ -1142,31 +1147,6 @@ ip6_neighbor_proxy_del (u32 sw_if_index, const ip6_address_t * addr)
+   return -1;
+ }
+ 
+-static void
+-ip_neighbor_ethernet_change_mac (ethernet_main_t * em,
+-				 u32 sw_if_index, uword opaque)
+-{
+-  ip_neighbor_t *ipn;
+-
+-  IP_NEIGHBOR_DBG ("mac-change: %U",
+-		   format_vnet_sw_if_index_name, vnet_get_main (),
+-		   sw_if_index);
+-
+-  /* *INDENT-OFF* */
+-  pool_foreach (ipn, ip_neighbor_pool)
+-   {
+-    if (ipn->ipn_key->ipnk_sw_if_index == sw_if_index)
+-      adj_nbr_walk_nh (ipn->ipn_key->ipnk_sw_if_index,
+-                       ip_address_family_to_fib_proto(ip_neighbor_get_af(ipn)),
+-                       &ip_addr_46(&ipn->ipn_key->ipnk_ip),
+-                       ip_neighbor_mk_complete_walk,
+-                       ipn);
+-  }
+-  /* *INDENT-ON* */
+-
+-  adj_glean_update_rewrite_itf (sw_if_index);
+-}
+-
+ void
+ ip_neighbor_populate (ip_address_family_t af, u32 sw_if_index)
+ {
+@@ -1806,14 +1786,6 @@ ip_neighbor_init (vlib_main_t * vm)
+     };
+     vec_add1 (ip6_main.table_bind_callbacks, cb);
+   }
+-  {
+-    ethernet_address_change_ctx_t ctx = {
+-      .function = ip_neighbor_ethernet_change_mac,
+-      .function_opaque = 0,
+-    };
+-    vec_add1 (ethernet_main.address_change_callbacks, ctx);
+-  }
+-
+   ipn_logger = vlib_log_register_class ("ip", "neighbor");
+ 
+   ip_address_family_t af;
+diff --git a/test/test_neighbor.py b/test/test_neighbor.py
+index f69a26346..2b79d9a6a 100644
+--- a/test/test_neighbor.py
++++ b/test/test_neighbor.py
+@@ -1371,7 +1371,7 @@ class ARPTestCase(VppTestCase):
+ 
+     def test_arp_incomplete(self):
+         """ ARP Incomplete"""
+-        self.pg1.generate_remote_hosts(3)
++        self.pg1.generate_remote_hosts(4)
+ 
+         p0 = (Ether(dst=self.pg0.local_mac, src=self.pg0.remote_mac) /
+               IP(src=self.pg0.remote_ip4,
+@@ -1383,6 +1383,11 @@ class ARPTestCase(VppTestCase):
+                  dst=self.pg1.remote_hosts[2].ip4) /
+               UDP(sport=1234, dport=1234) /
+               Raw())
++        p2 = (Ether(dst=self.pg0.local_mac, src=self.pg0.remote_mac) /
++              IP(src=self.pg0.remote_ip4,
++                 dst="1.1.1.1") /
++              UDP(sport=1234, dport=1234) /
++              Raw())
+ 
+         #
+         # a packet to an unresolved destination generates an ARP request
+@@ -1403,6 +1408,18 @@ class ARPTestCase(VppTestCase):
+                                  is_static=1)
+         static_arp.add_vpp_config()
+ 
++        #
++        # add a route through remote host 3 hence we get an incomplete
++        #
++        VppIpRoute(self, "1.1.1.1", 32,
++                   [VppRoutePath(self.pg1.remote_hosts[3].ip4,
++                                 self.pg1.sw_if_index)]).add_vpp_config()
++        rx = self.send_and_expect(self.pg0, [p2], self.pg1)
++        self.verify_arp_req(rx[0],
++                            self.pg1.local_mac,
++                            self.pg1.local_ip4,
++                            self.pg1._remote_hosts[3].ip4)
++
+         #
+         # change the interface's MAC
+         #
+@@ -1417,6 +1434,11 @@ class ARPTestCase(VppTestCase):
+                             "00:00:00:33:33:33",
+                             self.pg1.local_ip4,
+                             self.pg1._remote_hosts[2].ip4)
++        rx = self.send_and_expect(self.pg0, [p2], self.pg1)
++        self.verify_arp_req(rx[0],
++                            "00:00:00:33:33:33",
++                            self.pg1.local_ip4,
++                            self.pg1._remote_hosts[3].ip4)
+ 
+         #
+         # packets to the resolved host also have the new source mac
+-- 
+2.30.2
+
