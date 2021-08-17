@@ -12,7 +12,8 @@ set -o errtrace
 : ${UPG_BUILDENV_NODE:=}
 
 if [[ ${GITHUB_RUN_ID:-} ]]; then
-  K8S_ID="${GITHUB_ACTOR}-${GITHUB_JOB}-${GITHUB_RUN_ID}"
+  # avoid overlong pod names (must be <= 63 chars including the -0 suffix)
+  K8S_ID=$(echo "${GITHUB_ACTOR}-${GITHUB_JOB}-${GITHUB_RUN_ID}" | md5sum | awk '{print substr($1,1,16)}')
   if [[ ${K8S_ID_SUFFIX:-} ]]; then
     K8S_ID="${K8S_ID}-${K8S_ID_SUFFIX}"
   fi
@@ -155,7 +156,7 @@ spec:
   selector:
     app: ${name}
 EOF
-  kubectl rollout status statefulset -n "${K8S_NAMESPACE}" "${name}"
+  kubectl rollout status --timeout=5m statefulset -n "${K8S_NAMESPACE}" "${name}"
 }
 
 function k8s_cleanup {
