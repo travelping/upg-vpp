@@ -149,11 +149,6 @@ splice_tcp_connection (flow_entry_t * flow, flow_direction_t direction)
   if (!s)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
 
-  // check fifo, proxy Tx/Rx are connected...
-  if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
-      svm_fifo_max_dequeue (s->tx_fifo) != 0)
-    return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
-
   tcpRx = tcp_get_connection_from_transport
     (transport_get_connection
      (TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index));
@@ -313,7 +308,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  n_left_to_next -= 1;
 
 	  b = vlib_get_buffer (vm, bi);
-          UPF_CHECK_INNER_NODE (b);
+	  UPF_CHECK_INNER_NODE (b);
 
 	  error = 0;
 	  next = UPF_FORWARD_NEXT_DROP;
