@@ -17,6 +17,10 @@ env:
   GIT_COMMITTER_EMAIL: dummy@example.com
   UPG_BUILDENV: k8s
 
+  # FIXME: UDP tests are unstable, likely due to a shortcoming in
+  # Linux namespace handling code
+  E2E_SKIP: ".*IPv6 session measurement.*counts UDP traffic.*"
+
   # Uncomment to disable pushing the upg-vpp images.
   # Build images will still be pushed in case if a new one needs to be built.
   # This may be helpful during workflow debugging
@@ -131,6 +135,7 @@ jobs:
              E2E_ARTIFACTS_DIR="/src/artifacts" \
              E2E_JUNIT_DIR="/src/artifacts/junit-output" \
              E2E_FOCUS="${E2E_FOCUS}" \
+             E2E_SKIP="${E2E_SKIP}" \
              GRAB_ARTIFACTS=1
     - name: Cleanup buildenv
       if: always()
