@@ -199,10 +199,12 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
     }
 
   if (flow_seq_offs (flow, origin) == 0)
-    flow_seq_offs (flow, origin) = tcpRx->rcv_nxt - tcpTx->snd_nxt;
+    flow_seq_offs (flow, origin) = direction == FT_ORIGIN ?
+      tcpTx->snd_nxt - tcpRx->rcv_nxt : tcpRx->rcv_nxt - tcpTx->snd_nxt;
 
   if (flow_seq_offs (flow, reverse) == 0)
-    flow_seq_offs (flow, reverse) = tcpRx->snd_nxt - tcpTx->rcv_nxt;
+    flow_seq_offs (flow, reverse) = direction == FT_ORIGIN ?
+      tcpTx->rcv_nxt - tcpRx->snd_nxt : tcpRx->snd_nxt - tcpTx->rcv_nxt;
 
   /* check fifo, proxy Tx/Rx are connected... */
   if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
