@@ -156,7 +156,14 @@ spec:
   selector:
     app: ${name}
 EOF
-  kubectl rollout status --timeout=5m statefulset -n "${K8S_NAMESPACE}" "${name}"
+  if ! kubectl rollout status --timeout=5m statefulset -n "${K8S_NAMESPACE}" "${name}"; then
+    set -x
+    kubectl describe statefulset -n "${K8S_NAMESPACE}" "${name}"
+    kubectl describe pod -n "${K8S_NAMESPACE}" "${name}-0"
+    set +x
+    echo >&2 "*** Devenv rollout failed, see diagnostics above ***"
+    exit 1
+  fi
 }
 
 function k8s_cleanup {
