@@ -132,6 +132,7 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
   transport_connection_t *tc;
   tcp_connection_t *tcpRx, *tcpTx;
   session_t *s;
+  upf_proxy_main_t *pm = &upf_proxy_main;
 
   if (rev->conn_index == ~0)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
@@ -198,6 +199,19 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
+  /* check fifo, proxy Tx/Rx are connected... */
+  if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
+      svm_fifo_max_dequeue (s->tx_fifo) != 0)
+    {
+      if (!pm->force_stitching)
+	return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
+
+      flow->spliced_dirty = 1;
+      vlib_increment_simple_counter (&gtm->upf_simple_counters
+				     [UPF_FLOWS_STITCHED_DIRTY_FIFOS],
+				     vlib_get_thread_index (), 0, 1);
+    }
+
   if (flow_seq_offs (flow, origin) == 0)
     flow_seq_offs (flow, origin) = direction == FT_ORIGIN ?
       tcpTx->snd_nxt - tcpRx->rcv_nxt : tcpRx->rcv_nxt - tcpTx->snd_nxt;
@@ -205,16 +219,6 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
   if (flow_seq_offs (flow, reverse) == 0)
     flow_seq_offs (flow, reverse) = direction == FT_ORIGIN ?
       tcpTx->rcv_nxt - tcpRx->snd_nxt : tcpRx->snd_nxt - tcpTx->rcv_nxt;
-
-  /* check fifo, proxy Tx/Rx are connected... */
-  if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
-      svm_fifo_max_dequeue (s->tx_fifo) != 0)
-    {
-      flow->spliced_dirty = 1;
-      vlib_increment_simple_counter (&gtm->upf_simple_counters
-				     [UPF_FLOWS_STITCHED_DIRTY_FIFOS],
-				     vlib_get_thread_index (), 0, 1);
-    }
 
   /* kill the TCP connections, session and proxy session */
   kill_connection_hard (tcpRx);

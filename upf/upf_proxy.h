@@ -51,12 +51,13 @@ typedef struct
 #define foreach_upf_proxy_config_fields						\
   _(u16, mss)				/**< TCP MSS */				\
   _(uword, fifo_size)			/**< initial fifo size */		\
-  _(uword, max_fifo_size)			/**< max fifo size */			\
+  _(uword, max_fifo_size)		/**< max fifo size */			\
   _(u8, high_watermark)			/**< high watermark (%) */		\
   _(u8, low_watermark)			/**< low watermark (%) */		\
   _(u32, private_segment_count)		/**< Number of private fifo segs */	\
-  _(uword, private_segment_size)		/**< size of private fifo segs */	\
+  _(uword, private_segment_size)	/**< size of private fifo segs */	\
   _(u8, prealloc_fifos)			/**< Request fifo preallocation */	\
+  _(u8, force_stitching)		/**< Force "dirty" proxy stitching */ 	\
 
 typedef struct
 {

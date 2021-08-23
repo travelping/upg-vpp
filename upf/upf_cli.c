@@ -1345,6 +1345,16 @@ upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
       else if (unformat (input, "private-segment-size %U",
 			 unformat_memory_size, &private_segment_size))
 	;
+      else if (unformat (input, "force-stitching"))
+	{
+	  if (unformat (input, "on"))
+	    force_stitching = 1;
+	  else if (unformat (input, "off"))
+	    force_stitching = 0;
+	  else
+	    return clib_error_return (0, "unknown input `%U'",
+				      format_unformat_error, input);
+	}
       else
 	return clib_error_return (0, "unknown input `%U'",
 				  format_unformat_error, input);
@@ -1363,7 +1373,8 @@ VLIB_CLI_COMMAND (upf_proxy_set_command, static) =
   .short_help = "set upf proxy [mss <nn>] [fifo-size <nn>[k|m]]"
       "[max-fifo-size <nn>[k|m]][high-watermark <nn>]"
       "[low-watermark <nn>][prealloc-fifos <nn>]"
-      "[private-segment-size <mem>][private-segment-count <nn>]",
+      "[private-segment-size <mem>][private-segment-count <nn>]"
+      "[force-stitching <on|off>]",
   .function = upf_proxy_set_command_fn,
 };
 /* *INDENT-ON* */
@@ -1395,14 +1406,16 @@ upf_show_proxy_command_fn (vlib_main_t * vm,
 		   "Hi/Lo Watermark: %u %% / %u %%\n"
 		   "Prealloc FIFOs: %u\n"
 		   "Private Segment Count: %u\n"
-		   "Private Segment Size: %U\n",
+		   "Private Segment Size: %U\n"
+		   "Force stitching: %s\n",
 		   pm->mss,
 		   format_memory_size, pm->fifo_size,
 		   format_memory_size, pm->max_fifo_size,
 		   pm->high_watermark, pm->low_watermark,
 		   pm->prealloc_fifos,
 		   pm->private_segment_count,
-		   format_memory_size, pm->private_segment_size);
+		   format_memory_size, pm->private_segment_size,
+		   pm->force_stitching ? "on" : "off");
 
 done:
   return error;
