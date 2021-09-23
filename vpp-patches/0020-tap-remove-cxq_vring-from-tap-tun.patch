@@ -1,0 +1,32 @@
+From ee3129fd748e3aae4abd577f4533f71df242890a Mon Sep 17 00:00:00 2001
+From: Mohsin Kazmi <sykazmi@cisco.com>
+Date: Wed, 22 Sep 2021 20:22:05 +0000
+Subject: [PATCH] tap: remove cxq_vring from tap/tun
+
+Type: fix
+
+virtio_if_t is shared data struct between tap, tun and virtio pci.
+cxq_vring is virtio pci specific element. It shouldn't be set or
+accessed in tap driver.
+
+Signed-off-by: Mohsin Kazmi <sykazmi@cisco.com>
+Change-Id: I8b34570f61b38d8b9d79d5b0669bda0f89ebc28c
+---
+ src/vnet/devices/tap/tap.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/vnet/devices/tap/tap.c b/src/vnet/devices/tap/tap.c
+index 11c24808f..ee21b5806 100644
+--- a/src/vnet/devices/tap/tap.c
++++ b/src/vnet/devices/tap/tap.c
+@@ -760,7 +760,6 @@ tap_create_if (vlib_main_t * vm, tap_create_if_args_t * args)
+    * TUNSETCARRIER ioctl(). See tap_set_carrier().
+    */
+   vif->host_carrier_up = 1;
+-  vif->cxq_vring = NULL;
+ 
+   goto done;
+ 
+-- 
+2.30.2
+
