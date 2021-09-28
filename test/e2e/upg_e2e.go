@@ -824,9 +824,14 @@ const leakTestNumSessions = 10000
 const leakTestNumIterations = 3
 
 var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
+	ginkgo.Context("[IPv4]", func() { describeMultipleSessions(framework.UPGIPModeV4) })
+	ginkgo.Context("[IPv6]", func() { describeMultipleSessions(framework.UPGIPModeV6) })
+})
+
+func describeMultipleSessions(ipMode framework.UPGIPMode) {
 	ginkgo.Context("[TDF]", func() {
 		// FIXME: these tests may crash UPG in UPGIPModeV6 (bad PFCP requests)
-		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, ipMode)
 		ginkgo.It("should not leak memory", func() {
 			ginkgo.By("starting memory trace")
 			_, err := f.VPP.Ctl("memory-trace main-heap on")
@@ -1045,7 +1050,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			deleteSession(f, seid1, true)
 		})
 	})
-})
+}
 
 func describeMTU(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 	ginkgo.Describe("[MTU corner cases]", func() {
