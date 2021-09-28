@@ -192,7 +192,8 @@ func (vi *VPPInstance) prepareCommand() (*exec.Cmd, error) {
 		return nil, errors.Wrap(err, "error writing startup file")
 	}
 
-	args := []string{"--net=" + vi.vppNS.Path()}
+	// -F argument for nsenter specifies that it shouldn't fork
+	args := []string{"-F", "--net=" + vi.vppNS.Path()}
 	if vi.startupCfg.UseGDB {
 		gdbCmdsFile, err := vi.writeVPPFile("gdbcmds", "r\nbt full 30\n")
 		if err != nil {
