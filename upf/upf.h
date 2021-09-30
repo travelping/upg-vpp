@@ -583,6 +583,7 @@ typedef struct
 #define PFCP_URR_UPDATE_TIME_THRESHOLD		BIT(2)
 #define PFCP_URR_UPDATE_MONITORING_TIME		BIT(3)
 #define PFCP_URR_UPDATE_MEASUREMENT_PERIOD	BIT(4)
+#define PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME	BIT(5)
 
   u32 seq_no;
   f64 start_time;
@@ -595,6 +596,7 @@ typedef struct
   urr_time_t time_threshold;	/* relative duration in seconds */
   urr_time_t time_quota;	/* relative duration in seconds */
   urr_time_t quota_holding_time;	/* relative duration in seconds */
+  urr_time_t quota_validity_time;	/* relative duration in seconds */
   urr_abs_time_t monitoring_time;	/* absolute UTC ts since 1900-01-01 00:00:00 */
 
   struct

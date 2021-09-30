@@ -1197,7 +1197,7 @@ format_reporting_triggers (u8 * s, va_list * args)
   s = format (s, "PERIO:%d,VOLTH:%d,TIMTH:%d,QUHTI:%d,"
 	      "START:%d,STOPT:%d,DROTH:%d,LIUSA:%d,"
 	      "VOLQU:%d,TIMQU:%d,ENVCL:%d,MACAR:%d,"
-	      "EVETH:%d,EVEQU:%d,IPMJL:%d",
+	      "EVETH:%d,EVEQU:%d,IPMJL:%d,QUVTI:%d",
 	      !!(*v & REPORTING_TRIGGER_PERIODIC_REPORTING),
 	      !!(*v & REPORTING_TRIGGER_VOLUME_THRESHOLD),
 	      !!(*v & REPORTING_TRIGGER_TIME_THRESHOLD),
@@ -1212,7 +1212,8 @@ format_reporting_triggers (u8 * s, va_list * args)
 	      !!(*v & REPORTING_TRIGGER_MAC_ADDRESSES_REPORTING),
 	      !!(*v & REPORTING_TRIGGER_EVENT_THRESHOLD),
 	      !!(*v & REPORTING_TRIGGER_EVENT_QUOTA),
-	      !!(*v & REPORTING_TRIGGER_IP_MULTICAST_JOIN_LEAVE));
+	      !!(*v & REPORTING_TRIGGER_IP_MULTICAST_JOIN_LEAVE),
+	      !!(*v & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
   return s;
 }
 
@@ -2106,7 +2107,7 @@ format_usage_report_trigger (u8 * s, va_list * args)
 	      "START:%d,STOPT:%d,DROTH:%d,IMMER:%d,"
 	      "VOLQU:%d,TIMQU:%d,LIUSA:%d,TERMR:%d,"
 	      "MONIT:%d,ENVCL:%d,MACAR:%d,EVETH:%d,"
-	      "EVEQU:%d,TEBUR:%d,IPMJL:%d",
+	      "EVEQU:%d,TEBUR:%d,IPMJL:%d,QUVTI:%d",
 	      !!(*v & USAGE_REPORT_TRIGGER_PERIODIC_REPORTING),
 	      !!(*v & USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD),
 	      !!(*v & USAGE_REPORT_TRIGGER_TIME_THRESHOLD),
@@ -2125,7 +2126,8 @@ format_usage_report_trigger (u8 * s, va_list * args)
 	      !!(*v & USAGE_REPORT_TRIGGER_EVENT_THRESHOLD),
 	      !!(*v & USAGE_REPORT_TRIGGER_EVENT_QUOTA),
 	      !!(*v & USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT),
-	      !!(*v & USAGE_REPORT_TRIGGER_IP_MULTICAST_JOIN_LEAVE));
+	      !!(*v & USAGE_REPORT_TRIGGER_IP_MULTICAST_JOIN_LEAVE),
+	      !!(*v & USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME));
   return s;
 }
 
@@ -2363,7 +2365,6 @@ encode_volume_measurement (void *p, u8 ** vec)
 #define format_quota_holding_time format_u32_ie
 #define decode_quota_holding_time decode_u32_ie
 #define encode_quota_holding_time encode_u32_ie
-
 
 static u8 *
 format_dropped_dl_traffic_threshold (u8 * s, va_list * args)
@@ -4690,6 +4691,10 @@ encode_alternative_smf_ip_address (void *p, u8 ** vec)
   return 0;
 }
 
+#define format_quota_validity_time format_u32_ie
+#define decode_quota_validity_time decode_u32_ie
+#define encode_quota_validity_time encode_u32_ie
+
 #define format_tp_packet_measurement format_volume_ie
 #define decode_tp_packet_measurement decode_volume_ie
 #define encode_tp_packet_measurement encode_volume_ie
@@ -5103,6 +5108,10 @@ static struct pfcp_group_ie_def pfcp_create_urr_group[] =
       .type = PFCP_IE_DROPPED_DL_TRAFFIC_THRESHOLD,
       .offset = offsetof(pfcp_create_urr_t, dropped_dl_traffic_threshold)
     },
+    [CREATE_URR_QUOTA_VALIDITY_TIME] = {
+      .type = PFCP_IE_QUOTA_VALIDITY_TIME,
+      .offset = offsetof(pfcp_create_urr_t, quota_validity_time)
+    },
     [CREATE_URR_MONITORING_TIME] = {
       .type = PFCP_IE_MONITORING_TIME,
       .offset = offsetof(pfcp_create_urr_t, monitoring_time)
@@ -5398,6 +5407,10 @@ static struct pfcp_group_ie_def pfcp_update_urr_group[] =
     [UPDATE_URR_DROPPED_DL_TRAFFIC_THRESHOLD] = {
       .type = PFCP_IE_DROPPED_DL_TRAFFIC_THRESHOLD,
       .offset = offsetof(pfcp_update_urr_t, dropped_dl_traffic_threshold)
+    },
+    [UPDATE_URR_QUOTA_VALIDITY_TIME] = {
+      .type = PFCP_IE_QUOTA_VALIDITY_TIME,
+      .offset = offsetof(pfcp_update_urr_t, quota_validity_time)
     },
     [UPDATE_URR_MONITORING_TIME] = {
       .type = PFCP_IE_MONITORING_TIME,
@@ -6875,6 +6888,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     },
     SIMPLE_IE(PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY, ue_ip_address_pool_identity, "UE IP address Pool Identity"),
     SIMPLE_IE(PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS, alternative_smf_ip_address, "Alternative SMF IP Address"),
+    SIMPLE_IE(PFCP_IE_QUOTA_VALIDITY_TIME, quota_validity_time, "Quota Validity Time"),
     [PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION] =
     {
       .name = "UE IP Address Pool Information",
