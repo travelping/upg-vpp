@@ -292,6 +292,7 @@ typedef u32 pfcp_reporting_triggers_t;
 #define REPORTING_TRIGGER_EVENT_THRESHOLD		BIT(12)
 #define REPORTING_TRIGGER_EVENT_QUOTA			BIT(13)
 #define REPORTING_TRIGGER_IP_MULTICAST_JOIN_LEAVE	BIT(14)
+#define REPORTING_TRIGGER_QUOTA_VALIDITY_TIME		BIT(15)
 
 #define PFCP_IE_REDIRECT_INFORMATION			38
 typedef struct
@@ -529,6 +530,7 @@ typedef u32 pfcp_usage_report_trigger_t;
 #define USAGE_REPORT_TRIGGER_EVENT_QUOTA			BIT(16)
 #define USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT	BIT(17)
 #define USAGE_REPORT_TRIGGER_IP_MULTICAST_JOIN_LEAVE		BIT(18)
+#define USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME		BIT(19)
 
 #define PFCP_IE_MEASUREMENT_PERIOD			64
 typedef u32 pfcp_measurement_period_t;
@@ -1146,6 +1148,9 @@ typedef struct
   ip6_address_t ip6;
 } pfcp_alternative_smf_ip_address_t;
 
+#define PFCP_IE_QUOTA_VALIDITY_TIME			181
+typedef u32 pfcp_quota_validity_time_t;
+
 #define PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION		233
 
 #define PFCP_IE_IP_VERSION				258
@@ -1675,6 +1680,7 @@ enum
   CREATE_URR_TIME_QUOTA,
   CREATE_URR_QUOTA_HOLDING_TIME,
   CREATE_URR_DROPPED_DL_TRAFFIC_THRESHOLD,
+  CREATE_URR_QUOTA_VALIDITY_TIME,
   CREATE_URR_MONITORING_TIME,
   CREATE_URR_SUBSEQUENT_VOLUME_THRESHOLD,
   CREATE_URR_SUBSEQUENT_TIME_THRESHOLD,
@@ -1703,6 +1709,7 @@ typedef struct
   pfcp_time_quota_t time_quota;
   pfcp_quota_holding_time_t quota_holding_time;
   pfcp_dropped_dl_traffic_threshold_t dropped_dl_traffic_threshold;
+  pfcp_quota_validity_time_t quota_validity_time;
   pfcp_monitoring_time_t monitoring_time;
   pfcp_subsequent_volume_threshold_t subsequent_volume_threshold;
   pfcp_subsequent_time_threshold_t subsequent_time_threshold;
@@ -1728,6 +1735,7 @@ enum
   UPDATE_URR_TIME_QUOTA,
   UPDATE_URR_QUOTA_HOLDING_TIME,
   UPDATE_URR_DROPPED_DL_TRAFFIC_THRESHOLD,
+  UPDATE_URR_QUOTA_VALIDITY_TIME,
   UPDATE_URR_MONITORING_TIME,
   UPDATE_URR_SUBSEQUENT_VOLUME_THRESHOLD,
   UPDATE_URR_SUBSEQUENT_TIME_THRESHOLD,
@@ -1756,6 +1764,7 @@ typedef struct
   pfcp_time_quota_t time_quota;
   pfcp_quota_holding_time_t quota_holding_time;
   pfcp_dropped_dl_traffic_threshold_t dropped_dl_traffic_threshold;
+  pfcp_quota_validity_time_t quota_validity_time;
   pfcp_monitoring_time_t monitoring_time;
   pfcp_subsequent_volume_threshold_t subsequent_volume_threshold;
   pfcp_subsequent_time_threshold_t subsequent_time_threshold;

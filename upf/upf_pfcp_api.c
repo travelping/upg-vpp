@@ -371,6 +371,7 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   resp->up_function_features |= F_UPFF_EMPU;
   if (gtm->pfcp_spec_version >= 16)
     {
+      resp->up_function_features |= F_UPFF_VTIME;
       resp->up_function_features |= F_UPFF_FTUP;
       build_ue_ip_address_information (&resp->ue_ip_address_pool_information);
       if (vec_len (resp->ue_ip_address_pool_information) != 0)
@@ -1755,7 +1756,8 @@ handle_create_urr (upf_session_t * sx, pfcp_create_urr_t * create_urr,
 
     create->measurement_period.handle =
       create->time_threshold.handle =
-      create->time_quota.handle = create->traffic_timer.handle = ~0;
+      create->time_quota.handle = create->quota_validity_time.handle =
+      create->traffic_timer.handle = ~0;
     create->monitoring_time.vlib_time = INFINITY;
     create->time_of_first_packet = INFINITY;
     create->time_of_last_packet = INFINITY;
@@ -1805,6 +1807,12 @@ handle_create_urr (upf_session_t * sx, pfcp_create_urr_t * create_urr,
     //TODO: quota_holding_time;
     //TODO: dropped_dl_traffic_threshold;
 
+    if (ISSET_BIT (urr->grp.fields, CREATE_URR_QUOTA_VALIDITY_TIME))
+      {
+	create->update_flags |= PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME;
+	create->quota_validity_time.period = urr->quota_validity_time;
+	create->quota_validity_time.base = now;
+      }
     if (ISSET_BIT (urr->grp.fields, CREATE_URR_MONITORING_TIME))
       {
 	f64 secs;
@@ -1911,6 +1919,13 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
 
     //TODO: quota_holding_time;
     //TODO: dropped_dl_traffic_threshold;
+
+    if (ISSET_BIT (urr->grp.fields, UPDATE_URR_QUOTA_VALIDITY_TIME))
+      {
+	update->update_flags |= PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME;
+	update->quota_validity_time.period = urr->quota_validity_time;
+	update->quota_validity_time.base = now;
+      }
 
     if (ISSET_BIT (urr->grp.fields, UPDATE_URR_MONITORING_TIME))
       {

@@ -903,6 +903,19 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	urr->time_quota.period = 0;
 	urr->status |= URR_OVER_QUOTA;
       }
+    if (urr_check (urr->quota_validity_time, now))
+      {
+	if (urr->triggers & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME)
+	  {
+	    trigger |= USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME;
+	    trigger_now =
+	      clib_min (trigger_now, urr->quota_validity_time.expected);
+	  }
+
+	upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
+	urr->quota_validity_time.period = 0;
+	urr->status |= URR_OVER_QUOTA;
+      }
 
     if (urr_check (urr->traffic_timer, now))
       {
@@ -938,7 +951,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 
 	// clear reporting on the time based triggers, until rearmed by update
 	urr->triggers &= ~(REPORTING_TRIGGER_TIME_THRESHOLD |
-			   REPORTING_TRIGGER_TIME_QUOTA);
+			   REPORTING_TRIGGER_TIME_QUOTA |
+			   REPORTING_TRIGGER_QUOTA_VALIDITY_TIME);
       }
   }
 
