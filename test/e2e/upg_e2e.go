@@ -534,6 +534,48 @@ var _ = ginkgo.Describe("Clearing message queue", func() {
 	})
 })
 
+const VTIME = 0x80
+
+var _ = ginkgo.Describe("Quota Validation Tests", func() {
+	ginkgo.Context("Quota Validity Time", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("should generate usage report", func() {
+			ginkgo.By("Creating session with URR")
+			sessionCfg := &framework.SessionConfig{
+				IdBase:            1,
+				UEIP:              f.UEIP(),
+				Mode:              f.Mode,
+				ReportingTriggers: VTIME,
+			}
+			reportCh := f.PFCP.AcquireReportCh()
+			_, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			var m message.Message
+			gomega.Eventually(reportCh, 12*time.Second, 50*time.Millisecond).Should(gomega.Receive(&m))
+			framework.ExpectEqual(m.MessageType(), message.MsgTypeSessionReportRequest)
+
+			rr := m.(*message.SessionReportRequest)
+			gomega.Expect(rr.ReportType).NotTo(gomega.BeNil())
+			_, err = rr.ReportType.ReportType()
+			framework.ExpectNoError(err)
+			gomega.Expect(rr.ReportType.HasUPIR()).To(gomega.BeFalse())
+			gomega.Expect(rr.ReportType.HasERIR()).To(gomega.BeFalse())
+			gomega.Expect(rr.ReportType.HasUSAR()).To(gomega.BeTrue())
+			gomega.Expect(rr.ReportType.HasDLDR()).To(gomega.BeFalse())
+
+			gomega.Expect(rr.UsageReport).To(gomega.HaveLen(2))
+			for _, ur := range rr.UsageReport {
+				urt, err := ur.FindByType(ie.UsageReportTrigger)
+				framework.ExpectNoError(err)
+				gomega.Expect(len(urt.Payload)).To(gomega.BeNumerically(">=", 3))
+				gomega.Expect(urt.Payload[2] & 8).NotTo(gomega.BeZero()) // QUVTI bit is set
+			}
+		})
+	})
+
+})
+
 const leakTestNumSessions = 10000
 const leakTestNumIterations = 3
 

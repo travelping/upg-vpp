@@ -18,6 +18,7 @@ package framework
 
 import (
 	"net"
+	"time"
 
 	"github.com/wmnsk/go-pfcp/ie"
 
@@ -25,20 +26,21 @@ import (
 )
 
 type SessionConfig struct {
-	IdBase          uint16
-	UEIP            net.IP
-	PGWIP           net.IP
-	SGWIP           net.IP
-	AppName         string
-	Redirect        bool
-	Mode            UPGMode
-	TEIDPGWs5u      uint32
-	TEIDSGWs5u      uint32
-	ProxyAccessIP   net.IP
-	ProxyCoreIP     net.IP
-	ProxyAccessTEID uint32
-	ProxyCoreTEID   uint32
-	NoURRs          bool
+	IdBase            uint16
+	UEIP              net.IP
+	PGWIP             net.IP
+	SGWIP             net.IP
+	AppName           string
+	Redirect          bool
+	Mode              UPGMode
+	TEIDPGWs5u        uint32
+	TEIDSGWs5u        uint32
+	ProxyAccessIP     net.IP
+	ProxyCoreIP       net.IP
+	ProxyAccessTEID   uint32
+	ProxyCoreTEID     uint32
+	NoURRs            bool
+	ReportingTriggers uint16
 }
 
 const (
@@ -237,18 +239,31 @@ func (cfg SessionConfig) DeleteFARs() []*ie.IE {
 	}
 }
 
+const VTIME = 0x80
+
+func (cfg SessionConfig) CreateURR(id uint32) *ie.IE {
+	urr := ie.NewCreateURR(
+		ie.NewURRID(id),
+		ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
+		ie.NewReportingTriggers(cfg.ReportingTriggers))
+	if (cfg.ReportingTriggers & VTIME) != 0 {
+		urr.Add(ie.NewQuotaValidityTime(time.Time{}))
+
+		// FIXME: go-pfcp QuotaValidityTime definition is incorrect, as it should contain
+		// a Duration, not Time. Here we set it to be 10 seconds
+		valTimer, _ := urr.FindByType(ie.QuotaValidityTime)
+		for i, _ := range valTimer.Payload {
+			valTimer.Payload[i] = 0
+		}
+		valTimer.Payload[3] = 10
+	}
+	return urr
+}
+
 func (cfg SessionConfig) SessionIEs() []*ie.IE {
 	ies := cfg.CreateFARs()
 	if !cfg.NoURRs {
-		ies = append(ies,
-			ie.NewCreateURR(
-				ie.NewURRID(1),
-				ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
-				ie.NewReportingTriggers(0)),
-			ie.NewCreateURR(
-				ie.NewURRID(2),
-				ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
-				ie.NewReportingTriggers(0)))
+		ies = append(ies, cfg.CreateURR(1), cfg.CreateURR(2))
 	}
 
 	return append(ies, cfg.CreatePDRs()...)
