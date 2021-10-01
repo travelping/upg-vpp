@@ -15,9 +15,7 @@ require (
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/common v0.14.0 // indirect
 	github.com/safchain/ethtool v0.0.0-20200804214954-8f958a28363a
-	github.com/shirou/gopsutil v3.20.12+incompatible
 	github.com/shirou/gopsutil/v3 v3.20.12
 	github.com/sirupsen/logrus v1.6.0
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
@@ -26,5 +24,6 @@ require (
 	github.com/wmnsk/go-gtp v0.7.13
 	github.com/wmnsk/go-pfcp v0.0.6
 	golang.org/x/sys v0.0.0-20201024232916-9f70ab9862d5
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 )
