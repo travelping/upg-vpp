@@ -534,18 +534,16 @@ var _ = ginkgo.Describe("Clearing message queue", func() {
 	})
 })
 
-const VTIME = 0x80
-
-var _ = ginkgo.Describe("Quota Validation Tests", func() {
+var _ = ginkgo.Describe("[Reporting]", func() {
 	ginkgo.Context("Quota Validity Time", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-		ginkgo.It("should generate usage report", func() {
-			ginkgo.By("Creating session with URR")
+		ginkgo.It("should generate usage report upon expiry", func() {
+			ginkgo.By("Creating session with an URR")
 			sessionCfg := &framework.SessionConfig{
-				IdBase:            1,
-				UEIP:              f.UEIP(),
-				Mode:              f.Mode,
-				ReportingTriggers: VTIME,
+				IdBase: 1,
+				UEIP:   f.UEIP(),
+				Mode:   f.Mode,
+				VTime:  10 * time.Second,
 			}
 			reportCh := f.PFCP.AcquireReportCh()
 			_, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
@@ -574,6 +572,256 @@ var _ = ginkgo.Describe("Quota Validation Tests", func() {
 		})
 	})
 
+	ginkgo.Context("Monitoring time", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("should generate split report", func() {
+			ginkgo.By("Creating session with an URR that has Monitoring time")
+			monitoringTime := time.Now().Add(4 * time.Second).Round(time.Second)
+			sessionCfg := &framework.SessionConfig{
+				IdBase:            1,
+				UEIP:              f.UEIP(),
+				Mode:              f.Mode,
+				MonitoringTime:    monitoringTime,
+				MeasurementPeriod: 3 * time.Second,
+			}
+			reportCh := f.PFCP.AcquireReportCh()
+			_, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			out, err := f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(string(out)).To(gomega.ContainSubstring("Monitoring Time"))
+
+			ginkgo.By("Starting some traffic")
+			tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+				PacketCount: 50, // 5s
+				Retry:       true,
+				Delay:       100 * time.Millisecond,
+			}, &traffic.SimpleTrafficRec{})
+			errCh := tg.Start(f.Context, clientNS, serverNS)
+
+			ginkgo.By("Waiting for the 1st report (no split)...")
+			var msg message.Message
+			gomega.Eventually(reportCh, 5*time.Second, 50*time.Millisecond).Should(gomega.Receive(&msg))
+			m, err := pfcp.GetMeasurement(msg)
+			framework.ExpectNoError(err, "GetMeasurement")
+			gomega.Expect(m.Reports[1]).To(gomega.HaveLen(1),
+				"1 report expected for URR 1 (no splits)")
+			gomega.Expect(m.Reports[1][0].TotalVolume).NotTo(gomega.BeNil())
+			gomega.Expect(*m.Reports[1][0].TotalVolume).NotTo(gomega.BeZero())
+			firstUL := *m.Reports[1][0].UplinkVolume
+			firstDL := *m.Reports[1][0].DownlinkVolume
+
+			ginkgo.By("Waiting for the 2nd report (split)...")
+			gomega.Eventually(reportCh, 5*time.Second, 50*time.Millisecond).Should(gomega.Receive(&msg))
+			m, err = pfcp.GetMeasurement(msg)
+			framework.ExpectNoError(err, "GetMeasurement")
+			gomega.Expect(m.Reports[1]).To(gomega.HaveLen(2),
+				"2 reports expected for URR 1 (split report)")
+
+			out, err = f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(string(out)).NotTo(gomega.ContainSubstring("Monitoring Time"),
+				"Monitoring Time in the session after the report should be gone")
+
+			ginkgo.By("Waiting for trafficgen to finish...")
+			gomega.Eventually(errCh, 10*time.Second, 50*time.Millisecond).Should(gomega.Receive(&err))
+			framework.ExpectNoError(err, "trafficgen error")
+
+			beforeSplit := m.Reports[1][0]
+			afterSplit := m.Reports[1][1]
+			if beforeSplit.StartTime.After(m.Reports[1][1].StartTime) {
+				beforeSplit, afterSplit = afterSplit, beforeSplit
+			}
+			gomega.Expect(beforeSplit.StartTime.Before(beforeSplit.EndTime)).To(gomega.BeTrue())
+			gomega.Expect(afterSplit.StartTime.Before(afterSplit.EndTime)).To(gomega.BeTrue())
+			gomega.Expect(beforeSplit.EndTime).To(gomega.Equal(monitoringTime))
+			gomega.Expect(afterSplit.StartTime).To(gomega.Equal(monitoringTime))
+			gomega.Expect(beforeSplit.TotalVolume).NotTo(gomega.BeNil())
+			gomega.Expect(*beforeSplit.TotalVolume).NotTo(gomega.BeZero())
+			gomega.Expect(afterSplit.TotalVolume).NotTo(gomega.BeNil())
+			gomega.Expect(*afterSplit.TotalVolume).NotTo(gomega.BeZero())
+
+			ul, dl := getTrafficCountsFromCapture(f, layers.IPProtocolUDP, nil)
+			framework.ExpectEqual(firstUL+*beforeSplit.UplinkVolume+*afterSplit.UplinkVolume, ul,
+				"uplink volume")
+			framework.ExpectEqual(firstDL+*beforeSplit.DownlinkVolume+*afterSplit.DownlinkVolume, dl,
+				"downlink volume")
+		})
+
+		ginkgo.It("should properly handle monitoring time change with a pending split report", func() {
+			ginkgo.By("Creating session with an URR that has Monitoring time")
+			startTime := time.Now()
+			monitoringTimes := []time.Time{startTime.Add(3 * time.Second).Round(time.Second)}
+			sessionCfg := &framework.SessionConfig{
+				IdBase:         1,
+				UEIP:           f.UEIP(),
+				Mode:           f.Mode,
+				MonitoringTime: monitoringTimes[0],
+				// request a report _after_ the monitoring time
+				MeasurementPeriod: 8 * time.Second,
+			}
+			reportCh := f.PFCP.AcquireReportCh()
+			seid, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			out, err := f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(string(out)).To(gomega.ContainSubstring("Monitoring Time"))
+
+			ginkgo.By("Starting some traffic")
+			tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+				PacketCount: 180, // 18s
+				Retry:       true,
+				Delay:       100 * time.Millisecond,
+			}, &traffic.SimpleTrafficRec{})
+			errCh := tg.Start(f.Context, clientNS, serverNS)
+
+			ginkgo.By("Waiting for the monitoring time...")
+			now := time.Now()
+			gomega.Expect(now.Before(sessionCfg.MonitoringTime)).To(gomega.BeTrue())
+			time.Sleep(sessionCfg.MonitoringTime.Add(2 * time.Second).Sub(now))
+
+			ginkgo.By("Updating monitoring time in the session")
+			// note that measurement period is reset here, and we want the new
+			// monitoring time to be after the report
+			sessionCfg.MonitoringTime = time.Now().Add(10 * time.Second).Truncate(time.Second)
+			monitoringTimes = append(monitoringTimes, sessionCfg.MonitoringTime)
+			_, err = f.PFCP.ModifySession(
+				f.VPP.Context(context.Background()), seid,
+				sessionCfg.UpdateURRs()...)
+			framework.ExpectNoError(err, "ModifySession")
+
+			ginkgo.By("Waiting for the 1st report (split)...")
+			var msg message.Message
+			gomega.Eventually(reportCh, 20*time.Second, 50*time.Millisecond).Should(gomega.Receive(&msg))
+
+			m, err := pfcp.GetMeasurement(msg)
+			framework.ExpectNoError(err, "GetMeasurement")
+			gomega.Expect(m.Reports[1]).To(gomega.HaveLen(2),
+				"2 reports expected for URR 1 (split report)")
+
+			beforeSplit := []pfcp.PFCPReport{m.Reports[1][0]}
+			afterSplit := []pfcp.PFCPReport{m.Reports[1][1]}
+
+			out, err = f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(string(out)).To(gomega.ContainSubstring("Monitoring Time"),
+				"Monitoring Time in the session after the 1st report")
+
+			ginkgo.By("Waiting for the 2nd report (split)...")
+			gomega.Eventually(reportCh, 20*time.Second, 50*time.Millisecond).Should(gomega.Receive(&msg))
+
+			framework.Logf("Elapsed time since session setup: %v", time.Now().Sub(startTime))
+
+			m, err = pfcp.GetMeasurement(msg)
+			framework.ExpectNoError(err, "GetMeasurement")
+			gomega.Expect(m.Reports[1]).To(gomega.HaveLen(2),
+				"2 reports expected for URR 1 (split report)")
+
+			beforeSplit = append(beforeSplit, m.Reports[1][0])
+			afterSplit = append(afterSplit, m.Reports[1][1])
+
+			out, err = f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(string(out)).NotTo(gomega.ContainSubstring("Monitoring Time"),
+				"Monitoring Time in the session after the 2nd report should be gone")
+
+			ginkgo.By("Waiting for trafficgen to finish...")
+			gomega.Eventually(errCh, 10*time.Second, 50*time.Millisecond).Should(gomega.Receive(&err))
+			framework.ExpectNoError(err, "trafficgen error")
+
+			var totalUplink, totalDownlink uint64
+			for n, before := range beforeSplit {
+				after := afterSplit[n]
+				if before.StartTime.After(m.Reports[1][1].StartTime) {
+					beforeSplit, afterSplit = afterSplit, beforeSplit
+				}
+				gomega.Expect(before.StartTime.Before(before.EndTime)).To(gomega.BeTrue())
+				gomega.Expect(after.StartTime.Before(after.EndTime)).To(gomega.BeTrue())
+				gomega.Expect(before.EndTime).To(gomega.Equal(monitoringTimes[n]))
+				gomega.Expect(after.StartTime).To(gomega.Equal(monitoringTimes[n]))
+				gomega.Expect(before.TotalVolume).NotTo(gomega.BeNil(), "total volume before (report %d)", n)
+				gomega.Expect(*before.TotalVolume).NotTo(gomega.BeZero(), "total volume before (report %d)", n)
+				framework.ExpectEqual(*before.UplinkVolume+*before.DownlinkVolume,
+					*before.TotalVolume, "bad total volume (split %d)", n)
+				gomega.Expect(after.TotalVolume).NotTo(gomega.BeNil(), "total volume after (report %d)", n)
+				gomega.Expect(*after.TotalVolume).NotTo(gomega.BeZero(), "total volume after (report %d)", n)
+				framework.ExpectEqual(*after.UplinkVolume+*after.DownlinkVolume,
+					*after.TotalVolume, "bad total volume (split %d)", n)
+
+				gomega.Expect(before.UplinkVolume).NotTo(gomega.BeNil())
+				gomega.Expect(before.DownlinkVolume).NotTo(gomega.BeNil())
+				gomega.Expect(after.UplinkVolume).NotTo(gomega.BeNil())
+				gomega.Expect(after.DownlinkVolume).NotTo(gomega.BeNil())
+				totalUplink += *before.UplinkVolume + *after.UplinkVolume
+				totalDownlink += *before.DownlinkVolume + *after.DownlinkVolume
+			}
+
+			ul, dl := getTrafficCountsFromCapture(f, layers.IPProtocolUDP, nil)
+			framework.ExpectEqual(totalUplink, ul, "uplink volume")
+			framework.ExpectEqual(totalDownlink, dl, "downlink volume")
+		})
+
+		ginkgo.It("should drop the session instead of creating 2nd pending split", func() {
+			ginkgo.By("Creating session with an URR that has Monitoring time")
+			startTime := time.Now()
+			monitoringTimes := []time.Time{startTime.Add(2 * time.Second).Round(time.Second)}
+			sessionCfg := &framework.SessionConfig{
+				IdBase:         1,
+				UEIP:           f.UEIP(),
+				Mode:           f.Mode,
+				MonitoringTime: monitoringTimes[0],
+				// make measurement period large enough for
+				// the pending split reports to "pile up"
+				MeasurementPeriod: 30 * time.Second,
+			}
+			reportCh := f.PFCP.AcquireReportCh()
+			seid, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+			seidHex := fmt.Sprintf("0x%016x", seid)
+
+			out, err := f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(string(out)).To(gomega.ContainSubstring("Monitoring Time"))
+			gomega.Expect(string(out)).To(gomega.ContainSubstring(seidHex))
+
+			ginkgo.By("Starting some traffic")
+			tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+				PacketCount: 180, // 30s, but will be stopped when VPP exits
+				Retry:       true,
+				Delay:       100 * time.Millisecond,
+			}, &traffic.SimpleTrafficRec{})
+			tg.Start(f.Context, clientNS, serverNS)
+
+			ginkgo.By("Waiting for 1st monitoring time...")
+			now := time.Now()
+			gomega.Expect(now.Before(sessionCfg.MonitoringTime)).To(gomega.BeTrue())
+			time.Sleep(sessionCfg.MonitoringTime.Add(2 * time.Second).Sub(now))
+
+			ginkgo.By("Updating monitoring time in the session (1)")
+			// note that measurement period is reset here, and we want the new
+			// monitoring time to be after the report
+			sessionCfg.MonitoringTime = time.Now().Add(2 * time.Second).Truncate(time.Second)
+			monitoringTimes = append(monitoringTimes, sessionCfg.MonitoringTime)
+			_, err = f.PFCP.ModifySession(
+				f.VPP.Context(context.Background()), seid,
+				sessionCfg.UpdateURRs()...)
+			framework.ExpectNoError(err, "ModifySession")
+
+			ginkgo.By("Waiting for 2nd monitoring time...")
+			now = time.Now()
+			gomega.Expect(now.Before(sessionCfg.MonitoringTime)).To(gomega.BeTrue())
+			time.Sleep(sessionCfg.MonitoringTime.Add(3 * time.Second).Sub(now))
+
+			ginkgo.By("Waiting for the PSDBU report...")
+			var msg message.Message
+			gomega.Eventually(reportCh, 20*time.Second, 50*time.Millisecond).Should(gomega.Receive(&msg))
+			// 4 reports as a split still occurs
+			verifyPSDBU(msg, 4)
+			verifyNoSession(f, seid)
+		})
+	})
 })
 
 const leakTestNumSessions = 10000
@@ -688,28 +936,8 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			gomega.Expect(unexpectedSuccess).To(gomega.BeFalse(), "EstablishSession succeeded unexpectedly")
 			var m message.Message
 			gomega.Eventually(reportCh, 10*time.Second, 50*time.Millisecond).Should(gomega.Receive(&m))
-			framework.ExpectEqual(m.MessageType(), message.MsgTypeSessionReportRequest)
-
-			rr := m.(*message.SessionReportRequest)
-			gomega.Expect(rr.ReportType).NotTo(gomega.BeNil())
-			_, err = rr.ReportType.ReportType()
-			framework.ExpectNoError(err)
-			gomega.Expect(rr.ReportType.HasUPIR()).To(gomega.BeFalse())
-			gomega.Expect(rr.ReportType.HasERIR()).To(gomega.BeFalse())
-			gomega.Expect(rr.ReportType.HasUSAR()).To(gomega.BeTrue())
-			gomega.Expect(rr.ReportType.HasDLDR()).To(gomega.BeFalse())
-
-			gomega.Expect(rr.PFCPSRReqFlags).NotTo(gomega.BeNil())
-			gomega.Expect(rr.PFCPSRReqFlags.HasPSDBU()).To(gomega.BeTrue())
-
-			gomega.Expect(rr.UsageReport).To(gomega.HaveLen(2))
-			for _, ur := range rr.UsageReport {
-				urt, err := ur.FindByType(ie.UsageReportTrigger)
-				framework.ExpectNoError(err)
-				gomega.Expect(len(urt.Payload)).To(gomega.BeNumerically(">=", 3))
-				gomega.Expect(urt.Payload[2] & 2).NotTo(gomega.BeZero()) // TEBUR bit is set
-			}
-
+			// Expecting a "PFCP Session Deleted By the UP function" (PSDBU) report
+			verifyPSDBU(m, 2)
 			verifyNoSession(f, seid)
 			verifyNoSession(f, newSEID)
 		})
@@ -1148,9 +1376,12 @@ func verifyAppMeasurement(f *framework.Framework, ms *pfcp.PFCPMeasurement, prot
 
 	verifyPreAppReport(ms, 1, NON_APP_TRAFFIC_THRESHOLD)
 	validateReport(ms, 2)
-	*ms.Reports[2].UplinkVolume += *ms.Reports[1].UplinkVolume
-	*ms.Reports[2].DownlinkVolume += *ms.Reports[1].DownlinkVolume
-	*ms.Reports[2].TotalVolume += *ms.Reports[1].TotalVolume
+	// [0] is b/c we're expecting just one report per URR ID here.
+	// No split reports, which are handled by separate tests that
+	// check Monitoring Time
+	*ms.Reports[2][0].UplinkVolume += *ms.Reports[1][0].UplinkVolume
+	*ms.Reports[2][0].DownlinkVolume += *ms.Reports[1][0].DownlinkVolume
+	*ms.Reports[2][0].TotalVolume += *ms.Reports[1][0].TotalVolume
 	verifyMainReport(f, ms, proto, 2, serverIP)
 }
 
@@ -1160,7 +1391,8 @@ func verifyNonAppMeasurement(f *framework.Framework, ms *pfcp.PFCPMeasurement, p
 
 func validateReport(ms *pfcp.PFCPMeasurement, urrId uint32) pfcp.PFCPReport {
 	framework.ExpectHaveKey(ms.Reports, urrId, "missing URR id: %d", urrId)
-	r := ms.Reports[urrId]
+	gomega.Expect(ms.Reports[urrId]).To(gomega.HaveLen(1), "unexpected split report")
+	r := ms.Reports[urrId][0]
 	gomega.Expect(r.DownlinkVolume).ToNot(gomega.BeNil(), "downlink volume missing in the UsageReport")
 	gomega.Expect(r.UplinkVolume).ToNot(gomega.BeNil(), "uplink volume missing in the UsageReport")
 	gomega.Expect(r.TotalVolume).ToNot(gomega.BeNil(), "total volume missing in the UsageReport")
@@ -1176,7 +1408,7 @@ func verifyPreAppReport(ms *pfcp.PFCPMeasurement, urrId uint32, toleration uint6
 		"too much non-app ul traffic: %d (max %d)", *r.DownlinkVolume, toleration)
 }
 
-func verifyMainReport(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto layers.IPProtocol, urrId uint32, serverIP net.IP) {
+func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol, serverIP net.IP) (ul, dl uint64) {
 	var c *network.Capture
 	if f.SlowGTPU() {
 		// NOTE: if we use UE, we can get bad traffic figures,
@@ -1202,10 +1434,14 @@ func verifyMainReport(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto la
 	if serverIP == nil {
 		serverIP = f.ServerIP()
 	}
-	ul := c.GetTrafficCount(network.Make5Tuple(f.UEIP(), -1, serverIP, -1, proto))
-	dl := c.GetTrafficCount(network.Make5Tuple(serverIP, -1, f.UEIP(), -1, proto))
+	ul = c.GetTrafficCount(network.Make5Tuple(f.UEIP(), -1, serverIP, -1, proto))
+	dl = c.GetTrafficCount(network.Make5Tuple(serverIP, -1, f.UEIP(), -1, proto))
 	framework.Logf("capture stats: UL: %d, DL: %d", ul, dl)
+	return ul, dl
+}
 
+func verifyMainReport(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto layers.IPProtocol, urrId uint32, serverIP net.IP) {
+	ul, dl := getTrafficCountsFromCapture(f, proto, serverIP)
 	r := validateReport(ms, urrId)
 	framework.ExpectEqual(ul, *r.UplinkVolume, "uplink volume for urr %d", urrId)
 	framework.ExpectEqual(dl, *r.DownlinkVolume, "downlink volume for urr %d", urrId)
@@ -1251,4 +1487,40 @@ func verifyNoSession(f *framework.Framework, seid pfcp.SEID) {
 	// // 3GPP TS 29.244 Clause 7.2.2.4.2: Conditions for Sending SEID=0 in PFCP Header
 	// framework.ExpectEqual(serverErr.SEID, pfcp.SEID(0))
 	framework.ExpectEqual(serverErr.Cause, ie.CauseSessionContextNotFound)
+}
+
+// verifyPSDBU verifies that the message is a Session Report Request
+// with PSDBU (PFCP Session Deleted By the UP function) bit set and
+// the report(s) it contains have TEBUR (Termination By UP function
+// Report) bit set
+func verifyPSDBU(m message.Message, numUsageReports int) {
+	framework.ExpectEqual(m.MessageType(), message.MsgTypeSessionReportRequest)
+
+	rr := m.(*message.SessionReportRequest)
+	gomega.Expect(rr.ReportType).NotTo(gomega.BeNil())
+	_, err := rr.ReportType.ReportType()
+	framework.ExpectNoError(err)
+	gomega.Expect(rr.ReportType.HasUPIR()).To(gomega.BeFalse())
+	gomega.Expect(rr.ReportType.HasERIR()).To(gomega.BeFalse())
+	gomega.Expect(rr.ReportType.HasUSAR()).To(gomega.BeTrue())
+	gomega.Expect(rr.ReportType.HasDLDR()).To(gomega.BeFalse())
+
+	gomega.Expect(rr.PFCPSRReqFlags).NotTo(gomega.BeNil())
+	gomega.Expect(rr.PFCPSRReqFlags.HasPSDBU()).To(gomega.BeTrue())
+
+	gomega.Expect(rr.UsageReport).To(gomega.HaveLen(numUsageReports))
+	for _, ur := range rr.UsageReport {
+		urt, err := ur.FindByType(ie.UsageReportTrigger)
+		framework.ExpectNoError(err)
+		gomega.Expect(len(urt.Payload)).To(gomega.BeNumerically(">=", 3))
+		// FIXME: TEBUR bit is not being set for the split
+		// reports, when these are generated as part of PSDBU
+		// Session Report Request. This is not in complete
+		// agreement with the spec (TS 29.244 clause 5.18.2)
+		// which says all of the included reports must have
+		// TEBUR bit
+		if !urt.HasMONIT() {
+			gomega.Expect(urt.Payload[2] & 2).NotTo(gomega.BeZero()) // TEBUR bit is set
+		}
+	}
 }
