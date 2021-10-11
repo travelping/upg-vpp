@@ -85,6 +85,9 @@ const (
 	OuterHeaderRemoval_GTPUUDPIPV4 = 0
 	OuterHeaderRemoval_GTPUUDPIPV6 = 1
 
+	ReportingTriggers_QUVTI = 0x0080 // Quota Validity Time
+	ReportingTriggers_PERIO = 0x0100 // Periodic Reporting
+
 	maxRequestAttempts = 10
 
 	pfcpStateInitial              pfcpState = "INITIAL"
@@ -397,6 +400,8 @@ type PFCPReport struct {
 	DownlinkVolume *uint64
 	TotalVolume    *uint64
 	Duration       *time.Duration
+	StartTime      time.Time
+	EndTime        time.Time
 }
 
 func (ms PFCPReport) String() string {
@@ -418,7 +423,7 @@ func (ms PFCPReport) String() string {
 }
 
 type PFCPMeasurement struct {
-	Reports   map[uint32]PFCPReport
+	Reports   map[uint32][]PFCPReport
 	Timestamp time.Time
 }
 
@@ -1221,85 +1226,19 @@ func (s *pfcpSession) event(et sessionEventType, ev pfcpEvent) (*PFCPMeasurement
 }
 
 func (s *pfcpSession) getMeasurement(m message.Message) (*PFCPMeasurement, error) {
-	var urs []*ie.IE
-	switch m.MessageType() {
-	case message.MsgTypeSessionModificationResponse:
-		urs = m.(*message.SessionModificationResponse).UsageReport
-	case message.MsgTypeSessionDeletionResponse:
-		urs = m.(*message.SessionDeletionResponse).UsageReport
-	default:
-		panic("bad message type")
-	}
-
-	if len(urs) == 0 {
-		return nil, nil
-	}
-
-	ms := PFCPMeasurement{
-		Timestamp: time.Now(),
-		Reports:   make(map[uint32]PFCPReport),
-	}
-
-	for _, ur := range urs {
-		r := PFCPReport{}
-
-		urridIE, err := ur.FindByType(ie.URRID)
-		if err != nil {
-			return nil, errors.Wrap(err, "can't find URR ID IE")
-		}
-
-		urrid, err := urridIE.URRID()
-		if err != nil {
-			return nil, errors.Wrap(err, "can't parse URR ID IE")
-		}
-
-		volMeasurement, err := ur.FindByType(ie.VolumeMeasurement)
-		if err != ie.ErrIENotFound {
-			if err != nil {
-				return nil, errors.Wrap(err, "can't find VolumeMeasurement IE")
-			}
-
-			parsedVolMeasurement, err := volMeasurement.VolumeMeasurement()
-			if err != nil {
-				return nil, errors.Wrap(err, "can't parse VolumeMeasurement IE")
-			}
-
-			if parsedVolMeasurement.HasDLVOL() {
-				r.DownlinkVolume = &parsedVolMeasurement.DownlinkVolume
-			}
-
-			if parsedVolMeasurement.HasULVOL() {
-				r.UplinkVolume = &parsedVolMeasurement.UplinkVolume
-			}
-
-			if parsedVolMeasurement.HasTOVOL() {
-				r.TotalVolume = &parsedVolMeasurement.TotalVolume
+	r, err := GetMeasurement(m)
+	if err == nil && r != nil {
+		for urrid, reports := range r.Reports {
+			for _, report := range reports {
+				s.pc.log.WithFields(logrus.Fields{
+					"messageType": m.MessageTypeName(),
+					"urrID":       urrid,
+					"report":      report.String(),
+				}).Trace("PFCP measurement")
 			}
 		}
-
-		durMeasurement, err := ur.FindByType(ie.DurationMeasurement)
-		if err != ie.ErrIENotFound {
-			if err != nil {
-				return nil, errors.Wrap(err, "can't find DurationMeasurement IE")
-			}
-
-			duration, err := durMeasurement.DurationMeasurement()
-			if err != nil {
-				return nil, errors.Wrap(err, "can't parse DurationMeasurement IE")
-			}
-
-			r.Duration = &duration
-		}
-
-		s.pc.log.WithFields(logrus.Fields{
-			"messageType": m.MessageTypeName(),
-			"urrID":       urrid,
-			"report":      r.String(),
-		}).Trace("PFCP measurement")
-		ms.Reports[urrid] = r
 	}
-
-	return &ms, nil
+	return r, err
 }
 
 func getCauseIE(m message.Message) *ie.IE {
@@ -1388,4 +1327,105 @@ type pfcpRequest interface {
 	SetSequenceNumber(seq uint32)
 }
 
-// TODO: proper logging
+func GetMeasurement(m message.Message) (*PFCPMeasurement, error) {
+	var urs []*ie.IE
+	switch m.MessageType() {
+	case message.MsgTypeSessionModificationResponse:
+		urs = m.(*message.SessionModificationResponse).UsageReport
+	case message.MsgTypeSessionDeletionResponse:
+		urs = m.(*message.SessionDeletionResponse).UsageReport
+	case message.MsgTypeSessionReportRequest:
+		urs = m.(*message.SessionReportRequest).UsageReport
+	default:
+		panic("bad message type")
+	}
+
+	if len(urs) == 0 {
+		return nil, nil
+	}
+
+	ms := PFCPMeasurement{
+		Timestamp: time.Now(),
+		Reports:   make(map[uint32][]PFCPReport),
+	}
+
+	for _, ur := range urs {
+		r := PFCPReport{}
+
+		urridIE, err := ur.FindByType(ie.URRID)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't find URR ID IE")
+		}
+
+		urrid, err := urridIE.URRID()
+		if err != nil {
+			return nil, errors.Wrap(err, "can't parse URR ID IE")
+		}
+
+		startTime, err := ur.FindByType(ie.StartTime)
+		if err != ie.ErrIENotFound {
+			if err != nil {
+				return nil, errors.Wrap(err, "can't find StartTime IE")
+			}
+
+			r.StartTime, err = startTime.StartTime()
+			if err != nil {
+				return nil, errors.Wrap(err, "can't parse StartTime IE")
+			}
+		}
+
+		endTime, err := ur.FindByType(ie.EndTime)
+		if err != ie.ErrIENotFound {
+			if err != nil {
+				return nil, errors.Wrap(err, "can't find EndTime IE")
+			}
+
+			r.EndTime, err = endTime.EndTime()
+			if err != nil {
+				return nil, errors.Wrap(err, "can't parse EndTime IE")
+			}
+		}
+
+		volMeasurement, err := ur.FindByType(ie.VolumeMeasurement)
+		if err != ie.ErrIENotFound {
+			if err != nil {
+				return nil, errors.Wrap(err, "can't find VolumeMeasurement IE")
+			}
+
+			parsedVolMeasurement, err := volMeasurement.VolumeMeasurement()
+			if err != nil {
+				return nil, errors.Wrap(err, "can't parse VolumeMeasurement IE")
+			}
+
+			if parsedVolMeasurement.HasDLVOL() {
+				r.DownlinkVolume = &parsedVolMeasurement.DownlinkVolume
+			}
+
+			if parsedVolMeasurement.HasULVOL() {
+				r.UplinkVolume = &parsedVolMeasurement.UplinkVolume
+			}
+
+			if parsedVolMeasurement.HasTOVOL() {
+				r.TotalVolume = &parsedVolMeasurement.TotalVolume
+			}
+		}
+
+		durMeasurement, err := ur.FindByType(ie.DurationMeasurement)
+		if err != ie.ErrIENotFound {
+			if err != nil {
+				return nil, errors.Wrap(err, "can't find DurationMeasurement IE")
+			}
+
+			duration, err := durMeasurement.DurationMeasurement()
+			if err != nil {
+				return nil, errors.Wrap(err, "can't parse DurationMeasurement IE")
+			}
+
+			r.Duration = &duration
+		}
+
+		ms.Reports[urrid] = append(ms.Reports[urrid], r)
+	}
+
+	return &ms, nil
+}

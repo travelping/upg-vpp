@@ -17,6 +17,8 @@
 package framework
 
 import (
+	"encoding/binary"
+	"math"
 	"net"
 	"time"
 
@@ -40,7 +42,9 @@ type SessionConfig struct {
 	ProxyAccessTEID   uint32
 	ProxyCoreTEID     uint32
 	NoURRs            bool
-	ReportingTriggers uint16
+	MonitoringTime    time.Time
+	VTime             time.Duration
+	MeasurementPeriod time.Duration
 }
 
 const (
@@ -239,31 +243,47 @@ func (cfg SessionConfig) DeleteFARs() []*ie.IE {
 	}
 }
 
-const VTIME = 0x80
-
-func (cfg SessionConfig) CreateURR(id uint32) *ie.IE {
-	urr := ie.NewCreateURR(
-		ie.NewURRID(id),
-		ie.NewMeasurementMethod(0, 1, 1), // VOLUM=1 DURAT=1
-		ie.NewReportingTriggers(cfg.ReportingTriggers))
-	if (cfg.ReportingTriggers & VTIME) != 0 {
-		urr.Add(ie.NewQuotaValidityTime(time.Time{}))
-
-		// FIXME: go-pfcp QuotaValidityTime definition is incorrect, as it should contain
-		// a Duration, not Time. Here we set it to be 10 seconds
-		valTimer, _ := urr.FindByType(ie.QuotaValidityTime)
-		for i, _ := range valTimer.Payload {
-			valTimer.Payload[i] = 0
-		}
-		valTimer.Payload[3] = 10
+func (cfg SessionConfig) CreateOrUpdateURR(id uint32, update bool) *ie.IE {
+	triggers := uint16(0)
+	mk := ie.NewCreateURR
+	if update {
+		mk = ie.NewUpdateURR
 	}
+	urr := mk(ie.NewURRID(id),
+		// VOLUM=1 DURAT=1
+		ie.NewMeasurementMethod(0, 1, 1))
+	if !cfg.MonitoringTime.IsZero() {
+		urr.Add(ie.NewMonitoringTime(cfg.MonitoringTime))
+	}
+	if cfg.VTime != 0 {
+		// FIXME: go-pfcp QuotaValidityTime definition is incorrect, as it should contain
+		// a Duration, not Time
+		urr.Add(ie.NewQuotaValidityTime(time.Time{}))
+		qvt, _ := urr.FindByType(ie.QuotaValidityTime)
+		s := uint32(math.Round(cfg.VTime.Seconds()))
+		binary.BigEndian.PutUint32(qvt.Payload, s)
+		triggers |= pfcp.ReportingTriggers_QUVTI
+	}
+	if cfg.MeasurementPeriod != 0 {
+		urr.Add(ie.NewMeasurementPeriod(cfg.MeasurementPeriod))
+		triggers |= pfcp.ReportingTriggers_PERIO
+	}
+	urr.Add(ie.NewReportingTriggers(triggers))
 	return urr
+}
+
+func (cfg SessionConfig) CreateURRs() []*ie.IE {
+	return []*ie.IE{cfg.CreateOrUpdateURR(1, false), cfg.CreateOrUpdateURR(2, false)}
+}
+
+func (cfg SessionConfig) UpdateURRs() []*ie.IE {
+	return []*ie.IE{cfg.CreateOrUpdateURR(1, true), cfg.CreateOrUpdateURR(2, true)}
 }
 
 func (cfg SessionConfig) SessionIEs() []*ie.IE {
 	ies := cfg.CreateFARs()
 	if !cfg.NoURRs {
-		ies = append(ies, cfg.CreateURR(1), cfg.CreateURR(2))
+		ies = append(ies, cfg.CreateURRs()...)
 	}
 
 	return append(ies, cfg.CreatePDRs()...)
