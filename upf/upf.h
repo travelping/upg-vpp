@@ -491,6 +491,7 @@ typedef struct
 #define URR_QUOTA_EXHAUSTED     BIT(0)
 #define URR_THRESHOLD_REACHED   BIT(1)
 #define URR_START_OF_TRAFFIC    BIT(2)
+#define URR_DROP_SESSION        BIT(3)
 
 typedef enum
 {

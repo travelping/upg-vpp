@@ -111,6 +111,7 @@ typedef struct
 {
   uword session_idx;
   ip46_address_t ue;
+  u8 status;
 } upf_event_urr_hdr_t;
 
 typedef struct

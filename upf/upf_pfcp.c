@@ -2211,7 +2211,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
   f64 now = vlib_time_now (vm);
   upf_main_t *gtm = &upf_main;
   upf_event_urr_hdr_t *ueh;
-  int status = URR_OK;
+  u8 status = URR_OK;
   u16 *urr_id;
 
   upf_debug ("DL: %d, UL: %d\n", is_dl, is_ul);
@@ -2239,9 +2239,18 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
        urr->monitoring_time.unix_time - unow);
 #endif
 
-    if (!(urr->status & URR_AFTER_MONITORING_TIME) &&
-	urr->monitoring_time.vlib_time < now)
+    if (urr->monitoring_time.vlib_time < now)
       {
+	if ((urr->status & URR_AFTER_MONITORING_TIME))
+	  {
+	    clib_warning ("Possible control plane bug:"
+			  " dropping the session 0x%016" PRIx64
+			  " instead of enqueueing 2nd Monitoring Time split",
+			  sess->cp_seid);
+	    status |= URR_DROP_SESSION;
+	    break;
+	  }
+
 	urr->usage_before_monitoring_time.volume = urr->volume.measure;
 	memset (&urr->volume.measure.packets, 0,
 		sizeof (urr->volume.measure.packets));
@@ -2397,6 +2406,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 					    sizeof (upf_event_urr_hdr_t));
       ueh->session_idx = (uword) (sess - gtm->sessions);
       ueh->ue = tt.ip;
+      ueh->status = status;
 
       upf_debug ("sending URR event on %wd\n", (uword) ueh->session_idx);
       upf_pfcp_server_session_usage_report (uev);

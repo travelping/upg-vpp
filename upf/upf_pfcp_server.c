@@ -521,7 +521,9 @@ void
 upf_pfcp_session_up_deletion_report (upf_session_t * sx)
 {
   /*
-   * TS 29.244 clause 5.18.2: UP Function Initiated PFCP Session Release
+   * TS 29.244 clause 5.18.2: UP Function Initiated PFCP Session
+   * Release FIXME: should include diagnostic information with
+   * the reason for session termination
    */
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t dmsg = {
@@ -1211,11 +1213,28 @@ static uword
 		upf_session_t *sx;
 
 		sx = pool_elt_at_index (gtm->sessions, ueh->session_idx);
-		upf_debug
-		  ("URR Event on Session Idx: %wd, %p, UE: %U, Events: %u\n",
-		   ueh->session_idx, sx, format_ip46_address, &ueh->ue,
-		   IP46_TYPE_ANY, vec_len (uev));
-		upf_pfcp_session_usage_report (sx, &ueh->ue, uev, psm->now);
+		if (!(ueh->status & URR_DROP_SESSION))
+		  {
+		    upf_debug
+		      ("URR Event on Session Idx: %wd, %p, UE: %U, Events: %u\n",
+		       ueh->session_idx, sx, format_ip46_address, &ueh->ue,
+		       IP46_TYPE_ANY, vec_len (uev));
+		    upf_pfcp_session_usage_report (sx, &ueh->ue, uev,
+						   psm->now);
+		  }
+		else
+		  {
+		    /*
+		     * The session has a fatal reporting issue such as
+		     * multiple Monitoring Time splits being queued
+		     */
+		    upf_debug
+		      ("URR Event on Session Idx: DROP: %wd, %p\n",
+		       ueh->session_idx, sx);
+		    upf_pfcp_session_up_deletion_report (sx);
+		    pfcp_disable_session (sx);
+		    pfcp_free_session (sx);
+		  }
 
 		vec_free_h (uev, sizeof (upf_event_urr_hdr_t));
 	      }
