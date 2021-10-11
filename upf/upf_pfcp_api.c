@@ -2280,8 +2280,6 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
 
       SET_BIT (r->grp.fields, USAGE_REPORT_DURATION_MEASUREMENT);
       r->duration_measurement = duration;
-
-      urr->monitoring_time.vlib_time = INFINITY;
     }
 
   r = init_usage_report (urr, trigger, report);
