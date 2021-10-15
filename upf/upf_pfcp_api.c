@@ -724,11 +724,8 @@ purge_conflicting_session (upf_session_t * sx_old,
 
   upf_pfcp_session_up_deletion_report (sx_old);
 
-  if (pfcp_disable_session (sx_old) != 0)
-    clib_warning ("PFCP Session %" PRIu64 " could no be disabled\n",
-		  sx_old->cp_seid);
-  else
-    pfcp_free_session (sx_old);
+  pfcp_disable_session (sx_old);
+  pfcp_free_session (sx_old);
 }
 
 static int
@@ -2537,9 +2534,7 @@ out_send_resp:
 
   if (sess && r != 0)
     {
-      if (pfcp_disable_session (sess) != 0)
-	clib_error ("failed to remove UPF session 0x%016" PRIx64,
-		    sess->cp_seid);
+      pfcp_disable_session (sess);
       pfcp_free_session (sess);
     }
 
@@ -2750,12 +2745,7 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 
   resp_dmsg.seid = sess->cp_seid;
 
-  if ((r = pfcp_disable_session (sess)) != 0)
-    {
-      upf_debug ("PFCP Session %" PRIu64 " could no be disabled.\n",
-		 dmsg->seid);
-      goto out_send_resp;
-    }
+  pfcp_disable_session (sess);
 
   active = pfcp_get_rules (sess, PFCP_ACTIVE);
   if (vec_len (active->urr) != 0)
@@ -2772,7 +2762,6 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
       upf_usage_report_free (&report);
     }
 
-out_send_resp:
   if (r == 0)
     {
       pfcp_free_session (sess);
