@@ -427,9 +427,7 @@ pfcp_release_association (upf_node_assoc_t * n)
 
       idx = sx->assoc.next;
 
-      if (pfcp_disable_session (sx) != 0)
-	clib_error ("failed to remove UPF session 0x%016" PRIx64,
-		    sx->cp_seid);
+      pfcp_disable_session (sx);
       pfcp_free_session (sx);
     }
 
@@ -983,7 +981,7 @@ pfcp_free_rules (upf_session_t * sx, int rule)
   memset (rules, 0, sizeof (*rules));
 }
 
-int
+void
 pfcp_disable_session (upf_session_t * sx)
 {
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
@@ -1026,8 +1024,6 @@ pfcp_disable_session (upf_session_t * sx)
   vlib_decrement_simple_counter (&gtm->upf_simple_counters
 				 [UPF_SESSIONS_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
-
-  return 0;
 }
 
 void
