@@ -638,9 +638,7 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 			gomega.Expect(beforeSplit.EndTime).To(gomega.Equal(monitoringTime))
 			gomega.Expect(afterSplit.StartTime).To(gomega.Equal(monitoringTime))
 			gomega.Expect(beforeSplit.TotalVolume).NotTo(gomega.BeNil())
-			gomega.Expect(*beforeSplit.TotalVolume).NotTo(gomega.BeZero())
 			gomega.Expect(afterSplit.TotalVolume).NotTo(gomega.BeNil())
-			gomega.Expect(*afterSplit.TotalVolume).NotTo(gomega.BeZero())
 
 			ul, dl := getTrafficCountsFromCapture(f, layers.IPProtocolUDP, nil)
 			framework.ExpectEqual(firstUL+*beforeSplit.UplinkVolume+*afterSplit.UplinkVolume, ul,
@@ -742,11 +740,9 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 				gomega.Expect(before.EndTime).To(gomega.Equal(monitoringTimes[n]))
 				gomega.Expect(after.StartTime).To(gomega.Equal(monitoringTimes[n]))
 				gomega.Expect(before.TotalVolume).NotTo(gomega.BeNil(), "total volume before (report %d)", n)
-				gomega.Expect(*before.TotalVolume).NotTo(gomega.BeZero(), "total volume before (report %d)", n)
 				framework.ExpectEqual(*before.UplinkVolume+*before.DownlinkVolume,
 					*before.TotalVolume, "bad total volume (split %d)", n)
 				gomega.Expect(after.TotalVolume).NotTo(gomega.BeNil(), "total volume after (report %d)", n)
-				gomega.Expect(*after.TotalVolume).NotTo(gomega.BeZero(), "total volume after (report %d)", n)
 				framework.ExpectEqual(*after.UplinkVolume+*after.DownlinkVolume,
 					*after.TotalVolume, "bad total volume (split %d)", n)
 
