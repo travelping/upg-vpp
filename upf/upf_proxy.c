@@ -364,6 +364,12 @@ proxy_start_connect_fn (const u32 * session_index)
 
   /* TODO: RACE: should not access the flow on the main thread */
   flow = pool_elt_at_index (fm->flows, ps->flow_index);
+  if (pool_is_free_index (gtm->sessions, flow->session_index))
+    {
+      ps->refcnt--;
+      ps->active_open_establishing = 0;
+      goto out;
+    }
   sx = pool_elt_at_index (gtm->sessions, flow->session_index);
   if (sx->generation != flow->generation)
     {
@@ -380,6 +386,12 @@ proxy_start_connect_fn (const u32 * session_index)
   ASSERT (flow_pdr_id (flow, FT_ORIGIN) != ~0);
   pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
   ASSERT (pdr);
+  if (!pdr)
+    {
+      ps->refcnt--;
+      ps->active_open_establishing = 0;
+      goto out;
+    }
   far = pfcp_get_far_by_id (active, pdr->far_id);
 
   memset (a, 0, sizeof (*a));
