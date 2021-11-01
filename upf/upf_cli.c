@@ -34,6 +34,8 @@
 /* Action function shared between message handler and debug CLI */
 #include <upf/flowtable.h>
 #include <upf/upf_app_db.h>
+#include <vnet/fib/fib_path_list.h>
+#include <vnet/fib/fib_walk.h>
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -1456,6 +1458,102 @@ VLIB_CLI_COMMAND (upf_show_proxy_session_command, static) =
   .path = "show upf proxy sessions",
   .short_help = "show upf proxy sessions",
   .function = upf_show_proxy_session_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_show_policy_command_fn (vlib_main_t * vm,
+			    unformat_input_t * input,
+			    vlib_cli_command_t * cmd)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_forwarding_policy_t *fp_entry;
+  uword *hash_ptr;
+  u8 *policy_id = NULL;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "%_%v%_", &policy_id))
+	;
+      else
+	return (clib_error_return (0, "unknown input '%U'",
+				   format_unformat_error, input));
+    }
+  if (NULL == policy_id)
+    {
+      pool_foreach (fp_entry, gtm->upf_forwarding_policies)
+      {
+	vlib_cli_output (vm, "%U", format_upf_policy, fp_entry);
+      }
+    }
+  else
+    {
+      hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
+      if (hash_ptr)
+	{
+	  fp_entry =
+	    pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+	  vlib_cli_output (vm, "%U", format_upf_policy, fp_entry);
+	}
+      else
+	upf_debug ("###### Policy with id %v does not exist ######",
+		   policy_id);
+    }
+  return (NULL);
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_show_policy_command, static) =
+{
+  .path = "show upf policy",
+  .short_help = "show upf policy",
+  .function = upf_show_policy_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_policy_command_fn (vlib_main_t * vm,
+		       unformat_input_t * main_input,
+		       vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  fib_route_path_t *rpaths = NULL, rpath;
+  dpo_proto_t payload_proto;
+
+  u8 *policy_id;
+  u8 action = 0;
+
+  if (unformat_user (main_input, unformat_line_input, line_input))
+    {
+      while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+	{
+	  if (unformat (line_input, "id %_%v%_", &policy_id))
+	    ;
+	  else if (unformat (line_input, "del"))
+	    action = 0;
+	  else if (unformat (line_input, "add"))
+	    action = 1;
+	  else if (unformat (line_input, "update"))
+	    action = 2;
+	  else if (unformat (line_input, "via %U",
+			     unformat_fib_route_path, &rpath, &payload_proto))
+	    vec_add1 (rpaths, rpath);
+	  else
+	    return (clib_error_return (0, "unknown input '%U'",
+				       format_unformat_error, line_input));
+	}
+      vnet_upf_policy_fn (rpaths, policy_id, action);
+    }
+  unformat_free (line_input);
+  return (NULL);
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_add_policy_command, static) =
+{
+  .path = "upf policy",
+  .short_help = "upf policy [add|del] id <policy_id> via <next_hop> <interface>",
+  .function = upf_policy_command_fn,
 };
 /* *INDENT-ON* */
 
