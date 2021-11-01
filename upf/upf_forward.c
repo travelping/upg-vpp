@@ -30,6 +30,9 @@
 #include <upf/upf_pfcp.h>
 #include <upf/upf_proxy.h>
 
+#include <vnet/fib/fib_path_list.h>
+
+
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -105,6 +108,8 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
   u32 len;
   struct rules *active;
 
+  upf_forwarding_policy_t *fp_entry;
+
   next_index = node->cached_next_index;
   stats_sw_if_index = node->runtime_data[0];
   stats_n_packets = stats_n_bytes = 0;
@@ -169,6 +174,7 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    {
 	      if (far->forward.flags & FAR_F_OUTER_HEADER_CREATION)
 		{
+		  upf_debug ("OUTER HEADER CREATION");
 		  if (far->forward.outer_header_creation.description
 		      & OUTER_HEADER_CREATION_GTP_IP4)
 		    {
@@ -193,6 +199,22 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 		      // error = UPF_FORWARD_ERROR_NOT_YET;
 		      goto trace;
 		    }
+		}
+	      else if (far->forward.flags & FAR_F_FORWARDING_POLICY)	// forwarding policy check
+		{
+		  b->flags &= ~(VNET_BUFFER_F_OFFLOAD_TCP_CKSUM |
+				VNET_BUFFER_F_OFFLOAD_UDP_CKSUM |
+				VNET_BUFFER_F_OFFLOAD_IP_CKSUM);
+		  // Getting dpio_index
+		  fp_entry =
+		    pool_elt_at_index (gtm->upf_forwarding_policies,
+				       far->forward.fp_pool_index);
+		  vnet_buffer (b)->ip.adj_index[VLIB_TX] =
+		    fp_entry->dpo.dpoi_index;
+		  next = UPF_FORWARD_NEXT_IP_REWRITE;
+		  upf_debug
+		    ("###### Forwarding policy with id %v is applied ######",
+		     far->forward.forwarding_policy.identifier);
 		}
 	      else
 		{
@@ -319,7 +341,8 @@ VLIB_REGISTER_NODE (upf_ip4_forward_node) = {
     [UPF_FORWARD_NEXT_DROP]          = "error-drop",
     [UPF_FORWARD_NEXT_GTP_IP4_ENCAP] = "upf4-encap",
     [UPF_FORWARD_NEXT_GTP_IP6_ENCAP] = "upf6-encap",
-    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip4-input"
+    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip4-input",
+    [UPF_FORWARD_NEXT_IP_REWRITE]    = "ip4-rewrite"
   },
 };
 /* *INDENT-ON* */
@@ -337,7 +360,8 @@ VLIB_REGISTER_NODE (upf_ip6_forward_node) = {
     [UPF_FORWARD_NEXT_DROP]          = "error-drop",
     [UPF_FORWARD_NEXT_GTP_IP4_ENCAP] = "upf4-encap",
     [UPF_FORWARD_NEXT_GTP_IP6_ENCAP] = "upf6-encap",
-    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip6-input"
+    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip6-input",
+    [UPF_FORWARD_NEXT_IP_REWRITE]    = "ip6-rewrite"
   },
 };
 /* *INDENT-ON* */

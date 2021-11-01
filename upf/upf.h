@@ -448,6 +448,7 @@ typedef struct
   u16 flags;
 #define FAR_F_REDIRECT_INFORMATION	BIT(0)
 #define FAR_F_OUTER_HEADER_CREATION	BIT(1)
+#define FAR_F_FORWARDING_POLICY BIT(2)	// forwarding policy bit
 
   pfcp_destination_interface_t dst_intf;
   u32 dst_sw_if_index;
@@ -455,10 +456,51 @@ typedef struct
 
   pfcp_redirect_information_t redirect_information;
   pfcp_outer_header_creation_t outer_header_creation;
+  pfcp_forwarding_policy_t forwarding_policy;	// forwarding policy struct init
 
+  uword fp_pool_index;
   u32 peer_idx;
   u8 *rewrite;
 } upf_far_forward_t;
+
+/*Forwarding policy table*/
+typedef struct
+{
+  /**
+   * Counter for FAR reference
+   */
+  uword ref_cnt;
+  /**
+   * Linkage into the FIB graph
+   */
+  fib_node_t fib_node;
+  /**
+   * The path-list describing how to forward in case of a match
+   */
+  fib_node_index_t fib_pl;
+  /**
+   * Sibling index on the path-list
+   */
+  u32 fib_sibling;
+  /**
+   * The forwarding policy ID - as configured by the client
+   */
+  u8 *policy_id;
+  /**
+   * The Data-path objects through which this path resolves for IP.
+   */
+  dpo_id_t dpo;
+  /**
+    * A representation of a path as described by a route producer.
+    * We maintain this path as we need to remove old path while policy update
+    */
+  fib_route_path_t *rpaths;
+ /**
+   * Next node index (ip4-rewrite here)
+   *
+   */
+  u32 forward_index;
+} upf_forwarding_policy_t;
 
 /* Forward Action Rules */
 typedef struct
@@ -856,6 +898,9 @@ typedef struct
   upf_nwi_t *nwis;
   uword *nwi_index_by_name;
 
+  upf_forwarding_policy_t *upf_forwarding_policies;
+  uword *forwarding_policy_by_id;
+
   /* Free vlib hw_if_indices */
   u32 *free_nwi_hw_if_indices;
 
@@ -934,12 +979,16 @@ typedef struct
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;
+extern const fib_node_vft_t upf_fp_vft;
 extern upf_main_t upf_main;
 
 extern vlib_node_registration_t upf_gtpu4_input_node;
 extern vlib_node_registration_t upf_gtpu6_input_node;
 extern vlib_node_registration_t upf4_encap_node;
 extern vlib_node_registration_t upf6_encap_node;
+extern vlib_node_registration_t upf_ip4_forward_node;
+extern vlib_node_registration_t upf_ip6_forward_node;
+
 
 typedef enum
 {
@@ -947,6 +996,7 @@ typedef enum
   UPF_FORWARD_NEXT_GTP_IP4_ENCAP,
   UPF_FORWARD_NEXT_GTP_IP6_ENCAP,
   UPF_FORWARD_NEXT_IP_INPUT,
+  UPF_FORWARD_NEXT_IP_REWRITE,
   UPF_FORWARD_N_NEXT,
 } upf_forward_next_t;
 
@@ -1021,6 +1071,11 @@ increment_v4_address (ip4_address_t * a)
   v = clib_net_to_host_u32 (a->as_u32) + 1;
   a->as_u32 = clib_host_to_net_u32 (v);
 }
+
+void upf_fpath_stack_dpo (upf_forwarding_policy_t * p);
+
+int vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * id, u8 action);
+u8 *format_upf_policy (u8 * s, va_list * args);
 
 #endif /* __included_upf_h__ */
 

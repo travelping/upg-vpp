@@ -49,12 +49,20 @@
 
 #include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
 
+/**
+ * FIB node type the attachment is registered
+ */
+fib_node_type_t upf_policy_fib_node_type;	// The types of nodes in a FIB graph
+
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
 #define upf_debug(...)                          \
   do { } while (0)
 #endif
+
+#include <vnet/fib/fib_path_list.h>
+#include <vnet/fib/fib_walk.h>
 
 static fib_source_t upf_fib_source;
 
@@ -473,6 +481,8 @@ upf_init (vlib_main_t * vm)
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
   mhash_init (&sm->upip_res_index, sizeof (uword), sizeof (upf_upip_res_t));
 
+  sm->forwarding_policy_by_id = hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));	// forwarding policy hash
+
   /* initialize the IP/TEID hash's */
   clib_bihash_init_8_8 (&sm->v4_tunnel_by_key,
 			"upf_v4_tunnel_by_key", UPF_MAPPING_BUCKETS,
@@ -565,12 +575,239 @@ format_upf_encap_trace (u8 * s, va_list * args)
   return s;
 }
 
+void
+upf_fpath_stack_dpo (upf_forwarding_policy_t * p)
+{
+  dpo_id_t dpo = DPO_INVALID;
+  fib_path_list_contribute_forwarding(p->fib_pl,
+                                      FIB_FORW_CHAIN_TYPE_UNICAST_IP4,
+                                      FIB_PATH_LIST_FWD_FLAG_COLLAPSE, &dpo);
+  dpo_stack_from_node (p->forward_index, &p->dpo, &dpo);
+  dpo_reset (&dpo);
+}
+
 /* *INDENT-OFF* */
 VLIB_PLUGIN_REGISTER () =
 {
   .version = VPP_BUILD_VER,
 };
 /* *INDENT-ON* */
+
+// ####################  dpo restacking vft ####################
+static void
+upf_policy_destroy (upf_forwarding_policy_t * fp_entry)
+{
+  upf_main_t *gtm = &upf_main;
+  /*
+   * this upf_fp should not be a sibling on the path list, since
+   * that was removed when the API config went
+   */
+  ASSERT (fp_entry->fib_sibling == ~0);
+  ASSERT (fp_entry->fib_pl == FIB_NODE_INDEX_INVALID);
+
+  hash_unset_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id);
+  pool_put (gtm->upf_forwarding_policies, fp_entry);
+}
+
+static upf_forwarding_policy_t *
+upf_policy_get_from_fib_node (fib_node_t * node)
+{
+  return ((upf_forwarding_policy_t *) (((char *) node) -
+				       STRUCT_OFFSET_OF
+				       (upf_forwarding_policy_t, fib_node)));
+}
+
+/**
+ * Function definition to get a FIB node from its index
+ */
+static fib_node_t *
+upf_policy_fib_node_get (fib_node_index_t index)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_forwarding_policy_t *p;
+
+  p = pool_elt_at_index (gtm->upf_forwarding_policies, index);
+  return (&p->fib_node);
+}
+
+/**
+ * Function definition to inform the FIB node that its last lock has gone.
+ */
+static void
+upf_policy_last_lock_gone (fib_node_t * node)
+{
+  upf_policy_destroy (upf_policy_get_from_fib_node (node));
+}
+
+/**
+ * Function definition to backwalk a FIB node -
+ * Here we will restack the new dpo to forward node.
+ */
+static fib_node_back_walk_rc_t
+upf_policy_back_walk (fib_node_t * node, fib_node_back_walk_ctx_t * ctx)
+{
+  upf_fpath_stack_dpo (upf_policy_get_from_fib_node (node));
+  return (FIB_NODE_BACK_WALK_CONTINUE);
+}
+
+const fib_node_vft_t upf_fp_vft = {
+  .fnv_get = upf_policy_fib_node_get,
+  .fnv_last_lock = upf_policy_last_lock_gone,
+  .fnv_back_walk = upf_policy_back_walk,
+};
+
+static clib_error_t *
+upf_policy_init (vlib_main_t * vm)
+{
+  upf_policy_fib_node_type = fib_node_register_new_type (&upf_fp_vft);
+  return (NULL);
+}
+
+VLIB_INIT_FUNCTION (upf_policy_init);
+
+u8 *
+format_upf_policy (u8 * s, va_list * args)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_forwarding_policy_t *fp_entry =
+    va_arg (*args, upf_forwarding_policy_t *);
+
+  s = format (s, "upf:[%d]: policy:%v",
+	      fp_entry - gtm->upf_forwarding_policies, fp_entry->policy_id);
+  s = format (s, "\n ");
+  if (FIB_NODE_INDEX_INVALID == fp_entry->fib_pl)
+    {
+      s = format (s, "no forwarding");
+    }
+  else
+    {
+      s = fib_path_list_format (fp_entry->fib_pl, s);
+    }
+  return (s);
+}
+
+// Quick show method
+upf_forwarding_policy_t *
+upf_get_policy (vlib_main_t * vm, u8 * policy_id)
+{
+  upf_main_t *gtm = &upf_main;
+  uword *hash_ptr;
+
+  hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
+  if (hash_ptr)
+    return pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+  return NULL;
+}
+
+static void
+fib_path_list_create_and_child_add (upf_forwarding_policy_t * fp_entry,
+				    fib_route_path_t * rpaths)
+{
+  upf_main_t *gtm = &upf_main;
+  fp_entry->fib_pl = fib_path_list_create ((FIB_PATH_LIST_FLAG_SHARED |
+					    FIB_PATH_LIST_FLAG_NO_URPF),
+					   rpaths);
+  // Keep rpath for update path lists later
+  clib_memcpy (fp_entry->rpaths, rpaths, sizeof (fp_entry->rpaths));
+  /*
+   * become a child of the path list so we get poked when
+   * the forwarding changes.
+   */
+  fp_entry->fib_sibling = fib_path_list_child_add (fp_entry->fib_pl,
+						   upf_policy_fib_node_type,
+						   fp_entry -
+						   gtm->upf_forwarding_policies);
+}
+
+/*
+ * upf policy actions
+ * 0 - delete
+ * 1 - add
+ * 2 - update
+ */
+int
+vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_forwarding_policy_t *fp_entry;
+  fib_node_index_t old_pl;
+  uword *hash_ptr;
+  int rc = 0;
+
+  hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
+  if (!hash_ptr)		// Add policy as not preconfigured previously
+    {
+      if (action == 1)		// Add policy
+	{
+	  pool_get (gtm->upf_forwarding_policies, fp_entry);
+	  fib_node_init (&fp_entry->fib_node, upf_policy_fib_node_type);
+	  fp_entry->policy_id = policy_id;
+	  fp_entry->rpaths = clib_mem_alloc (sizeof (fp_entry->rpaths));
+
+	  fib_path_list_create_and_child_add (fp_entry, rpaths);
+	  hash_set_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id,
+			fp_entry - gtm->upf_forwarding_policies);
+	  upf_fpath_stack_dpo (fp_entry);
+	  fib_node_lock (&fp_entry->fib_node);
+	}
+      else
+	rc = 1;
+    }
+  else				// Delete policy as preconfigured previously
+    {
+      if (action == 0)		// Delete policy
+	{
+	  fp_entry =
+	    pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+	  if (fp_entry->ref_cnt != 0)
+	    {
+	      upf_debug
+		("###### Policy %v can not be removed as it is referred by %d FARs ######",
+		 policy_id, fp_entry->ref_cnt);
+	      rc = 1;
+	    }
+	  else
+	    {
+	      old_pl = fp_entry->fib_pl;
+	      fib_path_list_lock (old_pl);
+	      fp_entry->fib_pl =
+		fib_path_list_copy_and_path_remove (fp_entry->fib_pl,
+						    (FIB_PATH_LIST_FLAG_SHARED
+						     |
+						     FIB_PATH_LIST_FLAG_NO_URPF),
+						    rpaths);
+	      fib_path_list_child_remove (old_pl, fp_entry->fib_sibling);
+	      fp_entry->fib_sibling = ~0;
+	      fib_node_unlock (&fp_entry->fib_node);
+	      clib_mem_free (fp_entry->rpaths);
+	      fib_path_list_unlock (old_pl);
+
+	    }
+	}
+      else if (action == 2)	// Update policy
+	{
+	  fp_entry =
+	    pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+	  old_pl = fp_entry->fib_pl;
+	  fib_path_list_lock (old_pl);
+	  fp_entry->fib_pl =
+	    fib_path_list_copy_and_path_remove (fp_entry->fib_pl,
+						(FIB_PATH_LIST_FLAG_SHARED |
+						 FIB_PATH_LIST_FLAG_NO_URPF),
+						fp_entry->rpaths);
+	  fib_path_list_child_remove (old_pl, fp_entry->fib_sibling);
+	  fp_entry->fib_sibling = ~0;
+	  fib_path_list_unlock (old_pl);
+	  upf_debug ("###### Old fpath list removed ######");
+
+	  fib_path_list_create_and_child_add (fp_entry, rpaths);
+	  hash_set_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id,
+			fp_entry - gtm->upf_forwarding_policies);
+	  upf_fpath_stack_dpo (fp_entry);
+	}
+    }
+  return rc;
+}
 
 /*
  * fd.io coding-style-patch-verification: ON

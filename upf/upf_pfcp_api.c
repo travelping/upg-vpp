@@ -47,6 +47,8 @@
 
 #include <vlib/unix/plugin.h>
 
+#include <vnet/fib/fib_path_list.h>
+
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -1434,6 +1436,9 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
   upf_main_t *gtm = &upf_main;
   pfcp_create_far_t *far;
   struct rules *rules;
+  u8 *policy_id = NULL;
+  uword *hash_ptr;
+  upf_forwarding_policy_t *fp_entry;
 
   if (pfcp_make_pending_far (sx) != 0)
     {
@@ -1542,9 +1547,34 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 
 	    ip_udp_gtpu_rewrite (&create->forward, fib_index, is_ip4);
 	  }
-	//TODO: transport_level_marking
-	//TODO: forwarding_policy
-	//TODO: header_enrichment
+// TODO: transport_level_marking
+// forwarding_policy >> oln: Implementation
+
+	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
+		       FORWARDING_PARAMETERS_FORWARDING_POLICY))
+	  {
+	    policy_id =
+	      far->forwarding_parameters.forwarding_policy.identifier;
+	    hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
+	    if (hash_ptr)	// validate if policy is preconfigured
+	      {
+		create->forward.flags |= FAR_F_FORWARDING_POLICY;
+		create->forward.forwarding_policy.identifier =
+		  far->forwarding_parameters.forwarding_policy.identifier;
+		fp_entry =
+		  pool_elt_at_index (gtm->upf_forwarding_policies,
+				     hash_ptr[0]);
+		create->forward.fp_pool_index = hash_ptr[0];
+		fp_entry->ref_cnt++;
+	      }
+	    else
+	      {
+		clib_warning
+		  ("###### Forwarding policy id %v is not preconfigured at UPF ######",
+		   far->forwarding_parameters.forwarding_policy.identifier);
+		create->forward.fp_pool_index = ~0;
+	      }
+	  }			//TODO: header_enrichment
       }
   }
 
@@ -1566,6 +1596,9 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 {
   upf_main_t *gtm = &upf_main;
   pfcp_update_far_t *far;
+  u8 *policy_id = NULL;
+  uword *hash_ptr;
+  upf_forwarding_policy_t *fp_entry;
 
   if (pfcp_make_pending_far (sx) != 0)
     {
@@ -1669,7 +1702,43 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	    ip_udp_gtpu_rewrite (&update->forward, fib_index, is_ip4);
 	  }
 	//TODO: transport_level_marking
-	//TODO: forwarding_policy
+	//forwarding_policy  >> oln: Implementation
+	if (ISSET_BIT (far->update_forwarding_parameters.grp.fields,
+		       UPDATE_FORWARDING_PARAMETERS_FORWARDING_POLICY))
+	  {
+	    policy_id =
+	      far->update_forwarding_parameters.forwarding_policy.identifier;
+	    hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
+	    if (hash_ptr)
+	      {
+		if (update->forward.fp_pool_index != ~0)	// old policy is preconfigured
+		  {
+		    fp_entry = pool_elt_at_index (gtm->upf_forwarding_policies, update->forward.fp_pool_index);	// old policy
+		    fp_entry->ref_cnt--;	// decrement FAR reference counter in old policy table
+		    fp_entry = pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);	// new policy
+		    update->forward.forwarding_policy.identifier =
+		      far->update_forwarding_parameters.
+		      forwarding_policy.identifier;
+		    update->forward.fp_pool_index = hash_ptr[0];	// update with new pool index
+		    fp_entry->ref_cnt++;	// increment FAR reference counter in new policy table
+		  }
+		else		// old policy was not preconfigured somehow but we still update to new policy
+		  {
+		    fp_entry = pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);	// new policy
+		    update->forward.flags |= FAR_F_FORWARDING_POLICY;
+		    update->forward.forwarding_policy.identifier =
+		      far->update_forwarding_parameters.
+		      forwarding_policy.identifier;
+		    update->forward.fp_pool_index = hash_ptr[0];	// set pool index
+		    fp_entry->ref_cnt++;	// increment FAR reference counter in new policy table
+		  }
+	      }
+	    else
+	      clib_warning
+		("###### Forwarding policy id %v is not preconfigured at UPF ######",
+		 far->update_forwarding_parameters.
+		 forwarding_policy.identifier);
+	  }
 	//TODO: header_enrichment
       }
   }
@@ -2723,10 +2792,16 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   };
   pfcp_session_procedure_response_t *resp =
     &resp_dmsg.session_procedure_response;
+  upf_main_t *gtm = &upf_main;
   struct rules *active;
   f64 now = psm->now;
   upf_session_t *sess;
   int r = 0;
+  upf_far_t *far;
+  upf_forwarding_policy_t *fp_entry;
+  u8 *policy_id = NULL;
+  uword *hash_ptr;
+
 
   memset (resp, 0, sizeof (*resp));
   SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
@@ -2762,6 +2837,17 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 
   if (r == 0)
     {
+      vec_foreach (far, active->far)
+      {
+	policy_id = active->far->forward.forwarding_policy.identifier;
+	hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
+	if (hash_ptr)
+	  {
+	    fp_entry =
+	      pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+	    fp_entry->ref_cnt--;	// dec ref_cnt for forwarding policy
+	  }
+      }
       pfcp_free_session (sess);
       resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
     }
