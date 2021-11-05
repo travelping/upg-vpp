@@ -606,6 +606,8 @@ upf_policy_destroy (upf_forwarding_policy_t * fp_entry)
   ASSERT (fp_entry->fib_pl == FIB_NODE_INDEX_INVALID);
 
   hash_unset_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id);
+  vec_free (fp_entry->policy_id);
+  vec_free (fp_entry->rpaths);
   pool_put (gtm->upf_forwarding_policies, fp_entry);
 }
 
@@ -708,7 +710,8 @@ fib_path_list_create_and_child_add (upf_forwarding_policy_t * fp_entry,
 					    FIB_PATH_LIST_FLAG_NO_URPF),
 					   rpaths);
   // Keep rpath for update path lists later
-  clib_memcpy (fp_entry->rpaths, rpaths, sizeof (fp_entry->rpaths));
+  fp_entry->rpaths = vec_dup (rpaths);
+
   /*
    * become a child of the path list so we get poked when
    * the forwarding changes.
@@ -718,6 +721,7 @@ fib_path_list_create_and_child_add (upf_forwarding_policy_t * fp_entry,
 						   fp_entry -
 						   gtm->upf_forwarding_policies);
 }
+
 
 /*
  * upf policy actions
@@ -741,7 +745,7 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
 	{
 	  pool_get (gtm->upf_forwarding_policies, fp_entry);
 	  fib_node_init (&fp_entry->fib_node, upf_policy_fib_node_type);
-	  fp_entry->policy_id = policy_id;
+	  fp_entry->policy_id = vec_dup (policy_id);
 	  fp_entry->rpaths = clib_mem_alloc (sizeof (fp_entry->rpaths));
 
 	  fib_path_list_create_and_child_add (fp_entry, rpaths);
@@ -779,7 +783,7 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
 	      fib_path_list_child_remove (old_pl, fp_entry->fib_sibling);
 	      fp_entry->fib_sibling = ~0;
 	      fib_node_unlock (&fp_entry->fib_node);
-	      clib_mem_free (fp_entry->rpaths);
+	      vec_free (fp_entry->rpaths);
 	      fib_path_list_unlock (old_pl);
 
 	    }
@@ -806,6 +810,7 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
 	  upf_fpath_stack_dpo (fp_entry);
 	}
     }
+
   return rc;
 }
 
