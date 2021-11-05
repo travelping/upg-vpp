@@ -1569,7 +1569,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	      }
 	    else
 	      {
-		clib_warning
+		upf_debug
 		  ("###### Forwarding policy id %v is not preconfigured at UPF ######",
 		   far->forwarding_parameters.forwarding_policy.identifier);
 		create->forward.fp_pool_index = ~0;
@@ -1734,7 +1734,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 		  }
 	      }
 	    else
-	      clib_warning
+	      upf_debug
 		("###### Forwarding policy id %v is not preconfigured at UPF ######",
 		 far->update_forwarding_parameters.
 		 forwarding_policy.identifier);

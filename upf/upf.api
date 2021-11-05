@@ -17,6 +17,7 @@
 option version = "2.0.0";
 import "vnet/interface_types.api";
 import "vnet/ip/ip_types.api";
+import "vnet/fib/fib_types.api";
 
 /** \brief Add/delete TDF application
     @param client_index - opaque cookie to identify the sender
@@ -189,6 +190,28 @@ define upf_nat_pool_details {
 };
 
 define upf_nat_pool_dump {
+  u32 client_index;
+  u32 context;
+};
+
+autoreply define upf_policy_add_del {
+  u32 client_index;
+  u32 context;
+  u8 action;
+  string identifier[64];
+  u8 n_paths;
+  vl_api_fib_path_t paths[n_paths];
+};
+
+define upf_policy_details {
+  u32 client_index;
+  u32 context;
+  string identifier[64];
+  u8 n_paths;
+  vl_api_fib_path_t paths[n_paths];
+};
+
+define upf_policy_dump {
   u32 client_index;
   u32 context;
 };

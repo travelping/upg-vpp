@@ -1543,6 +1543,7 @@ upf_policy_command_fn (vlib_main_t * vm,
 				       format_unformat_error, line_input));
 	}
       vnet_upf_policy_fn (rpaths, policy_id, action);
+      vec_free (policy_id);
     }
   unformat_free (line_input);
   return (NULL);

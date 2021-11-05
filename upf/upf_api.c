@@ -32,6 +32,8 @@
 #include <vnet/format_fns.h>
 #include <upf/upf.api_enum.h>
 #include <upf/upf.api_types.h>
+#include <vnet/fib/fib_api.h>
+#include <vnet/fib/fib_path.h>
 
 #define REPLY_MSG_ID_BASE sm->msg_id_base
 #include <vlibapi/api_helper_macros.h>
@@ -373,6 +375,103 @@ static void vl_api_upf_nat_pool_dump_t_handler
   }
 }
 
+/* API message handler */
+static void
+vl_api_upf_policy_add_del_t_handler (vl_api_upf_policy_add_del_t * mp)
+{
+  vl_api_upf_policy_add_del_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  fib_route_path_t *rpaths = NULL, *rpath;
+  vl_api_fib_path_t *apath;
+  u8 *policy_id = 0;
+  u8 action = mp->action;
+  int ii = 0;
+  int rv = 0;
+
+  /* Make sure ID is null terminated */
+  mp->identifier[sizeof (mp->identifier) - 1] = 0;
+
+  policy_id = format (0, "%s", mp->identifier);
+
+  if (0 != mp->n_paths)
+    vec_validate (rpaths, mp->n_paths - 1);
+
+  for (ii = 0; ii < mp->n_paths; ii++)
+    {
+      apath = &mp->paths[ii];
+      rpath = &rpaths[ii];
+
+      rv = fib_api_path_decode (apath, rpath);
+
+      if (0 != rv)
+	goto out;
+    }
+
+  vnet_upf_policy_fn (rpaths, policy_id, action);
+
+  REPLY_MACRO (VL_API_UPF_POLICY_ADD_DEL_REPLY);
+
+out:
+
+  vec_free (rpaths);
+  vec_free (policy_id);
+
+}
+
+static void
+send_upf_policy_details (vl_api_registration_t * reg,
+			 upf_forwarding_policy_t * fp, u32 context)
+{
+  vl_api_upf_policy_details_t *mp;
+  upf_main_t *sm = &upf_main;
+  fib_route_path_t *rpath;
+  vl_api_fib_path_t *ap;
+  u32 path_count;
+  u32 len;
+
+  path_count = vec_len (fp->rpaths);
+  mp = vl_msg_api_alloc (sizeof (*mp) + path_count * sizeof (*ap));
+  clib_memset (mp, 0, sizeof (*mp));
+
+  mp->_vl_msg_id = htons (VL_API_UPF_POLICY_DETAILS + sm->msg_id_base);
+  mp->context = context;
+
+  len = clib_min (sizeof (mp->identifier) - 1, vec_len (fp->policy_id));
+  memcpy (mp->identifier, fp->policy_id, len);
+  mp->identifier[len] = 0;
+
+  mp->n_paths = path_count;
+
+  ap = mp->paths;
+  vec_foreach (rpath, fp->rpaths)
+  {
+    fib_api_path_encode (rpath, ap);
+    ap++;
+  }
+
+  vl_api_send_msg (reg, (u8 *) mp);
+
+}
+
+/* API message handler */
+static void
+vl_api_upf_policy_dump_t_handler (vl_api_upf_policy_dump_t * mp)
+{
+  upf_main_t *sm = &upf_main;
+  vl_api_registration_t *reg;
+  upf_forwarding_policy_t *fp = NULL;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    {
+      return;
+    }
+
+  pool_foreach (fp, sm->upf_forwarding_policies)
+  {
+    send_upf_policy_details (reg, fp, mp->context);
+  }
+}
 
 #include <upf/upf.api.c>
 
