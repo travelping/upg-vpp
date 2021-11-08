@@ -117,7 +117,7 @@ type VPPInstance struct {
 	cfg                   VPPConfig
 	startupCfg            VPPStartupConfig
 	conn                  *core.Connection
-	apiChannel            api.Channel
+	ApiChannel            api.Channel
 	cmd                   *exec.Cmd
 	vppNS                 *network.NetNS
 	namespaces            map[string]*network.NetNS
@@ -267,14 +267,14 @@ func (vi *VPPInstance) StartVPP() error {
 	}
 
 	vi.conn = conn
-	vi.apiChannel, err = conn.NewAPIChannel()
+	vi.ApiChannel, err = conn.NewAPIChannel()
 	if err != nil {
 		vi.killVPP()
 		vi.conn.Disconnect()
 		vi.conn = nil
 		return errors.Wrap(err, "NewAPIChannel")
 	}
-	vi.apiChannel.SetReplyTimeout(VPP_REPLY_TIMEOUT)
+	vi.ApiChannel.SetReplyTimeout(VPP_REPLY_TIMEOUT)
 
 	vi.t.Go(func() error { return vi.run(sigchldCh, conev) })
 
@@ -318,9 +318,9 @@ func (vi *VPPInstance) run(sigchldCh chan os.Signal, conev chan core.ConnectionE
 }
 
 func (vi *VPPInstance) stopVPP() error {
-	if vi.apiChannel != nil {
-		vi.apiChannel.Close()
-		vi.apiChannel = nil
+	if vi.ApiChannel != nil {
+		vi.ApiChannel.Close()
+		vi.ApiChannel = nil
 	}
 
 	if vi.conn != nil {
@@ -386,7 +386,7 @@ func (vi *VPPInstance) Ctl(format string, args ...interface{}) (string, error) {
 	vi.log.Debugf(">>> %s", command)
 	req := &vpe.CliInband{Cmd: command}
 	reply := new(vpe.CliInbandReply)
-	if err := vi.apiChannel.SendRequest(req).ReceiveReply(reply); err != nil {
+	if err := vi.ApiChannel.SendRequest(req).ReceiveReply(reply); err != nil {
 		return "", errors.Wrap(err, "binapi request failed:")
 	}
 	if reply.Reply != "" {

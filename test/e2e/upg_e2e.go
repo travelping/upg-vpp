@@ -19,6 +19,8 @@ package exttest
 import (
 	"context"
 	"fmt"
+	"git.fd.io/govpp.git/binapi/fib_types"
+	"git.fd.io/govpp.git/binapi/ip_types"
 	"net"
 	"regexp"
 	"sort"
@@ -39,6 +41,7 @@ import (
 	"github.com/travelping/upg-vpp/test/e2e/network"
 	"github.com/travelping/upg-vpp/test/e2e/pfcp"
 	"github.com/travelping/upg-vpp/test/e2e/traffic"
+	"github.com/travelping/upg-vpp/test/e2e/upf"
 	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
@@ -424,6 +427,56 @@ func describePDRReplacement(f *framework.Framework) {
 		})
 	})
 }
+
+var _ = ginkgo.Describe("Binapi", func() {
+	ginkgo.Context("policy based routing", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("Check binapi functions", func() {
+			policy := &upf.UpfPolicyAddDel{}
+			policy.Action = 1
+			policy.Identifier = "qwerty"
+			policy.NPaths = 1
+			rpath := fib_types.FibPath{}
+			nhip, err := ip_types.ParseAddress("144.0.0.2")
+			gomega.Expect(err).To(gomega.BeNil())
+			rpath.Nh.Address.SetIP4(nhip.Un.GetIP4())
+			rpath.SwIfIndex = 3
+			rpath.Proto = fib_types.FIB_API_PATH_NH_PROTO_IP4
+			rpath.Flags = 0
+			policy.Paths = append(policy.Paths, rpath)
+
+			policyReply := &upf.UpfPolicyAddDelReply{}
+			err = f.VPP.ApiChannel.SendRequest(policy).ReceiveReply(policyReply)
+			gomega.Expect(err).To(gomega.BeNil())
+
+			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPolicyDump{})
+
+			for {
+				msg := &upf.UpfPolicyDetails{}
+				stop, err := reqCtx.ReceiveReply(msg)
+				gomega.Expect(err).To(gomega.BeNil())
+				if stop {
+					break
+				}
+				gomega.Expect(msg.Identifier).To(gomega.BeEquivalentTo(policy.Identifier))
+				gomega.Expect(msg.NPaths).To(gomega.BeEquivalentTo(1))
+				for i := 0; i < int(msg.NPaths); i++ {
+					gomega.Expect(msg.Paths[i].SwIfIndex).To(gomega.BeEquivalentTo(policy.Paths[i].SwIfIndex))
+					gomega.Expect(msg.Paths[i].Nh.Address.GetIP4().String()).To(gomega.BeEquivalentTo(policy.Paths[i].Nh.Address.GetIP4().String()))
+				}
+			}
+
+			policy.Action = 0
+			policyReply = &upf.UpfPolicyAddDelReply{}
+			err = f.VPP.ApiChannel.SendRequest(policy).ReceiveReply(policyReply)
+			gomega.Expect(err).To(gomega.BeNil())
+
+			msg := &upf.UpfPolicyDetails{}
+			_, err = reqCtx.ReceiveReply(msg)
+			gomega.Expect(err).NotTo(gomega.BeNil())
+		})
+	})
+})
 
 var _ = ginkgo.Describe("Clearing message queue", func() {
 	ginkgo.Context("during session deletion", func() {
