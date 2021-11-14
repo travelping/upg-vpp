@@ -37,6 +37,8 @@
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/fib/ip6_fib.h>
 #include <vnet/ip/ip6_hop_by_hop.h>
+#include <vnet/fib/fib_path_list.h>
+#include <vnet/fib/fib_walk.h>
 
 #include <upf/upf.h>
 #include <upf/upf_pfcp.h>
@@ -60,9 +62,6 @@ fib_node_type_t upf_policy_fib_node_type;	// The types of nodes in a FIB graph
 #define upf_debug(...)                          \
   do { } while (0)
 #endif
-
-#include <vnet/fib/fib_path_list.h>
-#include <vnet/fib/fib_walk.h>
 
 static fib_source_t upf_fib_source;
 
@@ -481,7 +480,7 @@ upf_init (vlib_main_t * vm)
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
   mhash_init (&sm->upip_res_index, sizeof (uword), sizeof (upf_upip_res_t));
 
-  sm->forwarding_policy_by_id = hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));	// forwarding policy hash
+  sm->forwarding_policy_by_id = hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
 
   /* initialize the IP/TEID hash's */
   clib_bihash_init_8_8 (&sm->v4_tunnel_by_key,
@@ -578,12 +577,9 @@ format_upf_encap_trace (u8 * s, va_list * args)
 void
 upf_fpath_stack_dpo (upf_forwarding_policy_t * p)
 {
-  dpo_id_t dpo = DPO_INVALID;
   fib_path_list_contribute_forwarding(p->fib_pl,
                                       FIB_FORW_CHAIN_TYPE_UNICAST_IP4,
-                                      FIB_PATH_LIST_FWD_FLAG_COLLAPSE, &dpo);
-  dpo_stack_from_node (p->forward_index, &p->dpo, &dpo);
-  dpo_reset (&dpo);
+                                      FIB_PATH_LIST_FWD_FLAG_COLLAPSE, &p->dpo);
 }
 
 /* *INDENT-OFF* */
@@ -593,7 +589,7 @@ VLIB_PLUGIN_REGISTER () =
 };
 /* *INDENT-ON* */
 
-// ####################  dpo restacking vft ####################
+/* ####################  dpo restacking vft #################### */
 static void
 upf_policy_destroy (upf_forwarding_policy_t * fp_entry)
 {
@@ -688,7 +684,6 @@ format_upf_policy (u8 * s, va_list * args)
   return (s);
 }
 
-// Quick show method
 upf_forwarding_policy_t *
 upf_get_policy (vlib_main_t * vm, u8 * policy_id)
 {
@@ -709,7 +704,7 @@ fib_path_list_create_and_child_add (upf_forwarding_policy_t * fp_entry,
   fp_entry->fib_pl = fib_path_list_create ((FIB_PATH_LIST_FLAG_SHARED |
 					    FIB_PATH_LIST_FLAG_NO_URPF),
 					   rpaths);
-  // Keep rpath for update path lists later
+  /* Keep rpath for update path lists later */
   fp_entry->rpaths = vec_dup (rpaths);
 
   /*
@@ -721,7 +716,6 @@ fib_path_list_create_and_child_add (upf_forwarding_policy_t * fp_entry,
 						   fp_entry -
 						   gtm->upf_forwarding_policies);
 }
-
 
 /*
  * upf policy actions
@@ -739,9 +733,9 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
   int rc = 0;
 
   hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
-  if (!hash_ptr)		// Add policy as not preconfigured previously
+  if (!hash_ptr)
     {
-      if (action == 1)		// Add policy
+      if (action == 1)
 	{
 	  pool_get (gtm->upf_forwarding_policies, fp_entry);
 	  fib_node_init (&fp_entry->fib_node, upf_policy_fib_node_type);
@@ -757,9 +751,9 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
       else
 	rc = 1;
     }
-  else				// Delete policy as preconfigured previously
+  else
     {
-      if (action == 0)		// Delete policy
+      if (action == 0)
 	{
 	  fp_entry =
 	    pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
@@ -779,7 +773,7 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
 						    (FIB_PATH_LIST_FLAG_SHARED
 						     |
 						     FIB_PATH_LIST_FLAG_NO_URPF),
-						    rpaths);
+						    fp_entry->rpaths);
 	      fib_path_list_child_remove (old_pl, fp_entry->fib_sibling);
 	      fp_entry->fib_sibling = ~0;
 	      fib_node_unlock (&fp_entry->fib_node);
@@ -788,7 +782,7 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
 
 	    }
 	}
-      else if (action == 2)	// Update policy
+      else if (action == 2)
 	{
 	  fp_entry =
 	    pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
@@ -796,7 +790,8 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
 	  fib_path_list_lock (old_pl);
 	  fp_entry->fib_pl =
 	    fib_path_list_copy_and_path_remove (fp_entry->fib_pl,
-						(FIB_PATH_LIST_FLAG_SHARED |
+						(FIB_PATH_LIST_FLAG_SHARED
+						 |
 						 FIB_PATH_LIST_FLAG_NO_URPF),
 						fp_entry->rpaths);
 	  fib_path_list_child_remove (old_pl, fp_entry->fib_sibling);

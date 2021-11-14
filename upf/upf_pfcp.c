@@ -761,6 +761,8 @@ pfcp_free_far (upf_far_t * far)
   vec_free (far->forward.rewrite);
   if (far->forward.flags & FAR_F_REDIRECT_INFORMATION)
     free_redirect_information (&far->forward.redirect_information);
+  if (far->forward.flags & FAR_F_FORWARDING_POLICY)
+    vec_free (far->forward.forwarding_policy.identifier);
 }
 
 int
@@ -794,6 +796,9 @@ pfcp_make_pending_far (upf_session_t * sx)
 	if (old->forward.flags & FAR_F_REDIRECT_INFORMATION)
 	  cpy_redirect_information (&new->forward.redirect_information,
 				    &old->forward.redirect_information);
+	if (old->forward.flags & FAR_F_FORWARDING_POLICY)
+	  new->forward.forwarding_policy.identifier =
+	    vec_dup (old->forward.forwarding_policy.identifier);
       }
     }
 
@@ -982,6 +987,25 @@ pfcp_free_rules (upf_session_t * sx, int rule)
 }
 
 void
+upf_ref_forwarding_policies (upf_far_t * far, u8 is_del)
+{
+  upf_main_t *gtm = &upf_main;
+  uword *hash_ptr;
+  u8 *policy_id;
+  upf_forwarding_policy_t *fp_entry;
+
+  policy_id = far->forward.forwarding_policy.identifier;
+  hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
+  if (hash_ptr)
+    {
+      fp_entry =
+	pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+      upf_debug ("Change reference for policy %s FAR %u", policy_id, far->id);
+      clib_atomic_fetch_add (&fp_entry->ref_cnt, is_del ? -1 : 1);
+    }
+}
+
+void
 pfcp_disable_session (upf_session_t * sx)
 {
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
@@ -993,6 +1017,7 @@ pfcp_disable_session (upf_session_t * sx)
   gtpu6_endp_rule_t *v6_teid;
   upf_urr_t *urr;
   upf_acl_t *acl;
+  upf_far_t *far;
 
   hash_unset (gtm->session_by_id, sx->cp_seid);
   vec_foreach (v4_teid, active->v4_teid) pfcp_add_del_v4_teid (v4_teid, sx,
@@ -1003,6 +1028,12 @@ pfcp_disable_session (upf_session_t * sx)
   vec_foreach (ue_ip, active->ue_src_ip) pfcp_add_del_ue_ip (ue_ip, sx, 0);
   vec_foreach (acl, active->v4_acls) pfcp_add_del_v4_tdf (acl, sx, 0);
   vec_foreach (acl, active->v6_acls) pfcp_add_del_v6_tdf (acl, sx, 0);
+
+  /* derefer forwarding policies */
+  vec_foreach (far, active->far)
+  {
+    upf_ref_forwarding_policies (far, 1);
+  }
 
   node_assoc_detach_session (sx);
 
@@ -1806,27 +1837,30 @@ pfcp_update_apply (upf_session_t * sx)
       upf_far_t *far;
 
       vec_foreach (far, pending->far)
+      {
 	if (far->forward.outer_header_creation.description != 0)
-	{
-	  far->forward.peer_idx = peer_addr_ref (&far->forward);
+	  {
+	    far->forward.peer_idx = peer_addr_ref (&far->forward);
 
-	  if (far->forward.outer_header_creation.description
-	      & OUTER_HEADER_CREATION_GTP_IP4)
-	    {
-	      rules_add_v4_teid (pending,
-				 &far->forward.outer_header_creation.ip.ip4,
-				 far->forward.outer_header_creation.teid,
-				 far->id);
-	    }
-	  else if (far->forward.outer_header_creation.description
-		   & OUTER_HEADER_CREATION_GTP_IP6)
-	    {
-	      rules_add_v6_teid (pending,
-				 &far->forward.outer_header_creation.ip.ip6,
-				 far->forward.outer_header_creation.teid,
-				 far->id);
-	    }
-	}
+	    if (far->forward.outer_header_creation.description
+		& OUTER_HEADER_CREATION_GTP_IP4)
+	      {
+		rules_add_v4_teid (pending,
+				   &far->forward.outer_header_creation.ip.ip4,
+				   far->forward.outer_header_creation.teid,
+				   far->id);
+	      }
+	    else if (far->forward.outer_header_creation.description
+		     & OUTER_HEADER_CREATION_GTP_IP6)
+	      {
+		rules_add_v6_teid (pending,
+				   &far->forward.outer_header_creation.ip.ip6,
+				   far->forward.outer_header_creation.teid,
+				   far->id);
+	      }
+	  }
+	upf_ref_forwarding_policies (far, 0);
+      }
     }
   else
     pending->far = active->far;
@@ -1894,6 +1928,7 @@ pfcp_update_apply (upf_session_t * sx)
 
       vec_foreach (far, pending->far)
       {
+	upf_ref_forwarding_policies (far, 1);
 	if (far->forward.outer_header_creation.description != 0)
 	  peer_addr_unref (&far->forward);
       }

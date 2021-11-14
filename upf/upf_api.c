@@ -407,15 +407,14 @@ vl_api_upf_policy_add_del_t_handler (vl_api_upf_policy_add_del_t * mp)
 	goto out;
     }
 
-  vnet_upf_policy_fn (rpaths, policy_id, action);
-
-  REPLY_MACRO (VL_API_UPF_POLICY_ADD_DEL_REPLY);
+  rv = vnet_upf_policy_fn (rpaths, policy_id, action);
 
 out:
 
   vec_free (rpaths);
   vec_free (policy_id);
 
+  REPLY_MACRO (VL_API_UPF_POLICY_ADD_DEL_REPLY);
 }
 
 static void
@@ -450,7 +449,6 @@ send_upf_policy_details (vl_api_registration_t * reg,
   }
 
   vl_api_send_msg (reg, (u8 *) mp);
-
 }
 
 /* API message handler */

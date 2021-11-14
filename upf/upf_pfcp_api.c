@@ -37,6 +37,7 @@
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/fib/ip6_fib.h>
 #include <vnet/ip/ip6_hop_by_hop.h>
+#include <vnet/fib/fib_path_list.h>
 
 #include "pfcp.h"
 #include "upf_pfcp.h"
@@ -46,8 +47,6 @@
 #include "upf_ipfilter.h"
 
 #include <vlib/unix/plugin.h>
-
-#include <vnet/fib/fib_path_list.h>
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -1548,7 +1547,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	    ip_udp_gtpu_rewrite (&create->forward, fib_index, is_ip4);
 	  }
 // TODO: transport_level_marking
-// forwarding_policy >> oln: Implementation
+/* forwarding_policy >> oln: Implementation */
 
 	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
 		       FORWARDING_PARAMETERS_FORWARDING_POLICY))
@@ -1556,23 +1555,24 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	    policy_id =
 	      far->forwarding_parameters.forwarding_policy.identifier;
 	    hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
-	    if (hash_ptr)	// validate if policy is preconfigured
+	    if (hash_ptr)
 	      {
 		create->forward.flags |= FAR_F_FORWARDING_POLICY;
 		create->forward.forwarding_policy.identifier =
-		  far->forwarding_parameters.forwarding_policy.identifier;
+		  vec_dup (far->forwarding_parameters.
+			   forwarding_policy.identifier);
 		fp_entry =
 		  pool_elt_at_index (gtm->upf_forwarding_policies,
 				     hash_ptr[0]);
 		create->forward.fp_pool_index = hash_ptr[0];
-		fp_entry->ref_cnt++;
 	      }
 	    else
 	      {
 		upf_debug
 		  ("###### Forwarding policy id %v is not preconfigured at UPF ######",
 		   far->forwarding_parameters.forwarding_policy.identifier);
-		create->forward.fp_pool_index = ~0;
+		response->cause = PFCP_CAUSE_INVALID_FORWARDING_POLICY;
+		goto out_cause_set;
 	      }
 	  }			//TODO: header_enrichment
       }
@@ -1584,6 +1584,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
+out_cause_set:
   SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
 
@@ -1702,7 +1703,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	    ip_udp_gtpu_rewrite (&update->forward, fib_index, is_ip4);
 	  }
 	//TODO: transport_level_marking
-	//forwarding_policy  >> oln: Implementation
+	/*forwarding_policy  >> oln: Implementation */
 	if (ISSET_BIT (far->update_forwarding_parameters.grp.fields,
 		       UPDATE_FORWARDING_PARAMETERS_FORWARDING_POLICY))
 	  {
@@ -1711,33 +1712,24 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	    hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
 	    if (hash_ptr)
 	      {
-		if (update->forward.fp_pool_index != ~0)	// old policy is preconfigured
-		  {
-		    fp_entry = pool_elt_at_index (gtm->upf_forwarding_policies, update->forward.fp_pool_index);	// old policy
-		    fp_entry->ref_cnt--;	// decrement FAR reference counter in old policy table
-		    fp_entry = pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);	// new policy
-		    update->forward.forwarding_policy.identifier =
-		      far->update_forwarding_parameters.
-		      forwarding_policy.identifier;
-		    update->forward.fp_pool_index = hash_ptr[0];	// update with new pool index
-		    fp_entry->ref_cnt++;	// increment FAR reference counter in new policy table
-		  }
-		else		// old policy was not preconfigured somehow but we still update to new policy
-		  {
-		    fp_entry = pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);	// new policy
-		    update->forward.flags |= FAR_F_FORWARDING_POLICY;
-		    update->forward.forwarding_policy.identifier =
-		      far->update_forwarding_parameters.
-		      forwarding_policy.identifier;
-		    update->forward.fp_pool_index = hash_ptr[0];	// set pool index
-		    fp_entry->ref_cnt++;	// increment FAR reference counter in new policy table
-		  }
+		fp_entry =
+		  pool_elt_at_index (gtm->upf_forwarding_policies,
+				     hash_ptr[0]);
+		update->forward.flags |= FAR_F_FORWARDING_POLICY;
+		update->forward.forwarding_policy.identifier =
+		  vec_dup (far->update_forwarding_parameters.
+			   forwarding_policy.identifier);
+		update->forward.fp_pool_index = hash_ptr[0];
 	      }
 	    else
-	      upf_debug
-		("###### Forwarding policy id %v is not preconfigured at UPF ######",
-		 far->update_forwarding_parameters.
-		 forwarding_policy.identifier);
+	      {
+		upf_debug
+		  ("###### Forwarding policy id %v is not preconfigured at UPF ######",
+		   far->update_forwarding_parameters.
+		   forwarding_policy.identifier);
+		response->cause = PFCP_CAUSE_INVALID_FORWARDING_POLICY;
+		goto out_cause_set;
+	      }
 	  }
 	//TODO: header_enrichment
       }
@@ -1748,6 +1740,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
+out_cause_set:
   SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
 
@@ -2792,16 +2785,10 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   };
   pfcp_session_procedure_response_t *resp =
     &resp_dmsg.session_procedure_response;
-  upf_main_t *gtm = &upf_main;
   struct rules *active;
   f64 now = psm->now;
   upf_session_t *sess;
   int r = 0;
-  upf_far_t *far;
-  upf_forwarding_policy_t *fp_entry;
-  u8 *policy_id = NULL;
-  uword *hash_ptr;
-
 
   memset (resp, 0, sizeof (*resp));
   SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
@@ -2837,17 +2824,6 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 
   if (r == 0)
     {
-      vec_foreach (far, active->far)
-      {
-	policy_id = active->far->forward.forwarding_policy.identifier;
-	hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
-	if (hash_ptr)
-	  {
-	    fp_entry =
-	      pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
-	    fp_entry->ref_cnt--;	// dec ref_cnt for forwarding policy
-	  }
-      }
       pfcp_free_session (sess);
       resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
     }
