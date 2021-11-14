@@ -448,7 +448,7 @@ typedef struct
   u16 flags;
 #define FAR_F_REDIRECT_INFORMATION	BIT(0)
 #define FAR_F_OUTER_HEADER_CREATION	BIT(1)
-#define FAR_F_FORWARDING_POLICY BIT(2)	// forwarding policy bit
+#define FAR_F_FORWARDING_POLICY		BIT(2)
 
   pfcp_destination_interface_t dst_intf;
   u32 dst_sw_if_index;
@@ -456,7 +456,7 @@ typedef struct
 
   pfcp_redirect_information_t redirect_information;
   pfcp_outer_header_creation_t outer_header_creation;
-  pfcp_forwarding_policy_t forwarding_policy;	// forwarding policy struct init
+  pfcp_forwarding_policy_t forwarding_policy;
 
   uword fp_pool_index;
   u32 peer_idx;
@@ -997,6 +997,7 @@ typedef enum
   UPF_FORWARD_NEXT_GTP_IP6_ENCAP,
   UPF_FORWARD_NEXT_IP_INPUT,
   UPF_FORWARD_NEXT_IP_REWRITE,
+  UPF_FORWARD_NEXT_IP_LOOKUP,
   UPF_FORWARD_N_NEXT,
 } upf_forward_next_t;
 

@@ -132,7 +132,6 @@ api_upf_policy_add_del (vat_main_t * vam)
   return -1;
 }
 
-
 #include <upf/upf.api_test.c>
 
 /*
