@@ -1,0 +1,34 @@
+From bf29220198935a975ace4da0a52d0075267120ea Mon Sep 17 00:00:00 2001
+From: Vladimir Jigulin <vladimir.jigulin@travelping.com>
+Date: Wed, 24 Nov 2021 20:14:14 +0400
+Subject: [PATCH] Test af_packet ring size increase to 4096
+
+---
+ src/vnet/devices/af_packet/af_packet.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/vnet/devices/af_packet/af_packet.c b/src/vnet/devices/af_packet/af_packet.c
+index 31d4df0c0..dd805f215 100644
+--- a/src/vnet/devices/af_packet/af_packet.c
++++ b/src/vnet/devices/af_packet/af_packet.c
+@@ -36,7 +36,7 @@
+ 
+ af_packet_main_t af_packet_main;
+ 
+-#define AF_PACKET_TX_FRAMES_PER_BLOCK	1024
++#define AF_PACKET_TX_FRAMES_PER_BLOCK	4096
+ #define AF_PACKET_TX_FRAME_SIZE	 	(2048 * 5)
+ #define AF_PACKET_TX_BLOCK_NR		1
+ #define AF_PACKET_TX_FRAME_NR		(AF_PACKET_TX_BLOCK_NR * \
+@@ -44,7 +44,7 @@ af_packet_main_t af_packet_main;
+ #define AF_PACKET_TX_BLOCK_SIZE	 	(AF_PACKET_TX_FRAME_SIZE * \
+ 					 AF_PACKET_TX_FRAMES_PER_BLOCK)
+ 
+-#define AF_PACKET_RX_FRAMES_PER_BLOCK	1024
++#define AF_PACKET_RX_FRAMES_PER_BLOCK	4096
+ #define AF_PACKET_RX_FRAME_SIZE	 	(2048 * 5)
+ #define AF_PACKET_RX_BLOCK_NR		1
+ #define AF_PACKET_RX_FRAME_NR		(AF_PACKET_RX_BLOCK_NR * \
+-- 
+2.25.1
+
