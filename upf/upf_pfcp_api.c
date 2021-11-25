@@ -792,6 +792,9 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t * np, upf_nat_addr_t * addr,
 				  pfcp_tp_created_binding_t * created_binding)
 {
   u16 port_start, port_end;
+  u16 (*upf_nat_create_binding) (ip4_address_t user_addr,
+				 ip4_address_t ext_addr, u16 min_port,
+				 u16 block_size);
 
   upf_nat_create_binding =
     vlib_get_plugin_symbol ("nat_plugin.so", "nat_create_binding");

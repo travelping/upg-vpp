@@ -1061,6 +1061,7 @@ void
 upf_delete_nat_binding (upf_session_t * sx)
 {
   upf_nat_addr_t *ap = sx->nat_addr;
+  int (*upf_nat_del_binding) (ip4_address_t user_addr);
 
   ASSERT (ap->used_blocks > 0);
 
