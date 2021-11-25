@@ -19,7 +19,6 @@
 #include <math.h>
 #include <vnet/vnet.h>
 #include <vnet/plugin/plugin.h>
-#include <vpp/app/version.h>
 #include <vnet/dpo/lookup_dpo.h>
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/fib/ip6_fib.h>

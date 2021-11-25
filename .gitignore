@@ -7,3 +7,6 @@ release
 # For local E2E artifacts
 artifacts
 *.log
+attic
+upf/version.h
+build-root

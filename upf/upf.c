@@ -32,7 +32,6 @@
 #include <vnet/vnet.h>
 #include <vnet/plugin/plugin.h>
 #include <vlib/unix/plugin.h>
-#include <vpp/app/version.h>
 #include <vnet/dpo/lookup_dpo.h>
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/fib/ip6_fib.h>
@@ -44,6 +43,7 @@
 #include <upf/upf_pfcp.h>
 #include <upf/pfcp.h>
 #include <upf/upf_pfcp_server.h>
+#include <upf/version.h>
 
 /* Action function shared between message handler and debug CLI */
 #include <upf/flowtable.h>
@@ -606,7 +606,8 @@ upf_fpath_stack_dpo (upf_forwarding_policy_t * p)
 /* *INDENT-OFF* */
 VLIB_PLUGIN_REGISTER () =
 {
-  .version = VPP_BUILD_VER,
+  .version = UPG_VERSION,
+  .description = "User Plane Gateway",
 };
 /* *INDENT-ON* */
 

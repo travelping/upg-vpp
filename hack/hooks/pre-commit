@@ -63,5 +63,3 @@ if ! git ls-files | grep -q .rm-this-allow-zzzzz; then
       fi
     done
 fi
-
-exec hack/update-build-image-tag.sh -verify

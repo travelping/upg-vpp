@@ -12,7 +12,6 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_FOCUS:=}"
 : "${E2E_SKIP:=}"
 : "${E2E_VERBOSE:=}"
-: "${E2E_TARGET:=debug}"
 : "${E2E_ARTIFACTS_DIR:=}"
 : "${E2E_JUNIT_DIR:=}"
 : "${E2E_QUICK:=}"
@@ -23,6 +22,18 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_MULTICORE:=}"
 : "${E2E_XDP:=}"
 : "${E2E_KEEP_ALL_ARTIFACTS:=}"
+: "${E2E_POLLING_MODE:=}"
+: "${E2E_VPP_NOT_INSTALLED:=}"
+: "${E2E_NO_GDB:=}"
+: "${BUILD_TYPE:=debug}"
+
+if [[ ! ${E2E_POLLING_MODE} ]]; then
+  export VPP_INTERRUPT_MODE=1
+fi
+
+if [[ ${E2E_NO_GDB} ]]; then
+  export VPP_NO_GDB=1
+fi
 
 if grep -q '^gtp ' /proc/modules; then
   echo >&2 "* Using kernel GTP-U support for IPv4 PGW tests"
@@ -40,27 +51,30 @@ if [[ ${E2E_XDP} ]]; then
   export VPP_XDP=1
 fi
 
-case ${E2E_TARGET} in
-  debug)
-    if [[ ! ${E2E_RETEST} ]]; then
-      make -C vpp build
-    fi
-    export VPP_PATH="${PWD}/vpp/build-root/install-vpp_debug-native/vpp/bin/vpp"
-    export VPP_PLUGIN_PATH="${PWD}/vpp/build-root/install-vpp_debug-native/vpp/lib/vpp_plugins"
-    export LD_LIBRARY_PATH="${PWD}/vpp/build-root/install-vpp_debug-native/vpp/lib"
-    ;;
-  release)
-    if [[ ! ${E2E_RETEST} ]]; then
-      make -C vpp build-release
-    fi
-    export VPP_PATH="${PWD}/vpp/build-root/install-vpp-native/vpp/bin/vpp"
-    export VPP_PLUGIN_PATH="${PWD}/vpp/build-root/install-vpp-native/vpp/lib/vpp_plugins"
-    export LD_LIBRARY_PATH="${PWD}/vpp/build-root/install-vpp-native/vpp/lib"
-    ;;
-  *)
-    echo >&2 "E2E_TARGET must be either debug or release"
-    ;;
-esac
+if [[ ${E2E_VPP_NOT_INSTALLED} ]]; then
+  case ${BUILD_TYPE} in
+    debug)
+      if [[ ! ${E2E_RETEST} ]]; then
+        make -C vpp build
+      fi
+      export VPP_PATH="/vpp-src/build-root/install-vpp_debug-native/vpp/bin/vpp"
+      export VPP_PLUGIN_PATH="/vpp-src/build-root/install-vpp_debug-native/vpp/lib/vpp_plugins"
+      export LD_LIBRARY_PATH="$/vpp-src/build-root/install-vpp_debug-native/vpp/lib"
+      ;;
+    release)
+      if [[ ! ${E2E_RETEST} ]]; then
+        make -C vpp build-release
+      fi
+      export VPP_PATH="${PWD}/vpp/build-root/install-vpp-native/vpp/bin/vpp"
+      export VPP_PLUGIN_PATH="${PWD}/vpp/build-root/install-vpp-native/vpp/lib/vpp_plugins"
+      export LD_LIBRARY_PATH="${PWD}/vpp/build-root/install-vpp-native/vpp/lib"
+      ;;
+    *)
+      echo >&2 "BUILD_TYPE must be either debug or release"
+      ;;
+  esac
+  ln -fs /src/build-root/upf_plugin.so "${VPP_PLUGIN_PATH}/upf_plugin.so"
+fi
 
 cd test/e2e
 
@@ -100,4 +114,9 @@ if [[ ${E2E_PAUSE_ON_ERROR} ]]; then
   ginkgo_args+=(-pause)
 fi
 
-ginkgo "${ginkgo_args[@]}"
+r=0
+ginkgo "${ginkgo_args[@]}" || r=$?
+if [[ ${r} != 0 && ${E2E_ARTIFACTS_DIR} ]]; then
+  mv ginkgo-node-*.log "${E2E_ARTIFACTS_DIR}/" || true
+fi
+exit ${r}

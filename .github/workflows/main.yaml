@@ -6,6 +6,7 @@ on:
     - "**"
 
 env:
+  CUR_REGISTRY: "registry.cennso.com"
   REGISTRY: "quay.io"
   IMAGE_NAME: travelping/upg-vpp
   # this points to buildkitd k8s service
@@ -15,7 +16,9 @@ env:
   GIT_AUTHOR_EMAIL: dummy@example.com
   GIT_COMMITTER_NAME: Dummy
   GIT_COMMITTER_EMAIL: dummy@example.com
-  UPG_BUILDENV: k8s
+  UPG_BUILDENV: docker
+  # DEV_IMAGE_DEBUG: registry.cennso.com/upg/vpp-base:21.01.0-21-9ac020d9a_dev_debug
+  # DEV_IMAGE_RELEASE: registry.cennso.com/upg/vpp-base:21.01.0-21-9ac020d9a_dev_release
 
   # FIXME: UDP tests are unstable, likely due to a shortcoming in
   # Linux namespace handling code
@@ -29,63 +32,81 @@ env:
   # But don't forget to comment it back for a finished PR!
   # E2E_FOCUS: "TDF.*IPv4.*no proxy.*counts plain HTTP traffic"
 
-  E2E_PARALLEL_NODES: "4"
+  E2E_PARALLEL_NODES: "10"
 
 jobs:
-  prepare:
-    # runs-on: ubuntu-20.04
-    runs-on: self-hosted
-    env:
-      REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
-      REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }}
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Ensure build image
-      run: make ensure-build-image USE_BUILDCTL=1 PUSH_BUILD_IMAGE=1
-
   build:
     runs-on: self-hosted
     strategy:
       matrix:
-        variant: [debug, release]
-    needs: prepare
+        build_type: [debug, release]
     env:
-      REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
-      REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }} 
       # avoid conflicts between parallel jobs
-      K8S_ID_SUFFIX: ${{ matrix.variant }}
+      K8S_ID_SUFFIX: ${{ matrix.build_type }}
     steps:
+    - name: Login to the registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.CUR_REGISTRY }}
+        username: ${{ secrets.CUR_REGISTRY_LOGIN }}
+        password: ${{ secrets.CUR_REGISTRY_PASSWORD }}
+    - name: Login to quay.io
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.QUAY_USER_ID }}
+        password: ${{ secrets.QUAY_TOKEN }}
     - name: Checkout
       uses: actions/checkout@v2
       with:
         # for git describe
         fetch-depth: 0
+    # - name: Verify VPP dev images
+    #   run: |
+    #     . vpp.spec
+    #     if [[ "${DEV_IMAGE_DEBUG}" != "${VPP_IMAGE_BASE}_dev_debug" ]]; then
+    #       echo >&2 "Bad DEV_IMAGE_DEBUG in the .github/workflows/main.yaml: '${DEV_IMAGE_DEBUG}' instead of '${VPP_IMAGE_BASE}_dev_debug'"
+    #       exit 1
+    #     fi
+    #     if [[ "${DEV_IMAGE_RELEASE}" != "${VPP_IMAGE_BASE}_dev_release" ]]; then
+    #       echo >&2 "Bad DEV_IMAGE_DEBUG in the .github/workflows/main.yaml: '${DEV_IMAGE_RELEASE}' instead of '${VPP_IMAGE_BASE}_dev_release'"
+    #       exit 1
+    #     fi
     - name: Build UPG image
       run: |
-        make ci-build IMAGE_VARIANT="${{ matrix.variant }}"
+        make ci-build BUILD_TYPE="${{ matrix.build_type }}"
         mv /tmp/_out _out
     - name: Upload debs
       uses: actions/upload-artifact@v2
       with:
-        name: debs-${{ matrix.variant }}
-        path: _out/debs
-    - name: Upload testfiles
-      uses: actions/upload-artifact@v2
-      with:
-        name: testfiles-${{ matrix.variant }}
-        path: _out/testfiles.tar.gz
+        name: debs-${{ matrix.build_type }}
+        path: _out/*.deb
     # image.txt used by the release workflow
     - name: Upload image.txt
       uses: actions/upload-artifact@v2
       with:
-        name: image-${{ matrix.variant }}
-        path: image-${{ matrix.variant }}.txt
+        name: image-${{ matrix.build_type }}
+        path: image-${{ matrix.build_type }}.txt
+    - name: Upload image.txt for the dev image
+      uses: actions/upload-artifact@v2
+      with:
+        name: image-dev-${{ matrix.build_type }}
+        path: image-dev-${{ matrix.build_type }}.txt
 
   checkstyle:
     runs-on: self-hosted
-    needs: prepare
+    # container:
+    #   image: ${DEV_IMAGE_DEBUG}
+    #   credentials:
+    #     username: ${{ secrets.CUR_REGISTRY_LOGIN }}
+    #     password: ${{ secrets.CUR_REGISTRY_PASSWORD }}
     steps:
+    - name: Login to the registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.CUR_REGISTRY }}
+        username: ${{ secrets.CUR_REGISTRY_LOGIN }}
+        password: ${{ secrets.CUR_REGISTRY_PASSWORD }}
     - name: Checkout
       uses: actions/checkout@v2
       with:
@@ -93,41 +114,68 @@ jobs:
         fetch-depth: 2
     - name: Check the code style
       run: make checkstyle
-    - name: Cleanup buildenv
-      if: always()
-      run: hack/buildenv.sh clean
 
-  test:
+  integration:
     runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
-        kind: [test, e2e]
-        variant: [debug, release]
-    needs: build
+        build_type: [debug, release]
     env:
-      # avoid conflicts between parallel jobs
-      K8S_ID_SUFFIX: ${{matrix.kind}}-${{ matrix.variant }}
+      BUILD_TYPE: ${{ matrix.build_type }}
+    needs: build
     steps:
+    - name: Login to the registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.CUR_REGISTRY }}
+        username: ${{ secrets.CUR_REGISTRY_LOGIN }}
+        password: ${{ secrets.CUR_REGISTRY_PASSWORD }}
     - name: Checkout
       uses: actions/checkout@v2
-    - name: Download testfiles
+      with:
+        # for git describe
+        fetch-depth: 0
+    - name: Get dev image info
       uses: actions/download-artifact@v2
       with:
-        name: testfiles-${{ matrix.variant }}
-    - name: Prepare repo
-      run: make update-vpp
-    - name: Inject testfiles
-      run: hack/buildenv.sh inject-testfiles testfiles.tar.gz
+        name: image-dev-${{ matrix.build_type }}
     - name: Run tests
-      if: ${{ matrix.kind == 'test' }}
-      # FIXME: VPP unit test runs produce filenames that
-      run: make retest-${{ matrix.variant }} GRAB_ARTIFACTS=1
-    - name: Run e2e
-      if: ${{ matrix.kind == 'e2e' }}
       run: |
+        dev_image=$(cat image-dev-${BUILD_TYPE}.txt)
+        make retest DEV_IMAGE="${dev_image}"
+
+  e2e:
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [debug, release]
+    env:
+      BUILD_TYPE: ${{ matrix.build_type }}
+    needs: build
+    steps:
+    - name: Login to the registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.CUR_REGISTRY }}
+        username: ${{ secrets.CUR_REGISTRY_LOGIN }}
+        password: ${{ secrets.CUR_REGISTRY_PASSWORD }}
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        # for git describe
+        fetch-depth: 0
+    - name: Get dev image info
+      uses: actions/download-artifact@v2
+      with:
+        name: image-dev-${{ matrix.build_type }}
+    - name: Run tests
+      run: |
+        dev_image=$(cat image-dev-${BUILD_TYPE}.txt)
         mkdir junit-output
-        make e2e-${{ matrix.variant }} \
+        make retest-e2e \
+             DEV_IMAGE="${dev_image}" \
              E2E_RETEST=y \
              E2E_PARALLEL=y \
              E2E_PARALLEL_NODES="${E2E_PARALLEL_NODES}" \
@@ -136,23 +184,72 @@ jobs:
              E2E_JUNIT_DIR="/src/artifacts/junit-output" \
              E2E_FOCUS="${E2E_FOCUS}" \
              E2E_SKIP="${E2E_SKIP}" \
+             E2E_NO_GDB=1 \
              GRAB_ARTIFACTS=1
-    - name: Cleanup buildenv
-      if: always()
-      run: hack/buildenv.sh clean
     - name: Upload artifacts for failed tests
       if: failure()
       uses: actions/upload-artifact@v2
       with:
-        name: test-artifacts-${{ matrix.kind }}-${{ matrix.variant }}
+        name: test-artifacts-${{ matrix.kind }}-${{ matrix.build_type }}
         path: artifacts/
+
+  # test:
+  #   runs-on: self-hosted
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       kind: [test, e2e]
+  #       build_type: [debug, release]
+  #   needs: build
+  #   env:
+  #     # avoid conflicts between parallel jobs
+  #     K8S_ID_SUFFIX: ${{matrix.kind}}-${{ matrix.build_type }}
+  #   steps:
+  #   - name: Checkout
+  #     uses: actions/checkout@v2
+  #   - name: Download testfiles
+  #     uses: actions/download-artifact@v2
+  #     with:
+  #       name: testfiles-${{ matrix.build_type }}
+  #   - name: Prepare repo
+  #     run: make update-vpp
+  #   - name: Inject testfiles
+  #     run: hack/buildenv.sh inject-testfiles testfiles.tar.gz
+  #   - name: Run tests
+  #     if: ${{ matrix.kind == 'test' }}
+  #     # FIXME: VPP unit test runs produce filenames that
+  #     run: make retest-${{ matrix.build_type }} GRAB_ARTIFACTS=1
+  #   - name: Run e2e
+  #     if: ${{ matrix.kind == 'e2e' }}
+  #     run: |
+  #       mkdir junit-output
+  #       make e2e-${{ matrix.build_type }} \
+  #            E2E_RETEST=y \
+  #            E2E_PARALLEL=y \
+  #            E2E_PARALLEL_NODES="${E2E_PARALLEL_NODES}" \
+  #            E2E_QUICK=y \
+  #            E2E_ARTIFACTS_DIR="/src/artifacts" \
+  #            E2E_JUNIT_DIR="/src/artifacts/junit-output" \
+  #            E2E_FOCUS="${E2E_FOCUS}" \
+  #            E2E_SKIP="${E2E_SKIP}" \
+  #            GRAB_ARTIFACTS=1
+  #   - name: Cleanup buildenv
+  #     if: always()
+  #     run: hack/buildenv.sh clean
+  #   - name: Upload artifacts for failed tests
+  #     if: failure()
+  #     uses: actions/upload-artifact@v2
+  #     with:
+  #       name: test-artifacts-${{ matrix.kind }}-${{ matrix.build_type }}
+  #       path: artifacts/
 
   # dummy job for release.yaml to wait on
   conclude:
     runs-on: self-hosted
     needs:
     - checkstyle
-    - test
+    - integration
+    - e2e
     steps:
     - name: Dummy step
       run: echo ok

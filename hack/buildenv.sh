@@ -4,12 +4,18 @@ set -o nounset
 set -o pipefail
 set -o errtrace
 
+cd "$(dirname "${BASH_SOURCE}")/.."
+
+. vpp.spec
+
 : ${UPG_BUILDENV:=default}
 : ${K8S_ID:=${USER:-}}
 : ${K8S_NAMESPACE:=default}
 # FIXME: GRAB_ARTIFACTS is currently only supported in k8s mode
 : ${GRAB_ARTIFACTS:=}
 : ${UPG_BUILDENV_NODE:=}
+: ${BUILD_TYPE:=debug}
+: ${DEV_IMAGE:=${VPP_IMAGE_BASE}_dev_${BUILD_TYPE}}
 
 if [[ ${GITHUB_RUN_ID:-} ]]; then
   # avoid overlong pod names (must be <= 63 chars including the -0 suffix)
@@ -21,45 +27,28 @@ fi
 
 K8S_ID=$(echo ${K8S_ID} | awk '{print tolower($0)}')
 
-cd "$(dirname "${BASH_SOURCE}")/.."
-
 function docker_buildenv {
   priv=
   if [[ ${UPG_BUILDENV_PRIVILEGED:-} ]]; then
     priv="--privileged"
   fi
-  . hack/build-image-name.sh
   # TODO: use compgen trick below
-  docker run -it --rm --name vpp-build --shm-size 1024m \
+  opts=(-e LC_ALL=C.UTF-8 -e LANG=C.UTF-8)
+  for var in $(compgen -v | grep '^E2E_') BUILD_TYPE; do
+    opts+=(-e "${var}=${!var}")
+  done
+  if [[ -t 0 ]]; then
+    opts+=(-it)
+  fi
+
+  docker run --rm --name vpp-build-${BUILD_TYPE} --shm-size 1024m \
          ${priv} \
-         -v $PWD:/src:delegated \
-         -v $PWD/vpp-out:/vpp-out \
-         -e LC_ALL=C.UTF-8 \
-         -e LANG=C.UTF-8 \
-         -e E2E_RETEST="${E2E_RETEST:=}" \
-         -e E2E_VERBOSE="${E2E_VERBOSE:-}" \
-         -e E2E_PARALLEL="${E2E_PARALLEL:-}" \
-         -e E2E_PARALLEL_NODES="${E2E_PARALLEL_NODES:-}" \
-         -e E2E_FOCUS="${E2E_FOCUS:-}" \
-         -e E2E_SKIP="${E2E_SKIP:-}" \
-         -e E2E_TARGET="${E2E_TARGET:-}" \
-         -e E2E_ARTIFACTS_DIR="${E2E_ARTIFACTS_DIR:-}" \
-         -e E2E_JUNIT_DIR="${E2E_JUNIT_DIR:-}" \
-         -e E2E_QUICK="${E2E_QUICK:-}" \
-         -e E2E_FLAKE_ATTEMPTS="${E2E_FLAKE_ATTEMPTS:-}" \
-         -e E2E_TRACE="${E2E_TRACE:-}" \
-         -e E2E_DISPATCH_TRACE="${E2E_DISPATCH_TRACE:-}" \
-         -e E2E_PAUSE_ON_ERROR="${E2E_PAUSE_ON_ERROR:-}" \
-         -e E2E_MULTICORE="${E2E_MULTICORE:-}" \
-         -e E2E_XDP="${E2E_XDP:-}" \
-         -e E2E_KEEP_ALL_ARTIFACTS="${E2E_KEEP_ALL_ARTIFACTS:-}" \
-         -w /src/vpp \
-         "${build_image}" \
-         "$@"
+         -v $PWD:/src:delegated -v $PWD/vpp-out:/vpp-out \
+         "${opts[@]}" -w /src "${DEV_IMAGE}" "$@"
 }
 
 function k8s_statefulset_name {
-  echo -n "upg-buildenv-${K8S_ID}"
+  echo -n "upg-buildenv-${K8S_ID}-${BUILD_TYPE}"
 }
 
 function k8s_pod_name {
@@ -78,46 +67,51 @@ kind: StatefulSet
 metadata:
   name: ${name}
   namespace: ${K8S_NAMESPACE}
+  labels:
+    app: upg-build
 spec:
   replicas: 1
   serviceName: ${name}
   selector:
     matchLabels:
-      app: ${name}
+      app-pod: ${name}
       upg-build: "1"
   template:
     metadata:
       labels:
-        app: ${name}
+        app-pod: ${name}
         upg-build: "1"
     spec:
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: upg-build
-                operator: In
-                values:
-                - "1"
-            topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: upg-build
+                  operator: In
+                  values:
+                  - "1"
+              topologyKey: kubernetes.io/hostname
+            weight: 90
       ${node_selector}
       initContainers:
       - name: prepare
         image: busybox:stable
-        command: ["/bin/mkdir", "-p", "/src/vpp"]
+        command: ["/bin/mkdir", "-p", "/src"]
         volumeMounts:
         - name: data
           mountPath: /src
       containers:
       - name: buildenv
-        image: ${build_image}
+        image: ${DEV_IMAGE}
+        imagePullPolicy: Always
         tty: true
         stdin: true
         securityContext:
           privileged: true
         command: ["/usr/bin/dumb-init", "/bin/bash", "-c", "sleep Infinity"]
-        workingDir: /src/vpp
+        workingDir: /src
         env:
         - name: LC_ALL
           value: "C.UTF-8"
@@ -148,6 +142,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ${name}
+  labels:
+    app: upg-build
 spec:
   ports:
   - name: rsync
@@ -161,23 +157,20 @@ EOF
 
 function k8s_cleanup {
   local name=$(k8s_statefulset_name)
-  kubectl delete statefulset -n "${K8S_NAMESPACE}" --ignore-not-found "${name}"
+  echo >&2 "Deleting buildenv statefulsets..."
+  kubectl delete statefulset -n "${K8S_NAMESPACE}" --ignore-not-found -l app=upg-build
+  echo >&2 "Deleting buildenv services..."
   kubectl delete service -n "${K8S_NAMESPACE}" --ignore-not-found "${name}"
 }
 
 function k8s_rsync {
   export RSYNC_CONNECT_PROG="kubectl exec -i -n '${K8S_NAMESPACE}' -c rsyncd '$(k8s_pod_name)' -- nc 127.0.0.1 873"
   rsync -av --compress-level=9 --delete --prune-empty-dirs --no-perms \
-        --filter '- /vpp/build-root/.ccache/' \
-        --filter '- /vpp/build-root/build-test/' \
-        --filter '- /vpp/build-root/build-vpp_debug-native/' \
-        --filter '- /vpp/build-root/install-vpp_debug-native/' \
-        --filter '- /vpp/build-root/build-vpp-native/' \
-        --filter '- /vpp/build-root/install-vpp-native/' \
         --filter '- /artifacts/' \
         --filter '- __pycache__/' \
         --filter '- *.egg-info/' \
         --filter '- *.log' \
+        --filter '- /build-root/' \
         ./ rsync://src@rsync/src/
 }
 
@@ -190,17 +183,10 @@ function k8s_exec {
 }
 
 function k8s_buildenv {
-  . hack/build-image-name.sh
   case "${1:-}" in
     clean)
       k8s_cleanup
       return
-      ;;
-    inject-testfiles)
-      k8s_ensure_buildenv
-      k8s_rsync
-      local test_archive="${2:-}"
-      k8s_exec_i tar -C /src/vpp -xvz <"${test_archive}"
       ;;
     *)
       k8s_ensure_buildenv
@@ -210,13 +196,11 @@ function k8s_buildenv {
         cmd+=("-it" "--" "/bin/bash")
       else
         cmd+=("--")
-        for var in $(compgen -v); do
-          if [[ ${var} =~ ^E2E_ ]]; then
-            if (( ${#cmd[@]} == 1 )); then
-              cmd+=(/usr/bin/env)
-            fi
-            cmd+=("${var}=${!var}")
+        for var in $(compgen -v | grep '^E2E_') BUILD_TYPE; do
+          if (( ${#cmd[@]} == 1 )); then
+            cmd+=(/usr/bin/env)
           fi
+          cmd+=("${var}=${!var}")
         done
         cmd+=("${@}")
       fi
@@ -242,14 +226,8 @@ function k8s_buildenv {
     esac
 }
 
-if [[ ! ${SKIP_VPP_SOURCE_CHECK:-} && ! -e vpp/Makefile ]]; then
-  echo >&2 "Please run 'make update-vpp'"
-  exit 1
-fi
-
 case "${UPG_BUILDENV}" in
   default)
-    cd vpp
     exec "$@"
     ;;
   docker)
@@ -262,5 +240,3 @@ case "${UPG_BUILDENV}" in
     echo >&2 "Invalid UPG_BUILDENV: ${UPG_BUILDENV}"
     ;;
 esac
-
-# TBD: exclude build dirs!!!

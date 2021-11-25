@@ -1,4 +1,1 @@
-VPP_COMMIT=3d2d96e5547484290c9368bac0a420afa8c4c068
-VPP_REPO=https://github.com/fdio/vpp.git
-VPP_BRANCH=stable/2101
-VPP_RELEASE=v21.01
+VPP_IMAGE_BASE=registry.cennso.com/upg/vpp-base:21.01.0-21-ba7f5d10f
