@@ -541,9 +541,12 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 				nsCfg.VPPLinkName, placement))
 	}
 
+	if vi.startupCfg.InterruptMode {
+		cmds = append(cmds,
+			fmt.Sprintf("set interface rx-mode host-%s interrupt", nsCfg.VPPLinkName))
+	}
+
 	return append(cmds,
-		// TODO: add an option for interrupt mode
-		// fmt.Sprintf("set interface rx-mode host-%s interrupt", nsCfg.VPPLinkName),
 		fmt.Sprintf("set interface mac address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
 		fmt.Sprintf("set interface %s table host-%s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
 		fmt.Sprintf("set interface ip address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),

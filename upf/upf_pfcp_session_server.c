@@ -408,6 +408,23 @@ pfcp_session_server_main_init (vlib_main_t * vm)
   return 0;
 }
 
+void
+vnet_upf_pfcp_set_polling (vlib_main_t * vm, u8 polling)
+{
+  vlib_node_state_t node_state = VLIB_NODE_STATE_POLLING;
+
+  if (!polling)
+    {
+      clib_warning
+	("Using interrupt mode for the PFCP server. This mode is not "
+	 "recommended for production.");
+      node_state = VLIB_NODE_STATE_INTERRUPT;
+    }
+
+  vlib_node_set_state (vm, pfcp_session_server_process_node.index,
+		       node_state);
+}
+
 VLIB_INIT_FUNCTION (pfcp_session_server_main_init);
 
 /*
