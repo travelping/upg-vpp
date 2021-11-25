@@ -222,7 +222,7 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
   u8 *name = 0;
   u8 *nwi_s = 0;
   u8 *nwi_name;
-  int rc = 0;
+  int rv = 0;
   int is_add = 1;
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
@@ -241,7 +241,25 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
   nwi_name = upf_name_to_labels (nwi_s);
   vec_free (nwi_s);
 
-  rc = vnet_upf_ue_ip_pool_add_del (name, nwi_name, is_add);
+  rv = vnet_upf_ue_ip_pool_add_del (name, nwi_name, is_add);
+
+  switch (rv)
+    {
+    case 0:
+      break;
+
+    case VNET_API_ERROR_VALUE_EXIST:
+      error = clib_error_return (0, "UE IP pool already exists");
+      break;
+
+    case VNET_API_ERROR_NO_SUCH_ENTRY:
+      error = clib_error_return (0, "UE IP pool does not exist...");
+      break;
+
+    default:
+      error = clib_error_return (0, "vnet_upf_ue_ip_pool_add_del %d", rv);
+      break;
+    }
 
   return error;
 
