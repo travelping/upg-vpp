@@ -1,65 +1,55 @@
+.PHONY: install-hooks checkstyle ci-build image install retest test e2e retest-e2e buildenv \
+version
+
+SHELL = /bin/bash
+BUILD_TYPE ?= debug
 IMAGE_BASE ?= upg
 TEST_VERBOSITY ?= 2
+VERSION = $(shell . hack/version.sh && echo "$${UPG_GIT_VERSION}")
+include vpp.spec
 
 install-hooks:
 	hack/install-hooks.sh
 
-vpp:
-	hack/update-vpp.sh
-
-# this will run regardless of existence of the 'vpp' directory
-update-vpp:
-	hack/update-vpp.sh
+version:
+	echo "#ifndef UPG_VERSION" >upf/version.h
+	echo "#define UPG_VERSION \"$(VERSION)\"" >>upf/version.h
+	echo "#endif" >>upf/version.h
 
 # TODO: checktyle shouldn't require VPP checkout but presently it's
 # needed for getting the build image tag
-checkstyle: vpp
-	SKIP_VPP_SOURCE_CHECK=1 hack/buildenv.sh ../hack/checkstyle.sh
+checkstyle:
+	SKIP_VPP_SOURCE_CHECK=1 hack/buildenv.sh hack/checkstyle.sh
 
-ci-build: vpp
+ci-build: version
 	hack/ci-build.sh
 
-ensure-build-image: vpp
-	hack/ensure-build-image.sh
-
-update-build-image-tag: vpp
-	hack/update-build-image-tag.sh
-
-image-debug: vpp
+image: version
 	DOCKER_BUILDKIT=1 \
-	docker build -t $(IMAGE_BASE):debug \
-	  -f Dockerfile.devel .
+	docker build -t $(IMAGE_BASE):${BUILD_TYPE} \
+	  --build-arg BUILD_TYPE=${BUILD_TYPE} \
+	  --build-arg BASE=$(VPP_IMAGE_BASE)_${BUILD_TYPE} \
+	  --build-arg DEVBASE=$(VPP_IMAGE_BASE)_dev_$(BUILD_TYPE) .
 
-image-release: vpp
-	DOCKER_BUILDKIT=1 \
-	docker build -t $(IMAGE_BASE):release \
-	  -f Dockerfile .
+install: version
+	hack/buildenv.sh hack/build-internal.sh install
 
-test-debug:
-	hack/buildenv.sh make test-debug TEST=test_upf V=$(TEST_VERBOSITY) \
-	  EXTERN_TESTS=../../upf/test
+retest:
+	hack/buildenv.sh hack/run-integration-tests-internal.sh
 
-test-release:
-	hack/buildenv.sh make test TEST=test_upf V=$(TEST_VERBOSITY) \
-	  EXTERN_TESTS=../../upf/test
+test: version
+	hack/buildenv.sh /bin/bash -c \
+	  'make install && hack/run-integration-tests-internal.sh'
 
-retest-debug:
-	hack/buildenv.sh make retest-debug TEST=test_upf V=$(TEST_VERBOSITY) \
-	  EXTERN_TESTS=../../upf/test
+e2e: version
+	UPG_BUILDENV_PRIVILEGED=1 hack/buildenv.sh /bin/bash -c \
+	  'make install && hack/e2e.sh'
 
-retest-release:
-	hack/buildenv.sh make retest TEST=test_upf V=$(TEST_VERBOSITY) \
-	  EXTERN_TESTS=../../upf/test
+retest-e2e:
+	UPG_BUILDENV_PRIVILEGED=1 hack/buildenv.sh hack/e2e.sh
 
-e2e-debug:
-	UPG_BUILDENV_PRIVILEGED=1 \
-	E2E_TARGET=debug \
-	hack/buildenv.sh ../hack/e2e.sh
-
-e2e-release:
-	UPG_BUILDENV_PRIVILEGED=1 \
-	E2E_TARGET=release \
-	hack/buildenv.sh ../hack/e2e.sh
-
-buildenv:
+buildenv: version
 	UPG_BUILDENV_PRIVILEGED=1 hack/buildenv.sh
+
+clean-buildenv:
+	hack/buildenv.sh clean
