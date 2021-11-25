@@ -501,7 +501,8 @@ upf_init (vlib_main_t * vm)
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
   mhash_init (&sm->upip_res_index, sizeof (uword), sizeof (upf_upip_res_t));
 
-  sm->forwarding_policy_by_id = hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
+  sm->forwarding_policy_by_id =
+    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
 
   /* initialize the IP/TEID hash's */
   clib_bihash_init_8_8 (&sm->v4_tunnel_by_key,
