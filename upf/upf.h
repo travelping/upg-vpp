@@ -1013,6 +1013,7 @@ u32 upf_gtpu_end_marker (u32 fib_index, u32 dpoi_index, u8 * rewrite,
 
 int vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index,
 				    u8 add);
+void vnet_upf_pfcp_set_polling (vlib_main_t * vm, u8 polling);
 int vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 			  u8 add);
 int vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,

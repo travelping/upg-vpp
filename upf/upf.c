@@ -458,6 +458,27 @@ upf_format_buffer_opaque_helper (const vlib_buffer_t * b, u8 * s)
 }
 
 static clib_error_t *
+upf_config_fn (vlib_main_t * vm, unformat_input_t * input)
+{
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "pfcp-server-mode"))
+	{
+	  if (unformat (input, "polling"))
+	    ;
+	  else if (unformat (input, "interrupt"))
+	    vnet_upf_pfcp_set_polling (vm, 0);
+	}
+      else
+	return clib_error_return (0, "unknown input `%U'",
+				  format_unformat_error, input);
+    }
+  return 0;
+}
+
+VLIB_CONFIG_FUNCTION (upf_config_fn, "upf");
+
+static clib_error_t *
 upf_init (vlib_main_t * vm)
 {
   upf_main_t *sm = &upf_main;

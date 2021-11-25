@@ -31,6 +31,9 @@ unix {
   full-coredump
   cli-listen {{.CLISock}}
   log {{.VPPLog}}
+{{- if .InterruptMode }}
+  poll-sleep-usec 100
+{{- end }}
 }
 
 socksvr {
@@ -67,6 +70,11 @@ plugins {
   plugin gtpu_plugin.so { disable }
 }
 
+{{- if .InterruptMode }}
+upf {
+  pfcp-server-mode interrupt
+}
+{{- end }}
 `
 
 // vlib {
@@ -104,6 +112,7 @@ type VPPStartupConfig struct {
 	DispatchTrace bool
 	Multicore     bool
 	XDP           bool
+	InterruptMode bool
 }
 
 func (cfg *VPPStartupConfig) SetFromEnv() {
@@ -120,6 +129,7 @@ func (cfg *VPPStartupConfig) SetFromEnv() {
 	cfg.DispatchTrace = os.Getenv("VPP_DISPATCH_TRACE") != ""
 	cfg.Multicore = os.Getenv("VPP_MULTICORE") != ""
 	cfg.XDP = os.Getenv("VPP_XDP") != ""
+	cfg.InterruptMode = os.Getenv("VPP_INTERRUPT_MODE") != ""
 	cfg.SetDefaults()
 }
 
