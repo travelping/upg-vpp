@@ -1,4 +1,4 @@
-From 1366ac45f10a36d9fbf7e5abd449e40c16fd6c7f Mon Sep 17 00:00:00 2001
+From 2455718ddae87db22a2589b9e17dd967d0d26573 Mon Sep 17 00:00:00 2001
 From: Sergey Matov <sergey.matov@travelping.com>
 Date: Wed, 31 Mar 2021 15:19:02 +0400
 Subject: [PATCH] Controlled NAT function
@@ -227,7 +227,7 @@ index 776efdf13..50b665f60 100644
        /* Add to lookup tables */
        init_ed_kv (&s_kv, s->in2out.addr, 0, ip->dst_address, 0, rx_fib_index,
 diff --git a/src/plugins/nat/nat.c b/src/plugins/nat/nat.c
-index eeaa443bf..be7da8877 100644
+index eeaa443bf..b895a30fa 100644
 --- a/src/plugins/nat/nat.c
 +++ b/src/plugins/nat/nat.c
 @@ -36,6 +36,13 @@
@@ -386,7 +386,7 @@ index eeaa443bf..be7da8877 100644
 +  while (end < NAT_CONTROLLED_MAX_PORT)
 +    {
 +      init_binding_k (&kv, ext_addr, start, end);
-+      if (clib_bihash_search_8_8
++      if (!clib_bihash_search_8_8
 +	  (&sm->binding_mapping_by_external, &kv, &value))
 +	return start;
 +
