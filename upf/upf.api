@@ -215,3 +215,25 @@ define upf_policy_dump {
   u32 client_index;
   u32 context;
 };
+
+autoreply define upf_nwi_add_del {
+  u32 client_index;
+  u32 context;
+  u8 add;
+  string name[64];
+  u32 ip4_table_id;
+  u32 ip6_table_id;
+};
+
+define upf_nwi_details {
+  u32 client_index;
+  u32 context;
+  string name[64];
+  u32 ip4_fib_table;
+  u32 ip6_fib_table;
+};
+
+define upf_nwi_dump {
+  u32 client_index;
+  u32 context;
+};

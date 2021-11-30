@@ -73,6 +73,7 @@ api_upf_update_app (vat_main_t * vam)
 #define vl_api_upf_applications_details_t_handler vl_noop_handler
 #define vl_api_upf_nat_pool_details_t_handler vl_noop_handler
 #define vl_api_upf_policy_details_t_handler vl_noop_handler
+#define vl_api_upf_nwi_details_t_handler vl_noop_handler
 
 static int
 api_upf_applications_dump (vat_main_t * vam)
@@ -128,6 +129,18 @@ api_upf_policy_dump (vat_main_t * vam)
 
 static int
 api_upf_policy_add_del (vat_main_t * vam)
+{
+  return -1;
+}
+
+static int
+api_upf_nwi_dump (vat_main_t * vam)
+{
+  return -1;
+}
+
+static int
+api_upf_nwi_add_del (vat_main_t * vam)
 {
   return -1;
 }

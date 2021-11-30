@@ -429,9 +429,9 @@ func describePDRReplacement(f *framework.Framework) {
 }
 
 var _ = ginkgo.Describe("Binapi", func() {
-	ginkgo.Context("policy based routing", func() {
+	ginkgo.Context("for policy based routing", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-		ginkgo.It("Check binapi functions", func() {
+		ginkgo.It("adds, removes and lists the routing policies", func() {
 			policy := &upf.UpfPolicyAddDel{}
 			policy.Action = 1
 			policy.Identifier = "qwerty"
@@ -474,6 +474,56 @@ var _ = ginkgo.Describe("Binapi", func() {
 			msg := &upf.UpfPolicyDetails{}
 			_, err = reqCtx.ReceiveReply(msg)
 			gomega.Expect(err).NotTo(gomega.BeNil())
+		})
+	})
+	ginkgo.Context("for NWIs", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("adds, removes and lists the NWI", func() {
+			nwi := &upf.UpfNwiAddDel{
+				IP4TableID:  200,
+				Name: "testing",
+				Add:  1,
+			}
+			nwiReply := &upf.UpfNwiAddDelReply{}
+			err := f.VPP.ApiChannel.SendRequest(nwi).ReceiveReply(nwiReply)
+			gomega.Expect(err).To(gomega.BeNil())
+
+			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfNwiDump{})
+			var found bool
+			for {
+				msg := &upf.UpfNwiDetails{}
+				stop, err := reqCtx.ReceiveReply(msg)
+				gomega.Expect(err).To(gomega.BeNil())
+				if stop {
+					break
+				}
+				if msg.Name != "testing" {
+					continue
+				}
+				found = true
+			}
+			gomega.Expect(found).To(gomega.BeTrue())
+
+			nwi.Add = 0
+			nwiReply = &upf.UpfNwiAddDelReply{}
+			err = f.VPP.ApiChannel.SendRequest(nwi).ReceiveReply(nwiReply)
+			gomega.Expect(err).To(gomega.BeNil())
+
+			reqCtx = f.VPP.ApiChannel.SendMultiRequest(&upf.UpfNwiDump{})
+			found = false
+			for {
+				msg := &upf.UpfNwiDetails{}
+				stop, err := reqCtx.ReceiveReply(msg)
+				gomega.Expect(err).To(gomega.BeNil())
+				if stop {
+					break
+				}
+				if msg.Name != "testing" {
+					continue
+				}
+				found = true
+			}
+			gomega.Expect(found).To(gomega.BeFalse())
 		})
 	})
 })
