@@ -174,43 +174,6 @@ VLIB_CLI_COMMAND (upf_pfcp_show_endpoint_command, static) =
 };
 /* *INDENT-ON* */
 
-/**
- * Translate "foo.com" into "0x3 f o o 0x3 c o m 0x0"
- * A historical / hysterical micro-TLV scheme. DGMS.
- */
-static u8 *
-upf_name_to_labels (u8 * name)
-{
-  int i;
-  int last_label_index;
-  u8 *rv;
-
-  rv = vec_dup (name);
-
-  /* punch in space for the first length */
-  vec_insert (rv, 1, 0);
-  last_label_index = 0;
-  i = 1;
-
-  while (i < vec_len (rv))
-    {
-      if (rv[i] == '.')
-	{
-	  rv[last_label_index] = (i - last_label_index) - 1;
-	  if ((i - last_label_index) > 63)
-	    clib_warning ("stupid name, label length %d",
-			  i - last_label_index);
-	  last_label_index = i;
-	  rv[i] = 0;
-	}
-      i++;
-    }
-  /* Set the last real label length */
-  rv[last_label_index] = (i - last_label_index) - 1;
-
-  return rv;
-}
-
 static clib_error_t *
 upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
 				  unformat_input_t * main_input,

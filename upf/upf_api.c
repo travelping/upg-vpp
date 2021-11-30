@@ -471,6 +471,90 @@ vl_api_upf_policy_dump_t_handler (vl_api_upf_policy_dump_t * mp)
   }
 }
 
+/* API message handler */
+static void
+vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
+{
+  vl_api_upf_nwi_add_del_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  u8 *name = 0;
+  u8 *nwi_name = 0;
+  u32 ip4_table_id = 0;
+  u32 ip6_table_id = 0;
+  int rv = 0;
+
+  /* Make sure name is null terminated */
+  mp->name[sizeof (mp->name) - 1] = 0;
+  name = format (0, "%s", mp->name);
+  nwi_name = upf_name_to_labels (name);
+  vec_free (name);
+  ip4_table_id = clib_net_to_host_u32 (mp->ip4_table_id);
+  ip6_table_id = clib_net_to_host_u32 (mp->ip6_table_id);
+  if (!ip4_table_id && !ip6_table_id)
+    {
+      clib_warning ("At least one of ip[46]_table_id should be defined");
+      rv = 1;
+      goto out;
+    }
+
+  /* if only one of table IDs given in a request, assign both IDs to it */
+  if ((ip4_table_id == 0) || (ip6_table_id == 0))
+    ip4_table_id = ip6_table_id = clib_max (ip4_table_id, ip6_table_id);
+
+  rv = vnet_upf_nwi_add_del (nwi_name, ip4_table_id, ip6_table_id, mp->add);
+
+out:
+  vec_free (nwi_name);
+  REPLY_MACRO (VL_API_UPF_NWI_ADD_DEL_REPLY);
+}
+
+static void
+send_upf_nwi_details (vl_api_registration_t * reg,
+		      upf_nwi_t * nwi, u32 context)
+{
+  vl_api_upf_nwi_details_t *mp;
+  upf_main_t *sm = &upf_main;
+  u8 *nwi_name = 0;
+  u8 len;
+
+  mp = vl_msg_api_alloc (sizeof (*mp));
+  clib_memset (mp, 0, sizeof (*mp));
+
+  mp->_vl_msg_id = htons (VL_API_UPF_NWI_DETAILS + sm->msg_id_base);
+  mp->context = context;
+
+  nwi_name = format (nwi_name, "%U", format_dns_labels, nwi->name);
+  len = clib_min (sizeof (mp->name) - 1, vec_len (nwi_name));
+  memcpy (mp->name, nwi_name, len);
+  mp->name[len] = 0;
+  vec_free (nwi_name);
+
+  mp->ip4_fib_table = htonl (nwi->fib_index[FIB_PROTOCOL_IP4]);
+  mp->ip6_fib_table = htonl (nwi->fib_index[FIB_PROTOCOL_IP6]);
+
+  vl_api_send_msg (reg, (u8 *) mp);
+}
+
+/* API message handler */
+static void
+vl_api_upf_nwi_dump_t_handler (vl_api_upf_nwi_dump_t * mp)
+{
+  upf_main_t *sm = &upf_main;
+  vl_api_registration_t *reg;
+  upf_nwi_t *nwi = NULL;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    {
+      return;
+    }
+
+  pool_foreach (nwi, sm->nwis)
+  {
+    send_upf_nwi_details (reg, nwi, mp->context);
+  }
+}
+
 #include <upf/upf.api.c>
 
 static clib_error_t *

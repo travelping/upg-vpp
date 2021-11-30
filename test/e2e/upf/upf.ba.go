@@ -8,7 +8,7 @@
 //
 // Contents:
 //   1 struct
-//  24 messages
+//  28 messages
 //
 package upf
 
@@ -29,7 +29,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0xab1def18
+	VersionCrc = 0xc6b00bf2
 )
 
 // UpfL7Rule defines type 'upf_l7_rule'.
@@ -571,6 +571,152 @@ func (m *UpfNatPoolDump) Marshal(b []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 func (m *UpfNatPoolDump) Unmarshal(b []byte) error {
+	return nil
+}
+
+// UpfNwiAddDel defines message 'upf_nwi_add_del'.
+type UpfNwiAddDel struct {
+	Add        uint8  `binapi:"u8,name=add" json:"add,omitempty"`
+	Name       string `binapi:"string[64],name=name" json:"name,omitempty"`
+	IP4TableID uint32 `binapi:"u32,name=ip4_table_id" json:"ip4_table_id,omitempty"`
+	IP6TableID uint32 `binapi:"u32,name=ip6_table_id" json:"ip6_table_id,omitempty"`
+}
+
+func (m *UpfNwiAddDel) Reset()               { *m = UpfNwiAddDel{} }
+func (*UpfNwiAddDel) GetMessageName() string { return "upf_nwi_add_del" }
+func (*UpfNwiAddDel) GetCrcString() string   { return "97e5f114" }
+func (*UpfNwiAddDel) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfNwiAddDel) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 1  // m.Add
+	size += 64 // m.Name
+	size += 4  // m.IP4TableID
+	size += 4  // m.IP6TableID
+	return size
+}
+func (m *UpfNwiAddDel) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeUint8(m.Add)
+	buf.EncodeString(m.Name, 64)
+	buf.EncodeUint32(m.IP4TableID)
+	buf.EncodeUint32(m.IP6TableID)
+	return buf.Bytes(), nil
+}
+func (m *UpfNwiAddDel) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Add = buf.DecodeUint8()
+	m.Name = buf.DecodeString(64)
+	m.IP4TableID = buf.DecodeUint32()
+	m.IP6TableID = buf.DecodeUint32()
+	return nil
+}
+
+// UpfNwiAddDelReply defines message 'upf_nwi_add_del_reply'.
+type UpfNwiAddDelReply struct {
+	Retval int32 `binapi:"i32,name=retval" json:"retval,omitempty"`
+}
+
+func (m *UpfNwiAddDelReply) Reset()               { *m = UpfNwiAddDelReply{} }
+func (*UpfNwiAddDelReply) GetMessageName() string { return "upf_nwi_add_del_reply" }
+func (*UpfNwiAddDelReply) GetCrcString() string   { return "e8d4e804" }
+func (*UpfNwiAddDelReply) GetMessageType() api.MessageType {
+	return api.ReplyMessage
+}
+
+func (m *UpfNwiAddDelReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Retval
+	return size
+}
+func (m *UpfNwiAddDelReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeInt32(m.Retval)
+	return buf.Bytes(), nil
+}
+func (m *UpfNwiAddDelReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Retval = buf.DecodeInt32()
+	return nil
+}
+
+// UpfNwiDetails defines message 'upf_nwi_details'.
+type UpfNwiDetails struct {
+	Name        string `binapi:"string[64],name=name" json:"name,omitempty"`
+	IP4FibTable uint32 `binapi:"u32,name=ip4_fib_table" json:"ip4_fib_table,omitempty"`
+	IP6FibTable uint32 `binapi:"u32,name=ip6_fib_table" json:"ip6_fib_table,omitempty"`
+}
+
+func (m *UpfNwiDetails) Reset()               { *m = UpfNwiDetails{} }
+func (*UpfNwiDetails) GetMessageName() string { return "upf_nwi_details" }
+func (*UpfNwiDetails) GetCrcString() string   { return "2447a280" }
+func (*UpfNwiDetails) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfNwiDetails) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 64 // m.Name
+	size += 4  // m.IP4FibTable
+	size += 4  // m.IP6FibTable
+	return size
+}
+func (m *UpfNwiDetails) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeString(m.Name, 64)
+	buf.EncodeUint32(m.IP4FibTable)
+	buf.EncodeUint32(m.IP6FibTable)
+	return buf.Bytes(), nil
+}
+func (m *UpfNwiDetails) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Name = buf.DecodeString(64)
+	m.IP4FibTable = buf.DecodeUint32()
+	m.IP6FibTable = buf.DecodeUint32()
+	return nil
+}
+
+// UpfNwiDump defines message 'upf_nwi_dump'.
+type UpfNwiDump struct{}
+
+func (m *UpfNwiDump) Reset()               { *m = UpfNwiDump{} }
+func (*UpfNwiDump) GetMessageName() string { return "upf_nwi_dump" }
+func (*UpfNwiDump) GetCrcString() string   { return "51077d14" }
+func (*UpfNwiDump) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfNwiDump) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	return size
+}
+func (m *UpfNwiDump) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	return buf.Bytes(), nil
+}
+func (m *UpfNwiDump) Unmarshal(b []byte) error {
 	return nil
 }
 
@@ -1134,6 +1280,10 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfApplicationsDump)(nil), "upf_applications_dump_51077d14")
 	api.RegisterMessage((*UpfNatPoolDetails)(nil), "upf_nat_pool_details_ea35be4d")
 	api.RegisterMessage((*UpfNatPoolDump)(nil), "upf_nat_pool_dump_51077d14")
+	api.RegisterMessage((*UpfNwiAddDel)(nil), "upf_nwi_add_del_97e5f114")
+	api.RegisterMessage((*UpfNwiAddDelReply)(nil), "upf_nwi_add_del_reply_e8d4e804")
+	api.RegisterMessage((*UpfNwiDetails)(nil), "upf_nwi_details_2447a280")
+	api.RegisterMessage((*UpfNwiDump)(nil), "upf_nwi_dump_51077d14")
 	api.RegisterMessage((*UpfPfcpFormat)(nil), "upf_pfcp_format_d522d6e1")
 	api.RegisterMessage((*UpfPfcpFormatReply)(nil), "upf_pfcp_format_reply_8706f872")
 	api.RegisterMessage((*UpfPfcpReencode)(nil), "upf_pfcp_reencode_d522d6e1")
@@ -1163,6 +1313,10 @@ func AllMessages() []api.Message {
 		(*UpfApplicationsDump)(nil),
 		(*UpfNatPoolDetails)(nil),
 		(*UpfNatPoolDump)(nil),
+		(*UpfNwiAddDel)(nil),
+		(*UpfNwiAddDelReply)(nil),
+		(*UpfNwiDetails)(nil),
+		(*UpfNwiDump)(nil),
 		(*UpfPfcpFormat)(nil),
 		(*UpfPfcpFormatReply)(nil),
 		(*UpfPfcpReencode)(nil),

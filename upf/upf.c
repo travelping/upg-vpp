@@ -832,6 +832,45 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
   return rc;
 }
 
+/* Taken from VPP DNS plugin */
+/* original name_to_labels() from dns.c */
+/**
+ * Translate "foo.com" into "0x3 f o o 0x3 c o m 0x0"
+ * A historical / hysterical micro-TLV scheme. DGMS.
+ */
+u8 *
+upf_name_to_labels (u8 * name)
+{
+  int i;
+  int last_label_index;
+  u8 *rv;
+
+  rv = vec_dup (name);
+
+  /* punch in space for the first length */
+  vec_insert (rv, 1, 0);
+  last_label_index = 0;
+  i = 1;
+
+  while (i < vec_len (rv))
+    {
+      if (rv[i] == '.')
+	{
+	  rv[last_label_index] = (i - last_label_index) - 1;
+	  if ((i - last_label_index) > 63)
+	    clib_warning ("stupid name, label length %d",
+			  i - last_label_index);
+	  last_label_index = i;
+	  rv[i] = 0;
+	}
+      i++;
+    }
+  /* Set the last real label length */
+  rv[last_label_index] = (i - last_label_index) - 1;
+
+  return rv;
+}
+
 /*
  * fd.io coding-style-patch-verification: ON
  *
