@@ -270,6 +270,85 @@ func describeMeasurement(f *framework.Framework) {
 			})
 		})
 
+		ginkgo.Context("[proxy bypass]", func() {
+			var bypassTrafficCfg traffic.HTTPConfig
+
+			describeProxyBypass := func(skipIPv6 bool) {
+				ginkgo.It("should not proxy traffic when higher precedence PDRs have no app id", func() {
+					// FIXME: there's an IPv6-related problem with extra server IPs that is not caused
+					// by the proxy bypass, as it also happens if proxy bypass PDRs are removed together
+					// with app id. For now, let's only test IPv6 mode with port-based SDF Filters.
+					if skipIPv6 && f.IPMode == framework.UPGIPModeV6 {
+						ginkgo.Skip("FIXME: skipping IPv6 version of the test")
+					}
+					verify(&bypassTrafficCfg)
+					// the flow should not be proxied
+					flowStr, err := f.VPP.Ctl("show upf flows")
+					framework.ExpectNoError(err)
+					gomega.Expect(flowStr).To(gomega.ContainSubstring("proxy 0"))
+					gomega.Expect(flowStr).NotTo(gomega.ContainSubstring("proxy 1"))
+				})
+
+				ginkgo.It("should not prevent ADF from working (no app hit)", func() {
+					verify(smallVolumeHTTPConfig(nil))
+					verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
+
+					// the flow should be proxied
+					flowStr, err := f.VPP.Ctl("show upf flows")
+					framework.ExpectNoError(err)
+					gomega.Expect(flowStr).NotTo(gomega.ContainSubstring("proxy 0"))
+					gomega.Expect(flowStr).To(gomega.ContainSubstring("proxy 1"))
+				})
+
+				ginkgo.It("should not prevent ADF from working (app hit)", func() {
+					verify(smallVolumeHTTPConfig(&traffic.HTTPConfig{
+						UseFakeHostname: true,
+					}))
+					verifyAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
+
+					// the flow should be proxied
+					flowStr, err := f.VPP.Ctl("show upf flows")
+					framework.ExpectNoError(err)
+					gomega.Expect(flowStr).NotTo(gomega.ContainSubstring("proxy 0"))
+					gomega.Expect(flowStr).To(gomega.ContainSubstring("proxy 1"))
+				})
+			}
+
+			ginkgo.Context("[port based]", func() {
+				ginkgo.BeforeEach(func() {
+					bypassTrafficCfg = traffic.HTTPConfig{
+						ClientPort: 8883,
+						ServerPort: 8883,
+					}
+					sessionCfg := framework.SessionConfig{
+						AppName:        framework.HTTPAppName,
+						NoADFSDFFilter: "permit out ip from any 8883 to assigned",
+					}
+					seid = startMeasurementSession(f, &sessionCfg)
+				})
+
+				describeProxyBypass(false)
+			})
+
+			ginkgo.Context("[ip based]", func() {
+				ginkgo.BeforeEach(func() {
+					bypassServerIP := f.AddServerIP()
+					bypassTrafficCfg = traffic.HTTPConfig{
+						ServerIPs: []net.IP{bypassServerIP},
+					}
+					sessionCfg := framework.SessionConfig{
+						AppName: framework.HTTPAppName,
+						NoADFSDFFilter: fmt.Sprintf(
+							"permit out ip from %s to assigned",
+							bypassServerIP),
+					}
+					seid = startMeasurementSession(f, &sessionCfg)
+				})
+
+				describeProxyBypass(true)
+			})
+		})
+
 		sessionContext("[redirects]", framework.SessionConfig{Redirect: true}, func() {
 			ginkgo.It("counts UPG's HTTP redirects", func() {
 				verify(&traffic.RedirectConfig{

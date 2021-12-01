@@ -34,6 +34,7 @@ type SessionConfig struct {
 	SGWIP             net.IP
 	AppName           string
 	Redirect          bool
+	NoADFSDFFilter    string
 	Mode              UPGMode
 	TEIDPGWs5u        uint32
 	TEIDSGWs5u        uint32
@@ -142,7 +143,7 @@ func (cfg SessionConfig) ueIPAddress(flags uint8) *ie.IE {
 	return ie.NewUEIPAddress(flags|pfcp.UEIPAddress_V6, "", cfg.UEIP.String(), 0)
 }
 
-func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint32, appID string) *ie.IE {
+func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint32, appID string, sdfFilter string) *ie.IE {
 	ies := []*ie.IE{
 		ie.NewPDRID(pdrID),
 		ie.NewFARID(farID),
@@ -179,9 +180,12 @@ func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint3
 	}
 
 	if appID == "" {
-		pdiIEs = append(pdiIEs,
-			ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0))
+		if sdfFilter == "" {
+			sdfFilter = "permit out ip from any to assigned"
+		}
+		pdiIEs = append(pdiIEs, ie.NewSDFFilter(sdfFilter, "", "", "", 0))
 	}
+
 	ies = append(ies, ie.NewPDI(pdiIEs...))
 	if urrID != 0 {
 		ies = append(ies, ie.NewURRID(urrID))
@@ -190,7 +194,7 @@ func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint3
 	return ie.NewCreatePDR(ies...)
 }
 
-func (cfg SessionConfig) reversePDR(pdrID uint16, farID, urrID, precedence uint32, appID string) *ie.IE {
+func (cfg SessionConfig) reversePDR(pdrID uint16, farID, urrID, precedence uint32, appID, sdfFilter string) *ie.IE {
 	ies := []*ie.IE{
 		ie.NewPDRID(pdrID),
 		ie.NewFARID(farID),
@@ -218,8 +222,11 @@ func (cfg SessionConfig) reversePDR(pdrID uint16, farID, urrID, precedence uint3
 	}
 
 	if appID == "" {
+		if sdfFilter == "" {
+			sdfFilter = "permit out ip from any to assigned"
+		}
 		pdiIEs = append(pdiIEs,
-			ie.NewSDFFilter("permit out ip from any to assigned", "", "", "", 0))
+			ie.NewSDFFilter(sdfFilter, "", "", "", 0))
 	}
 	ies = append(ies, ie.NewPDI(pdiIEs...))
 	if urrID != 0 {
@@ -297,13 +304,18 @@ func (cfg SessionConfig) CreatePDRs() []*ie.IE {
 		appURRId = 0
 	}
 	ies := []*ie.IE{
-		cfg.forwardPDR(cfg.IdBase, 1, defaultURRId, 200, ""),
-		cfg.reversePDR(cfg.IdBase+1, 2, defaultURRId, 200, ""),
+		cfg.forwardPDR(cfg.IdBase, 1, defaultURRId, 200, "", ""),
+		cfg.reversePDR(cfg.IdBase+1, 2, defaultURRId, 200, "", ""),
 	}
 	if cfg.AppName != "" {
 		ies = append(ies,
-			cfg.forwardPDR(cfg.IdBase+2, 1, appURRId, 100, cfg.AppName),
-			cfg.reversePDR(cfg.IdBase+3, 2, appURRId, 100, cfg.AppName))
+			cfg.forwardPDR(cfg.IdBase+2, 1, appURRId, 100, cfg.AppName, ""),
+			cfg.reversePDR(cfg.IdBase+3, 2, appURRId, 100, cfg.AppName, ""))
+		if cfg.NoADFSDFFilter != "" {
+			ies = append(ies,
+				cfg.forwardPDR(cfg.IdBase+4, 1, 0, 10, "", cfg.NoADFSDFFilter),
+				cfg.reversePDR(cfg.IdBase+5, 2, 0, 10, "", cfg.NoADFSDFFilter))
+		}
 	}
 	return ies
 }
