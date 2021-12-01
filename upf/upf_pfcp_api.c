@@ -2861,7 +2861,7 @@ upf_pfcp_error_report (upf_session_t * sx, gtp_error_ind_t * error)
   };
   pfcp_session_report_request_t *req = &dmsg.session_report_request;
 
-  memset (&req, 0, sizeof (req));
+  memset (req, 0, sizeof (*req));
   SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
   req->report_type = REPORT_TYPE_ERIR;
 
