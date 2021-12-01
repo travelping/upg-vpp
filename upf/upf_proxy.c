@@ -1390,6 +1390,7 @@ upf_proxy_main_init (vlib_main_t * vm)
   pm->prealloc_fifos = 0;
   pm->private_segment_count = 0;
   pm->private_segment_size = 512 << 20;
+  pm->force_stitching = 1;
 
   pm->server_client_index = ~0;
   pm->active_open_client_index = ~0;

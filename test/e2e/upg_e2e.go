@@ -180,6 +180,24 @@ func describeMeasurement(f *framework.Framework) {
 				}
 				verifyNonAppMeasurement(f, ms, proto, nil)
 			})
+
+			ginkgo.It("works with iperf3", func() {
+				verifyIPerf3(f, false)
+				// FIXME: in case of iperf3 run, e2e traffic measurements may
+				// be imprecise. We might need to wait longer to make sure
+				// all of the data are sent
+				// https://github.com/esnet/iperf/issues/994
+				// ms = deleteSession(f, seid, true)
+				// verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
+			})
+
+			ginkgo.It("works with iperf3 [reverse]", func() {
+				verifyIPerf3(f, true)
+				// FIXME: possible imprecise measurement that's not an UPG
+				// bug, see above
+				// ms = deleteSession(f, seid, true)
+				// verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
+			})
 		})
 
 		ginkgo.Context("[ip rules]", func() {
@@ -267,6 +285,58 @@ func describeMeasurement(f *framework.Framework) {
 
 			ginkgo.It("can survive session creation-deletion loop", func() {
 				verifySessionDeletionLoop(f, &seid)
+			})
+
+			ginkgo.It("works with iperf3", func() {
+				out, err := f.VPP.Ctl("show upf proxy")
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(out).To(gomega.ContainSubstring("Force stitching: on"))
+
+				verifyIPerf3(f, false)
+				// FIXME: possible imprecise measurement that's not an UPG
+				// bug, see above
+				// ms = deleteSession(f, seid, true)
+				// verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
+			})
+
+			ginkgo.It("works with iperf3 [reverse]", func() {
+				out, err := f.VPP.Ctl("show upf proxy")
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(out).To(gomega.ContainSubstring("Force stitching: on"))
+
+				verifyIPerf3(f, true)
+				// FIXME: possible imprecise measurement that's not an UPG
+				// bug, see above
+				// ms = deleteSession(f, seid, true)
+				// verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
+			})
+
+			ginkgo.It("works with iperf3 [no force-stitching]", func() {
+				_, err := f.VPP.Ctl("set upf proxy force-stitching off")
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				out, err := f.VPP.Ctl("show upf proxy")
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(out).To(gomega.ContainSubstring("Force stitching: off"))
+
+				verifyIPerf3(f, false)
+				// FIXME: possible imprecise measurement that's not an UPG
+				// bug, see above
+				// ms = deleteSession(f, seid, true)
+				// verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
+			})
+
+			ginkgo.It("works with iperf3 [no force-stitching] [reverse]", func() {
+				_, err := f.VPP.Ctl("set upf proxy force-stitching off")
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				out, err := f.VPP.Ctl("show upf proxy")
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(out).To(gomega.ContainSubstring("Force stitching: off"))
+
+				verifyIPerf3(f, true)
+				// FIXME: possible imprecise measurement that's not an UPG
+				// bug, see above
+				// ms = deleteSession(f, seid, true)
+				// verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 			})
 		})
 
@@ -646,7 +716,8 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 			gomega.Expect(string(out)).To(gomega.ContainSubstring("Monitoring Time"))
 
 			ginkgo.By("Starting some traffic")
-			tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+			clientNS, serverNS := getClientAndServerNamespaces(f)
+			tg := newTrafficGen(f, &traffic.UDPPingConfig{
 				PacketCount: 50, // 5s
 				Retry:       true,
 				Delay:       100 * time.Millisecond,
@@ -721,7 +792,8 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 			gomega.Expect(string(out)).To(gomega.ContainSubstring("Monitoring Time"))
 
 			ginkgo.By("Starting some traffic")
-			tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+			clientNS, serverNS := getClientAndServerNamespaces(f)
+			tg := newTrafficGen(f, &traffic.UDPPingConfig{
 				PacketCount: 180, // 18s
 				Retry:       true,
 				Delay:       100 * time.Millisecond,
@@ -836,7 +908,8 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 			gomega.Expect(string(out)).To(gomega.ContainSubstring(seidHex))
 
 			ginkgo.By("Starting some traffic")
-			tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+			clientNS, serverNS := getClientAndServerNamespaces(f)
+			tg := newTrafficGen(f, &traffic.UDPPingConfig{
 				PacketCount: 180, // 30s, but will be stopped when VPP exits
 				Retry:       true,
 				Delay:       100 * time.Millisecond,
@@ -1280,7 +1353,17 @@ func deleteSessions(f *framework.Framework, seids []pfcp.SEID, showInfo bool) []
 	return ms
 }
 
-func newTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffic.TrafficRec) (*traffic.TrafficGen, *network.NetNS, *network.NetNS) {
+func getClientAndServerNamespaces(f *framework.Framework) (*network.NetNS, *network.NetNS) {
+	var serverNS *network.NetNS
+	if f.Mode == framework.UPGModeGTPProxy {
+		serverNS = f.VPP.GetNS("srv")
+	} else {
+		serverNS = f.VPP.GetNS("sgi")
+	}
+	return f.VPP.GetNS("ue"), serverNS
+}
+
+func newTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffic.TrafficRec) *traffic.TrafficGen {
 	ginkgo.By("starting the traffic generator")
 	cfg.SetNoLinger(true)
 	if !cfg.HasServerIP() {
@@ -1295,24 +1378,19 @@ func newTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffi
 			cfg.AddServerIP(f.AddServerIP())
 		}
 	}
-	clientNS := f.VPP.GetNS("ue")
-	var serverNS *network.NetNS
-	if f.Mode == framework.UPGModeGTPProxy {
-		serverNS = f.VPP.GetNS("srv")
-	} else {
-		serverNS = f.VPP.GetNS("sgi")
-	}
-	return traffic.NewTrafficGen(cfg, rec), clientNS, serverNS
+	return traffic.NewTrafficGen(cfg, rec)
 }
 
 func runTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffic.TrafficRec) {
-	tg, clientNS, serverNS := newTrafficGen(f, cfg, rec)
+	clientNS, serverNS := getClientAndServerNamespaces(f)
+	tg := newTrafficGen(f, cfg, rec)
 	framework.ExpectNoError(tg.Run(f.Context, clientNS, serverNS))
 }
 
 func verifyConnFlood(f *framework.Framework, netem bool) {
+	clientNS, serverNS := getClientAndServerNamespaces(f)
 	rec := &traffic.SimpleTrafficRec{}
-	tg, clientNS, serverNS := newTrafficGen(f, &traffic.HTTPConfig{
+	tg := newTrafficGen(f, &traffic.HTTPConfig{
 		Retry:             true,
 		SimultaneousCount: 400, // TODO: 5000 works with bigger chunks but takes up too much memory
 		Persist:           true,
@@ -1358,8 +1436,9 @@ func verifyConnFlood(f *framework.Framework, netem bool) {
 	}
 
 	// make sure UPG and the session are still alive after the stress test
+	clientNS, serverNS = getClientAndServerNamespaces(f)
 	rec = &traffic.SimpleTrafficRec{}
-	tg, clientNS, serverNS = newTrafficGen(f, &traffic.UDPPingConfig{
+	tg = newTrafficGen(f, &traffic.UDPPingConfig{
 		PacketCount: 3,
 		Retry:       true,
 	}, rec)
@@ -1368,7 +1447,8 @@ func verifyConnFlood(f *framework.Framework, netem bool) {
 
 func verifySessionDeletionLoop(f *framework.Framework, seid *pfcp.SEID) {
 	rec := &traffic.SimpleTrafficRec{}
-	tg, clientNS, serverNS := newTrafficGen(f, &traffic.HTTPConfig{
+	clientNS, serverNS := getClientAndServerNamespaces(f)
+	tg := newTrafficGen(f, &traffic.HTTPConfig{
 		Retry:             true,
 		SimultaneousCount: 400, // TODO: 5000 works with bigger chunks but takes up too much memory
 		Persist:           true,
@@ -1407,8 +1487,9 @@ LOOP:
 		*seid = startMeasurementSession(f, &framework.SessionConfig{})
 	}
 	// make sure UPG and the session are still alive after the stress test
+	clientNS, serverNS = getClientAndServerNamespaces(f)
 	rec = &traffic.SimpleTrafficRec{}
-	tg, clientNS, serverNS = newTrafficGen(f, &traffic.UDPPingConfig{
+	tg = newTrafficGen(f, &traffic.UDPPingConfig{
 		PacketCount: 3,
 		Retry:       true,
 	}, rec)
@@ -1416,7 +1497,8 @@ LOOP:
 }
 
 func startTrafficGen(f *framework.Framework, cfg traffic.TrafficConfig, rec traffic.TrafficRec) chan error {
-	tg, clientNS, serverNS := newTrafficGen(f, cfg, rec)
+	clientNS, serverNS := getClientAndServerNamespaces(f)
+	tg := newTrafficGen(f, cfg, rec)
 	return tg.Start(f.Context, clientNS, serverNS)
 }
 
@@ -1571,5 +1653,55 @@ func verifyPSDBU(m message.Message, numUsageReports int) {
 		if !urt.HasMONIT() {
 			gomega.Expect(urt.Payload[2] & 2).NotTo(gomega.BeZero()) // TEBUR bit is set
 		}
+	}
+}
+
+func verifyIPerf3(f *framework.Framework, reverse bool) {
+	clientNS, serverNS := getClientAndServerNamespaces(f)
+
+	serverIPerf3 := &framework.IPerf3{
+		ServerMode: true,
+		NS:         serverNS,
+	}
+	gomega.Expect(serverIPerf3.Start()).To(gomega.Succeed())
+	defer func() {
+		serverIPerf3.Kill() // does nothing if the process has exited
+	}()
+
+	clientIPerf3 := &framework.IPerf3{
+		ServerMode: false,
+		Duration:   10 * time.Second,
+		NS:         clientNS,
+		ServerIP:   f.ServerIP(),
+		Reverse:    reverse,
+	}
+	gomega.Expect(clientIPerf3.Start()).To(gomega.Succeed())
+	defer func() {
+		clientIPerf3.Kill()
+	}()
+
+	clientResult, err := clientIPerf3.Wait(f.Context)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	serverResult, err := serverIPerf3.Wait(f.Context)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	framework.Logf("iperf3: %d bytes sent, %d bytes received",
+		clientResult.End.SumSent.Bytes,
+		clientResult.End.SumReceived.Bytes)
+
+	gomega.Expect(clientResult.End.SumSent.Bytes).
+		To(gomega.BeNumerically(">", 50000000),
+			"low iperf3 transfer volume")
+	gomega.Expect(clientResult.End.SumReceived.Bytes).
+		To(gomega.BeNumerically(">", clientResult.End.SumSent.Bytes/2),
+			"high loss reported by iperf3")
+
+	if reverse {
+		gomega.Expect(clientResult.End.SumSent.Bytes).
+			To(gomega.Equal(serverResult.End.SumSent.Bytes))
+	} else {
+		gomega.Expect(clientResult.End.SumReceived.Bytes).
+			To(gomega.Equal(serverResult.End.SumReceived.Bytes))
 	}
 }
