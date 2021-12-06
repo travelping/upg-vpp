@@ -54,7 +54,15 @@ format_gtpu_rx_trace (u8 * s, va_list * args)
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
   gtpu_rx_trace_t *t = va_arg (*args, gtpu_rx_trace_t *);
 
-  if (t->session_index != ~0)
+  if (t->next_index == UPF_GTPU_INPUT_NEXT_ERROR_INDICATION)
+    {
+      /*
+       * In this case, session index is retrieved on the error
+       * indication node, so let's not add a misleading error message
+       */
+      s = format (s, "received GTPU Error Indication");
+    }
+  else if (t->session_index != ~0)
     {
       s =
 	format (s,
@@ -927,7 +935,8 @@ format_gtpu_error_ind_trace (u8 * s, va_list * args)
     {
       s =
 	format (s,
-		"GTPU decap error - session for teid 0x%08x does not exist",
+		"GTPU decap error - session for IP %U teid 0x%08x does not exist",
+		format_ip46_address, &t->indication.addr, IP46_TYPE_ANY,
 		t->indication.teid);
     }
   return s;
@@ -1045,7 +1054,7 @@ VLIB_NODE_FN (upf_gtp_error_ind_node) (vlib_main_t * vm,
       upf_session_t *t;
       vlib_buffer_t *b;
       u32 session_index = ~0;
-      u32 bi, err;
+      u32 bi, err = 0;
       bi = buffers[0];
 
       buffers += 1;
