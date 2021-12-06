@@ -21,10 +21,12 @@ from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     PFCPSessionDeletionResponse, PFCPSessionEstablishmentRequest, \
     PFCPSessionEstablishmentResponse, PFCPSessionModificationRequest, \
     PFCPSessionModificationResponse, PFCPSessionReportRequest, \
-    IE_UsageReport_SMR, IE_UsageReport_SRR, IE_UsageReport_SDR
+    IE_UsageReport_SMR, IE_UsageReport_SRR, IE_UsageReport_SDR, \
+    IE_ErrorIndicationReport
 from scapy.contrib.gtp import GTP_U_Header, GTPEchoRequest, GTPEchoResponse, \
     GTP_UDPPort_ExtensionHeader, GTP_PDCP_PDU_ExtensionHeader, \
-    IE_Recovery, IE_SelectionMode
+    IE_Recovery, IE_SelectionMode, GTPErrorIndication, \
+    IE_GSNAddress, IE_TEIDI
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP, TCP
 from scapy.layers.inet6 import IPv6
@@ -184,6 +186,15 @@ class IPv4Mixin(object):
     def ie_outer_header_removal(self):
         return IE_OuterHeaderRemoval(header="GTP-U/UDP/IPv4")
 
+    def gtp_ie_gsn_address(self):
+        return IE_GSNAddress(length=4, ipv4_address=self.grx_local_ip)
+
+    def verify_ie_fteid(self, ie_fteid):
+        self.assertEqual(ie_fteid.TEID, self.teid)
+        self.assertTrue(ie_fteid.V4)
+        self.assertFalse(ie_fteid.V6)
+        self.assertEqual(ie_fteid.ipv4, self.grx_local_ip)
+
     def verify_ie_fseid(self, ie_fseid):
         self.assertTrue(ie_fseid.v4)
         self.assertFalse(ie_fseid.v6)
@@ -314,6 +325,15 @@ class IPv6Mixin(object):
 
     def ie_outer_header_removal(self):
         return IE_OuterHeaderRemoval(header="GTP-U/UDP/IPv6")
+
+    def gtp_ie_gsn_address(self):
+        return IE_GSNAddress(length=16, ipv6_address=self.grx_local_ip)
+
+    def verify_ie_fteid(self, ie_fteid):
+        self.assertEqual(ie_fteid.TEID, self.teid)
+        self.assertFalse(ie_fteid.V4)
+        self.assertTrue(ie_fteid.V6)
+        self.assertEqual(ie_fteid.ipv6, self.grx_local_ip)
 
     def verify_ie_fseid(self, ie_fseid):
         self.assertFalse(ie_fseid.v4)
@@ -1146,6 +1166,28 @@ class TestPGWBase(PFCPHelper):
         # remote_ip -> UE
         self.send_from_sgi_to_ue(b"4242", remote_ip = self.remote_ip)
         self.assert_packet_sent_to_ue(b"4242", remote_ip = self.remote_ip)
+
+    def verify_gtp_error_indication(self):
+        self.send_from_grx(
+            GTP_U_Header(seq=43, teid=self.teid) / GTPErrorIndication() /
+            IE_TEIDI(TEIDI=self.teid) /
+            IE_Recovery(restart_counter=0) /
+            self.gtp_ie_gsn_address())
+        sr = self.if_cp.get_capture(1)[0][PFCPSessionReportRequest]
+        self.assertIn(IE_ErrorIndicationReport, sr)
+        error_ind_report = sr[IE_ErrorIndicationReport]
+        self.assertIn(IE_FTEID, error_ind_report)
+        self.verify_ie_fteid(error_ind_report[IE_FTEID])
+
+    def test_gtp_error_indication(self):
+        try:
+            self.associate()
+            self.heartbeat()
+            self.establish_session()
+            self.verify_gtp_error_indication()
+            self.delete_session()
+        finally:
+            self.vapi.cli("show error")
 
     def test_gtp_echo(self):
         try:
