@@ -90,5 +90,10 @@ example, some of E2E tests don't pass with 1 GiB heap limit (it's now
 increased in UPG E2E tests). It's advisable to set 2 GiB main heap
 size.
 
+CG-NAT Helpers
+-------------------
+
+Right now CG-NAT (or controlled NAT) does not support NAT helpers.
+
 [SPLICE]: http://www.cs.kent.edu/~javed/DL/web/p146-spatscheck.pdf
 [UDPFIX]: https://gerrit.fd.io/r/c/vpp/+/31647
