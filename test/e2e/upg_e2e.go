@@ -508,6 +508,8 @@ func describePDRReplacement(f *framework.Framework) {
 	})
 }
 
+// TODO:
+// Some of Binapi test cases belong will be removed by enabling different kind of VPP configuration
 var _ = ginkgo.Describe("Binapi", func() {
 	ginkgo.Context("for policy based routing", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
@@ -554,6 +556,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 			msg := &upf.UpfPolicyDetails{}
 			_, err = reqCtx.ReceiveReply(msg)
 			gomega.Expect(err).NotTo(gomega.BeNil())
+
 		})
 	})
 	ginkgo.Context("for NWIs", func() {
@@ -599,6 +602,59 @@ var _ = ginkgo.Describe("Binapi", func() {
 					break
 				}
 				if msg.Name != "testing" {
+					continue
+				}
+				found = true
+			}
+			gomega.Expect(found).To(gomega.BeFalse())
+		})
+	})
+	ginkgo.Context("for PFCP endpoint", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("lists and removes the PFCP endpoint", func() {
+
+			// It appears to be a little tricky to add new PFCP endpoint
+			// So far we will just check if it can list and remove PFCP endpoint
+			// Adding of endpoint will be checked during the change of configuration mechanism
+			pfcpEndpoint := &upf.UpfPfcpEndpointAddDel{
+				IsAdd: 0,
+				TableID: 0,
+			}
+			ipAddr, er := ip_types.ParseAddress("10.0.0.2")
+			gomega.Expect(er).To(gomega.BeNil())
+			pfcpEndpoint.IP = ipAddr
+
+			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPfcpEndpointDump{})
+			var found = false
+
+			for {
+				msg := &upf.UpfPfcpEndpointDetails{}
+				stop, err := reqCtx.ReceiveReply(msg)
+				gomega.Expect(err).To(gomega.BeNil())
+				if stop {
+					break
+				}
+				if msg.IP != pfcpEndpoint.IP {
+					continue
+				}
+				found = true
+				gomega.Expect(msg.FibTable).To(gomega.BeEquivalentTo(0))
+			}
+			gomega.Expect(found).To(gomega.BeTrue())
+
+			pfcpEndpointReply := &upf.UpfPfcpEndpointAddDelReply{}
+			err := f.VPP.ApiChannel.SendRequest(pfcpEndpoint).ReceiveReply(pfcpEndpointReply)
+			gomega.Expect(err).To(gomega.BeNil())
+			reqCtx = f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPfcpEndpointDump{})
+			found = false
+			for {
+				msg := &upf.UpfPfcpEndpointDetails{}
+				stop, err := reqCtx.ReceiveReply(msg)
+				gomega.Expect(err).To(gomega.BeNil())
+				if stop {
+					break
+				}
+				if msg.IP != pfcpEndpoint.IP {
 					continue
 				}
 				found = true
