@@ -22,6 +22,8 @@ type RPCService interface {
 	UpfNatPoolDump(ctx context.Context, in *UpfNatPoolDump) (RPCService_UpfNatPoolDumpClient, error)
 	UpfNwiAddDel(ctx context.Context, in *UpfNwiAddDel) (*UpfNwiAddDelReply, error)
 	UpfNwiDump(ctx context.Context, in *UpfNwiDump) (RPCService_UpfNwiDumpClient, error)
+	UpfPfcpEndpointAddDel(ctx context.Context, in *UpfPfcpEndpointAddDel) (*UpfPfcpEndpointAddDelReply, error)
+	UpfPfcpEndpointDump(ctx context.Context, in *UpfPfcpEndpointDump) (RPCService_UpfPfcpEndpointDumpClient, error)
 	UpfPfcpFormat(ctx context.Context, in *UpfPfcpFormat) (*UpfPfcpFormatReply, error)
 	UpfPfcpReencode(ctx context.Context, in *UpfPfcpReencode) (*UpfPfcpReencodeReply, error)
 	UpfPolicyAddDel(ctx context.Context, in *UpfPolicyAddDel) (*UpfPolicyAddDelReply, error)
@@ -230,6 +232,54 @@ func (c *serviceClient_UpfNwiDumpClient) Recv() (*UpfNwiDetails, error) {
 	}
 	switch m := msg.(type) {
 	case *UpfNwiDetails:
+		return m, nil
+	case *vpe.ControlPingReply:
+		return nil, io.EOF
+	default:
+		return nil, fmt.Errorf("unexpected message: %T %v", m, m)
+	}
+}
+
+func (c *serviceClient) UpfPfcpEndpointAddDel(ctx context.Context, in *UpfPfcpEndpointAddDel) (*UpfPfcpEndpointAddDelReply, error) {
+	out := new(UpfPfcpEndpointAddDelReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, api.RetvalToVPPApiError(out.Retval)
+}
+
+func (c *serviceClient) UpfPfcpEndpointDump(ctx context.Context, in *UpfPfcpEndpointDump) (RPCService_UpfPfcpEndpointDumpClient, error) {
+	stream, err := c.conn.NewStream(ctx)
+	if err != nil {
+		return nil, err
+	}
+	x := &serviceClient_UpfPfcpEndpointDumpClient{stream}
+	if err := x.Stream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err = x.Stream.SendMsg(&vpe.ControlPing{}); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RPCService_UpfPfcpEndpointDumpClient interface {
+	Recv() (*UpfPfcpEndpointDetails, error)
+	api.Stream
+}
+
+type serviceClient_UpfPfcpEndpointDumpClient struct {
+	api.Stream
+}
+
+func (c *serviceClient_UpfPfcpEndpointDumpClient) Recv() (*UpfPfcpEndpointDetails, error) {
+	msg, err := c.Stream.RecvMsg()
+	if err != nil {
+		return nil, err
+	}
+	switch m := msg.(type) {
+	case *UpfPfcpEndpointDetails:
 		return m, nil
 	case *vpe.ControlPingReply:
 		return nil, io.EOF

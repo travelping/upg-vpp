@@ -28,12 +28,14 @@
 #include <upf/upf.h>
 #include <upf/upf_app_db.h>
 #include <upf/upf_pfcp_server.h>
+#include <upf/upf_pfcp.h>
 
 #include <vnet/format_fns.h>
 #include <upf/upf.api_enum.h>
 #include <upf/upf.api_types.h>
 #include <vnet/fib/fib_api.h>
 #include <vnet/fib/fib_path.h>
+#include <vnet/ip/ip6_hop_by_hop.h>
 
 #define REPLY_MSG_ID_BASE sm->msg_id_base
 #include <vlibapi/api_helper_macros.h>
@@ -553,6 +555,90 @@ vl_api_upf_nwi_dump_t_handler (vl_api_upf_nwi_dump_t * mp)
   {
     send_upf_nwi_details (reg, nwi, mp->context);
   }
+}
+
+/* API message handler */
+static void
+vl_api_upf_pfcp_endpoint_add_del_t_handler (vl_api_upf_pfcp_endpoint_add_del_t
+					    * mp)
+{
+  vl_api_upf_pfcp_endpoint_add_del_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  u32 vrf;
+  u32 fib_index = 0;
+  u8 is_add;
+  ip46_address_t ip_addr;
+  int rv = 0;
+
+  is_add = mp->is_add;
+  vrf = clib_net_to_host_u32 (mp->table_id);
+
+  ip_address_decode (&mp->ip, &ip_addr);
+  if (ip46_address_is_zero (&ip_addr))
+    {
+      rv = 1;
+      clib_warning ("IP should be provided");
+      goto out;
+    }
+
+  if (vrf != ~0)
+    {
+      fib_index =
+	fib_table_find (fib_ip_proto (!ip46_address_is_ip4 (&ip_addr)), vrf);
+      if (fib_index == ~0)
+	{
+	  rv = 1;
+	  clib_warning ("nonexistent vrf %d", vrf);
+	  goto out;
+	}
+    }
+
+  rv = vnet_upf_pfcp_endpoint_add_del (&ip_addr, fib_index, is_add);
+
+out:
+
+  REPLY_MACRO (VL_API_UPF_PFCP_ENDPOINT_ADD_DEL_REPLY);
+}
+
+static void
+send_upf_pfcp_endpoint_details (vl_api_registration_t * reg,
+				ip46_address_fib_t * key, u32 context)
+{
+  vl_api_upf_pfcp_endpoint_details_t *mp;
+  upf_main_t *sm = &upf_main;
+
+  mp = vl_msg_api_alloc (sizeof (*mp));
+  clib_memset (mp, 0, sizeof (*mp));
+
+  mp->_vl_msg_id = htons (VL_API_UPF_PFCP_ENDPOINT_DETAILS + sm->msg_id_base);
+  mp->context = context;
+
+  mp->fib_table = htonl (key->fib_index);
+  ip_address_encode (&key->addr, IP46_TYPE_ANY, &mp->ip);
+
+  vl_api_send_msg (reg, (u8 *) mp);
+}
+
+/* API message handler */
+static void
+vl_api_upf_pfcp_endpoint_dump_t_handler (vl_api_upf_pfcp_endpoint_dump_t * mp)
+{
+  upf_main_t *sm = &upf_main;
+  vl_api_registration_t *reg;
+  ip46_address_fib_t *key;
+  uword *v;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    {
+      return;
+    }
+  /* *INDENT-OFF* */
+  mhash_foreach(key, v, &sm->pfcp_endpoint_index,
+  ({
+    send_upf_pfcp_endpoint_details (reg, key, mp->context);
+  }));
+  /* *INDENT-ON* */
 }
 
 #include <upf/upf.api.c>
