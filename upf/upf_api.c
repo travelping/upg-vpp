@@ -40,6 +40,13 @@
 #define REPLY_MSG_ID_BASE sm->msg_id_base
 #include <vlibapi/api_helper_macros.h>
 
+#if CLIB_DEBUG > 1
+#define upf_debug clib_warning
+#else
+#define upf_debug(...)                          \
+  do { } while (0)
+#endif
+
 /* API message handler */
 static void
 vl_api_upf_app_add_del_t_handler (vl_api_upf_app_add_del_t * mp)
@@ -494,8 +501,8 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
   ip6_table_id = clib_net_to_host_u32 (mp->ip6_table_id);
   if (!ip4_table_id && !ip6_table_id)
     {
-      clib_warning ("At least one of ip[46]_table_id should be defined");
-      rv = 1;
+      upf_debug ("At least one of ip[46]_table_id should be defined");
+      rv = VNET_API_ERROR_INVALID_VALUE;
       goto out;
     }
 
@@ -576,8 +583,8 @@ vl_api_upf_pfcp_endpoint_add_del_t_handler (vl_api_upf_pfcp_endpoint_add_del_t
   ip_address_decode (&mp->ip, &ip_addr);
   if (ip46_address_is_zero (&ip_addr))
     {
-      rv = 1;
-      clib_warning ("IP should be provided");
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      upf_debug ("IP should be provided");
       goto out;
     }
 
@@ -587,8 +594,8 @@ vl_api_upf_pfcp_endpoint_add_del_t_handler (vl_api_upf_pfcp_endpoint_add_del_t
 	fib_table_find (fib_ip_proto (!ip46_address_is_ip4 (&ip_addr)), vrf);
       if (fib_index == ~0)
 	{
-	  rv = 1;
-	  clib_warning ("nonexistent vrf %d", vrf);
+	  rv = VNET_API_ERROR_NO_SUCH_TABLE;
+	  upf_debug ("nonexistent vrf %d", vrf);
 	  goto out;
 	}
     }
@@ -639,6 +646,77 @@ vl_api_upf_pfcp_endpoint_dump_t_handler (vl_api_upf_pfcp_endpoint_dump_t * mp)
     send_upf_pfcp_endpoint_details (reg, key, mp->context);
   }));
   /* *INDENT-ON* */
+}
+
+/* API message handler */
+static void
+vl_api_upf_pfcp_server_set_t_handler (vl_api_upf_pfcp_server_set_t * mp)
+{
+  vl_api_upf_pfcp_server_set_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  u32 fifo_size = 0;
+  u32 prealloc_fifos = 0;
+  u64 segment_size = 0;
+  int rv = 0;
+
+  /* We get segment size in MB */
+  segment_size = (u64) clib_net_to_host_u32 (mp->segment_size);
+  segment_size <<= 20;
+
+  if (segment_size >= 0x100000000ULL)
+    {
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      upf_debug ("Segment size is too large");
+      goto out;
+    }
+
+  /* We get fifo_size in KB */
+  fifo_size = clib_net_to_host_u32 (mp->fifo_size);
+  fifo_size <<= 10;
+  prealloc_fifos = clib_net_to_host_u32 (mp->prealloc_fifos);
+
+  rv =
+    pfcp_session_server_apply_config (segment_size, prealloc_fifos,
+				      fifo_size);
+
+out:
+
+  REPLY_MACRO (VL_API_UPF_PFCP_SERVER_SET_REPLY);
+}
+
+/* API message handler */
+static void
+vl_api_upf_pfcp_server_show_t_handler (vl_api_upf_pfcp_server_show_t * mp)
+{
+  vl_api_upf_pfcp_server_show_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  vl_api_registration_t *reg;
+  u32 fifo_size = 0;
+  u32 prealloc_fifos = 0;
+  u64 segment_size = 0;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    {
+      return;
+    }
+
+  rmp = vl_msg_api_alloc (sizeof (*rmp));
+  clib_memset (rmp, 0, sizeof (*rmp));
+
+  rmp->_vl_msg_id =
+    htons (VL_API_UPF_PFCP_SERVER_SHOW_REPLY + sm->msg_id_base);
+  rmp->context = mp->context;
+
+  pfcp_session_server_get_config (&segment_size, &prealloc_fifos, &fifo_size);
+
+  segment_size >>= 20;
+  rmp->segment_size = htonl ((u32) segment_size);
+  fifo_size >>= 10;
+  rmp->fifo_size = htonl (fifo_size);
+  rmp->prealloc_fifos = htonl (prealloc_fifos);
+
+  vl_api_send_msg (reg, (u8 *) rmp);
 }
 
 #include <upf/upf.api.c>

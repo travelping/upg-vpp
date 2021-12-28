@@ -556,7 +556,6 @@ var _ = ginkgo.Describe("Binapi", func() {
 			msg := &upf.UpfPolicyDetails{}
 			_, err = reqCtx.ReceiveReply(msg)
 			gomega.Expect(err).NotTo(gomega.BeNil())
-
 		})
 	})
 	ginkgo.Context("for NWIs", func() {
@@ -625,7 +624,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 			pfcpEndpoint.IP = ipAddr
 
 			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPfcpEndpointDump{})
-			var found = false
+			found := false
 
 			for {
 				msg := &upf.UpfPfcpEndpointDetails{}
@@ -660,6 +659,28 @@ var _ = ginkgo.Describe("Binapi", func() {
 				found = true
 			}
 			gomega.Expect(found).To(gomega.BeFalse())
+		})
+	})
+	ginkgo.Context("for PFCP Session Server", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("Configures PFCP Server", func() {
+
+			sessionServerCfg := &upf.UpfPfcpServerSet{
+				FifoSize: 512, // KB
+				SegmentSize: 512, // MB
+			}
+			reply := &upf.UpfPfcpServerSetReply{}
+
+			err := f.VPP.ApiChannel.SendRequest(sessionServerCfg).ReceiveReply(reply)
+			// TODO: This will return error, need to change configuration mechanism of UPGMode to binapi
+			gomega.Expect(err).NotTo(gomega.BeNil())
+
+			showRequest := &upf.UpfPfcpServerShow{}
+			showReply := &upf.UpfPfcpServerShowReply{}
+			err = f.VPP.ApiChannel.SendRequest(showRequest).ReceiveReply(showReply)
+			gomega.Expect(err).To(gomega.BeNil())
+			gomega.Expect(showReply.FifoSize).To(gomega.BeEquivalentTo(512)) // KB
+			gomega.Expect(showReply.PreallocFifos).To(gomega.BeEquivalentTo(0))
 		})
 	})
 })

@@ -257,3 +257,24 @@ define upf_pfcp_endpoint_dump {
   u32 client_index;
   u32 context;
 };
+
+autoreply define upf_pfcp_server_set {
+  u32 client_index;
+  u32 context;
+  u32 fifo_size;  /* in KB */
+  u32 prealloc_fifos;
+  u32 segment_size; /* in MB */
+};
+
+define upf_pfcp_server_show {
+  u32 client_index;
+  u32 context;
+};
+
+define upf_pfcp_server_show_reply {
+  u32 client_index;
+  u32 context;
+  u32 fifo_size;  /* in KB */
+  u32 prealloc_fifos;
+  u32 segment_size; /* in MB */
+};

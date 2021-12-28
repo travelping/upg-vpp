@@ -26,6 +26,8 @@ type RPCService interface {
 	UpfPfcpEndpointDump(ctx context.Context, in *UpfPfcpEndpointDump) (RPCService_UpfPfcpEndpointDumpClient, error)
 	UpfPfcpFormat(ctx context.Context, in *UpfPfcpFormat) (*UpfPfcpFormatReply, error)
 	UpfPfcpReencode(ctx context.Context, in *UpfPfcpReencode) (*UpfPfcpReencodeReply, error)
+	UpfPfcpServerSet(ctx context.Context, in *UpfPfcpServerSet) (*UpfPfcpServerSetReply, error)
+	UpfPfcpServerShow(ctx context.Context, in *UpfPfcpServerShow) (*UpfPfcpServerShowReply, error)
 	UpfPolicyAddDel(ctx context.Context, in *UpfPolicyAddDel) (*UpfPolicyAddDelReply, error)
 	UpfPolicyDump(ctx context.Context, in *UpfPolicyDump) (RPCService_UpfPolicyDumpClient, error)
 	UpfUpdateApp(ctx context.Context, in *UpfUpdateApp) (*UpfUpdateAppReply, error)
@@ -304,6 +306,24 @@ func (c *serviceClient) UpfPfcpReencode(ctx context.Context, in *UpfPfcpReencode
 		return nil, err
 	}
 	return out, api.RetvalToVPPApiError(out.Retval)
+}
+
+func (c *serviceClient) UpfPfcpServerSet(ctx context.Context, in *UpfPfcpServerSet) (*UpfPfcpServerSetReply, error) {
+	out := new(UpfPfcpServerSetReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, api.RetvalToVPPApiError(out.Retval)
+}
+
+func (c *serviceClient) UpfPfcpServerShow(ctx context.Context, in *UpfPfcpServerShow) (*UpfPfcpServerShowReply, error) {
+	out := new(UpfPfcpServerShowReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *serviceClient) UpfPolicyAddDel(ctx context.Context, in *UpfPolicyAddDel) (*UpfPolicyAddDelReply, error) {

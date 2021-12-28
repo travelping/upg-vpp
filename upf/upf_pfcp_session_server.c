@@ -323,6 +323,39 @@ vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index, u8 add)
   return rv;
 }
 
+int
+pfcp_session_server_apply_config (u64 segment_size, u32 prealloc_fifos,
+				  u32 fifo_size)
+{
+  pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
+
+  if (pssm->app_index != (u32) ~ 0)
+    {
+      clib_warning ("PFCP Server already running");
+      return 1;
+    }
+
+  if (segment_size)
+    pssm->private_segment_size = segment_size;
+  if (prealloc_fifos)
+    pssm->prealloc_fifos = prealloc_fifos;
+  if (fifo_size)
+    pssm->fifo_size = fifo_size;
+
+  return 0;
+}
+
+void
+pfcp_session_server_get_config (u64 * segment_size, u32 * prealloc_fifos,
+				u32 * fifo_size)
+{
+  pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
+
+  *segment_size = pssm->private_segment_size;
+  *prealloc_fifos = pssm->prealloc_fifos;
+  *fifo_size = pssm->fifo_size;
+}
+
 static clib_error_t *
 pfcp_session_server_set_command_fn (vlib_main_t * vm,
 				    unformat_input_t * input,
@@ -360,12 +393,8 @@ pfcp_session_server_set_command_fn (vlib_main_t * vm,
     }
   unformat_free (line_input);
 
-  if (pssm->app_index != (u32) ~ 0)
+  if (pfcp_session_server_apply_config (seg_size, prealloc_fifos, fifo_size))
     return clib_error_return (0, "test pfcp server is already running");
-
-  pssm->prealloc_fifos = prealloc_fifos;
-  pssm->fifo_size = fifo_size;
-  pssm->private_segment_size = seg_size;
 
   return 0;
 }

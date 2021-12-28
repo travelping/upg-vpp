@@ -2,13 +2,13 @@
 // versions:
 //  binapi-generator: v0.4.0-dev
 //  VPP:              unknown
-// source: input_dir/plugins/upf.api.json
+// source: input/api/plugins/upf.api.json
 
 // Package upf contains generated bindings for API file upf.api.
 //
 // Contents:
 //   1 struct
-//  36 messages
+//  40 messages
 //
 package upf
 
@@ -29,7 +29,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0xe897f57e
+	VersionCrc = 0x188938fe
 )
 
 // UpfL7Rule defines type 'upf_l7_rule'.
@@ -1024,6 +1024,148 @@ func (m *UpfPfcpReencodeReply) Unmarshal(b []byte) error {
 	return nil
 }
 
+// UpfPfcpServerSet defines message 'upf_pfcp_server_set'.
+type UpfPfcpServerSet struct {
+	FifoSize      uint32 `binapi:"u32,name=fifo_size" json:"fifo_size,omitempty"`
+	PreallocFifos uint32 `binapi:"u32,name=prealloc_fifos" json:"prealloc_fifos,omitempty"`
+	SegmentSize   uint32 `binapi:"u32,name=segment_size" json:"segment_size,omitempty"`
+}
+
+func (m *UpfPfcpServerSet) Reset()               { *m = UpfPfcpServerSet{} }
+func (*UpfPfcpServerSet) GetMessageName() string { return "upf_pfcp_server_set" }
+func (*UpfPfcpServerSet) GetCrcString() string   { return "747f398b" }
+func (*UpfPfcpServerSet) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfPfcpServerSet) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.FifoSize
+	size += 4 // m.PreallocFifos
+	size += 4 // m.SegmentSize
+	return size
+}
+func (m *UpfPfcpServerSet) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeUint32(m.FifoSize)
+	buf.EncodeUint32(m.PreallocFifos)
+	buf.EncodeUint32(m.SegmentSize)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpServerSet) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.FifoSize = buf.DecodeUint32()
+	m.PreallocFifos = buf.DecodeUint32()
+	m.SegmentSize = buf.DecodeUint32()
+	return nil
+}
+
+// UpfPfcpServerSetReply defines message 'upf_pfcp_server_set_reply'.
+type UpfPfcpServerSetReply struct {
+	Retval int32 `binapi:"i32,name=retval" json:"retval,omitempty"`
+}
+
+func (m *UpfPfcpServerSetReply) Reset()               { *m = UpfPfcpServerSetReply{} }
+func (*UpfPfcpServerSetReply) GetMessageName() string { return "upf_pfcp_server_set_reply" }
+func (*UpfPfcpServerSetReply) GetCrcString() string   { return "e8d4e804" }
+func (*UpfPfcpServerSetReply) GetMessageType() api.MessageType {
+	return api.ReplyMessage
+}
+
+func (m *UpfPfcpServerSetReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Retval
+	return size
+}
+func (m *UpfPfcpServerSetReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeInt32(m.Retval)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpServerSetReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Retval = buf.DecodeInt32()
+	return nil
+}
+
+// UpfPfcpServerShow defines message 'upf_pfcp_server_show'.
+type UpfPfcpServerShow struct{}
+
+func (m *UpfPfcpServerShow) Reset()               { *m = UpfPfcpServerShow{} }
+func (*UpfPfcpServerShow) GetMessageName() string { return "upf_pfcp_server_show" }
+func (*UpfPfcpServerShow) GetCrcString() string   { return "51077d14" }
+func (*UpfPfcpServerShow) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfPfcpServerShow) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	return size
+}
+func (m *UpfPfcpServerShow) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpServerShow) Unmarshal(b []byte) error {
+	return nil
+}
+
+// UpfPfcpServerShowReply defines message 'upf_pfcp_server_show_reply'.
+type UpfPfcpServerShowReply struct {
+	FifoSize      uint32 `binapi:"u32,name=fifo_size" json:"fifo_size,omitempty"`
+	PreallocFifos uint32 `binapi:"u32,name=prealloc_fifos" json:"prealloc_fifos,omitempty"`
+	SegmentSize   uint32 `binapi:"u32,name=segment_size" json:"segment_size,omitempty"`
+}
+
+func (m *UpfPfcpServerShowReply) Reset()               { *m = UpfPfcpServerShowReply{} }
+func (*UpfPfcpServerShowReply) GetMessageName() string { return "upf_pfcp_server_show_reply" }
+func (*UpfPfcpServerShowReply) GetCrcString() string   { return "747f398b" }
+func (*UpfPfcpServerShowReply) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfPfcpServerShowReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.FifoSize
+	size += 4 // m.PreallocFifos
+	size += 4 // m.SegmentSize
+	return size
+}
+func (m *UpfPfcpServerShowReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeUint32(m.FifoSize)
+	buf.EncodeUint32(m.PreallocFifos)
+	buf.EncodeUint32(m.SegmentSize)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpServerShowReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.FifoSize = buf.DecodeUint32()
+	m.PreallocFifos = buf.DecodeUint32()
+	m.SegmentSize = buf.DecodeUint32()
+	return nil
+}
+
 // UpfPolicyAddDel defines message 'upf_policy_add_del'.
 type UpfPolicyAddDel struct {
 	Action     uint8               `binapi:"u8,name=action" json:"action,omitempty"`
@@ -1436,6 +1578,10 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfPfcpFormatReply)(nil), "upf_pfcp_format_reply_8706f872")
 	api.RegisterMessage((*UpfPfcpReencode)(nil), "upf_pfcp_reencode_d522d6e1")
 	api.RegisterMessage((*UpfPfcpReencodeReply)(nil), "upf_pfcp_reencode_reply_68800422")
+	api.RegisterMessage((*UpfPfcpServerSet)(nil), "upf_pfcp_server_set_747f398b")
+	api.RegisterMessage((*UpfPfcpServerSetReply)(nil), "upf_pfcp_server_set_reply_e8d4e804")
+	api.RegisterMessage((*UpfPfcpServerShow)(nil), "upf_pfcp_server_show_51077d14")
+	api.RegisterMessage((*UpfPfcpServerShowReply)(nil), "upf_pfcp_server_show_reply_747f398b")
 	api.RegisterMessage((*UpfPolicyAddDel)(nil), "upf_policy_add_del_b84d515c")
 	api.RegisterMessage((*UpfPolicyAddDelReply)(nil), "upf_policy_add_del_reply_e8d4e804")
 	api.RegisterMessage((*UpfPolicyDetails)(nil), "upf_policy_details_8b4efe84")
@@ -1473,6 +1619,10 @@ func AllMessages() []api.Message {
 		(*UpfPfcpFormatReply)(nil),
 		(*UpfPfcpReencode)(nil),
 		(*UpfPfcpReencodeReply)(nil),
+		(*UpfPfcpServerSet)(nil),
+		(*UpfPfcpServerSetReply)(nil),
+		(*UpfPfcpServerShow)(nil),
+		(*UpfPfcpServerShowReply)(nil),
 		(*UpfPolicyAddDel)(nil),
 		(*UpfPolicyAddDelReply)(nil),
 		(*UpfPolicyDetails)(nil),
