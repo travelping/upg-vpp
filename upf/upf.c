@@ -210,7 +210,6 @@ vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
     .mask = mask
   };
   uword *p;
-  u8 *unformat_nwi;
 
   if (name)
     {

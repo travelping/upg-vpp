@@ -183,10 +183,11 @@ define upf_nat_pool_details {
   u32 context;
 
   u8 name[64];
-  u8 nwi[64];
   u16 block_size;
   u32 max_users;
   u32 current_users;
+  u8 nwi_len;
+  u8 nwi[nwi_len];
 };
 
 define upf_nat_pool_dump {
@@ -220,17 +221,19 @@ autoreply define upf_nwi_add_del {
   u32 client_index;
   u32 context;
   u8 add;
-  string name[64];
   u32 ip4_table_id;
   u32 ip6_table_id;
+  u8 nwi_len;
+  u8 nwi[nwi_len];
 };
 
 define upf_nwi_details {
   u32 client_index;
   u32 context;
-  string name[64];
   u32 ip4_fib_table;
   u32 ip6_fib_table;
+  u8 nwi_len;
+  u8 nwi[nwi_len];
 };
 
 define upf_nwi_dump {

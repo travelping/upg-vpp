@@ -507,6 +507,47 @@ func describePDRReplacement(f *framework.Framework) {
 		})
 	})
 }
+// TODO: This functions are copied from https://github.com/wmnsk/go-pfcp/blob/master/internal/utils/utils.go
+// We have to update our fork of go-pfcp or use upstream one to use functions below as utils
+// EncodeFQDN encodes the given string as the Name Syntax defined
+// in RFC 2181, RFC 1035 and RFC 1123.
+func EncodeFQDN(fqdn string) []byte {
+	b := make([]byte, len(fqdn)+1)
+
+	var offset = 0
+	for _, label := range strings.Split(fqdn, ".") {
+		l := len(label)
+		b[offset] = uint8(l)
+		copy(b[offset+1:], label)
+		offset += l + 1
+	}
+
+	return b
+}
+
+// DecodeFQDN decodes the given Name Syntax-encoded []byte as
+// a string.
+func DecodeFQDN(b []byte) string {
+	var (
+		fqdn   []string
+		offset int
+	)
+
+	max := len(b)
+	for {
+		if offset >= max {
+			break
+		}
+		l := int(b[offset])
+		if offset+l+1 > max {
+			break
+		}
+		fqdn = append(fqdn, string(b[offset+1:offset+l+1]))
+		offset += l + 1
+	}
+
+	return strings.Join(fqdn, ".")
+}
 
 // TODO:
 // Some of Binapi test cases belong will be removed by enabling different kind of VPP configuration
@@ -562,10 +603,10 @@ var _ = ginkgo.Describe("Binapi", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.It("adds, removes and lists the NWI", func() {
 			nwi := &upf.UpfNwiAddDel{
-				IP4TableID: 200,
-				Name:       "testing",
-				Add:        1,
+				IP4TableID:  200,
+				Add:  1,
 			}
+			nwi.Nwi = EncodeFQDN("testing")
 			nwiReply := &upf.UpfNwiAddDelReply{}
 			err := f.VPP.ApiChannel.SendRequest(nwi).ReceiveReply(nwiReply)
 			gomega.Expect(err).To(gomega.BeNil())
@@ -579,7 +620,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if msg.Name != "testing" {
+				if DecodeFQDN(msg.Nwi) != "testing" {
 					continue
 				}
 				found = true
@@ -600,7 +641,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if msg.Name != "testing" {
+				if DecodeFQDN(msg.Nwi) != "testing" {
 					continue
 				}
 				found = true

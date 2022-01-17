@@ -331,13 +331,17 @@ send_upf_nat_pool_details (vl_api_registration_t * reg,
   vl_api_upf_nat_pool_details_t *mp;
   upf_main_t *sm = &upf_main;
   upf_nat_addr_t *ap;
-  u8 *nwi_name = 0;
   u32 len;
   u32 max_users = 0;
   u32 current_users = 0;
 
-  mp = vl_msg_api_alloc (sizeof (*mp));
-  clib_memset (mp, 0, sizeof (*mp));
+  len = vec_len (np->network_instance);
+
+  mp = vl_msg_api_alloc (sizeof (*mp) + len * sizeof (u8));
+  clib_memset (mp, 0, sizeof (*mp) + len * sizeof (u8));
+
+  memcpy (mp->nwi, np->network_instance, len);
+  mp->nwi_len = len;
 
   mp->_vl_msg_id = htons (VL_API_UPF_NAT_POOL_DETAILS + sm->msg_id_base);
   mp->context = context;
@@ -345,12 +349,6 @@ send_upf_nat_pool_details (vl_api_registration_t * reg,
   len = clib_min (sizeof (mp->name) - 1, vec_len (np->name));
   memcpy (mp->name, np->name, len);
   mp->name[len] = 0;
-
-  nwi_name = format (nwi_name, "%U", format_dns_labels, np->network_instance);
-  len = clib_min (sizeof (mp->nwi) - 1, vec_len (nwi_name));
-  memcpy (mp->nwi, nwi_name, len);
-  mp->nwi[len] = 0;
-  vec_free (nwi_name);
 
   max_users = vec_len (np->addresses) * np->max_blocks_per_addr;
   mp->max_users = htonl (max_users);
@@ -486,17 +484,13 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
 {
   vl_api_upf_nwi_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
-  u8 *name = 0;
   u8 *nwi_name = 0;
   u32 ip4_table_id = 0;
   u32 ip6_table_id = 0;
   int rv = 0;
 
-  /* Make sure name is null terminated */
-  mp->name[sizeof (mp->name) - 1] = 0;
-  name = format (0, "%s", mp->name);
-  nwi_name = upf_name_to_labels (name);
-  vec_free (name);
+  vec_validate (nwi_name, mp->nwi_len - 1);
+  memcpy (nwi_name, mp->nwi, mp->nwi_len);
   ip4_table_id = clib_net_to_host_u32 (mp->ip4_table_id);
   ip6_table_id = clib_net_to_host_u32 (mp->ip6_table_id);
   if (!ip4_table_id && !ip6_table_id)
@@ -523,23 +517,19 @@ send_upf_nwi_details (vl_api_registration_t * reg,
 {
   vl_api_upf_nwi_details_t *mp;
   upf_main_t *sm = &upf_main;
-  u8 *nwi_name = 0;
   u8 len;
 
-  mp = vl_msg_api_alloc (sizeof (*mp));
-  clib_memset (mp, 0, sizeof (*mp));
+  len = vec_len (nwi->name);
+  mp = vl_msg_api_alloc (sizeof (*mp) + len * sizeof (u8));
+  clib_memset (mp, 0, sizeof (*mp) + len * sizeof (u8));
 
   mp->_vl_msg_id = htons (VL_API_UPF_NWI_DETAILS + sm->msg_id_base);
   mp->context = context;
-
-  nwi_name = format (nwi_name, "%U", format_dns_labels, nwi->name);
-  len = clib_min (sizeof (mp->name) - 1, vec_len (nwi_name));
-  memcpy (mp->name, nwi_name, len);
-  mp->name[len] = 0;
-  vec_free (nwi_name);
-
   mp->ip4_fib_table = htonl (nwi->fib_index[FIB_PROTOCOL_IP4]);
   mp->ip6_fib_table = htonl (nwi->fib_index[FIB_PROTOCOL_IP6]);
+
+  memcpy (mp->nwi, nwi->name, len);
+  mp->nwi_len = len;
 
   vl_api_send_msg (reg, (u8 *) mp);
 }
@@ -661,17 +651,22 @@ vl_api_upf_pfcp_server_set_t_handler (vl_api_upf_pfcp_server_set_t * mp)
 
   /* We get segment size in MB */
   segment_size = (u64) clib_net_to_host_u32 (mp->segment_size);
-  segment_size <<= 20;
-
-  if (segment_size >= 0x100000000ULL)
+  if (segment_size >= 0x1000)
     {
       rv = VNET_API_ERROR_INVALID_VALUE;
       upf_debug ("Segment size is too large");
       goto out;
     }
+  segment_size <<= 20;
 
   /* We get fifo_size in KB */
   fifo_size = clib_net_to_host_u32 (mp->fifo_size);
+  if (fifo_size >= 0x100000)
+    {
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      upf_debug ("FIFO size is too large");
+      goto out;
+    }
   fifo_size <<= 10;
   prealloc_fifos = clib_net_to_host_u32 (mp->prealloc_fifos);
 
