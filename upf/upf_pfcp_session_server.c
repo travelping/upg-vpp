@@ -335,12 +335,9 @@ pfcp_session_server_apply_config (u64 segment_size, u32 prealloc_fifos,
       return 1;
     }
 
-  if (segment_size)
-    pssm->private_segment_size = segment_size;
-  if (prealloc_fifos)
-    pssm->prealloc_fifos = prealloc_fifos;
-  if (fifo_size)
-    pssm->fifo_size = fifo_size;
+  pssm->private_segment_size = segment_size;
+  pssm->prealloc_fifos = prealloc_fifos;
+  pssm->fifo_size = fifo_size;
 
   return 0;
 }
