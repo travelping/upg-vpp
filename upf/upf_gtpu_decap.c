@@ -259,6 +259,7 @@ upf_gtpu_input (vlib_main_t * vm,
 		       (&gtm->v4_tunnel_by_key, &kv, &value)))
 		    {
 		      error0 = UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+		      upf_gtpu_error_ind (b0, is_ip4);
 		      next0 = UPF_GTPU_INPUT_NEXT_DROP;
 		      goto trace0;
 		    }
@@ -297,6 +298,7 @@ upf_gtpu_input (vlib_main_t * vm,
 		       (&gtm->v6_tunnel_by_key, &kv, &value)))
 		    {
 		      error0 = UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+		      upf_gtpu_error_ind (b0, is_ip4);
 		      next0 = UPF_GTPU_INPUT_NEXT_DROP;
 		      goto trace0;
 		    }
@@ -445,6 +447,7 @@ upf_gtpu_input (vlib_main_t * vm,
 		       (&gtm->v4_tunnel_by_key, &kv, &value)))
 		    {
 		      error1 = UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+		      upf_gtpu_error_ind (b1, is_ip4);
 		      next1 = UPF_GTPU_INPUT_NEXT_DROP;
 		      goto trace1;
 		    }
@@ -483,6 +486,7 @@ upf_gtpu_input (vlib_main_t * vm,
 		       (&gtm->v6_tunnel_by_key, &kv, &value)))
 		    {
 		      error1 = UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+		      upf_gtpu_error_ind (b1, is_ip4);
 		      next1 = UPF_GTPU_INPUT_NEXT_DROP;
 		      goto trace1;
 		    }
@@ -683,6 +687,7 @@ upf_gtpu_input (vlib_main_t * vm,
 		       (&gtm->v4_tunnel_by_key, &kv, &value)))
 		    {
 		      error0 = UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+		      upf_gtpu_error_ind (b0, is_ip4);
 		      next0 = UPF_GTPU_INPUT_NEXT_DROP;
 		      goto trace00;
 		    }
@@ -721,6 +726,7 @@ upf_gtpu_input (vlib_main_t * vm,
 		       (&gtm->v6_tunnel_by_key, &kv, &value)))
 		    {
 		      error0 = UPF_GTPU_ERROR_NO_SUCH_TUNNEL;
+		      upf_gtpu_error_ind (b0, is_ip4);
 		      next0 = UPF_GTPU_INPUT_NEXT_DROP;
 		      goto trace00;
 		    }

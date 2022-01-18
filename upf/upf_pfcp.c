@@ -1732,7 +1732,7 @@ build_urr_link_map (upf_session_t * sx)
   }
 }
 
-static void
+void
 upf_ip_lookup_tx (u32 bi, int is_ip4)
 {
   vlib_main_t *vm = vlib_get_main ();

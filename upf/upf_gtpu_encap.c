@@ -58,6 +58,272 @@ typedef enum
 } upf_encap_next_t;
 
 #ifndef CLIB_MARCH_VARIANT
+static u16
+encode_ext_header_udp_port (vlib_buffer_t * b, u16 udp_port)
+{
+  u8 *p = vlib_buffer_get_current (b);
+  gtpu_ext_header_t *hdr = (gtpu_ext_header_t *)p;
+
+  hdr->type = GTPU_EXT_HEADER_UDP_PORT;
+  hdr->len = 1;   /* in 4 byte units */
+  *((u16 *)&hdr->pad) = udp_port; /* already in net order */
+  hdr++;
+
+  hdr->type = GTPU_EXT_HEADER_NEXT_HEADER_NO_MORE;
+  b->current_length = sizeof (*hdr) + sizeof (hdr->type);
+
+  return b->current_length;
+}
+
+static u16
+encode_error_indication (vlib_buffer_t * b, gtp_error_ind_t * error, int is_ip4)
+{
+  u8 *p = vlib_buffer_get_current (b);
+  u8 *start = vlib_buffer_get_current (b);
+
+  gtpu_tv_ie_t *tv_ie;
+  gtpu_tlv_ie_t *tlv_ie;
+
+  tv_ie = (gtpu_tv_ie_t *)p;
+  tv_ie->id = GTPU_IE_TEID_I;
+  *((u32 *)&tv_ie->data) = error->teid;
+  p += sizeof(*tv_ie) + sizeof (u32);
+
+  tv_ie = (gtpu_tv_ie_t *)p;
+  tv_ie->id = GTPU_IE_RECOVERY;
+  *((u8 *)&tv_ie->data) = 0;
+  p += sizeof(*tv_ie) + sizeof (u8);
+
+  tlv_ie = (gtpu_tlv_ie_t *)p;
+  tlv_ie->id = GTPU_IE_GSN_ADDRESS;
+  if (is_ip4)
+    {
+      tlv_ie->len = clib_host_to_net_u16(sizeof (ip4_address_t));
+      clib_memcpy_fast (&tlv_ie->data, &error->addr.ip4, sizeof (ip4_address_t));
+    }
+  else
+    {
+      tlv_ie->len = clib_host_to_net_u16(sizeof (ip6_address_t));
+      clib_memcpy_fast (&tlv_ie->data, &error->addr.ip6, sizeof (ip6_address_t));
+    }
+
+  p += sizeof(*tlv_ie) + clib_net_to_host_u16 (tlv_ie->len);
+  b->current_length = p - start;
+
+  return b->current_length; //bytes encoded
+}
+
+void
+upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4)
+{
+  ip4_main_t *i4m = &ip4_main;
+  ip6_main_t *i6m = &ip6_main;
+  upf_main_t *gtm = &upf_main;
+  vlib_main_t *vm = gtm->vlib_main;
+  u32 bi = 0;
+  gtp_error_ind_t error;
+  vlib_buffer_t *p0;
+  u16 len_p1, new_len1, new_ip_len1;
+  ip_csum_t sum1;
+  u32 fib_index1;
+  u16 gtp_len_encoded;
+  u16 ext_header_len;
+  u8 host_config_ttl = i4m->host_config.ttl;
+
+  if (vlib_buffer_alloc (vm, &bi, 1) != 1)
+    {
+      clib_warning ("No buffers available");
+      return;
+    }
+
+  p0 = vlib_get_buffer (vm, bi);
+  VLIB_BUFFER_TRACE_TRAJECTORY_INIT (p0);
+
+  /*
+   * b0 - received buffer, p0 - allocated buffer
+   * xxx0 header pointers used for b0
+   * xxx1 header pointers used for p1
+   */
+
+  if (is_ip4)
+    {
+      ip4_header_t *ip40, *ip41;
+      udp_header_t *udp0, *udp1;
+      gtpu_header_t *gtpu0, *gtpu1;
+
+      /* For ip46-lookup, set up FIB */
+      fib_index1 = vec_elt (i4m->fib_index_by_sw_if_index,
+			    vnet_buffer (b0)->sw_if_index[VLIB_RX]);
+      vnet_buffer (p0)->sw_if_index[VLIB_TX] = fib_index1;
+
+      /* Set buffer borders to include headers for now */
+      p0->current_length += sizeof (ip4_header_t) + sizeof (udp_header_t) + sizeof (gtpu_header_t);
+
+      vlib_buffer_reset (b0);
+      vlib_buffer_advance (b0, vnet_buffer (b0)->l4_hdr_offset);
+      gtpu0 = vlib_buffer_get_current (b0);
+
+      vlib_buffer_advance (b0, -(uword) (sizeof (ip4_header_t) + sizeof (udp_header_t)));
+      ip40 = vlib_buffer_get_current (b0);
+
+      udp0 = ip4_next_header (ip40);
+
+      ip41 = vlib_buffer_get_current (p0);
+      vlib_buffer_advance (p0, sizeof (ip4_header_t));
+      udp1 = vlib_buffer_get_current (p0);
+      vlib_buffer_advance (p0, sizeof (udp_header_t));
+      gtpu1 = vlib_buffer_get_current (p0);
+      // TODO: In a packet trace it looks fine, we can see p0 traced for TX
+      // But shouldn't we allocate new trace for it?
+      p0->trace_handle = b0->trace_handle;
+
+      /* Reuse IP settings of original packet */
+      memcpy (ip41, ip40, sizeof (ip4_header_t));
+
+      /* Swap addresses, save src addr to be encoded */
+      ip41->dst_address = ip40->src_address;
+      ip41->src_address = ip40->dst_address;
+      error.addr.ip4 = ip40->src_address;
+
+      /* Swap udp ports */
+      udp1->src_port = udp0->dst_port;
+      udp1->dst_port = clib_host_to_net_u16 (GTPU_UDP_PORT);
+
+      /* Fill GTPU info */
+      gtpu1->ver_flags = GTPU_V1_VER | GTPU_PT_GTP | GTPU_S_BIT | GTPU_E_BIT;
+      gtpu1->type = GTPU_TYPE_ERROR_IND;
+      gtpu1->sequence = 0;
+      gtpu1->teid = 0;
+      error.teid = gtpu0->teid; // Net order
+
+      /* Set pointer behind GTPU header to encode ext header UDP port */
+      gtp_len_encoded = sizeof (gtpu_header_t) - sizeof (gtpu1->next_ext_type);
+      vlib_buffer_advance (p0, gtp_len_encoded);
+      ext_header_len = encode_ext_header_udp_port (p0, udp0->src_port);
+
+      /* Set pointer behind GTPU ext header to encode IEs */
+      vlib_buffer_advance (p0, ext_header_len);
+      len_p1 = encode_error_indication (p0, &error, is_ip4);
+      /* GTPU mandatory fields are 8 bytes and are not included into payload */
+      gtpu1->length = clib_host_to_net_u16 (len_p1 + (ext_header_len - 1) + (sizeof (gtpu_header_t) - 8));
+
+      /* Calculate new IP length. */
+      new_len1 = ip4_header_bytes (ip41) + sizeof (udp_header_t) +
+		 gtp_len_encoded + ext_header_len + len_p1;
+
+      /* Update IP header fields and checksum. */
+      sum1 = ip41->checksum;
+
+      sum1 = ip_csum_update (sum1, ip41->ttl, host_config_ttl,
+			     ip4_header_t, ttl);
+      ip41->ttl = host_config_ttl;
+
+      new_ip_len1 = clib_host_to_net_u16 (new_len1);
+      sum1 = ip_csum_update (sum1, ip41->length, new_ip_len1,
+			     ip4_header_t, length);
+      ip41->length = new_ip_len1;
+      ip41->checksum = ip_csum_fold (sum1);
+      ip41->fragment_id = clib_net_to_host_u16 (1);
+
+      /* UDP length. */
+      udp1->length = clib_host_to_net_u16 (sizeof (udp_header_t) +
+					   gtp_len_encoded +
+					   len_p1 + ext_header_len);
+      /* UDP checksum. */
+      udp1->checksum = 0;
+      udp1->checksum = ip4_tcp_udp_compute_checksum (vm, p0, ip41);
+      if (udp1->checksum == 0)
+        udp1->checksum = 0xffff;
+
+      p0->flags |= VNET_BUFFER_F_LOCALLY_ORIGINATED;
+      p0->flags |= VLIB_BUFFER_IS_TRACED;
+
+      vlib_buffer_advance (p0, -(uword) (sizeof (ip4_header_t) + sizeof (udp_header_t) + gtp_len_encoded + ext_header_len));
+
+      /* Enqueue to IP Lookup */
+      upf_ip_lookup_tx (bi, is_ip4);
+    }
+  else
+    {
+      ip6_header_t *ip60, *ip61;
+      udp_header_t *udp0, *udp1;
+      gtpu_header_t *gtpu0, *gtpu1;
+      int bogus = 0;
+
+      /* For ip46-lookup, set up FIB */
+      fib_index1 = vec_elt (i6m->fib_index_by_sw_if_index,
+                                vnet_buffer (b0)->sw_if_index[VLIB_RX]);
+      vnet_buffer (p0)->sw_if_index[VLIB_TX] = fib_index1;
+
+      /* Set buffer borders to include headers for now */
+      p0->current_length += sizeof (ip6_header_t) + sizeof (udp_header_t) + sizeof (gtpu_header_t);
+
+      vlib_buffer_reset (b0);
+      vlib_buffer_advance (b0, vnet_buffer (b0)->l4_hdr_offset);
+      gtpu0 = vlib_buffer_get_current (b0);
+
+      vlib_buffer_advance (b0, -(uword) (sizeof (ip6_header_t) + sizeof (udp_header_t)));
+      ip60 = vlib_buffer_get_current (b0);
+
+      udp0 = ip6_next_header (ip60);
+
+      ip61 = vlib_buffer_get_current (p0);
+      vlib_buffer_advance (p0, sizeof (ip6_header_t));
+      udp1 = vlib_buffer_get_current (p0);
+      vlib_buffer_advance (p0, sizeof (udp_header_t));
+      gtpu1 = vlib_buffer_get_current (p0);
+      p0->trace_handle = b0->trace_handle;
+
+      /* Reuse IP settings of original packet */
+      memcpy (ip61, ip60, sizeof (ip6_header_t));
+
+      /* Swap addresses, save src addr to be encoded */
+      ip61->dst_address = ip60->src_address;
+      ip61->src_address = ip60->dst_address;
+      error.addr.ip6 = ip60->src_address;
+
+      /* Swap udp ports*/
+      udp1->src_port = udp0->dst_port;
+      udp1->dst_port = clib_host_to_net_u16 (GTPU_UDP_PORT);
+
+      /* Fill GTPU info */
+      gtpu1->ver_flags = GTPU_V1_VER | GTPU_PT_GTP | GTPU_S_BIT | GTPU_E_BIT;
+      gtpu1->type = GTPU_TYPE_ERROR_IND;
+      gtpu1->sequence = 0;
+      error.teid = gtpu0->teid; // Net order
+
+      /* Set pointer behind GTPU header to encode ext header UDP port */
+      gtp_len_encoded = sizeof (gtpu_header_t) - sizeof (gtpu1->next_ext_type);
+      vlib_buffer_advance (p0, gtp_len_encoded);
+      ext_header_len = encode_ext_header_udp_port (p0, udp0->src_port);
+
+      /* Set pointer behind GTPU ext header to encode IEs */
+      vlib_buffer_advance (p0, ext_header_len);
+      len_p1 = encode_error_indication (p0, &error, is_ip4);
+      gtpu1->length = clib_host_to_net_u16 (len_p1 + (ext_header_len - 1) + (sizeof (gtpu_header_t) - 8));
+
+      // Update checksums and length params for IP and UDP
+      /* Calculate new IP length. */
+      new_len1 = sizeof (udp_header_t) + gtp_len_encoded + len_p1 + ext_header_len;
+      ip61->payload_length = clib_host_to_net_u16 (new_len1);
+      /* UDP length. */
+      udp1->length = ip61->payload_length;
+      /* UDP checksum. */
+      udp1->checksum = 0;
+      udp1->checksum = ip6_tcp_udp_icmp_compute_checksum (vm, p0, ip61, &bogus);
+      if (udp1->checksum == 0)
+        udp1->checksum = 0xffff;
+
+      p0->flags |= VNET_BUFFER_F_LOCALLY_ORIGINATED;
+      p0->flags |= VLIB_BUFFER_IS_TRACED;
+
+      vlib_buffer_advance (p0, -(uword) (sizeof (ip6_header_t) + sizeof (udp_header_t) + gtp_len_encoded + ext_header_len));
+
+      /* Enqueue to IP Lookup */
+      upf_ip_lookup_tx (bi, is_ip4);
+    }
+}
+
 u32
 upf_gtpu_end_marker (u32 fib_index, u32 dpoi_index, u8 * rewrite, int is_ip4)
 {
