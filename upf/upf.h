@@ -186,9 +186,31 @@ typedef CLIB_PACKED (struct
 #define GTPU_TYPE_END_MARKER  254
 #define GTPU_TYPE_GTPU  255
 
+#define GTPU_UDP_PORT 2152
+
+#define GTPU_EXT_HEADER_UDP_PORT_LENGTH 1
+
+#define GTPU_EXT_HEADER_NEXT_HEADER_NO_MORE 0
+#define GTPU_EXT_HEADER_UDP_PORT 0x40
+
 #define GTPU_IE_RECOVERY 14
+#define GTPU_IE_TEID_I 16
+#define GTPU_IE_GSN_ADDRESS 133
 
 /* *INDENT-OFF* */
+typedef CLIB_PACKED(struct
+{
+  u8 id;
+  u8 data[];
+}) gtpu_tv_ie_t;
+
+typedef CLIB_PACKED(struct
+{
+  u8 id;
+  u16 len;
+  u8 data[];
+}) gtpu_tlv_ie_t;
+
 typedef CLIB_PACKED(struct
 {
   ip4_header_t ip4;            /* 20 bytes */
@@ -1045,6 +1067,9 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
 			   u8 is_add);
 
 int vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add);
+
+void upf_ip_lookup_tx (u32 bi, int is_ip4);
+void upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4);
 
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
