@@ -28,24 +28,25 @@ import (
 )
 
 type SessionConfig struct {
-	IdBase            uint16
-	UEIP              net.IP
-	PGWIP             net.IP
-	SGWIP             net.IP
-	AppName           string
-	Redirect          bool
-	NoADFSDFFilter    string
-	Mode              UPGMode
-	TEIDPGWs5u        uint32
-	TEIDSGWs5u        uint32
-	ProxyAccessIP     net.IP
-	ProxyCoreIP       net.IP
-	ProxyAccessTEID   uint32
-	ProxyCoreTEID     uint32
-	NoURRs            bool
-	MonitoringTime    time.Time
-	VTime             time.Duration
-	MeasurementPeriod time.Duration
+	IdBase             uint16
+	UEIP               net.IP
+	PGWIP              net.IP
+	SGWIP              net.IP
+	AppName            string
+	Redirect           bool
+	NoADFSDFFilter     string
+	Mode               UPGMode
+	TEIDPGWs5u         uint32
+	TEIDSGWs5u         uint32
+	ProxyAccessIP      net.IP
+	ProxyCoreIP        net.IP
+	ProxyAccessTEID    uint32
+	ProxyCoreTEID      uint32
+	NoURRs             bool
+	MonitoringTime     time.Time
+	VTime              time.Duration
+	MeasurementPeriod  time.Duration
+	ForwardingPolicyID string
 }
 
 const (
@@ -97,6 +98,9 @@ func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 	if cfg.Redirect {
 		fwParams = append(fwParams,
 			ie.NewRedirectInformation(ie.RedirectAddrURL, "http://127.0.0.1/this-is-my-redirect/"))
+	}
+	if cfg.ForwardingPolicyID != "" {
+		fwParams = append(fwParams, ie.NewForwardingPolicy(cfg.ForwardingPolicyID))
 	}
 	return ie.NewCreateFAR(
 		ie.NewFARID(farID),

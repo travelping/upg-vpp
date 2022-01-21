@@ -134,6 +134,7 @@ func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMo
 		f := framework.NewDefaultFramework(mode, ipMode)
 		describeMeasurement(f)
 		describePDRReplacement(f)
+		describeRoutingPolicy(f)
 		// TODO: fix these test cases for IPv6
 		if ipMode == framework.UPGIPModeV4 {
 			describeMTU(mode, ipMode)
@@ -559,9 +560,9 @@ var _ = ginkgo.Describe("Binapi", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.It("adds, removes and lists the NWI", func() {
 			nwi := &upf.UpfNwiAddDel{
-				IP4TableID:  200,
-				Name: "testing",
-				Add:  1,
+				IP4TableID: 200,
+				Name:       "testing",
+				Add:        1,
 			}
 			nwiReply := &upf.UpfNwiAddDelReply{}
 			err := f.VPP.ApiChannel.SendRequest(nwi).ReceiveReply(nwiReply)
@@ -1358,6 +1359,44 @@ func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
 	})
 }
 
+func describeRoutingPolicy(f *framework.Framework) {
+	ginkgo.Describe("routing policy", func() {
+		var altServerIP *net.IPNet
+		ginkgo.BeforeEach(func() {
+			if f.IPMode == framework.UPGIPModeV4 {
+				altServerIP = framework.MustParseIPNet("192.168.99.3/32")
+				f.VPP.Ctl("ip table add 201")
+				f.VPP.Ctl("upf policy add id altIP via ip4-lookup-in-table 201")
+			} else {
+				altServerIP = framework.MustParseIPNet("2001:db8:aa::3/128")
+				f.VPP.Ctl("ip6 table add 201")
+				f.VPP.Ctl("upf policy add id altIP via ip6-lookup-in-table 201")
+			}
+			f.AddCustomServerIP(altServerIP)
+			f.VPP.Ctl("ip route add %s table 201 via %s host-sgi0", altServerIP, f.ServerIP())
+		})
+
+		verify := func(sessionCfg framework.SessionConfig) {
+			sessionCfg.ForwardingPolicyID = "altIP"
+			seid := startMeasurementSession(f, &sessionCfg)
+			trafficCfg := smallVolumeHTTPConfig(nil)
+			trafficCfg.AddServerIP(altServerIP.IP)
+			runTrafficGen(f, trafficCfg, &traffic.PreciseTrafficRec{})
+			ms := deleteSession(f, seid, true)
+			verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, altServerIP.IP)
+		}
+
+		ginkgo.It("applies to the non-proxied traffic", func() {
+			verify(framework.SessionConfig{})
+		})
+
+		// FIXME: disabled due to the TCP output subgraph issues
+		ginkgo.XIt("applies to the proxied traffic", func() {
+			verify(framework.SessionConfig{AppName: "TST"})
+		})
+	})
+}
+
 type measurementCfg struct {
 	appPDR       bool
 	fakeHostname bool
@@ -1621,8 +1660,8 @@ func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol
 func verifyMainReport(f *framework.Framework, ms *pfcp.PFCPMeasurement, proto layers.IPProtocol, urrId uint32, serverIP net.IP) {
 	ul, dl := getTrafficCountsFromCapture(f, proto, serverIP)
 	r := validateReport(ms, urrId)
-	framework.ExpectEqual(ul, *r.UplinkVolume, "uplink volume for urr %d", urrId)
-	framework.ExpectEqual(dl, *r.DownlinkVolume, "downlink volume for urr %d", urrId)
+	framework.ExpectEqual(*r.UplinkVolume, ul, "uplink volume for urr %d", urrId)
+	framework.ExpectEqual(*r.DownlinkVolume, dl, "downlink volume for urr %d", urrId)
 }
 
 func smallVolumeHTTPConfig(base *traffic.HTTPConfig) *traffic.HTTPConfig {
