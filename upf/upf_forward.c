@@ -198,28 +198,6 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 		      goto trace;
 		    }
 		}
-	      else if (far->forward.flags & FAR_F_FORWARDING_POLICY)
-		{
-		  if (is_ip4)
-		    b->flags &= ~(VNET_BUFFER_F_OFFLOAD_TCP_CKSUM |
-				  VNET_BUFFER_F_OFFLOAD_UDP_CKSUM |
-				  VNET_BUFFER_F_OFFLOAD_IP_CKSUM);
-		  else
-		    b->flags &= ~(VNET_BUFFER_F_OFFLOAD_TCP_CKSUM |
-				  VNET_BUFFER_F_OFFLOAD_UDP_CKSUM);
-		  /* Getting dpio_index */
-		  fp_entry =
-		    pool_elt_at_index (gtm->upf_forwarding_policies,
-				       far->forward.fp_pool_index);
-		  vnet_buffer (b)->ip.adj_index[VLIB_TX] =
-		    fp_entry->dpo.dpoi_index;
-		  vnet_buffer (b)->sw_if_index[VLIB_TX] =
-		    fp_entry->rpaths->frp_fib_index;
-		  next = UPF_FORWARD_NEXT_IP_LOOKUP;
-		  upf_debug
-		    ("###### Forwarding policy with id %v is applied ######",
-		     far->forward.forwarding_policy.identifier);
-		}
 	      else
 		{
 		  if (is_ip4)
@@ -242,6 +220,41 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 			 &vnet_buffer (b)->sw_if_index[VLIB_TX]);
 		    }
 		  next = UPF_FORWARD_NEXT_IP_INPUT;
+
+		  /*
+		   * Forwarding Policy can override the normal FAR processing from above
+		   */
+
+		  if (far->forward.flags & FAR_F_FORWARDING_POLICY)
+		    {
+		      fib_route_path_t *rpath;
+
+		      /* Getting dpio_index */
+		      fp_entry =
+			pool_elt_at_index (gtm->upf_forwarding_policies,
+					   far->forward.fp_pool_index);
+
+		      /*
+		       * the Forwarding Policy might not contain an entry
+		       * for the IP version of the buffer. In that case, the
+		       * loop will just not alter already resent normal FAR
+		       * settings.
+		       */
+		      vec_foreach (rpath, fp_entry->rpaths)
+		      {
+			if (rpath->frp_proto ==
+			    (is_ip4 ? DPO_PROTO_IP4 : DPO_PROTO_IP6))
+			  {
+			    vnet_buffer (b)->sw_if_index[VLIB_TX] =
+			      rpath->frp_fib_index;
+			    next = UPF_FORWARD_NEXT_IP_LOOKUP;
+			    upf_debug
+			      ("###### Forwarding policy with id %v is applied ######",
+			       far->forward.forwarding_policy.identifier);
+			    break;
+			  }
+		      }
+		    }
 		}
 	    }
 	  else if (far->apply_action & FAR_BUFFER)
