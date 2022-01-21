@@ -1503,28 +1503,29 @@ upf_policy_command_fn (vlib_main_t * vm,
   u8 *policy_id;
   u8 action = 0;
 
-  if (unformat_user (main_input, unformat_line_input, line_input))
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    return 0;
+
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
-      while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-	{
-	  if (unformat (line_input, "id %_%v%_", &policy_id))
-	    ;
-	  else if (unformat (line_input, "del"))
-	    action = 0;
-	  else if (unformat (line_input, "add"))
-	    action = 1;
-	  else if (unformat (line_input, "update"))
-	    action = 2;
-	  else if (unformat (line_input, "via %U",
-			     unformat_fib_route_path, &rpath, &payload_proto))
-	    vec_add1 (rpaths, rpath);
-	  else
-	    return (clib_error_return (0, "unknown input '%U'",
-				       format_unformat_error, line_input));
-	}
-      vnet_upf_policy_fn (rpaths, policy_id, action);
-      vec_free (policy_id);
+      if (unformat (line_input, "id %_%v%_", &policy_id))
+	;
+      else if (unformat (line_input, "del"))
+	action = 0;
+      else if (unformat (line_input, "add"))
+	action = 1;
+      else if (unformat (line_input, "update"))
+	action = 2;
+      else if (unformat (line_input, "via %U",
+			 unformat_fib_route_path, &rpath, &payload_proto))
+	vec_add1 (rpaths, rpath);
+      else
+	return (clib_error_return (0, "unknown input '%U'",
+				   format_unformat_error, line_input));
     }
+
+  vnet_upf_policy_fn (rpaths, policy_id, action);
+  vec_free (policy_id);
   unformat_free (line_input);
   return (NULL);
 }
