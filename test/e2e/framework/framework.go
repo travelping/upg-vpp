@@ -281,6 +281,11 @@ func (f *Framework) addIP(nsName string, count *uint32) net.IP {
 		n >>= 8
 	}
 
+	f.addCustomIP(nsName, ipNet)
+	return ipNet.IP
+}
+
+func (f *Framework) addCustomIP(nsName string, ipNet *net.IPNet) {
 	linkName := f.VPPCfg.GetNamespaceLinkName(nsName)
 	logrus.WithFields(logrus.Fields{
 		"linkName": linkName,
@@ -288,7 +293,6 @@ func (f *Framework) addIP(nsName string, count *uint32) net.IP {
 		"ipNet":    ipNet,
 	}).Trace("adding an IP address")
 	ExpectNoError(f.VPP.GetNS(nsName).AddAddress(linkName, ipNet))
-	return ipNet.IP
 }
 
 func (f *Framework) AddCNodeIP() net.IP {
@@ -301,6 +305,10 @@ func (f *Framework) AddUEIP() net.IP {
 
 func (f *Framework) AddServerIP() net.IP {
 	return f.addIP(f.ServerNSName(), &f.numExtraServerIPs)
+}
+
+func (f *Framework) AddCustomServerIP(ipNet *net.IPNet) {
+	f.addCustomIP(f.ServerNSName(), ipNet)
 }
 
 // SlowGTPU returns true if UPG runs in PGW mode, and userspace GTP-U
