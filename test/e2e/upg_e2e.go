@@ -1480,18 +1480,21 @@ func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
 func describeRoutingPolicy(f *framework.Framework) {
 	ginkgo.Describe("routing policy", func() {
 		var altServerIP *net.IPNet
+		var ipTable uint32
 		ginkgo.BeforeEach(func() {
+			f.VPP.Ctl("ip table add 201")
+			f.VPP.Ctl("ip6 table add 301")
+			f.VPP.Ctl("upf policy add id altIP via ip4-lookup-in-table 201 via ip6-lookup-in-table 301")
+
 			if f.IPMode == framework.UPGIPModeV4 {
 				altServerIP = framework.MustParseIPNet("192.168.99.3/32")
-				f.VPP.Ctl("ip table add 201")
-				f.VPP.Ctl("upf policy add id altIP via ip4-lookup-in-table 201")
+				ipTable = 201
 			} else {
 				altServerIP = framework.MustParseIPNet("2001:db8:aa::3/128")
-				f.VPP.Ctl("ip6 table add 201")
-				f.VPP.Ctl("upf policy add id altIP via ip6-lookup-in-table 201")
+				ipTable = 301
 			}
 			f.AddCustomServerIP(altServerIP)
-			f.VPP.Ctl("ip route add %s table 201 via %s host-sgi0", altServerIP, f.ServerIP())
+			f.VPP.Ctl("ip route add %s table %d via %s host-sgi0", altServerIP, ipTable, f.ServerIP())
 		})
 
 		verify := func(sessionCfg framework.SessionConfig) {
