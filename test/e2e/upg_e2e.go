@@ -1508,8 +1508,7 @@ func describeRoutingPolicy(f *framework.Framework) {
 			verify(framework.SessionConfig{})
 		})
 
-		// FIXME: disabled due to the TCP output subgraph issues
-		ginkgo.XIt("applies to the proxied traffic", func() {
+		ginkgo.It("applies to the proxied traffic", func() {
 			verify(framework.SessionConfig{AppName: "TST"})
 		})
 	})

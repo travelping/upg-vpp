@@ -259,11 +259,14 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 #define IS_UL(_pdr, _far)						\
 	  ((_pdr)->pdi.src_intf == SRC_INTF_ACCESS || (_far)->forward.dst_intf == DST_INTF_CORE)
 
-	  upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
-	  next = process_qers (vm, sess, active, pdr, b,
-			       IS_DL (pdr, far), IS_UL (pdr, far), next);
-	  next = process_urrs (vm, sess, node_name, active, pdr, b,
-			       IS_DL (pdr, far), IS_UL (pdr, far), next);
+	  if (!(upf_buffer_opaque (b)->gtpu.flags & BUFFER_FAR_ONLY))
+	    {
+	      upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
+	      next = process_qers (vm, sess, active, pdr, b,
+				   IS_DL (pdr, far), IS_UL (pdr, far), next);
+	      next = process_urrs (vm, sess, node_name, active, pdr, b,
+				   IS_DL (pdr, far), IS_UL (pdr, far), next);
+	    }
 
 #undef IS_DL
 #undef IS_UL

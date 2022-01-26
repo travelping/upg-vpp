@@ -145,9 +145,9 @@ proxy_session_stream_accept_notify (transport_connection_t * tc, u32 flow_id)
 /**
  * Lookup transport connection
  */
-static tcp_connection_t *
+tcp_connection_t *
 upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
-			   u8 is_ip4)
+			   u8 is_ip4, u8 is_reverse)
 {
   tcp_header_t *tcp;
   transport_connection_t *tconn;
@@ -158,13 +158,23 @@ upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
       ip4_header_t *ip4;
       ip4 = vlib_buffer_get_current (b);
       tcp = ip4_next_header (ip4);
-      tconn = session_lookup_connection_wt4 (fib_index,
-					     &ip4->dst_address,
-					     &ip4->src_address,
-					     tcp->dst_port,
-					     tcp->src_port,
-					     TRANSPORT_PROTO_TCP,
-					     thread_index, &is_filtered);
+      if (is_reverse)
+	tconn = session_lookup_connection_wt4 (fib_index,
+					       &ip4->src_address,
+					       &ip4->dst_address,
+					       tcp->src_port,
+					       tcp->dst_port,
+					       TRANSPORT_PROTO_TCP,
+					       thread_index, &is_filtered);
+      else
+	tconn = session_lookup_connection_wt4 (fib_index,
+					       &ip4->dst_address,
+					       &ip4->src_address,
+					       tcp->dst_port,
+					       tcp->src_port,
+					       TRANSPORT_PROTO_TCP,
+					       thread_index, &is_filtered);
+
       tc = tcp_get_connection_from_transport (tconn);
       /* ASSERT (tcp_lookup_is_valid (tc, b, tcp)); */
     }
@@ -173,13 +183,22 @@ upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
       ip6_header_t *ip6;
       ip6 = vlib_buffer_get_current (b);
       tcp = ip6_next_header (ip6);
-      tconn = session_lookup_connection_wt6 (fib_index,
-					     &ip6->dst_address,
-					     &ip6->src_address,
-					     tcp->dst_port,
-					     tcp->src_port,
-					     TRANSPORT_PROTO_TCP,
-					     thread_index, &is_filtered);
+      if (is_reverse)
+	tconn = session_lookup_connection_wt6 (fib_index,
+					       &ip6->src_address,
+					       &ip6->dst_address,
+					       tcp->src_port,
+					       tcp->dst_port,
+					       TRANSPORT_PROTO_TCP,
+					       thread_index, &is_filtered);
+      else
+	tconn = session_lookup_connection_wt6 (fib_index,
+					       &ip6->dst_address,
+					       &ip6->src_address,
+					       tcp->dst_port,
+					       tcp->src_port,
+					       TRANSPORT_PROTO_TCP,
+					       thread_index, &is_filtered);
       tc = tcp_get_connection_from_transport (tconn);
       /* ASSERT (tcp_lookup_is_valid (tc, b, tcp)); */
     }
@@ -249,7 +268,8 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
       upf_debug ("FIB: %u", fib_idx);
 
       /* Make sure connection wasn't just created */
-      old_conn = upf_tcp_lookup_connection (fib_idx, b, thread_index, is_ip4);
+      old_conn =
+	upf_tcp_lookup_connection (fib_idx, b, thread_index, is_ip4, 0);
       if (PREDICT_FALSE (old_conn != NULL))
 	{
 	  clib_warning ("duplicate connection in upf-proxy-accept");
@@ -278,8 +298,13 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 
       child->next_node_index = is_ip4 ?
 	pm->tcp4_server_output_next : pm->tcp6_server_output_next;
-      child->next_node_opaque = flow_id;
-      upf_debug ("Next Node: %u, Opaque: 0x%08x",
+      /*
+       * next_node_opaque is 0 when it's not initialized,
+       * so let's possible to detect that for active proxy
+       * connections
+       */
+      child->next_node_opaque = flow_id + 1;
+      upf_debug ("Next Node: %u, Opaque (flow_id+1): 0x%08x",
 		 child->next_node_index, child->next_node_opaque);
 
       if (proxy_session_stream_accept_notify (&child->connection, flow_id))

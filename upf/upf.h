@@ -108,6 +108,7 @@ STRUCT_OFFSET_OF (vnet_buffer_opaque_t, unused)))
 
 #endif
 
+#define BUFFER_FAR_ONLY     (1<<3)	/* don't include in QER/URR processing */
 #define BUFFER_HAS_GTP_HDR  (1<<4)
 #define BUFFER_HAS_UDP_HDR  (1<<5)
 #define BUFFER_HAS_IP4_HDR  (1<<6)

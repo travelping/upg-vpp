@@ -394,6 +394,9 @@ proxy_start_connect_fn (const u32 * session_index)
   a->sep_ext.is_ip4 = is_ip4;
   a->sep_ext.ip = *dst;
   a->sep_ext.port = flow->key.port[FT_REVERSE ^ flow->is_reverse];
+  a->sep_ext.next_node_index = is_ip4 ?
+    pm->tcp4_server_output_next_active : pm->tcp6_server_output_next_active;
+  a->sep_ext.next_node_opaque = ps->flow_index + 1;
   a->sep_ext.peer.fib_index = a->sep_ext.fib_index;
   a->sep_ext.peer.sw_if_index = a->sep_ext.sw_if_index;
   a->sep_ext.peer.is_ip4 = is_ip4;
@@ -1351,10 +1354,19 @@ static void
 upf_proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
+  tcp_main_t *tm = vnet_get_tcp_main ();
   int rv;
 
   if (pm->server_client_index == (u32) ~ 0)
     vnet_session_enable_disable (vm, 1 /* turn on TCP, etc. */ );
+
+  /* Set next nodes for non-connection-bound packets */
+  tm->ipl_next_node[0] =
+    vlib_node_add_next (vm, session_queue_node.index,
+			upf_ip4_proxy_server_no_conn_output_node.index);
+  tm->ipl_next_node[1] =
+    vlib_node_add_next (vm, session_queue_node.index,
+			upf_ip6_proxy_server_no_conn_output_node.index);
 
   rv = proxy_create (vm, fib_index, is_ip4);
   if (rv != 0)
@@ -1413,6 +1425,12 @@ upf_proxy_main_init (vlib_main_t * vm)
   pm->tcp6_server_output_next =
     vlib_node_add_next (vm, tcp6_output_node.index,
 			upf_ip6_proxy_server_output_node.index);
+  pm->tcp4_server_output_next_active =
+    vlib_node_add_next (vm, tcp4_output_node.index,
+			upf_ip4_proxy_server_far_only_output_node.index);
+  pm->tcp6_server_output_next_active =
+    vlib_node_add_next (vm, tcp6_output_node.index,
+			upf_ip6_proxy_server_far_only_output_node.index);
 
   flow_expiration_hook = upf_proxy_flow_expiration_hook;
 

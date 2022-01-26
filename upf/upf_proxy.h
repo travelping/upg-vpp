@@ -20,9 +20,14 @@
 
 #include <vnet/vnet.h>
 #include <vnet/session/application.h>
+#include <vnet/tcp/tcp.h>
 
 extern vlib_node_registration_t upf_ip4_proxy_server_output_node;
 extern vlib_node_registration_t upf_ip6_proxy_server_output_node;
+extern vlib_node_registration_t upf_ip4_proxy_server_no_conn_output_node;
+extern vlib_node_registration_t upf_ip6_proxy_server_no_conn_output_node;
+extern vlib_node_registration_t upf_ip4_proxy_server_far_only_output_node;
+extern vlib_node_registration_t upf_ip6_proxy_server_far_only_output_node;
 
 u8 *format_upf_proxy_session (u8 * s, va_list * args);
 
@@ -62,6 +67,8 @@ typedef struct
 {
   u16 tcp4_server_output_next;
   u16 tcp6_server_output_next;
+  u16 tcp4_server_output_next_active;
+  u16 tcp6_server_output_next_active;
 
   svm_queue_t *vl_input_queue;	/**< vpe input queue */
   /** per-thread vectors */
@@ -146,6 +153,10 @@ proxy_session_lookup_by_index (u32 session_index, u32 thread_index)
     }
   return 0;
 }
+
+tcp_connection_t *upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b,
+					     u8 thread_index, u8 is_ip4,
+					     u8 is_reverse);
 
 #endif
 
