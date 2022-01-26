@@ -276,14 +276,19 @@ parse_packet_protocol (udp_header_t * udp, uword is_reverse, flow_key_t * key)
     }
 }
 
+static inline flow_direction_t
+ip4_packet_is_reverse (ip4_header_t * ip4)
+{
+  return (ip4_address_compare (&ip4->src_address, &ip4->dst_address) < 0) ?
+    FT_REVERSE : FT_ORIGIN;
+}
+
 static inline void
 parse_ip4_packet (ip4_header_t * ip4, uword * is_reverse, flow_key_t * key)
 {
   key->proto = ip4->protocol;
 
-  *is_reverse =
-    (ip4_address_compare (&ip4->src_address, &ip4->dst_address) < 0) ?
-    FT_REVERSE : FT_ORIGIN;
+  *is_reverse = ip4_packet_is_reverse (ip4);
 
   ip46_address_set_ip4 (&key->ip[FT_ORIGIN ^ *is_reverse], &ip4->src_address);
   ip46_address_set_ip4 (&key->ip[FT_REVERSE ^ *is_reverse],
@@ -293,14 +298,19 @@ parse_ip4_packet (ip4_header_t * ip4, uword * is_reverse, flow_key_t * key)
 			 key);
 }
 
+static inline flow_direction_t
+ip6_packet_is_reverse (ip6_header_t * ip6)
+{
+  return (ip6_address_compare (&ip6->src_address, &ip6->dst_address) < 0) ?
+    FT_REVERSE : FT_ORIGIN;
+}
+
 static inline void
 parse_ip6_packet (ip6_header_t * ip6, uword * is_reverse, flow_key_t * key)
 {
   key->proto = ip6->protocol;
 
-  *is_reverse =
-    (ip6_address_compare (&ip6->src_address, &ip6->dst_address) < 0) ?
-    FT_REVERSE : FT_ORIGIN;
+  *is_reverse = ip6_packet_is_reverse (ip6);
 
   ip46_address_set_ip6 (&key->ip[FT_ORIGIN ^ *is_reverse], &ip6->src_address);
   ip46_address_set_ip6 (&key->ip[FT_REVERSE ^ *is_reverse],
