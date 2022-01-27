@@ -2659,6 +2659,10 @@ format_upf_far (u8 * s, va_list * args)
 			format_ip6_header, ff->rewrite,
 			vec_len (ff->rewrite));
 	}
+      if (ff->flags & FAR_F_FORWARDING_POLICY)
+	s = format (s, "%UForwarding Policy: %v\n",
+		    format_white_space, indent + 4,
+		    far->forward.forwarding_policy.identifier);
     }
 
   return s;
