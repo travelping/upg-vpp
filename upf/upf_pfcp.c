@@ -192,8 +192,8 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
   l2im->configs[sw_if_index].bd_index = 0;
 
   /* move into fib table */
-  ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, ip4_table_id, 0);
-  ip_table_bind (FIB_PROTOCOL_IP6, sw_if_index, ip6_table_id, 0);
+  ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, ip4_table_id);
+  ip_table_bind (FIB_PROTOCOL_IP6, sw_if_index, ip6_table_id);
 
   nwi->fib_index[FIB_PROTOCOL_IP4] =
     ip4_fib_table_get_index_for_sw_if_index (sw_if_index);
@@ -855,14 +855,14 @@ pfcp_make_pending_urr (upf_session_t * sx)
 static upf_qer_policer_t *
 init_qer_policer (upf_qer_t * qer)
 {
-  sse2_qos_pol_cfg_params_st cfg = {
-    .rate_type = SSE2_QOS_RATE_KBPS,
-    .rnd_type = SSE2_QOS_ROUND_TO_CLOSEST,
-    .rfc = SSE2_QOS_POLICER_TYPE_1R2C,
+  qos_pol_cfg_params_st cfg = {
+    .rate_type = QOS_RATE_KBPS,
+    .rnd_type = QOS_ROUND_TO_CLOSEST,
+    .rfc = QOS_POLICER_TYPE_1R2C,
     .color_aware = 0,
-    .conform_action = {.action_type = SSE2_QOS_ACTION_TRANSMIT,},
-    .exceed_action = {.action_type = SSE2_QOS_ACTION_DROP,},
-    .violate_action = {.action_type = SSE2_QOS_ACTION_DROP,},
+    .conform_action = {.action_type = QOS_ACTION_TRANSMIT,},
+    .exceed_action = {.action_type = QOS_ACTION_DROP,},
+    .violate_action = {.action_type = QOS_ACTION_DROP,},
   };
   upf_main_t *gtm = &upf_main;
   upf_qer_policer_t *pol;
@@ -871,10 +871,10 @@ init_qer_policer (upf_qer_t * qer)
   qer->policer.value = pol - gtm->qer_policers;
 
   cfg.rb.kbps.cir_kbps = qer->mbr.ul;
-  sse2_pol_logical_2_physical (&cfg, &pol->policer[UPF_UL]);
+  pol_logical_2_physical (&cfg, &pol->policer[UPF_UL]);
 
   cfg.rb.kbps.cir_kbps = qer->mbr.dl;
-  sse2_pol_logical_2_physical (&cfg, &pol->policer[UPF_DL]);
+  pol_logical_2_physical (&cfg, &pol->policer[UPF_DL]);
 
   clib_bihash_add_del_8_8 (&gtm->qer_by_id, &qer->policer, 1 /* is_add */ );
 
@@ -897,7 +897,7 @@ attach_qer_policer (upf_qer_t * qer)
 
   clib_atomic_fetch_add (&pol->ref_cnt, 1);
 
-  //sse2_pol_logical_2_physical(&qer->cfg, pol);
+  //pol_logical_2_physical(&qer->cfg, pol);
 }
 
 static void

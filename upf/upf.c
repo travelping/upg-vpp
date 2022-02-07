@@ -539,7 +539,7 @@ upf_init (vlib_main_t * vm)
   udp_register_dst_port (vm, UDP_DST_PORT_GTPU6,
 			 upf_gtpu6_input_node.index, /* is_ip4 */ 0);
 
-  sm->fib_node_type = fib_node_register_new_type (&upf_vft);
+  sm->fib_node_type = fib_node_register_new_type ("upf", &upf_vft);
 
   sm->upf_app_by_name = hash_create_vec ( /* initial length */ 32,
 					 sizeof (u8), sizeof (uword));
@@ -680,7 +680,7 @@ const fib_node_vft_t upf_fp_vft = {
 static clib_error_t *
 upf_policy_init (vlib_main_t * vm)
 {
-  upf_policy_fib_node_type = fib_node_register_new_type (&upf_fp_vft);
+  upf_policy_fib_node_type = fib_node_register_new_type ("upf-fp", &upf_fp_vft);
   return (NULL);
 }
 

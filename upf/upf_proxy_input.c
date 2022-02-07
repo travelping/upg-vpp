@@ -262,7 +262,7 @@ upf_vnet_load_tcp_hdr_offset (vlib_buffer_t * b)
 
 static_always_inline void
 load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction,
-		    flow_entry_t * flow)
+		    flow_entry_t * flow, u32 thread_index)
 {
   tcp_header_t *tcp;
   tcp_options_t opts;
@@ -281,7 +281,7 @@ load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction,
   if (!tcp_opts_tstamp (&opts))
     return;
 
-  flow_tsval_offs (flow, direction) = opts.tsval - tcp_time_now ();
+  flow_tsval_offs (flow, direction) = opts.tsval - tcp_time_tstamp (thread_index);
 }
 
 static uword
@@ -426,13 +426,13 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      else if (direction == FT_ORIGIN)
 		{
 		  upf_debug ("PROXY_ACCEPT");
-		  load_tstamp_offset (b, direction, flow);
+		  load_tstamp_offset (b, direction, flow, thread_index);
 		  next = UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT;
 		}
 	      else if (direction == FT_REVERSE)
 		{
 		  upf_debug ("INPUT_LOOKUP");
-		  load_tstamp_offset (b, direction, flow);
+		  load_tstamp_offset (b, direction, flow, thread_index);
 		  next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
 		}
 	      else

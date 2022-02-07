@@ -566,7 +566,7 @@ func (vi *VPPInstance) setupDispatchTrace() error {
 		return errors.Wrap(err, "error creating vppcapture temp file (closing)")
 	}
 
-	_, err = vi.Ctl("pcap dispatch trace on max 100000 file %s", filepath.Base(tmpFile.Name()))
+	_, err = vi.Ctl("pcap dispatch trace on max 100000 file %s buffer-trace af-packet-input 100", filepath.Base(tmpFile.Name()))
 	if err != nil {
 		return errors.Wrap(err, "error turning on the dispatch trace")
 	}
