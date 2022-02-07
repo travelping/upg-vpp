@@ -70,6 +70,10 @@ plugins {
   plugin gtpu_plugin.so { disable }
 }
 
+buffers {
+  default data-size 10000
+}
+
 {{- if .InterruptMode }}
 upf {
   pfcp-server-mode interrupt

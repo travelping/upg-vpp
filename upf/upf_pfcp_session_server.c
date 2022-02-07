@@ -158,8 +158,7 @@ static int
 pfcp_session_server_add_segment_callback (u32 client_index,
 					  u64 segment_handle)
 {
-  upf_debug ("called...");
-  return -1;
+  return 0;
 }
 
 static session_cb_vft_t pfcp_session_server_session_cb_vft = {
@@ -250,8 +249,10 @@ pfcp_server_attach (vlib_main_t * vm)
   a->session_cb_vft = &pfcp_session_server_session_cb_vft;
   a->options = options;
   a->options[APP_OPTIONS_SEGMENT_SIZE] = pssm->private_segment_size;
+  a->options[APP_OPTIONS_ADD_SEGMENT_SIZE] = pssm->private_segment_size;
   a->options[APP_OPTIONS_RX_FIFO_SIZE] = pssm->fifo_size;
   a->options[APP_OPTIONS_TX_FIFO_SIZE] = pssm->fifo_size;
+  a->options[APP_OPTIONS_MAX_FIFO_SIZE] = pssm->fifo_size; // FIXME
   a->options[APP_OPTIONS_FLAGS] = APP_OPTIONS_FLAGS_IS_BUILTIN;
   a->options[APP_OPTIONS_PREALLOC_FIFO_PAIRS] = pssm->prealloc_fifos;
 
@@ -418,7 +419,7 @@ pfcp_session_server_main_init (vlib_main_t * vm)
   /* PFPC server defaults */
   pssm->prealloc_fifos = 0;
   pssm->fifo_size = 64 << 10;
-  pssm->private_segment_size = 0;
+  pssm->private_segment_size = 256 << 20;
 
   num_threads = 1 /* main thread */  + vtm->n_threads;
   vec_validate (pssm->vpp_queue, num_threads - 1);

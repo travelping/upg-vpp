@@ -688,7 +688,7 @@ typedef struct
   /* Required for pool_get_aligned  */
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
 
-  policer_read_response_type_st policer[UPF_DIRECTION_MAX];
+  policer_t policer[UPF_DIRECTION_MAX];
 
   u64 ref_cnt;
   pfcp_mbr_t mbr;
