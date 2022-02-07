@@ -587,7 +587,7 @@ static u32
 upf_table_id_from_fib_index (fib_protocol_t fproto, u32 fib_index)
 {
   return (fproto == FIB_PROTOCOL_IP4) ?
-    ip4_fib_get (fib_index)->table_id : ip6_fib_get (fib_index)->table_id;
+    ip4_fib_get (fib_index)->hash.table_id : ip6_fib_get (fib_index)->table_id;
 };
 
 static clib_error_t *

@@ -356,7 +356,7 @@ ip4_ttl_and_checksum_check (vlib_buffer_t * b, ip4_header_t * ip, u16 * next,
 
   /* Verify checksum. */
   ASSERT ((ip->checksum == ip4_header_checksum (ip)) ||
-	  (b->flags & VNET_BUFFER_F_OFFLOAD_IP_CKSUM));
+	  (b->flags & VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
 }
 
 /* end of copy from ip4_forward.c */
