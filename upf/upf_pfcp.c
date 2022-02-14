@@ -1068,7 +1068,7 @@ upf_delete_nat_binding (upf_session_t * sx)
   --ap->used_blocks;
 
   upf_nat_del_binding =
-    vlib_get_plugin_symbol ("nat_plugin.so", "nat_del_binding");
+    vlib_get_plugin_symbol ("nat_plugin.so", "nat_ed_del_binding");
 
   upf_nat_del_binding (sx->user_addr);
 }
