@@ -680,7 +680,8 @@ const fib_node_vft_t upf_fp_vft = {
 static clib_error_t *
 upf_policy_init (vlib_main_t * vm)
 {
-  upf_policy_fib_node_type = fib_node_register_new_type ("upf-fp", &upf_fp_vft);
+  upf_policy_fib_node_type =
+    fib_node_register_new_type ("upf-fp", &upf_fp_vft);
   return (NULL);
 }
 
@@ -869,6 +870,20 @@ upf_name_to_labels (u8 * name)
   rv[last_label_index] = (i - last_label_index) - 1;
 
   return rv;
+}
+
+void
+upf_nat_get_src_port (vlib_buffer_t * b, u16 port)
+{
+  flowtable_main_t *fm = &flowtable_main;
+  flow_entry_t *flow;
+  u32 flow_id;
+
+  flow_id = upf_buffer_opaque (b)->gtpu.flow_id;
+  flow = flowtable_get_flow (fm, flow_id);
+  if (!flow)
+    return;
+  flow->nat_sport = clib_net_to_host_u16 (port);
 }
 
 /*

@@ -468,13 +468,13 @@ format_flow (u8 * s, va_list * args)
 #endif
   s = format (s, "%U, UL pkt %u, DL pkt %u, "
 	      "Forward PDR %u, Reverse PDR %u, "
-	      "app %v, lifetime %u, proxy %d, spliced %d",
+	      "app %v, lifetime %u, proxy %d, spliced %d nat port %d",
 	      format_flow_key, &flow->key,
 	      flow->stats[is_reverse].pkts,
 	      flow->stats[is_reverse ^ FT_REVERSE].pkts,
 	      flow_pdr_id (flow, FT_ORIGIN),
 	      flow_pdr_id (flow, FT_REVERSE), app_name, flow->lifetime,
-	      flow->is_l3_proxy, flow->is_spliced);
+	      flow->is_l3_proxy, flow->is_spliced, flow->nat_sport);
 #if CLIB_DEBUG > 0
   s = format (s, ", dont_splice %d", flow->dont_splice);
 #endif

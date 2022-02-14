@@ -1075,6 +1075,8 @@ int vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * id, u8 action);
 u8 *format_upf_policy (u8 * s, va_list * args);
 u8 *upf_name_to_labels (u8 * name);
 
+__clib_export void upf_nat_get_src_port (vlib_buffer_t * b, u16 port);
+
 #endif /* __included_upf_h__ */
 
 /*
