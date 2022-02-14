@@ -151,6 +151,7 @@ typedef struct flow_entry
 #if CLIB_DEBUG > 0
   u32 cpu_index;
 #endif
+  u16 nat_sport;
 } flow_entry_t;
 
 /* accessor helper */

@@ -871,6 +871,19 @@ upf_name_to_labels (u8 * name)
   return rv;
 }
 
+void upf_nat_get_src_port (vlib_buffer_t *b, u16 port)
+{
+  flowtable_main_t *fm = &flowtable_main;
+  flow_entry_t *flow;
+  u32 flow_id;
+
+  flow_id = upf_buffer_opaque (b)->gtpu.flow_id;
+  flow = flowtable_get_flow (fm, flow_id);
+  if (!flow)
+    return;
+  flow->nat_sport = clib_net_to_host_u16 (port);
+}
+
 /*
  * fd.io coding-style-patch-verification: ON
  *
