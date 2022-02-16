@@ -1158,6 +1158,47 @@ class TestPGWBase(PFCPHelper):
         if payload is not None:
             self.assertEqual(innerPacket[Raw].load, payload)
 
+    def assert_error_indication_sent_from_upf(self):
+        pkt = self.if_grx.get_capture(1)[0]
+        self.logger.info(pkt.summary())
+        self.logger.info(pkt.show(dump = True))
+        self.assertTrue(GTP_U_Header in pkt)
+        self.assertEqual(pkt[self.IP].src, self.grx_local_ip)
+        self.assertEqual(pkt[self.IP].dst, self.grx_remote_ip)
+        hdr = pkt[GTP_U_Header]
+        self.assertEqual(hdr.version, 1)
+        self.assertTrue(hdr.PT)
+        self.assertTrue(hdr.E)
+        self.assertFalse(hdr.PN)
+        self.assertEqual(hdr.gtp_type, 0x1A) # GTP-U Error Indication
+        self.assertTrue(hdr.S)
+        extHeader = pkt[GTP_UDPPort_ExtensionHeader]
+        self.assertEqual(extHeader.length, 1)
+        self.assertEqual(extHeader.udp_port, 2152)
+        self.assertEqual(extHeader.next_ex, 0)
+        ##TODO: For some reasons, if ExtensionHeader is present in a pkt, scapy can't parse IE_List after extension header
+        ##TODO: while wireshark parses it's perfectly. Check if we can somehow convert Raw into IE_List
+        #errInd = pkt[GTPErrorIndication]
+        #ies = errInd.IE_list
+        #self.logger.info(ies)
+        #iesToCheck = 3 #IE_TEIDI, IE_Recovery, IE_GSNAddress
+        #for ie in ies:
+        #    if (ie.ietype == 14): #recovery
+        #        iesToCheck -= 1
+        #        self.assertEqual(ie.restart_counter, 0)
+        #    if (ie.ietype == 16): #TEID I
+        #        iesToCheck -= 1
+        #        self.assertEqual(ie.TEIDI, teid)
+        #    if (ie.ietype == 133): #IE_GSNAddress
+        #        iesToCheck -= 1
+        #        if self.expected_length == 32: #ipv4
+        #            self.assertEqual(ie.length, 4)
+        #            self.assertEqual(ie.ipv4_address, self.grx_remote_ip)
+        #        else:
+        #            self.assertEqual(ie.length, 16)
+        #            self.assertEqual(ie.ipv6_address, self.grx_remote_ip)
+        #self.assertEqual(iesToCheck, 0) # We met all IEs
+
     def verify_gtp_forwarding(self):
         payload = self.build_from_ue_to_sgi(b"42", remote_ip = self.remote_ip)
         # UE -> remote_ip
@@ -1166,6 +1207,9 @@ class TestPGWBase(PFCPHelper):
         # remote_ip -> UE
         self.send_from_sgi_to_ue(b"4242", remote_ip = self.remote_ip)
         self.assert_packet_sent_to_ue(b"4242", remote_ip = self.remote_ip)
+        # UE-> remote_ip, but no such TEID exists on UPF
+        self.send_from_grx(GTP_U_Header(seq=42, teid=(424242)) / payload)
+        self.assert_error_indication_sent_from_upf()
 
     def verify_gtp_error_indication(self):
         self.send_from_grx(
