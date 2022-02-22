@@ -240,6 +240,11 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 						Dst: MustParseIPNet("10.1.0.0/16"),
 						Gw:  MustParseIP("10.0.1.2"),
 					},
+					{
+						// Used for NAT verification
+						Dst: MustParseIPNet("144.0.0.0/24"),
+						Gw:  MustParseIP("10.0.1.2"),
+					},
 				},
 			},
 		},

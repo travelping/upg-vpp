@@ -43,6 +43,7 @@ type TrafficRec interface {
 	RecordStats(stats TrafficStats)
 	Verify() error
 	Stats() TrafficStats
+	RecordClientAddr(addr string)
 }
 
 type TrafficServer interface {

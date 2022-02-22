@@ -138,6 +138,9 @@ func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMo
 		// TODO: fix these test cases for IPv6
 		if ipMode == framework.UPGIPModeV4 {
 			describeMTU(mode, ipMode)
+			if mode == framework.UPGModeTDF {
+				describeNAT(f)
+			}
 		}
 	})
 }
@@ -507,6 +510,7 @@ func describePDRReplacement(f *framework.Framework) {
 		})
 	})
 }
+
 // TODO: This functions are copied from https://github.com/wmnsk/go-pfcp/blob/master/internal/utils/utils.go
 // We have to update our fork of go-pfcp or use upstream one to use functions below as utils
 // EncodeFQDN encodes the given string as the Name Syntax defined
@@ -603,8 +607,8 @@ var _ = ginkgo.Describe("Binapi", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.It("adds, removes and lists the NWI", func() {
 			nwi := &upf.UpfNwiAddDel{
-				IP4TableID:  200,
-				Add:  1,
+				IP4TableID: 200,
+				Add:        1,
 			}
 			nwi.Nwi = EncodeFQDN("testing")
 			nwiReply := &upf.UpfNwiAddDelReply{}
@@ -657,7 +661,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 			// So far we will just check if it can list and remove PFCP endpoint
 			// Adding of endpoint will be checked during the change of configuration mechanism
 			pfcpEndpoint := &upf.UpfPfcpEndpointAddDel{
-				IsAdd: 0,
+				IsAdd:   0,
 				TableID: 0,
 			}
 			ipAddr, er := ip_types.ParseAddress("10.0.0.2")
@@ -707,7 +711,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 		ginkgo.It("Configures PFCP Server", func() {
 
 			sessionServerCfg := &upf.UpfPfcpServerSet{
-				FifoSize: 512, // KB
+				FifoSize:    512, // KB
 				SegmentSize: 512, // MB
 			}
 			reply := &upf.UpfPfcpServerSetReply{}
@@ -1473,6 +1477,39 @@ func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
 			}
 
 			ginkgo.It("should pass the extensions as-is", shouldPassTheTraffic)
+		})
+	})
+}
+
+func describeNAT(f *framework.Framework) {
+	ginkgo.Describe("NAT translations", func() {
+		ginkgo.BeforeEach(func() {
+			f.VPP.Ctl("nat44 enable sessions 1000 endpoint-dependent")
+			f.VPP.Ctl("set interface nat44 in upf-nwi-sgi out host-sgi0")
+			f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing")
+			f.VPP.Ctl("nat44 controlled enable")
+		})
+
+		verify := func(sessionCfg framework.SessionConfig) {
+			sessionCfg.NatPoolName = "testing"
+			seid := startMeasurementSession(f, &sessionCfg)
+			trafficCfg := smallVolumeHTTPConfig(nil)
+			trafficRec := &traffic.PreciseTrafficRec{}
+			runTrafficGen(f, trafficCfg, trafficRec)
+			foundAddr := trafficRec.ClientAddr()
+			gomega.Expect(foundAddr).To(gomega.BeEquivalentTo("144.0.0.20:10128"))
+			runTrafficGen(f, trafficCfg, trafficRec)
+			foundAddr = trafficRec.ClientAddr()
+			gomega.Expect(foundAddr).NotTo(gomega.BeEquivalentTo("144.0.0.30:55555"))
+			deleteSession(f, seid, true)
+		}
+
+		ginkgo.It("applies to the non-proxied traffic", func() {
+			verify(framework.SessionConfig{})
+		})
+
+		ginkgo.It("applies to the proxied traffic", func() {
+			verify(framework.SessionConfig{AppName: "TST"})
 		})
 	})
 }
