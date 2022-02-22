@@ -1600,6 +1600,7 @@ class TestPFCPReencode(framework.VppTestCase):
             ])
         self.verify_reencode("session_report_request", req)
 
+        # TBD: test IE_UserId (but note that Scapy doesn't encode it properly)
         req = PFCP(seq=3) / \
             PFCPSessionEstablishmentRequest(IE_list=[
                 IE_CreateFAR(IE_list=[
