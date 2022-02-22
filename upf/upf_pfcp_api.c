@@ -804,7 +804,7 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t * np, upf_nat_addr_t * addr,
 			    np->port_block_size);
   if (port_start)
     {
-      port_end = port_start + np->port_block_size;
+      port_end = port_start + np->port_block_size - 1;
       addr->used_blocks += 1;
       sx->nat_addr = addr;
       created_binding->block = vec_dup (np->name);
