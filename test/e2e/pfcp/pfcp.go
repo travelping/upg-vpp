@@ -1097,9 +1097,9 @@ func (pc *PFCPConnection) pipelineRequests(
 func (pc *PFCPConnection) sessionEstablishmentRequest(spec SessionOpSpec) message.Message {
 	var fseid *ie.IE
 	if pc.cfg.CNodeIP.To4() == nil {
-		fseid = ie.NewFSEID(uint64(spec.SEID), nil, pc.cfg.CNodeIP, nil)
+		fseid = ie.NewFSEID(uint64(spec.SEID), nil, pc.cfg.CNodeIP)
 	} else {
-		fseid = ie.NewFSEID(uint64(spec.SEID), pc.cfg.CNodeIP.To4(), nil, nil)
+		fseid = ie.NewFSEID(uint64(spec.SEID), pc.cfg.CNodeIP.To4(), nil)
 	}
 
 	ies := append(spec.IEs, fseid, ie.NewNodeID("", "", pc.cfg.NodeID))
