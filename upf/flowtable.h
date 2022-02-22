@@ -419,6 +419,8 @@ timer_wheel_insert_flow (flowtable_main_t * fm,
   clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
 }
 
+extern vlib_node_registration_t flowtable_process_node;
+
 #endif /* __flowtable_h__ */
 
 /*

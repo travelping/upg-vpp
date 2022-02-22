@@ -31,10 +31,13 @@
 #define upf_debug(...)				\
   do { } while (0)
 #endif
+#define FLOWTABLE_PROCESS_WAIT 1
 
 vlib_node_registration_t upf_flow_node;
 
 flow_expiration_hook_t flow_expiration_hook = 0;
+flow_update_hook_t flow_update_hook = 0;
+flow_removal_hook_t flow_removal_hook = 0;
 
 always_inline void
 flow_entry_cache_fill (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
@@ -638,6 +641,43 @@ VLIB_CLI_COMMAND (upf_show_flow_timeout_command, static) =
   .function = upf_show_flow_timeout_command_fn,
 };
 /* *INDENT-ON* */
+
+static uword
+flowtable_process (vlib_main_t * vm, vlib_node_runtime_t * rt, vlib_frame_t * f)
+{
+  flowtable_main_t *fm = &flowtable_main;
+
+  while (1)
+    {
+      u32 num_expired;
+      u32 current_time = (u32) vlib_time_now (vm);
+      // TODO: support multiple cores here
+      // (although this is only needed for debugging)
+      u32 cpu_index = os_get_thread_index ();
+      flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+      (void) vlib_process_wait_for_event_or_clock (vm, FLOWTABLE_PROCESS_WAIT);
+      vlib_worker_thread_barrier_sync (vm);
+      timer_wheel_index_update (fm, fmt, current_time);
+      num_expired = flowtable_timer_expire (fm, fmt, current_time);
+      if (num_expired > 0)
+	upf_debug("expired %d flows", num_expired);
+      vlib_node_increment_counter(vm, rt->node_index,			\
+				  FLOWTABLE_ERROR_TIMER_EXPIRE, num_expired);
+      vlib_worker_thread_barrier_release (vm);
+    }
+
+  return 0;
+}
+
+/* *INDENT-OFF* */
+VLIB_REGISTER_NODE (flowtable_process_node) = {
+  .function = flowtable_process,
+  .type = VLIB_NODE_TYPE_PROCESS,
+  .process_log2_n_stack_bytes = 16,
+  .runtime_data_bytes = sizeof (void *),
+  .name = "upf-flowtable",
+  .state = VLIB_NODE_STATE_DISABLED,
+};
 
 /*
  * fd.io coding-style-patch-verification: ON
