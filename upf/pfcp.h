@@ -1003,8 +1003,8 @@ typedef u8 pfcp_suggested_buffering_packets_count_t;
 #define PFCP_IE_USER_ID					141
 typedef struct
 {
-#define USER_ID_IMEI					BIT(0)
-#define USER_ID_IMSI					BIT(1)
+#define USER_ID_IMSI					BIT(0)
+#define USER_ID_IMEI					BIT(1)
 #define USER_ID_MSISDN					BIT(2)
 #define USER_ID_NAI					BIT(4)
 
@@ -2806,6 +2806,7 @@ u8 *format_redirect_information (u8 * s, va_list * args);
 u8 *format_ue_ip_address (u8 * s, va_list * args);
 u8 *format_node_id (u8 * s, va_list * args);
 u8 *format_outer_header_creation (u8 * s, va_list * args);
+u8 *format_mobile_identity (u8 * s, va_list * args);
 u8 *format_dmsg (u8 * s, va_list * args);
 
 void free_node_id (void *p);
