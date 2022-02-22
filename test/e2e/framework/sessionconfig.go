@@ -47,6 +47,7 @@ type SessionConfig struct {
 	VTime              time.Duration
 	MeasurementPeriod  time.Duration
 	ForwardingPolicyID string
+	IMSI               string
 }
 
 const (
@@ -297,7 +298,13 @@ func (cfg SessionConfig) SessionIEs() []*ie.IE {
 		ies = append(ies, cfg.CreateURRs()...)
 	}
 
-	return append(ies, cfg.CreatePDRs()...)
+	ies = append(ies, cfg.CreatePDRs()...)
+	if cfg.IMSI != "" {
+		// flags == 1: IMSIF bit set
+		ies = append(ies, ie.NewUserID(1, cfg.IMSI, "", "", ""))
+	}
+
+	return ies
 }
 
 func (cfg SessionConfig) CreatePDRs() []*ie.IE {

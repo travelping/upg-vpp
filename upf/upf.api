@@ -19,6 +19,18 @@ import "vnet/interface_types.api";
 import "vnet/ip/ip_types.api";
 import "vnet/fib/fib_types.api";
 
+enum upf_ipfix_which_flags : u8
+{
+  UPF_IPFIX_WHICH_FLAG_IP4 = 0x1,
+  UPF_IPFIX_WHICH_FLAG_IP6 = 0x2,
+};
+
+enum upf_ipfix_record_flags : u8
+{
+  UPF_IPFIX_RECORD_FLAG_L3 = 0x1,
+  UPF_IPFIX_RECORD_FLAG_L4 = 0x2,
+};
+
 /** \brief Add/delete TDF application
     @param client_index - opaque cookie to identify the sender
     @param context - sender context, to match reply w/ request
