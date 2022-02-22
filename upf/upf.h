@@ -747,9 +747,6 @@ typedef struct
 #define PFCP_ACTIVE  0
 #define PFCP_PENDING 1
 
-  /** FIFO to hold the DL pkts for this session */
-  vlib_buffer_t *dl_fifo;
-
   /* DPO locks */
   u32 dpo_locks;
 
@@ -762,6 +759,9 @@ typedef struct
   upf_nat_addr_t *nat_addr;
 
   f64 unix_time_start;
+
+  u8 imsi_len;
+  u8 imsi[8];
 
   u16 generation;
 } upf_session_t;
