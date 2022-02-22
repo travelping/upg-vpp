@@ -163,10 +163,10 @@ func (cfg SessionConfig) reverseFAR(farID uint32) *ie.IE {
 func (cfg SessionConfig) ueIPAddress(flags uint8) *ie.IE {
 	ip4 := cfg.UEIP.To4()
 	if ip4 != nil {
-		return ie.NewUEIPAddress(flags|pfcp.UEIPAddress_V4, ip4.String(), "", 0)
+		return ie.NewUEIPAddress(flags|pfcp.UEIPAddress_V4, ip4.String(), "", 0, 0)
 	}
 
-	return ie.NewUEIPAddress(flags|pfcp.UEIPAddress_V6, "", cfg.UEIP.String(), 0)
+	return ie.NewUEIPAddress(flags|pfcp.UEIPAddress_V6, "", cfg.UEIP.String(), 0, 0)
 }
 
 func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint32, appID string, sdfFilter string) *ie.IE {
@@ -367,9 +367,12 @@ func (cfg SessionConfig) DeletePDRs() []*ie.IE {
 
 func fteid(teid uint32, ip net.IP) *ie.IE {
 	ip4 := ip.To4()
+	var flags uint8
 	if ip4 != nil {
-		return ie.NewFTEID(teid, ip4, nil, nil)
+		flags |= 0x01
+		return ie.NewFTEID(flags, teid, ip4, nil, 0)
 	}
 
-	return ie.NewFTEID(teid, nil, ip, nil) // IPv6
+	flags |= 0x02
+	return ie.NewFTEID(flags, teid, nil, ip, 0) // IPv6
 }

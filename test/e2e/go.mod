@@ -2,8 +2,6 @@ module github.com/travelping/upg-vpp/test/e2e
 
 go 1.13
 
-replace github.com/wmnsk/go-pfcp => github.com/ivan4th/go-pfcp v0.0.7-0.20220222045340-825415acc404
-
 // TODO: https://github.com/go-ping/ping/pull/116
 replace github.com/go-ping/ping => github.com/ivan4th/ping v0.0.0-20201105224649-bfa92e2c3093
 
@@ -25,7 +23,7 @@ require (
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 	github.com/vmware/go-ipfix v0.5.11
 	github.com/wmnsk/go-gtp v0.7.13
-	github.com/wmnsk/go-pfcp v0.0.6
+	github.com/wmnsk/go-pfcp v0.0.15
 	golang.org/x/sys v0.0.0-20210225134936-a50acf3fe073
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 )
