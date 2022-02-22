@@ -40,8 +40,8 @@ type NetNS interface {
 
 type SGWGTPUTunnel struct {
 	Type          SGWGTPUTunnelType `yaml:"type"`
-	InterfaceName string            `yaml:"interface_name",default:"gtpu_sgw"`
-	MTU           int               `yaml:"mtu",default:"1300"`
+	InterfaceName string            `yaml:"interface_name" default:"gtpu_sgw"`
+	MTU           int               `yaml:"mtu" default:"1300"`
 }
 
 type TPDUHook func(tpdu *message.TPDU, fromPGW bool)

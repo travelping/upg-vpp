@@ -2685,9 +2685,7 @@ format_pfcp_session (u8 * s, va_list * args)
 	      &sx->up_address, IP46_TYPE_ANY, sx);
 
   if (sx->imsi_len)
-    s =
-      format (s, "IMSI: %U\n", format_mobile_identity, sx->imsi,
-	      (int) sx->imsi_len);
+    s = format (s, "IMSI: %U\n", format_tbcd, sx->imsi, (int) sx->imsi_len);
 
   if (debug)
     s = format (s, "  SIdx: %u\n  Pointer: %p\n  PDR: %p\n  FAR: %p\n",

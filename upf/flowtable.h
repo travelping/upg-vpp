@@ -108,6 +108,12 @@ typedef struct flow_tc
   u32 thread_index;
 } flow_tc_t;
 
+typedef struct
+{
+  u32 sec;
+  u32 nsec;
+} timestamp_nsec_t;
+
 typedef struct flow_entry
 {
   /* Required for pool_get_aligned  */
@@ -146,6 +152,12 @@ typedef struct flow_entry
   u32 _tsval_offs[FT_ORDER_MAX];
 
   u8 *app_uri;
+
+  timestamp_nsec_t flow_start;
+  timestamp_nsec_t flow_end;
+
+  u32 last_exported[FT_ORDER_MAX];
+
   /* Generation ID that must match the session's if this flow is up to date */
   u16 generation;
 #if CLIB_DEBUG > 0
@@ -162,6 +174,8 @@ typedef struct flow_entry
 #define flow_tc(F, D) flow_member((F), _tc, (D))
 #define flow_seq_offs(F, D) flow_member((F), _seq_offs, (D))
 #define flow_tsval_offs(F, D) flow_member((F), _tsval_offs, (D))
+#define flow_stats(F, D) flow_member((F), stats, (D))
+#define flow_last_exported(F, D) flow_member((F), last_exported, (D))
 
 /* Timers (in seconds) */
 #define TIMER_DEFAULT_LIFETIME (60)
@@ -220,8 +234,13 @@ typedef struct
 
 extern flowtable_main_t flowtable_main;
 typedef int (*flow_expiration_hook_t) (flow_entry_t * flow);
+typedef void (*flow_update_hook_t) (flow_entry_t * flow,
+				    flow_direction_t direction, u32 now);
+typedef void (*flow_removal_hook_t) (flow_entry_t * flow, u32 now);
 
 extern flow_expiration_hook_t flow_expiration_hook;
+extern flow_update_hook_t flow_update_hook;
+extern flow_removal_hook_t flow_removal_hook;
 
 u8 *format_flow_key (u8 *, va_list *);
 u8 *format_flow (u8 *, va_list *);
@@ -343,7 +362,7 @@ flow_mk_key (u64 seid, u8 * header, u8 is_ip4,
     }
 }
 
-always_inline int
+always_inline void
 flow_tcp_update_lifetime (flow_entry_t * f, tcp_header_t * hdr)
 {
   tcp_f_state_t old_state, new_state;
@@ -375,16 +394,16 @@ flow_tcp_update_lifetime (flow_entry_t * f, tcp_header_t * hdr)
       timer_slot_head_index =
 	(f->active + f->lifetime) % fm->timer_max_lifetime;
       clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
-
-      return 1;
     }
-
-  return 0;
 }
 
-always_inline int
-flow_update_lifetime (flow_entry_t * f, u8 * iph, u8 is_ip4)
+always_inline void
+flow_handle_packet (flow_entry_t * f, u8 * iph, u8 is_ip4, u8 is_reverse,
+		    u16 len, timestamp_nsec_t timestamp, u32 now)
 {
+  flow_direction_t direction = f->is_reverse ^ is_reverse;
+  ASSERT (f->active <= now);
+  f->active = now;
   /*
    * CHECK-ME: assert we have enough wellformed data to read the tcp header.
    */
@@ -396,17 +415,15 @@ flow_update_lifetime (flow_entry_t * f, u8 * iph, u8 is_ip4)
 					    ip6_next_header ((ip6_header_t *)
 							     iph));
 
-      return flow_tcp_update_lifetime (f, hdr);
+      flow_tcp_update_lifetime (f, hdr);
     }
 
-  return 0;
-}
+  f->stats[is_reverse].pkts++;
+  f->stats[is_reverse].bytes += len;
+  f->flow_end = timestamp;
 
-always_inline void
-flow_update_active (flow_entry_t * f, u32 now)
-{
-  ASSERT (f->active <= now);
-  f->active = now;
+  if (flow_update_hook != 0)
+    flow_update_hook (f, direction, now);
 }
 
 always_inline void
