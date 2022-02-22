@@ -55,10 +55,6 @@
 upf_main_t upf_main;
 qos_pol_cfg_params_st pfcp_rate_cfg_main;
 
-#define SESS_CREATE 0
-#define SESS_MODIFY 1
-#define SESS_DEL 2
-
 static void pfcp_add_del_ue_ip (const void *ue_ip, void *si, int is_add);
 static void pfcp_add_del_v4_teid (const void *teid, void *si, int is_add);
 static void pfcp_add_del_v6_teid (const void *teid, void *si, int is_add);
@@ -2705,6 +2701,11 @@ format_pfcp_session (u8 * s, va_list * args)
 	      sx->cp_seid, sx->cp_seid, format_ip46_address, &sx->cp_address,
 	      IP46_TYPE_ANY, sx->cp_seid, sx->cp_seid, format_ip46_address,
 	      &sx->up_address, IP46_TYPE_ANY, sx);
+
+  if (sx->imsi_len)
+    s =
+      format (s, "IMSI: %U\n", format_mobile_identity, sx->imsi,
+	      (int) sx->imsi_len);
 
   if (debug)
     s = format (s, "  SIdx: %u\n  Pointer: %p\n  PDR: %p\n  FAR: %p\n",
