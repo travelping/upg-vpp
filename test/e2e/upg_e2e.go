@@ -19,8 +19,6 @@ package exttest
 import (
 	"context"
 	"fmt"
-	"git.fd.io/govpp.git/binapi/fib_types"
-	"git.fd.io/govpp.git/binapi/ip_types"
 	"net"
 	"regexp"
 	"sort"
@@ -28,6 +26,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"git.fd.io/govpp.git/binapi/fib_types"
+	"git.fd.io/govpp.git/binapi/ip_types"
 
 	"github.com/google/gopacket/layers"
 	"github.com/onsi/ginkgo"
@@ -47,6 +48,7 @@ import (
 
 const (
 	NON_APP_TRAFFIC_THRESHOLD = 1000
+	IPFIX_PORT                = 4739
 )
 
 var _ = ginkgo.Describe("TDF", func() {
@@ -183,6 +185,124 @@ func describeMeasurement(f *framework.Framework) {
 					proto = layers.IPProtocolICMPv6
 				}
 				verifyNonAppMeasurement(f, ms, proto, nil)
+			})
+		})
+
+		ginkgo.Context("[ipfix]", func() {
+			ginkgo.It("sends IPFIX reports as requested", func() {
+				// FIXME: use binapi & multiple exporters
+				ipfixHandler := setupIPFIX(f)
+				defer ipfixHandler.stop()
+				f.VPP.Ctl("set ipfix exporter collector %s src %s "+
+					"template-interval 1 port %d path-mtu 1450",
+					f.PFCPCfg.CNodeIP,
+					f.PFCPCfg.UNodeIP,
+					IPFIX_PORT,
+				)
+				var ulStartTS, dlStartTS time.Time
+				beginTS := time.Now()
+				ulEndTS := beginTS
+				dlEndTS := beginTS
+				seid = startMeasurementSession(f, &framework.SessionConfig{
+					IMSI: "313460000000001",
+				})
+				trafficCfg := smallVolumeHTTPConfig(nil)
+				trafficCfg.ChunkCount = 300
+				runTrafficGen(f, trafficCfg, &traffic.PreciseTrafficRec{})
+				ginkgo.By("waiting for the flow to expire")
+				gomega.Eventually(func() string {
+					flowStr, err := f.VPP.Ctl("show upf flows")
+					framework.ExpectNoError(err)
+					return flowStr
+				}, 30*time.Second, 5*time.Second).
+					ShouldNot(gomega.ContainSubstring("proto 0x6,"),
+						"the flow should be gone")
+				ms = deleteSession(f, seid, true)
+				verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
+
+				recs := ipfixHandler.getRecords()
+				var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
+				var clientPort uint16
+				for _, r := range recs {
+					// The record looks like:
+					// mobileIMSI: 313460000000001
+					// packetTotalCount: 80
+					// flowStartNanoseconds: 2022-02-22 02:30:32.097219204 +0000 UTC
+					// flowEndNanoseconds: 2022-02-22 02:30:47.152832735 +0000 UTC
+					// sourceIPv4Address: 10.1.0.3
+					// destinationIPv4Address: 10.0.1.3
+					// protocolIdentifier: 6
+					// octetTotalCount: 4262
+					// sourceTransportPort: 36960
+					// destinationTransportPort: 80
+					gomega.Expect(r).To(gomega.HaveKeyWithValue("mobileIMSI", "313460000000001"))
+					gomega.Expect(r).To(gomega.HaveKey("packetTotalCount"))
+					gomega.Expect(r).To(gomega.HaveKey("flowStartNanoseconds"))
+					gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
+					gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", r["flowStartNanoseconds"].(time.Time)))
+					gomega.Expect(r).To(gomega.HaveKeyWithValue("protocolIdentifier", uint8(6)))
+
+					srcAddressKey := "sourceIPv4Address"
+					dstAddressKey := "destinationIPv4Address"
+					if f.IPMode == framework.UPGIPModeV6 {
+						srcAddressKey = "sourceIPv6Address"
+						dstAddressKey = "destinationIPv6Address"
+					}
+					gomega.Expect(r).To(gomega.HaveKey(srcAddressKey))
+					gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
+					if r[srcAddressKey].(net.IP).Equal(f.UEIP()) {
+						// upload
+						if ulStartTS.IsZero() {
+							ulStartTS = r["flowStartNanoseconds"].(time.Time)
+							// FIXME: should be working (wrong time on the VPP side?)
+							// gomega.Expect(ulStartTS).To(gomega.BeTemporally(">=", beginTS))
+						} else {
+							gomega.Expect(r["flowStartNanoseconds"]).To(gomega.Equal(ulStartTS))
+						}
+						gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", ulEndTS))
+						ulEndTS = r["flowEndNanoseconds"].(time.Time)
+						gomega.Expect(r[dstAddressKey].(net.IP).Equal(f.ServerIP())).To(gomega.BeTrue())
+						gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", ulPacketCount))
+						ulPacketCount = r["packetTotalCount"].(uint64)
+						gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", ulOctets))
+						ulOctets = r["octetTotalCount"].(uint64)
+						gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(uint16(80)))
+						if clientPort == 0 {
+							clientPort = r["sourceTransportPort"].(uint16)
+						} else {
+							gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(clientPort))
+						}
+					} else {
+						// download
+						if dlStartTS.IsZero() {
+							dlStartTS = r["flowStartNanoseconds"].(time.Time)
+							// FIXME: should be working (wrong time on the VPP side?)
+							// gomega.Expect(dlStartTS).To(gomega.BeTemporally(">=", beginTS))
+						} else {
+							gomega.Expect(r["flowStartNanoseconds"]).To(gomega.Equal(dlStartTS))
+						}
+						gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", dlEndTS))
+						dlEndTS = r["flowEndNanoseconds"].(time.Time)
+						gomega.Expect(r[srcAddressKey].(net.IP).Equal(f.ServerIP())).To(gomega.BeTrue())
+						gomega.Expect(r[dstAddressKey].(net.IP).Equal(f.UEIP())).To(gomega.BeTrue())
+						gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", dlPacketCount))
+						dlPacketCount = r["packetTotalCount"].(uint64)
+						gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", dlOctets))
+						dlOctets = r["octetTotalCount"].(uint64)
+						gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(uint16(80)))
+						if clientPort == 0 {
+							clientPort = r["destinationTransportPort"].(uint16)
+						} else {
+							gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(clientPort))
+						}
+					}
+				}
+
+				gomega.Expect(ulPacketCount).To(gomega.Equal(*ms.Reports[1][0].UplinkPacketCount), "uplink packet count")
+				gomega.Expect(dlPacketCount).To(gomega.Equal(*ms.Reports[1][0].DownlinkPacketCount), "downlink packet count")
+				gomega.Expect(ulOctets).To(gomega.Equal(*ms.Reports[1][0].UplinkVolume), "uplink volume")
+				gomega.Expect(dlOctets).To(gomega.Equal(*ms.Reports[1][0].DownlinkVolume), "downlink volume")
+				// TBD: check IMSI in the session
 			})
 		})
 

@@ -48,6 +48,7 @@ type SessionConfig struct {
 	MeasurementPeriod  time.Duration
 	ForwardingPolicyID string
 	NatPoolName        string
+	IMSI               string
 }
 
 const (
@@ -80,7 +81,6 @@ func (cfg SessionConfig) outerHeaderRemoval() *ie.IE {
 
 	return ie.NewOuterHeaderRemoval(pfcp.OuterHeaderRemoval_GTPUUDPIPV6, 0)
 }
-
 
 // From IANA Private Enterprise Numbers Registry, Broadband Forum Enterprise ID is 3561 (0x0DE9)
 // Enterprise Specific IE Types are marked with 0x8000 mask
@@ -325,7 +325,13 @@ func (cfg SessionConfig) SessionIEs() []*ie.IE {
 		ies = append(ies, cfg.CreateURRs()...)
 	}
 
-	return append(ies, cfg.CreatePDRs()...)
+	ies = append(ies, cfg.CreatePDRs()...)
+	if cfg.IMSI != "" {
+		// flags == 1: IMSIF bit set
+		ies = append(ies, ie.NewUserID(1, cfg.IMSI, "", "", ""))
+	}
+
+	return ies
 }
 
 func (cfg SessionConfig) CreatePDRs() []*ie.IE {

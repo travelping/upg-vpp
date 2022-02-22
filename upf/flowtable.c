@@ -191,6 +191,8 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
     {
       upf_main_t *gtm = &upf_main;
       upf_debug ("Flow Remove %d", f - fm->flows);
+      if (flow_removal_hook)
+	flow_removal_hook (f, now);
 
       /* timers unlink */
       clib_dlist_remove (fmt->timers, e - fmt->timers);
@@ -392,6 +394,9 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   f->is_reverse = is_reverse;
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
+  unix_time_now_nsec_fraction (&f->flow_start.sec, &f->flow_start.nsec);
+  f->flow_end.sec = f->flow_start.sec;
+  f->flow_end.nsec = f->flow_start.nsec;
   f->application_id = ~0;
 #if CLIB_DEBUG > 0
   f->cpu_index = os_get_thread_index ();

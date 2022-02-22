@@ -48,6 +48,7 @@
 /* Action function shared between message handler and debug CLI */
 #include <upf/flowtable.h>
 #include <upf/upf_app_db.h>
+#include <upf/upf_ipfix.h>
 
 #include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
 
@@ -607,12 +608,14 @@ upf_init (vlib_main_t * vm)
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
 
   error = flowtable_init (vm);
-  if (error)
-    return error;
+  if (!error)
+    error = upf_ipfix_init (vm);
+  if (!error)
+    error = pfcp_server_main_init (vm);
+  if (!error)
+    upf_pfcp_policer_config_init (sm);
 
-  upf_pfcp_policer_config_init (sm);
-
-  return pfcp_server_main_init (vm);
+  return error;
 }
 
 VLIB_INIT_FUNCTION (upf_init);

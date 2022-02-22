@@ -231,8 +231,9 @@ func (f *Framework) AfterEach() {
 			/// XXXXXX: use proper test desc
 			targetDir := filepath.Join(artifactsDir, toFilename(ginkgo.CurrentGinkgoTestDescription().FullTestText))
 			ExpectNoError(os.RemoveAll(targetDir))
-			// FIXME
-			ExpectNoError(exec.Command("mv", f.VPPCfg.BaseDir, targetDir).Run())
+			// Note: this command may partly fail on Mac Docker
+			// because of the sockets that can't be moved to the target dir
+			exec.Command("mv", f.VPPCfg.BaseDir, targetDir).Run()
 			matches, err := filepath.Glob(filepath.Join(targetDir, "*.sock"))
 			ExpectNoError(err)
 			for _, filename := range matches {
