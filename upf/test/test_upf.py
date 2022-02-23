@@ -27,7 +27,7 @@ from scapy.contrib.gtp import GTP_U_Header, GTPEchoRequest, GTPEchoResponse, \
     GTP_UDPPort_ExtensionHeader, GTP_PDCP_PDU_ExtensionHeader, \
     IE_Recovery, IE_SelectionMode, GTPErrorIndication, \
     IE_GSNAddress, IE_TEIDI
-from scapy.layers.l2 import Ether
+from scapy.layers.l2 import Ether, ARP
 from scapy.layers.inet import IP, UDP, TCP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.tls.all import TLS, TLSClientHello, TLS_Ext_ServerName, \
@@ -61,6 +61,10 @@ NON_APP_RULE_IP_3_V6 = "2001:db8::2:4"
 EXTRA_SDF_IP_V4 = "192.0.9.204"
 EXTRA_SDF_IP_V6 = "2001:db8::3:1"
 
+
+# FIXME: these attributes are absent from scapy but VPP tests do need them
+ARP.who_has = 1
+ARP.is_at = 2
 
 class IPv4Mixin(object):
     drop_ip = DROP_IP_V4
@@ -101,7 +105,8 @@ class IPv4Mixin(object):
             r"^https?://(.*\\.)*(example)\\.com/",
             "upf application TST rule 3001 add ipfilter " +
             "permit out ip from %s to assigned" % APP_RULE_IP_V4,
-            "nat44 enable sessions 1024 endpoint-dependent",
+            # TODO: re-enable after the NAT patches are updated
+            # "nat44 enable sessions 1024 endpoint-dependent",
             "upf nat pool 78.32.0.2 - 78.32.0.25 block_size 512 nwi sgi name testing",
             "upf nat pool 78.32.20.2 - 78.32.20.25 block_size 512 nwi sgi name not-testing",
             "upf ueip pool nwi sgi id mypool",
@@ -120,7 +125,8 @@ class IPv4Mixin(object):
             (cls.if_sgi.remote_ip4, cls.if_sgi.name),
             "upf gtpu endpoint ip %s nwi cp teid 0x80000000/2" % cls.if_cp.local_ip4,
             "upf gtpu endpoint ip %s nwi epc teid 0x80000000/2" % cls.if_grx.local_ip4,
-            "nat44 enable sessions 1024 endpoint-dependent",
+            # TODO: re-enable after the NAT patches are updated
+            # "nat44 enable sessions 1024 endpoint-dependent",
             "upf nat pool 78.32.0.2 - 78.32.0.25 block_size 512 nwi sgi name testing",
             "upf nat pool 78.32.20.2 - 78.32.20.25 block_size 512 nwi sgi name not-testing",
             "upf ueip pool nwi sgi id mypool",
