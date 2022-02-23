@@ -47,6 +47,7 @@ type SessionConfig struct {
 	VTime              time.Duration
 	MeasurementPeriod  time.Duration
 	ForwardingPolicyID string
+	NatPoolName        string
 }
 
 const (
@@ -81,6 +82,24 @@ func (cfg SessionConfig) outerHeaderRemoval() *ie.IE {
 }
 
 
+// From IANA Private Enterprise Numbers Registry, Broadband Forum Enterprise ID is 3561 (0x0DE9)
+// Enterprise Specific IE Types are marked with 0x8000 mask
+const (
+	BBF_EID                 = 3561
+	ETYPE_MASK              = 0x8000
+	BBF_TYPE_APPLY_ACTION   = 15
+	BBF_TYPE_NAT_PORT_BLOCK = 18
+	BBF_APPLY_ACTION_NAT    = 1
+)
+
+func newVendorSpecificStringIE(itype uint16, eid uint16, data string) *ie.IE {
+	return ie.NewVendorSpecificIE(itype, eid, []byte(data))
+}
+
+func newVendorSpecificU8IE(itype uint16, eid uint16, val uint8) *ie.IE {
+	return ie.NewVendorSpecificIE(itype, eid, []byte{val})
+}
+
 func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 	var fwParams []*ie.IE
 	switch cfg.Mode {
@@ -102,6 +121,10 @@ func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 	}
 	if cfg.ForwardingPolicyID != "" {
 		fwParams = append(fwParams, ie.NewForwardingPolicy(cfg.ForwardingPolicyID))
+	}
+	if cfg.NatPoolName != "" {
+		fwParams = append(fwParams, newVendorSpecificU8IE(ETYPE_MASK|BBF_TYPE_APPLY_ACTION, BBF_EID, BBF_APPLY_ACTION_NAT))
+		fwParams = append(fwParams, newVendorSpecificStringIE(ETYPE_MASK|BBF_TYPE_NAT_PORT_BLOCK, BBF_EID, cfg.NatPoolName))
 	}
 	return ie.NewCreateFAR(
 		ie.NewFARID(farID),

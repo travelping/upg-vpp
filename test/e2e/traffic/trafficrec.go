@@ -34,6 +34,7 @@ type SimpleTrafficRec struct {
 	sync.Mutex
 	errors []string
 	stats  TrafficStats
+	clientAddr  string
 }
 
 var _ TrafficRec = &SimpleTrafficRec{}
@@ -57,6 +58,18 @@ func (tr *SimpleTrafficRec) RecordStats(stats TrafficStats) {
 	tr.stats.ClientReceived += stats.ClientReceived
 	tr.stats.ServerSent += stats.ServerSent
 	tr.stats.ServerReceived += stats.ServerReceived
+}
+
+func (tr *SimpleTrafficRec) RecordClientAddr (addr string) {
+	tr.Lock()
+	defer tr.Unlock()
+    tr.clientAddr = addr
+}
+
+func (tr *SimpleTrafficRec) ClientAddr () string {
+	tr.Lock()
+	defer tr.Unlock()
+	return tr.clientAddr
 }
 
 func (tr *SimpleTrafficRec) verifyUnlocked() error {

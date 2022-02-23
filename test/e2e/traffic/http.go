@@ -150,6 +150,7 @@ func (hs *HTTPServer) Start(ctx context.Context, ns *network.NetNS) error {
 			w.Header().Set("Content-Type", "application/octet-stream")
 			fileSize := hs.cfg.ChunkCount * hs.cfg.ChunkSize
 			w.Header().Set("Content-Length", strconv.Itoa(fileSize))
+			hs.rec.RecordClientAddr(r.RemoteAddr)
 			for i := 0; i < hs.cfg.ChunkCount; i++ {
 				_, err := w.Write(chunk)
 				if err != nil {
