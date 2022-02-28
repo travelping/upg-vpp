@@ -1449,6 +1449,13 @@ encode_forwarding_policy (void *p, u8 ** vec)
   return 0;
 }
 
+void
+free_forwarding_policy (void *p)
+{
+  pfcp_forwarding_policy_t *v = p;
+  vec_free (v->identifier);
+}
+
 static char *destination_interface_name[] = {
   [0] = "Access",
   [1] = "Core",
@@ -6506,7 +6513,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     SIMPLE_IE_FREE(PFCP_IE_REDIRECT_INFORMATION, redirect_information, "Redirect Information"),
     SIMPLE_IE(PFCP_IE_REPORT_TYPE, report_type, "Report Type"),
     SIMPLE_IE(PFCP_IE_OFFENDING_IE, offending_ie, "Offending IE"),
-    SIMPLE_IE(PFCP_IE_FORWARDING_POLICY, forwarding_policy, "Forwarding Policy"),
+    SIMPLE_IE_FREE(PFCP_IE_FORWARDING_POLICY, forwarding_policy, "Forwarding Policy"),
     SIMPLE_IE(PFCP_IE_DESTINATION_INTERFACE, destination_interface, "Destination Interface"),
     SIMPLE_IE(PFCP_IE_UP_FUNCTION_FEATURES, up_function_features, "UP Function Features"),
     SIMPLE_IE(PFCP_IE_APPLY_ACTION, apply_action, "Apply Action"),
