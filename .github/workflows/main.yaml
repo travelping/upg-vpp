@@ -34,7 +34,7 @@ env:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: ["self-hosted", "hugepages"]
     strategy:
       matrix:
         build_type: [debug, release]
@@ -81,7 +81,7 @@ jobs:
         path: image-dev-${{ matrix.build_type }}.txt
 
   checkstyle:
-    runs-on: self-hosted
+    runs-on: ["self-hosted", "hugepages"]
     steps:
     - name: Login to the registry
       uses: docker/login-action@v1
@@ -98,7 +98,7 @@ jobs:
       run: make checkstyle
 
   integration:
-    runs-on: self-hosted
+    runs-on: ["self-hosted", "hugepages"]
     strategy:
       fail-fast: false
       matrix:
@@ -128,7 +128,7 @@ jobs:
         make retest DEV_IMAGE="${dev_image}"
 
   e2e:
-    runs-on: self-hosted
+    runs-on: ["self-hosted", "hugepages"]
     strategy:
       fail-fast: false
       matrix:
@@ -177,7 +177,7 @@ jobs:
 
   # dummy job for release.yaml to wait on
   conclude:
-    runs-on: self-hosted
+    runs-on: ["self-hosted", "hugepages"]
     needs:
     - checkstyle
     - integration
@@ -190,7 +190,7 @@ jobs:
   slack:
     needs:
     - conclude
-    runs-on: self-hosted
+    runs-on: ["self-hosted", "hugepages"]
     if: always()
     steps:
     - name: Set status

@@ -57,7 +57,7 @@ cpu {
 {{ end }}
 }
 
-heapsize 2G
+heapsize 1900M
 
 statseg {
   socket-name {{.StatsSock}}
