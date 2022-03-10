@@ -20,7 +20,8 @@ env:
 
   # FIXME: UDP tests are unstable, likely due to a shortcoming in
   # Linux namespace handling code
-  E2E_SKIP: ".*IPv6 session measurement.*counts UDP traffic.*"
+  # XXX: IPFIX added temporarily for CI verification
+  E2E_SKIP: ".*IPv6 session measurement.*counts UDP traffic.*|IPFIX"
 
   # Uncomment to disable pushing the upg-vpp images.
   # Build images will still be pushed in case if a new one needs to be built.
