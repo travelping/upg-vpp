@@ -27,9 +27,9 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_NO_GDB:=}"
 : "${BUILD_TYPE:=debug}"
 
-if [[ ! ${E2E_POLLING_MODE} ]]; then
-  export VPP_INTERRUPT_MODE=1
-fi
+# if [[ ! ${E2E_POLLING_MODE} ]]; then
+#   export VPP_INTERRUPT_MODE=1
+# fi
 
 if [[ ${E2E_NO_GDB} ]]; then
   export VPP_NO_GDB=1
