@@ -541,6 +541,7 @@ typedef struct
     upf_far_forward_t forward;
     u16 bar_id;
   };
+  pfcp_tp_ipfix_policy_t ipfix_policy;
 } upf_far_t;
 
 typedef struct

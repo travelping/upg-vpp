@@ -776,6 +776,7 @@ pfcp_free_far (upf_far_t * far)
     free_redirect_information (&far->forward.redirect_information);
   if (far->forward.flags & FAR_F_FORWARDING_POLICY)
     vec_free (far->forward.forwarding_policy.identifier);
+  vec_free (far->ipfix_policy);
 }
 
 int
@@ -800,6 +801,8 @@ pfcp_make_pending_far (upf_session_t * sx)
 	new->forward.rewrite = NULL;
 	clib_memset (&new->forward.redirect_information, 0,
 		     sizeof (new->forward.redirect_information));
+
+	new->ipfix_policy = vec_dup (old->ipfix_policy);
 
 	if (!(old->apply_action & FAR_FORWARD))
 	  continue;
