@@ -21,7 +21,6 @@
 #include <vppinfra/crc32.h>
 #include <vppinfra/xxhash.h>
 #include <vppinfra/error.h>
-// #include <vpp/app/version.h>
 #include <vnet/plugin/plugin.h>
 #include <vnet/ip/ip6_packet.h>
 #include <vnet/udp/udp_local.h>
@@ -44,7 +43,6 @@
 #endif
 
 upf_ipfix_main_t upf_ipfix_main;
-// static vlib_node_registration_t upf_ipfix_timer_node;
 uword upf_ipfix_walker_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
 				vlib_frame_t * f);
 
@@ -104,25 +102,6 @@ upf_ipfix_template_ip6_fields (ipfix_field_specifier_t * f)
   f++;
   return f;
 }
-
-/* static inline ipfix_field_specifier_t * */
-/* upf_ipfix_template_l2_fields (ipfix_field_specifier_t * f) */
-/* { */
-/* #define upf_ipfix_template_l2_field_count() 3 */
-/*   /\* sourceMacAddress, TLV type 56, u8[6] we hope *\/ */
-/*   f->e_id_length = ipfix_e_id_length (0 /\* enterprise *\/ , */
-/* 				      sourceMacAddress, 6); */
-/*   f++; */
-/*   /\* destinationMacAddress, TLV type 80, u8[6] we hope *\/ */
-/*   f->e_id_length = ipfix_e_id_length (0 /\* enterprise *\/ , */
-/* 				      destinationMacAddress, 6); */
-/*   f++; */
-/*   /\* ethernetType, TLV type 256, u16 *\/ */
-/*   f->e_id_length = ipfix_e_id_length (0 /\* enterprise *\/ , */
-/* 				      ethernetType, 2); */
-/*   f++; */
-/*   return f; */
-/* } */
 
 static inline ipfix_field_specifier_t *
 upf_ipfix_template_common_fields (ipfix_field_specifier_t * f)
@@ -214,17 +193,11 @@ upf_ipfix_template_rewrite_inline (ipfix_exporter_t *exp, flow_report_t *fr,
 
   if (flags & FLOW_RECORD_L3)
     {
-      collect_ip4 = which == FLOW_VARIANT_L2_IP4 || which == FLOW_VARIANT_IP4;
-      collect_ip6 = which == FLOW_VARIANT_L2_IP6 || which == FLOW_VARIANT_IP6;
-      if (which == FLOW_VARIANT_L2_IP4)
-	flags |= FLOW_RECORD_L2_IP4;
-      if (which == FLOW_VARIANT_L2_IP6)
-	flags |= FLOW_RECORD_L2_IP6;
+      collect_ip4 = which == FLOW_VARIANT_IP4;
+      collect_ip6 = which == FLOW_VARIANT_IP6;
     }
 
   field_count += upf_ipfix_template_common_field_count ();
-  /* if (flags & FLOW_RECORD_L2) */
-  /*   field_count += upf_ipfix_template_l2_field_count (); */
   if (collect_ip4)
     field_count += upf_ipfix_template_ip4_field_count ();
   if (collect_ip6)
@@ -262,8 +235,6 @@ upf_ipfix_template_rewrite_inline (ipfix_exporter_t *exp, flow_report_t *fr,
   /* Add TLVs to the template */
   f = upf_ipfix_template_common_fields (f);
 
-  /* if (flags & FLOW_RECORD_L2) */
-  /*   f = upf_ipfix_template_l2_fields (f); */
   if (collect_ip4)
     f = upf_ipfix_template_ip4_fields (f);
   if (collect_ip6)
@@ -279,7 +250,7 @@ upf_ipfix_template_rewrite_inline (ipfix_exporter_t *exp, flow_report_t *fr,
   /* Field count in this template */
   t->id_count = ipfix_id_count (fr->template_id, f - first_field);
 
-  fm->template_size[flags] = (u8 *) f - (u8 *) s;
+  fm->template_size[which] = (u8 *) f - (u8 *) s;
 
   /* set length in octets */
   s->set_id_length =
@@ -325,36 +296,6 @@ upf_ipfix_template_rewrite_ip4 (ipfix_exporter_t *exp, flow_report_t *fr,
 					    FLOW_VARIANT_IP4);
 }
 
-/* static u8 * */
-/* upf_ipfix_template_rewrite_l2 (ipfix_exporter_t *exp, flow_report_t *fr, */
-/* 			       u16 collector_port, */
-/* 			       ipfix_report_element_t *elts, u32 n_elts, */
-/* 			       u32 *stream_index) */
-/* { */
-/*   return upf_ipfix_template_rewrite_inline (exp, fr, collector_port, */
-/* 					    FLOW_VARIANT_L2); */
-/* } */
-
-/* static u8 * */
-/* upf_ipfix_template_rewrite_l2_ip4 (ipfix_exporter_t *exp, flow_report_t *fr, */
-/* 				   u16 collector_port, */
-/* 				   ipfix_report_element_t *elts, u32 n_elts, */
-/* 				   u32 *stream_index) */
-/* { */
-/*   return upf_ipfix_template_rewrite_inline (exp, fr, collector_port, */
-/* 					    FLOW_VARIANT_L2_IP4); */
-/* } */
-
-/* static u8 * */
-/* upf_ipfix_template_rewrite_l2_ip6 (ipfix_exporter_t *exp, flow_report_t *fr, */
-/* 				   u16 collector_port, */
-/* 				   ipfix_report_element_t *elts, u32 n_elts, */
-/* 				   u32 *stream_index) */
-/* { */
-/*   return upf_ipfix_template_rewrite_inline (exp, fr, collector_port, */
-/* 					    FLOW_VARIANT_L2_IP6); */
-/* } */
-
 static vlib_buffer_t *
 upf_ipfix_get_buffer (vlib_main_t * vm, upf_ipfix_variant_t which);
 
@@ -383,14 +324,6 @@ upf_ipfix_flush_callback_ip6 (u32 now)
 {
   flush_record (FLOW_VARIANT_IP6, now);
 }
-
-/* void */
-/* upf_ipfix_flush_callback_l2 (void) */
-/* { */
-/*   flush_record (FLOW_VARIANT_L2); */
-/*   flush_record (FLOW_VARIANT_L2_IP4); */
-/*   flush_record (FLOW_VARIANT_L2_IP6); */
-/* } */
 
 /**
  * @brief Flush accumulated data
@@ -423,15 +356,6 @@ upf_ipfix_data_callback_ip6 (flow_report_main_t *frm, ipfix_exporter_t *exp,
   upf_ipfix_flush_callback_ip6 (now);
   return f;
 }
-
-/* vlib_frame_t * */
-/* upf_ipfix_data_callback_l2 (flow_report_main_t *frm, ipfix_exporter_t *exp, */
-/* 			    flow_report_t *fr, vlib_frame_t *f, u32 *to_next, */
-/* 			    u32 node_index) */
-/* { */
-/*   upf_ipfix_flush_callback_l2 (); */
-/*   return f; */
-/* } */
 
 static int
 upf_ipfix_template_add_del (u32 domain_id, u16 src_port,
@@ -594,7 +518,6 @@ upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
   ipfix_message_header_t *h;
   ip4_header_t *ip;
   udp_header_t *udp;
-  upf_ipfix_record_t flags = fm->context[which].flags;
   u32 my_cpu_number = vm->thread_index;
 
   /* Fill in header */
@@ -648,7 +571,7 @@ upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
   h->sequence_number = stream->sequence_number++;
   h->sequence_number = clib_host_to_net_u32 (h->sequence_number);
 
-  s->set_id_length = ipfix_set_id_length (fm->template_reports[flags],
+  s->set_id_length = ipfix_set_id_length (fm->template_reports[which],
 					  b0->current_length -
 					  (sizeof (*ip) + sizeof (*udp) +
 					   sizeof (*h)));
@@ -689,8 +612,6 @@ upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
 	     vlib_buffer_get_current (b0), b0->current_length);
 
   vlib_put_frame_to_node (vm, ip4_lookup_node.index, f);
-  /* vlib_node_increment_counter (vm, upf_ipfix_l2_node.index, */
-  /* 			       UPF_IPFIX_ERROR_EXPORTED_PACKETS, 1); */
 
   fm->context[which].frames_per_worker[my_cpu_number] = 0;
   fm->context[which].buffers_per_worker[my_cpu_number] = 0;
@@ -714,11 +635,7 @@ upf_ipfix_get_buffer (vlib_main_t * vm, upf_ipfix_variant_t which)
   if (PREDICT_FALSE (b0 == 0))
     {
       if (vlib_buffer_alloc (vm, &bi0, 1) != 1)
-	{
-	  /* vlib_node_increment_counter (vm, upf_ipfix_l2_node.index, */
-	  /* 			       UPF_IPFIX_ERROR_BUFFER, 1); */
 	  return 0;
-	}
 
       /* Initialize the buffer */
       b0 = fm->context[which].buffers_per_worker[my_cpu_number] =
@@ -767,14 +684,12 @@ upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t dir
 
   if (flags & FLOW_RECORD_L3)
     {
-      collect_ip4 = which == FLOW_VARIANT_L2_IP4 || which == FLOW_VARIANT_IP4;
-      collect_ip6 = which == FLOW_VARIANT_L2_IP6 || which == FLOW_VARIANT_IP6;
+      collect_ip4 = which == FLOW_VARIANT_IP4;
+      collect_ip6 = which == FLOW_VARIANT_IP6;
     }
 
   offset += upf_ipfix_common_add (b0, f, direction, offset);
 
-  /* if (flags & FLOW_RECORD_L2) */
-  /*   offset += upf_ipfix_l2_add (b0, f, direction, offset); */
   if (collect_ip6)
     offset += upf_ipfix_l3_ip6_add (b0, f, direction, offset);
   if (collect_ip4)
@@ -793,7 +708,7 @@ upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t dir
   fm->context[which].next_record_offset_per_worker[my_cpu_number] = offset;
   /* Time to flush the buffer? */
   /* TODO uncomment! also: force upon removal */
-  /* if (offset + fm->template_size[flags] > exp->path_mtu) */
+  /* if (offset + fm->template_size[which] > exp->path_mtu) */
   upf_ipfix_export_send (vm, b0, which, now);
 }
 
@@ -809,55 +724,25 @@ upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t dir
     _v(i);					\
   })
 
-static int
-upf_ipfix_params (upf_ipfix_main_t * fm, /* u8 record_l2, */
-		  u8 record_l3, u8 record_l4)
-{
-  upf_ipfix_record_t flags = 0;
-
-  if (vec_neg_search (fm->flow_per_interface, (u8) ~ 0) != ~0)
-    return ~0;
-
-  /* if (record_l2) */
-  /*   flags |= FLOW_RECORD_L2; */
-  if (record_l3)
-    flags |= FLOW_RECORD_L3;
-  if (record_l4)
-    flags |= FLOW_RECORD_L4;
-
-  fm->record = flags;
-
-  /*
-   * Timers: ~0 is default, 0 is off
-   */
-  /* fm->active_timer = */
-  /*   (active_timer == (u32) ~ 0 ? UPF_IPFIX_TIMER_ACTIVE : active_timer); */
-  /* fm->passive_timer = */
-  /*   (passive_timer == (u32) ~ 0 ? UPF_IPFIX_TIMER_PASSIVE : passive_timer); */
-
-  return 0;
-}
-
 static int upf_ipfix_templates_add_del (upf_ipfix_main_t *fm, u8 which, int is_add)
 {
   int rv = 0;
   u16 template_id = 0;
-  upf_ipfix_record_t flags = fm->record;
 
   fm->template_per_flow[which] += (is_add) ? 1 : -1;
   if (is_add && fm->template_per_flow[which] > 1)
-    template_id = fm->template_reports[flags];
+    template_id = fm->template_reports[which];
 
   if ((is_add && fm->template_per_flow[which] == 1) ||
       (!is_add && fm->template_per_flow[which] == 0))
     {
       if (which == FLOW_VARIANT_IP4)
-	rv = upf_ipfix_template_add_del (1, UDP_DST_PORT_ipfix, flags,
+	rv = upf_ipfix_template_add_del (1, UDP_DST_PORT_ipfix, FLOW_RECORD_L3 | FLOW_RECORD_L4,
 					 upf_ipfix_data_callback_ip4,
 					 upf_ipfix_template_rewrite_ip4,
 					 is_add, &template_id);
       else if (which == FLOW_VARIANT_IP6)
-	rv = upf_ipfix_template_add_del (1, UDP_DST_PORT_ipfix, flags,
+	rv = upf_ipfix_template_add_del (1, UDP_DST_PORT_ipfix, FLOW_RECORD_L3 | FLOW_RECORD_L4,
 					 upf_ipfix_data_callback_ip6,
 					 upf_ipfix_template_rewrite_ip6,
 					 is_add, &template_id);
@@ -870,8 +755,8 @@ static int upf_ipfix_templates_add_del (upf_ipfix_main_t *fm, u8 which, int is_a
 
   if (which != (u8) ~ 0)
     {
-      fm->context[which].flags = fm->record;
-      fm->template_reports[flags] = (is_add) ? template_id : 0;
+      fm->context[which].flags = FLOW_RECORD_L3 | FLOW_RECORD_L4;
+      fm->template_reports[which] = (is_add) ? template_id : 0;
     }
 
   return 0;
@@ -933,25 +818,18 @@ upf_ipfix_init (vlib_main_t * vm)
   for (i = 0; i < FLOW_N_VARIANTS; i++)
     {
       vec_validate (fm->context[i].buffers_per_worker, num_threads - 1);
-      vec_validate (fm->context[i].frames_per_worker, num_threads - 1);
+       vec_validate (fm->context[i].frames_per_worker, num_threads - 1);
       vec_validate (fm->context[i].next_record_offset_per_worker,
 		    num_threads - 1);
     }
 
   fm->active_timer = UPF_IPFIX_TIMER_ACTIVE;
-  /* fm->passive_timer = UPF_IPFIX_TIMER_PASSIVE; */
 
   flow_update_hook = upf_ipfix_flow_update_hook;
   flow_removal_hook = upf_ipfix_flow_removal_hook;
 
-  /* FIXME */
-  upf_ipfix_params(fm, 1, 1);
-
-  /* FIXME: ipv6 causes problems */
-  /* if (upf_ipfix_templates_add_del (fm, FLOW_VARIANT_IP4, 1) != 0 || */
-  /*     upf_ipfix_templates_add_del (fm, FLOW_VARIANT_IP6, 1) != 0) */
-  /*   error = clib_error_return (0, "error adding IPFIX templates"); */
-  if (upf_ipfix_templates_add_del (fm, FLOW_VARIANT_IP4, 1) != 0)
+  if (upf_ipfix_templates_add_del (fm, FLOW_VARIANT_IP4, 1) != 0 ||
+      upf_ipfix_templates_add_del (fm, FLOW_VARIANT_IP6, 1) != 0)
     error = clib_error_return (0, "error adding IPFIX templates");
 
   return error;

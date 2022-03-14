@@ -683,7 +683,8 @@ VLIB_REGISTER_NODE (flowtable_process_node) = {
   .process_log2_n_stack_bytes = 16,
   .runtime_data_bytes = sizeof (void *),
   .name = "upf-flowtable",
-  .state = VLIB_NODE_STATE_DISABLED,
+  /* TBD: only enable in interrupt mode */
+  /* .state = VLIB_NODE_STATE_DISABLED, */
 };
 
 /*

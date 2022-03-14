@@ -250,9 +250,13 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  FLOW_DEBUG (fm, flow1);
 
 	  /* handle flow stats / timer / activity / ipfix */
-	  flow_handle_packet (flow0, p0, is_ip4, is_reverse0, len0, timestamp,
+	  flow_handle_packet (flow0, p0, is_ip4, is_reverse0,
+			      len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
+			      timestamp,
 			      current_time);
-	  flow_handle_packet (flow1, p1, is_ip4, is_reverse1, len1, timestamp,
+	  flow_handle_packet (flow1, p1, is_ip4, is_reverse1,
+			      len1 - upf_buffer_opaque (b1)->gtpu.data_offset,
+			      timestamp,
 			      current_time);
 
 	  /* fill buffer with flow data */
@@ -377,7 +381,9 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 		      flow->is_reverse, created);
 
 	  /* handle flow stats / timer / activity / ipfix */
-	  flow_handle_packet (flow, p, is_ip4, is_reverse, len0, timestamp,
+	  flow_handle_packet (flow, p, is_ip4, is_reverse,
+			      len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
+			      timestamp,
 			      current_time);
 
 	  /* fill opaque buffer with flow data */

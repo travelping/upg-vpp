@@ -2496,7 +2496,7 @@ format_outer_header_creation (u8 * s, va_list * args)
   return s;
 }
 
-u8 *format_mobile_identity (u8 * s, va_list * args)
+u8 *format_tbcd (u8 * s, va_list * args)
 {
   u8 *bytes = va_arg (*args, u8 *);
   int n_bytes = va_arg (*args, int);
@@ -4017,11 +4017,11 @@ format_user_id (u8 * s0, va_list * args)
   u8 *s = s0;
 
   if (v->imei_len > 0)
-    s = format (s0, "IMEI:%U,", format_mobile_identity, v->imei, v->imei_len);
+    s = format (s0, "IMEI:%U,", format_tbcd, v->imei, v->imei_len);
   if (v->imsi_len > 0)
-    s = format (s, "IMSI:%U,", format_mobile_identity, v->imsi, v->imsi_len);
+    s = format (s, "IMSI:%U,", format_tbcd, v->imsi, v->imsi_len);
   if (v->msisdn_len > 0)
-    s = format (s, "MSISDN:%U,", format_mobile_identity, v->msisdn, v->msisdn_len);
+    s = format (s, "MSISDN:%U,", format_tbcd, v->msisdn, v->msisdn_len);
   if (vec_len (v->nai) > 0)
     s = format (s, "NAI:%v,", v->nai);
 

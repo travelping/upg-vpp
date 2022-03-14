@@ -32,9 +32,6 @@ typedef enum __attribute__ ((__packed__))
   {
     FLOW_VARIANT_IP4,
     FLOW_VARIANT_IP6,
-    FLOW_VARIANT_L2,
-    FLOW_VARIANT_L2_IP4,
-    FLOW_VARIANT_L2_IP6,
     FLOW_N_VARIANTS,
   } upf_ipfix_variant_t;
 /* *INDENT-ON* */
@@ -64,12 +61,11 @@ typedef struct
 typedef struct
 {
   upf_ipfix_protocol_context_t context[FLOW_N_VARIANTS];
-  u16 template_reports[FLOW_N_RECORDS];
-  u16 template_size[FLOW_N_RECORDS];
+  u16 template_reports[FLOW_N_VARIANTS];
+  u16 template_size[FLOW_N_VARIANTS];
 
   u32 vlib_time_0;
 
-  upf_ipfix_record_t record;
   u32 active_timer;
 
   bool initialized;
