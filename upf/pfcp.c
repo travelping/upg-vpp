@@ -4755,6 +4755,11 @@ encode_alternative_smf_ip_address (void *p, u8 ** vec)
 #define decode_tp_line_number decode_u32_ie
 #define encode_tp_line_number encode_u32_ie
 
+#define format_tp_ipfix_policy format_simple_vec_ie
+#define decode_tp_ipfix_policy decode_simple_vec_ie
+#define encode_tp_ipfix_policy encode_simple_vec_ie
+#define free_tp_ipfix_policy free_simple_vec_ie
+
 /* BBF Encoder-decoder */
 
 //BBF NAT port block
@@ -5014,6 +5019,11 @@ static struct pfcp_group_ie_def pfcp_create_far_group[] =
     [CREATE_FAR_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
       .offset = offsetof(pfcp_create_far_t, bar_id)
+    },
+    [CREATE_FAR_TP_IPFIX_POLICY] = {
+      .type = PFCP_IE_TP_IPFIX_POLICY,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_create_far_t, ipfix_policy)
     },
   };
 
@@ -5320,6 +5330,11 @@ static struct pfcp_group_ie_def pfcp_update_far_group[] =
     [UPDATE_FAR_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
       .offset = offsetof(pfcp_update_far_t, bar_id)
+    },
+    [UPDATE_FAR_TP_IPFIX_POLICY] = {
+      .type = PFCP_IE_TP_IPFIX_POLICY,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_update_far_t, ipfix_policy)
     },
   };
 
@@ -6949,6 +6964,7 @@ static struct pfcp_ie_def vendor_tp_specs[] =
    SIMPLE_IE_FREE(PFCP_IE_TP_ERROR_MESSAGE, tp_error_message, "TP: Error Message"),
    SIMPLE_IE_FREE(PFCP_IE_TP_FILE_NAME, tp_file_name, "TP: File Name"),
    SIMPLE_IE(PFCP_IE_TP_LINE_NUMBER, tp_line_number, "TP: Line Number"),
+   SIMPLE_IE_FREE(PFCP_IE_TP_IPFIX_POLICY, tp_ipfix_policy, "TP: IPFIX Policy"),
   };
 
 static struct pfcp_ie_def vendor_bbf_specs[] =
