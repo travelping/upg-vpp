@@ -81,6 +81,26 @@ func (cfg SessionConfig) outerHeaderRemoval() *ie.IE {
 	return ie.NewOuterHeaderRemoval(pfcp.OuterHeaderRemoval_GTPUUDPIPV6, 0)
 }
 
+// From IANA Private Enterprise Numbers Registry, Broadband Forum Enterprise ID is 3561 (0x0DE9)
+// Enterprise Specific IE Types are marked with 0x8000 mask
+const (
+	BBF_EID                 = 3561
+	TP_EID = 18681
+	ETYPE_MASK              = 0x8000
+	BBF_TYPE_APPLY_ACTION   = 15
+	BBF_TYPE_NAT_PORT_BLOCK = 18
+	BBF_APPLY_ACTION_NAT    = 1
+	TP_IPFIX_TEMPLATE = 11
+)
+
+func newVendorSpecificStringIE(itype uint16, eid uint16, data string) *ie.IE {
+	return ie.NewVendorSpecificIE(itype, eid, []byte(data))
+}
+
+/*func newVendorSpecificU8IE(itype uint16, eid uint16, val uint8) *ie.IE {
+	return ie.NewVendorSpecificIE(itype, eid, []byte{val})
+}*/
+
 func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 	var fwParams []*ie.IE
 	switch cfg.Mode {
@@ -106,7 +126,8 @@ func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 	return ie.NewCreateFAR(
 		ie.NewFARID(farID),
 		ie.NewApplyAction(pfcp.ApplyAction_FORW),
-		ie.NewForwardingParameters(fwParams...))
+		ie.NewForwardingParameters(fwParams...),
+		newVendorSpecificStringIE(ETYPE_MASK|TP_IPFIX_TEMPLATE, TP_EID, "testing"))
 }
 
 func (cfg SessionConfig) reverseFAR(farID uint32) *ie.IE {

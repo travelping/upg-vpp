@@ -1214,6 +1214,9 @@ typedef u32 pfcp_tp_line_number_t;
 
 #define PFCP_IE_TP_CREATED_NAT_BINDING			10
 
+#define PFCP_IE_TP_IPFIX_POLICY 			11
+typedef u8 *pfcp_tp_ipfix_policy_t;
+
 /* Grouped PFCP Information Elements */
 
 enum
@@ -1581,7 +1584,8 @@ enum
   CREATE_FAR_FORWARDING_PARAMETERS,
   CREATE_FAR_DUPLICATING_PARAMETERS,
   CREATE_FAR_BAR_ID,
-  CREATE_FAR_LAST = CREATE_FAR_BAR_ID
+  CREATE_FAR_TP_IPFIX_POLICY,
+  CREATE_FAR_LAST = CREATE_FAR_TP_IPFIX_POLICY
 };
 
 typedef struct
@@ -1593,6 +1597,7 @@ typedef struct
   pfcp_forwarding_parameters_t forwarding_parameters;
   pfcp_duplicating_parameters_t duplicating_parameters;
   pfcp_bar_id_t bar_id;
+  pfcp_tp_ipfix_policy_t ipfix_policy;
 } pfcp_create_far_t;
 
 enum
@@ -1602,7 +1607,8 @@ enum
   UPDATE_FAR_UPDATE_FORWARDING_PARAMETERS,
   UPDATE_FAR_UPDATE_DUPLICATING_PARAMETERS,
   UPDATE_FAR_BAR_ID,
-  UPDATE_FAR_LAST = UPDATE_FAR_BAR_ID
+  UPDATE_FAR_TP_IPFIX_POLICY,
+  UPDATE_FAR_LAST = UPDATE_FAR_TP_IPFIX_POLICY
 };
 
 typedef struct
@@ -1614,6 +1620,7 @@ typedef struct
   pfcp_update_forwarding_parameters_t update_forwarding_parameters;
   pfcp_update_duplicating_parameters_t update_duplicating_parameters;
   pfcp_bar_id_t bar_id;
+  pfcp_tp_ipfix_policy_t ipfix_policy;
 } pfcp_update_far_t;
 
 enum
