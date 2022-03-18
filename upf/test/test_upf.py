@@ -1642,7 +1642,11 @@ class TestPFCPReencode(framework.VppTestCase):
                     IE_ForwardingParameters(IE_list=[
                         IE_DestinationInterface(interface="Access"),
                         IE_NetworkInstance(instance="access")
-                    ])
+                    ]),
+                    IE_EnterpriseSpecific(
+                        ietype=32779,
+                        enterprise_id=18681,
+                        data=b'testing')
                 ]),
                 IE_CreateFAR(IE_list=[
                     IE_ApplyAction(FORW=1),
@@ -1650,7 +1654,11 @@ class TestPFCPReencode(framework.VppTestCase):
                     IE_ForwardingParameters(IE_list=[
                         IE_DestinationInterface(interface="Access"),
                         IE_NetworkInstance(instance="access")
-                    ])
+                    ]),
+                    IE_EnterpriseSpecific(
+                        ietype=32779,
+                        enterprise_id=18681,
+                        data=b'testing')
                 ]),
                 IE_CreatePDR(IE_list=[
                     IE_FAR_Id(id=6),
