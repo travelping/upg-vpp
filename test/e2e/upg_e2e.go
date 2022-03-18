@@ -1604,8 +1604,8 @@ func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
 func describeNAT(f *framework.Framework) {
 	ginkgo.Describe("NAT translations", func() {
 		ginkgo.BeforeEach(func() {
-			f.VPP.Ctl("nat44 enable sessions 1000 endpoint-dependent")
-			f.VPP.Ctl("set interface nat44 in upf-nwi-sgi out host-sgi0")
+			f.VPP.Ctl("nat44 enable sessions 1000")
+			f.VPP.Ctl("set interface nat44 out host-sgi0 output-feature")
 			f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing")
 			f.VPP.Ctl("nat44 controlled enable")
 		})
