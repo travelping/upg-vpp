@@ -106,7 +106,7 @@ upf_ipfix_template_ip6_fields (ipfix_field_specifier_t * f)
 static inline ipfix_field_specifier_t *
 upf_ipfix_template_common_fields (ipfix_field_specifier_t * f)
 {
-#define upf_ipfix_template_common_field_count() 4 // 6
+#define upf_ipfix_template_common_field_count() 5 // 6
   /* /\* ingressInterface, TLV type 10, u32 *\/ */
   /* f->e_id_length = ipfix_e_id_length (0 /\* enterprise *\/ , */
   /* 				      ingressInterface, 4); */
@@ -135,6 +135,11 @@ upf_ipfix_template_common_fields (ipfix_field_specifier_t * f)
   /* flowEndNanoseconds, TLV type 157, u64 */
   f->e_id_length = ipfix_e_id_length (0 /* enterprise */ ,
 				      flowEndNanoseconds, 8);
+  f++;
+
+  /* flowDirection, TLV type 61, u8 */
+  f->e_id_length = ipfix_e_id_length (0 /* enterprise */ ,
+				      flowDirection, 1);
   f++;
 
   return f;
@@ -417,6 +422,11 @@ upf_ipfix_common_add (vlib_buffer_t * to_b, flow_entry_t * f, flow_direction_t d
   clib_memcpy_fast (to_b->data + offset, &t, sizeof (u32));
   offset += sizeof (u32);
 
+  /* flowDirection */
+  to_b->data[offset++] = direction == FT_ORIGIN ?
+    1 : /* egress flow  */
+    0;  /* ingress flow */
+
   return offset - start;
 }
 
@@ -435,7 +445,7 @@ upf_ipfix_l3_ip6_add (vlib_buffer_t * to_b, flow_entry_t * f, flow_direction_t d
 		    sizeof (ip6_address_t));
   offset += sizeof (ip6_address_t);
 
-  /* Protocol */
+  /* protocolIdentifier */
   to_b->data[offset++] = f->key.proto;
 
   /* octetTotalCount */
