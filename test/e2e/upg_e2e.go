@@ -250,6 +250,7 @@ func describeMeasurement(f *framework.Framework) {
 					}
 					gomega.Expect(r).To(gomega.HaveKey(srcAddressKey))
 					gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
+					gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
 					if r[srcAddressKey].(net.IP).Equal(f.UEIP()) {
 						// upload
 						if ulStartTS.IsZero() {
@@ -272,6 +273,7 @@ func describeMeasurement(f *framework.Framework) {
 						} else {
 							gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(clientPort))
 						}
+						gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(1))) // egress flow
 					} else {
 						// download
 						if dlStartTS.IsZero() {
@@ -295,6 +297,7 @@ func describeMeasurement(f *framework.Framework) {
 						} else {
 							gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(clientPort))
 						}
+						gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(0))) // ingress flow
 					}
 				}
 
