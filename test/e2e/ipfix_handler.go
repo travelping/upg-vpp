@@ -20,6 +20,7 @@ type ipfixHandler struct {
 	sync.Mutex
 	recs   []ipfixRecord
 	stopCh chan struct{}
+	ids    map[uint16]bool
 }
 
 func (h *ipfixHandler) handleIPFIXMessage(msg *entities.Message) {
@@ -35,7 +36,12 @@ func (h *ipfixHandler) handleIPFIXMessage(msg *entities.Message) {
 	if set.GetSetType() == entities.Template {
 		fmt.Fprint(&buf, "TEMPLATE SET:\n")
 		for i, record := range set.GetRecords() {
-			fmt.Fprintf(&buf, "  TEMPLATE RECORD-%d:\n", i)
+			id := record.GetTemplateID()
+			if h.ids == nil {
+				h.ids = make(map[uint16]bool)
+			}
+			h.ids[id] = true
+			fmt.Fprintf(&buf, "  TEMPLATE RECORD-%d (id %d):\n", i, id)
 			for _, ie := range record.GetOrderedElementList() {
 				elem := ie.GetInfoElement()
 				fmt.Fprintf(&buf, "    %s: len=%d (enterprise ID = %d) \n", elem.Name, elem.Len, elem.EnterpriseId)
@@ -97,6 +103,17 @@ func (h *ipfixHandler) handleIPFIXMessage(msg *entities.Message) {
 		}
 	}
 	framework.Logf("IPFIX:\n%s", buf.String())
+}
+
+func (h *ipfixHandler) haveTemplateIDs(ids ...uint16) bool {
+	h.Lock()
+	defer h.Unlock()
+	for _, id := range ids {
+		if !h.ids[id] {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *ipfixHandler) stop() {

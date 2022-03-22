@@ -64,18 +64,20 @@ type CaptureStats struct {
 
 type Capture struct {
 	sync.Mutex
-	cfg           CaptureConfig
-	Stats         CaptureStats
-	trafficCounts map[FiveTuple]uint64
-	log           *logrus.Entry
-	t             *tomb.Tomb
+	cfg             CaptureConfig
+	Stats           CaptureStats
+	trafficCounts   map[FiveTuple]uint64
+	l4TrafficCounts map[FiveTuple]uint64
+	log             *logrus.Entry
+	t               *tomb.Tomb
 }
 
 func NewCapture(cfg CaptureConfig) *Capture {
 	cfg.SetDefaults()
 	return &Capture{
-		cfg:           cfg,
-		trafficCounts: make(map[FiveTuple]uint64),
+		cfg:             cfg,
+		trafficCounts:   make(map[FiveTuple]uint64),
+		l4TrafficCounts: make(map[FiveTuple]uint64),
 		log: logrus.WithFields(logrus.Fields{
 			"ns":    cfg.TargetNS.Name,
 			"iface": cfg.Iface,
@@ -192,11 +194,17 @@ func (c *Capture) Start() error {
 		for {
 			select {
 			case packet := <-source.Packets():
-				fiveTuple, globTuple, plen := packet5TupleAndLength(packet)
-				if fiveTuple != "" {
+				l3, next := decapLayers(packet)
+				if l3 != nil {
+					fiveTuple, globTuple, plen := packet5TupleAndLength(l3, next)
 					c.Lock()
 					c.trafficCounts[fiveTuple] += uint64(plen)
 					c.trafficCounts[globTuple] += uint64(plen)
+					if next != nil {
+						l4Len := uint64(len(next.LayerPayload()))
+						c.l4TrafficCounts[fiveTuple] += l4Len
+						c.l4TrafficCounts[globTuple] += l4Len
+					}
 					c.Unlock()
 				}
 				if err := w.WritePacket(packet.Metadata().CaptureInfo, packet.Data()); err != nil {
@@ -226,6 +234,12 @@ func (c *Capture) GetTrafficCount(ft FiveTuple) uint64 {
 	c.Lock()
 	defer c.Unlock()
 	return c.trafficCounts[ft]
+}
+
+func (c *Capture) GetL4TrafficCount(ft FiveTuple) uint64 {
+	c.Lock()
+	defer c.Unlock()
+	return c.l4TrafficCounts[ft]
 }
 
 type FiveTuple string
@@ -270,16 +284,11 @@ func decapLayers(p gopacket.Packet) (gopacket.Layer, gopacket.Layer) {
 	return l3, next
 }
 
-func packet5TupleAndLength(p gopacket.Packet) (FiveTuple, FiveTuple, uint16) {
+func packet5TupleAndLength(l3, next gopacket.Layer) (FiveTuple, FiveTuple, uint16) {
 	var plen uint16
 	var srcIP, dstIP net.IP
 	var srcPort, dstPort uint16
 	var proto layers.IPProtocol
-
-	l3, next := decapLayers(p)
-	if l3 == nil {
-		return "", "", 0
-	}
 
 	switch l3.LayerType() {
 	case layers.LayerTypeIPv4:

@@ -88,7 +88,11 @@ typedef struct
 typedef struct
 {
   u32 pkts;
+  u32 pkts_unreported;
   u64 bytes;
+  u64 bytes_unreported;
+  u64 l4_bytes;
+  u64 l4_bytes_unreported;
 } flow_stats_t;
 
 typedef enum
@@ -270,7 +274,8 @@ u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
 			       BVT (clib_bihash_kv) * kv,
-			       u32 const now, u8 is_reverse, u16 generation,
+			       timestamp_nsec_t timestamp, u32 const now,
+			       u8 is_reverse, u16 generation,
 			       int *created);
 
 void
@@ -398,9 +403,24 @@ flow_tcp_update_lifetime (flow_entry_t * f, tcp_header_t * hdr)
 }
 
 always_inline void
-flow_handle_packet (flow_entry_t * f, u8 * iph, u8 is_ip4, u8 is_reverse,
-		    u16 len, timestamp_nsec_t timestamp, u32 now)
+flow_handle_packet (vlib_main_t * vm, vlib_buffer_t *b,
+		    u16 data_offset,
+		    flow_entry_t * f, u8 is_ip4, u8 is_reverse,
+		    timestamp_nsec_t timestamp, u32 now)
 {
+  /*
+   * Performance note:
+   * vlib_buffer_length_in_chain() caches its result for the buffer
+   */
+  u16 len = vlib_buffer_length_in_chain (vm, b) - data_offset;
+  u8 *iph = vlib_buffer_get_current (b) + data_offset;
+  u8 *l4h = (is_ip4 ?
+	     ip4_next_header ((ip4_header_t *)
+			      iph) :
+	     ip6_next_header ((ip6_header_t *)
+			      iph));
+  u16 l4_len = len - (l4h - iph);
+
   flow_direction_t direction = f->is_reverse ^ is_reverse;
   ASSERT (f->active <= now);
   f->active = now;
@@ -409,17 +429,19 @@ flow_handle_packet (flow_entry_t * f, u8 * iph, u8 is_ip4, u8 is_reverse,
    */
   if (f->key.proto == IP_PROTOCOL_TCP)
     {
-      tcp_header_t *hdr = (tcp_header_t *) (is_ip4 ?
-					    ip4_next_header ((ip4_header_t *)
-							     iph) :
-					    ip6_next_header ((ip6_header_t *)
-							     iph));
-
+      tcp_header_t *hdr = (tcp_header_t *)l4h;
       flow_tcp_update_lifetime (f, hdr);
+      l4_len -= tcp_header_bytes (hdr);
     }
+  else if (f->key.proto == IP_PROTOCOL_UDP)
+    l4_len -= sizeof (udp_header_t);
 
   f->stats[is_reverse].pkts++;
+  f->stats[is_reverse].pkts_unreported++;
   f->stats[is_reverse].bytes += len;
+  f->stats[is_reverse].bytes_unreported += len;
+  f->stats[is_reverse].l4_bytes += l4_len;
+  f->stats[is_reverse].l4_bytes_unreported += l4_len;
   f->flow_end = timestamp;
 
   if (flow_update_hook != 0)
