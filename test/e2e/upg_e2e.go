@@ -199,10 +199,18 @@ func describeMeasurement(f *framework.Framework) {
 					f.PFCPCfg.UNodeIP,
 					IPFIX_PORT,
 				)
+
 				var ulStartTS, dlStartTS time.Time
 				beginTS := time.Now()
 				ulEndTS := beginTS
 				dlEndTS := beginTS
+
+				ginkgo.By("waiting for the templates...")
+				gomega.Eventually(func() bool {
+					// IPv4 & IPv6 templates
+					return ipfixHandler.haveTemplateIDs(256, 257)
+				}, 20*time.Second, 1*time.Second).Should(gomega.BeTrue())
+
 				seid = startMeasurementSession(f, &framework.SessionConfig{
 					IMSI: "313460000000001",
 				})
@@ -222,6 +230,8 @@ func describeMeasurement(f *framework.Framework) {
 
 				recs := ipfixHandler.getRecords()
 				var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
+				var initiatorPackets, responderPackets uint64
+				var initiatorOctets, responderOctets uint64
 				var clientPort uint16
 				for _, r := range recs {
 					// The record looks like:
@@ -239,7 +249,9 @@ func describeMeasurement(f *framework.Framework) {
 					gomega.Expect(r).To(gomega.HaveKey("packetTotalCount"))
 					gomega.Expect(r).To(gomega.HaveKey("flowStartNanoseconds"))
 					gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
-					gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", r["flowStartNanoseconds"].(time.Time)))
+					gomega.Expect(r["flowEndNanoseconds"]).
+						To(gomega.BeTemporally(">=", r["flowStartNanoseconds"].(time.Time)),
+							"flowEndNanoseconds >= flowStartNanoseconds")
 					gomega.Expect(r).To(gomega.HaveKeyWithValue("protocolIdentifier", uint8(6)))
 
 					srcAddressKey := "sourceIPv4Address"
@@ -251,6 +263,14 @@ func describeMeasurement(f *framework.Framework) {
 					gomega.Expect(r).To(gomega.HaveKey(srcAddressKey))
 					gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
 					gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
+					gomega.Expect(r).To(gomega.HaveKey("initiatorPackets"))
+					gomega.Expect(r).To(gomega.HaveKey("responderPackets"))
+					gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
+					gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
+					initiatorPackets += r["initiatorPackets"].(uint64)
+					responderPackets += r["responderPackets"].(uint64)
+					initiatorOctets += r["initiatorOctets"].(uint64)
+					responderOctets += r["responderOctets"].(uint64)
 					if r[srcAddressKey].(net.IP).Equal(f.UEIP()) {
 						// upload
 						if ulStartTS.IsZero() {
@@ -303,8 +323,15 @@ func describeMeasurement(f *framework.Framework) {
 
 				gomega.Expect(ulPacketCount).To(gomega.Equal(*ms.Reports[1][0].UplinkPacketCount), "uplink packet count")
 				gomega.Expect(dlPacketCount).To(gomega.Equal(*ms.Reports[1][0].DownlinkPacketCount), "downlink packet count")
+				gomega.Expect(initiatorPackets).To(gomega.Equal(*ms.Reports[1][0].UplinkPacketCount), "initiatorPackets")
+				gomega.Expect(responderPackets).To(gomega.Equal(*ms.Reports[1][0].DownlinkPacketCount), "responderPackets")
 				gomega.Expect(ulOctets).To(gomega.Equal(*ms.Reports[1][0].UplinkVolume), "uplink volume")
 				gomega.Expect(dlOctets).To(gomega.Equal(*ms.Reports[1][0].DownlinkVolume), "downlink volume")
+
+				l4UL, l4DL := getL4TrafficCountsFromCapture(f, layers.IPProtocolTCP, nil)
+				gomega.Expect(initiatorOctets).To(gomega.Equal(l4UL), "initiatorOctets")
+				gomega.Expect(responderOctets).To(gomega.Equal(l4DL), "responderOctets")
+				// TBD: check UDP
 				// TBD: check IMSI in the session
 			})
 		})
@@ -1905,7 +1932,7 @@ func verifyPreAppReport(ms *pfcp.PFCPMeasurement, urrId uint32, toleration uint6
 		"too much non-app ul traffic: %d (max %d)", *r.DownlinkVolume, toleration)
 }
 
-func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol, serverIP net.IP) (ul, dl uint64) {
+func finalizeUECapture(f *framework.Framework) *network.Capture {
 	var c *network.Capture
 	if f.SlowGTPU() {
 		// NOTE: if we use UE, we can get bad traffic figures,
@@ -1921,6 +1948,7 @@ func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol
 		// And kernel-based GTPU is just fast enough.
 		c = f.VPP.Captures["ue"]
 	}
+
 	if c == nil {
 		panic("capture not found")
 	}
@@ -1928,12 +1956,28 @@ func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol
 	// make sure the capture is finished, grabbing all of the late packets
 	c.Stop()
 
+	return c
+}
+
+func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol, serverIP net.IP) (ul, dl uint64) {
+	c := finalizeUECapture(f)
 	if serverIP == nil {
 		serverIP = f.ServerIP()
 	}
 	ul = c.GetTrafficCount(network.Make5Tuple(f.UEIP(), -1, serverIP, -1, proto))
 	dl = c.GetTrafficCount(network.Make5Tuple(serverIP, -1, f.UEIP(), -1, proto))
 	framework.Logf("capture stats: UL: %d, DL: %d", ul, dl)
+	return ul, dl
+}
+
+func getL4TrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol, serverIP net.IP) (ul, dl uint64) {
+	c := finalizeUECapture(f)
+	if serverIP == nil {
+		serverIP = f.ServerIP()
+	}
+	ul = c.GetL4TrafficCount(network.Make5Tuple(f.UEIP(), -1, serverIP, -1, proto))
+	dl = c.GetL4TrafficCount(network.Make5Tuple(serverIP, -1, f.UEIP(), -1, proto))
+	framework.Logf("l4 capture stats: UL: %d, DL: %d", ul, dl)
 	return ul, dl
 }
 

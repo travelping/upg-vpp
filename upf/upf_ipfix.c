@@ -106,7 +106,7 @@ upf_ipfix_template_ip6_fields (ipfix_field_specifier_t * f)
 static inline ipfix_field_specifier_t *
 upf_ipfix_template_common_fields (ipfix_field_specifier_t * f)
 {
-#define upf_ipfix_template_common_field_count() 5 // 6
+#define upf_ipfix_template_common_field_count() 9
   /* /\* ingressInterface, TLV type 10, u32 *\/ */
   /* f->e_id_length = ipfix_e_id_length (0 /\* enterprise *\/ , */
   /* 				      ingressInterface, 4); */
@@ -125,6 +125,26 @@ upf_ipfix_template_common_fields (ipfix_field_specifier_t * f)
   /* packetTotalCount, TLV type 86, u64 */
   f->e_id_length = ipfix_e_id_length (0 /* enterprise */ ,
 				      packetTotalCount, 8);
+  f++;
+
+  /* initiatorPackets, TLV type 298, u64 */
+  f->e_id_length = ipfix_e_id_length (0 /* enterprise */ ,
+				      initiatorPackets, 298);
+  f++;
+
+  /* responderPackets, TLV type 299, u64 */
+  f->e_id_length = ipfix_e_id_length (0 /* enterprise */ ,
+				      responderPackets, 299);
+  f++;
+
+  /* initiatorOctets, TLV type 231, u64 */
+  f->e_id_length = ipfix_e_id_length (0 /* enterprise */ ,
+				      initiatorOctets, 231);
+  f++;
+
+  /* responderOctets, TLV type 232, u64 */
+  f->e_id_length = ipfix_e_id_length (0 /* enterprise */ ,
+				      responderOctets, 232);
   f++;
 
   /* flowStartNanoseconds, TLV type 156, u64 */
@@ -401,10 +421,34 @@ upf_ipfix_common_add (vlib_buffer_t * to_b, flow_entry_t * f, flow_direction_t d
   clib_memcpy_fast (to_b->data + offset + 1, sx->imsi, sx->imsi_len);
   offset += sx->imsi_len + 1;
 
-  /* packet total count */
+  /* packetTotalCount */
   u64 total_packets = clib_host_to_net_u64 (flow_stats(f, direction).pkts);
   clib_memcpy_fast (to_b->data + offset, &total_packets, sizeof (u64));
   offset += sizeof (u64);
+
+  /* initiatorPackets */
+  u64 initiator_packets = clib_host_to_net_u64 (flow_stats(f, FT_ORIGIN).pkts_unreported);
+  clib_memcpy_fast (to_b->data + offset, &initiator_packets, sizeof (u64));
+  offset += sizeof (u64);
+  flow_stats(f, FT_ORIGIN).pkts_unreported = 0;
+
+  /* responderPackets */
+  u64 responder_packets = clib_host_to_net_u64 (flow_stats(f, FT_REVERSE).pkts_unreported);
+  clib_memcpy_fast (to_b->data + offset, &responder_packets, sizeof (u64));
+  offset += sizeof (u64);
+  flow_stats(f, FT_REVERSE).pkts_unreported = 0;
+
+  /* initiatorOctets */
+  u64 initiator_octets = clib_host_to_net_u64 (flow_stats(f, FT_ORIGIN).l4_bytes_unreported);
+  clib_memcpy_fast (to_b->data + offset, &initiator_octets, sizeof (u64));
+  offset += sizeof (u64);
+  flow_stats(f, FT_ORIGIN).l4_bytes_unreported = 0;
+
+  /* responderOctets */
+  u64 responder_octets = clib_host_to_net_u64 (flow_stats(f, FT_REVERSE).l4_bytes_unreported);
+  clib_memcpy_fast (to_b->data + offset, &responder_octets, sizeof (u64));
+  offset += sizeof (u64);
+  flow_stats(f, FT_REVERSE).l4_bytes_unreported = 0;
 
   /* flowStartNanoseconds */
   u32 t = clib_host_to_net_u32 (f->flow_start.sec + NTP_TIMESTAMP);

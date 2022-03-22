@@ -358,7 +358,8 @@ recycle_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt, u32 now)
 u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
-			       BVT (clib_bihash_kv) * kv, u32 const now,
+			       BVT (clib_bihash_kv) * kv,
+			       timestamp_nsec_t timestamp, u32 const now,
 			       u8 is_reverse, u16 generation, int *created)
 {
   flow_entry_t *f;
@@ -394,9 +395,8 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   f->is_reverse = is_reverse;
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
-  unix_time_now_nsec_fraction (&f->flow_start.sec, &f->flow_start.nsec);
-  f->flow_end.sec = f->flow_start.sec;
-  f->flow_end.nsec = f->flow_start.nsec;
+  f->flow_start = timestamp;
+  f->flow_end = timestamp;
   f->application_id = ~0;
 #if CLIB_DEBUG > 0
   f->cpu_index = os_get_thread_index ();
