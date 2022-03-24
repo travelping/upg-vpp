@@ -185,6 +185,21 @@ upf_ipfix_template_l4_fields (ipfix_field_specifier_t * f)
   return f;
 }
 
+static inline ipfix_field_specifier_t *
+upf_ipfix_template_nat_fields (ipfix_field_specifier_t * f)
+{
+#define upf_ipfix_template_l4_field_count() 2
+  /* postNATSourceIPv4Addressm, TLV type 225, ip4_address_t */
+  f->e_id_length = ipfix_e_id_length (0, postNATSourceIPv4Address, 4);
+  f++;
+
+  /*postNAPTSourceTransportPort, TVL type 227, u16 */
+  f->e_id_length = ipfix_e_id_length (0, postNAPTSourceTransportPort, 2);
+  f++;
+
+  return f;
+}
+
 /**
  * @brief Create an IPFIX template packet rewrite string
  * @param frm flow_report_main_t *
@@ -266,6 +281,9 @@ upf_ipfix_template_rewrite_inline (ipfix_exporter_t *exp, flow_report_t *fr,
     f = upf_ipfix_template_ip6_fields (f);
   if (flags & FLOW_RECORD_L4)
     f = upf_ipfix_template_l4_fields (f);
+
+  /* TODO: Check for NAT*/
+  f = upf_ipfix_template_nat_fields (f);
 
   /* Back to the template packet... */
   ip = (ip4_header_t *) & tp->ip4;
@@ -470,6 +488,23 @@ upf_ipfix_common_add (vlib_buffer_t * to_b, flow_entry_t * f, flow_direction_t d
   to_b->data[offset++] = direction == FT_ORIGIN ?
     1 : /* egress flow  */
     0;  /* ingress flow */
+
+  return offset - start;
+}
+
+static inline u16
+upf_ipfix_nat_add (vlib_buffer_t * to_b, flow_entry_t * f, u16 offset, upf_session_t *sx)
+{
+  u16 start = offset;
+  u16 port = clib_host_to_net_u16 (f->nat_sport);
+
+  /* NAT Src addr */
+  clib_memcpy_fast (to_b->data + offset, &sx->nat_addr->ext_addr, sizeof (ip4_address_t));
+  offset += sizeof (ip4_address_t);
+
+  /* NAT Src port */
+  clib_memcpy_fast (to_b->data + offset, &port, sizeof (u16));
+  offset += sizeof (u16);
 
   return offset - start;
 }
