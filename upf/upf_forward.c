@@ -93,6 +93,9 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
   upf_main_t *gtm = &upf_main;
   vnet_main_t *vnm = gtm->vnet_main;
   vnet_interface_main_t *im = &vnm->interface_main;
+  timestamp_nsec_t timestamp;
+  u32 current_time = (u32) vlib_time_now (vm);
+  flowtable_main_t *fm = &flowtable_main;
 
   from = vlib_frame_vector_args (from_frame);
   n_left_from = from_frame->n_vectors;
@@ -111,6 +114,7 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
   next_index = node->cached_next_index;
   stats_sw_if_index = node->runtime_data[0];
   stats_n_packets = stats_n_bytes = 0;
+  unix_time_now_nsec_fraction (&timestamp.sec, &timestamp.nsec);
 
   while (n_left_from > 0)
     {
@@ -118,6 +122,7 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
       vlib_buffer_t *b;
       u32 error;
       u32 bi;
+      flow_entry_t *flow;
 
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
 
@@ -279,6 +284,11 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 				   IS_DL (pdr, far), IS_UL (pdr, far), next);
 	      next = process_urrs (vm, sess, node_name, active, pdr, b,
 				   IS_DL (pdr, far), IS_UL (pdr, far), next);
+	      flow =
+		pool_elt_at_index (fm->flows,
+				   upf_buffer_opaque (b)->gtpu.flow_id);
+	      flow_update_stats (vm, b, flow, is_ip4,
+				 timestamp, current_time);
 	    }
 
 #undef IS_DL

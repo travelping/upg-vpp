@@ -49,6 +49,7 @@ type SessionConfig struct {
 	ForwardingPolicyID string
 	NatPoolName        string
 	IMSI               string
+	IPFIXTemplate      string
 }
 
 const (
@@ -128,11 +129,19 @@ func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 		fwParams = append(fwParams, newVendorSpecificU8IE(ETYPE_MASK|BBF_TYPE_APPLY_ACTION, BBF_EID, BBF_APPLY_ACTION_NAT))
 		fwParams = append(fwParams, newVendorSpecificStringIE(ETYPE_MASK|BBF_TYPE_NAT_PORT_BLOCK, BBF_EID, cfg.NatPoolName))
 	}
-	return ie.NewCreateFAR(
+
+	ies := []*ie.IE{
 		ie.NewFARID(farID),
 		ie.NewApplyAction(pfcp.ApplyAction_FORW),
 		ie.NewForwardingParameters(fwParams...),
-		newVendorSpecificStringIE(ETYPE_MASK|TP_IPFIX_TEMPLATE, TP_EID, "testing"))
+	}
+
+	if cfg.IPFIXTemplate != "" {
+		ies = append(ies, newVendorSpecificStringIE(
+			ETYPE_MASK|TP_IPFIX_TEMPLATE, TP_EID, cfg.IPFIXTemplate))
+	}
+
+	return ie.NewCreateFAR(ies...)
 }
 
 func (cfg SessionConfig) reverseFAR(farID uint32) *ie.IE {
