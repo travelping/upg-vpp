@@ -525,6 +525,14 @@ typedef struct
   u32 forward_index;
 } upf_forwarding_policy_t;
 
+typedef enum
+{
+  UPF_IPFIX_POLICY_NONE,
+  UPF_IPFIX_POLICY_DEFAULT,
+  UPF_IPFIX_POLICY_DEST,
+  UPF_IPFIX_N_POLICIES
+} upf_ipfix_policy_t;
+
 /* Forward Action Rules */
 typedef struct
 {
@@ -541,7 +549,7 @@ typedef struct
     upf_far_forward_t forward;
     u16 bar_id;
   };
-  pfcp_tp_ipfix_policy_t ipfix_policy;
+  upf_ipfix_policy_t ipfix_policy;
 } upf_far_t;
 
 typedef struct

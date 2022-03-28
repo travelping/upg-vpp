@@ -161,6 +161,7 @@ typedef struct flow_entry
   timestamp_nsec_t flow_end;
 
   u32 last_exported[FT_ORDER_MAX];
+  u8 ipfix_policy;
 
   /* Generation ID that must match the session's if this flow is up to date */
   u16 generation;
@@ -275,8 +276,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
 			       BVT (clib_bihash_kv) * kv,
 			       timestamp_nsec_t timestamp, u32 const now,
-			       u8 is_reverse, u16 generation,
-			       int *created);
+			       u8 is_reverse, u16 generation, int *created);
 
 void
 timer_wheel_index_update (flowtable_main_t * fm,
@@ -403,38 +403,55 @@ flow_tcp_update_lifetime (flow_entry_t * f, tcp_header_t * hdr)
 }
 
 always_inline void
-flow_handle_packet (vlib_main_t * vm, vlib_buffer_t *b,
-		    u16 data_offset,
-		    flow_entry_t * f, u8 is_ip4, u8 is_reverse,
-		    timestamp_nsec_t timestamp, u32 now)
+flow_update (vlib_main_t * vm, flow_entry_t * f,
+	     u8 * iph, u8 is_ip4, u16 len, u32 now)
+{
+  ASSERT (f->active <= now);
+  f->active = now;
+
+  if (f->key.proto == IP_PROTOCOL_TCP && len >= sizeof (tcp_header_t))
+    {
+      tcp_header_t *hdr = (tcp_header_t *) (is_ip4 ?
+					    ip4_next_header ((ip4_header_t *)
+							     iph) :
+					    ip6_next_header ((ip6_header_t *)
+							     iph));
+      flow_tcp_update_lifetime (f, hdr);
+    }
+}
+
+always_inline void
+flow_update_stats (vlib_main_t * vm, vlib_buffer_t * b,
+		   flow_entry_t * f, u8 is_ip4,
+		   timestamp_nsec_t timestamp, u32 now)
 {
   /*
    * Performance note:
    * vlib_buffer_length_in_chain() caches its result for the buffer
    */
-  u16 len = vlib_buffer_length_in_chain (vm, b) - data_offset;
-  u8 *iph = vlib_buffer_get_current (b) + data_offset;
+  u16 len = vlib_buffer_length_in_chain (vm, b);
+  u8 *iph = vlib_buffer_get_current (b);
   u8 *l4h = (is_ip4 ?
 	     ip4_next_header ((ip4_header_t *)
-			      iph) :
-	     ip6_next_header ((ip6_header_t *)
-			      iph));
+			      iph) : ip6_next_header ((ip6_header_t *) iph));
   u16 l4_len = len - (l4h - iph);
+  u16 diff;
+  flow_direction_t is_reverse =
+    is_ip4 ?
+    ip4_packet_is_reverse ((ip4_header_t *) iph) :
+    ip6_packet_is_reverse ((ip6_header_t *) iph);
 
   flow_direction_t direction = f->is_reverse ^ is_reverse;
-  ASSERT (f->active <= now);
-  f->active = now;
-  /*
-   * CHECK-ME: assert we have enough wellformed data to read the tcp header.
-   */
-  if (f->key.proto == IP_PROTOCOL_TCP)
+  switch (f->key.proto)
     {
-      tcp_header_t *hdr = (tcp_header_t *)l4h;
-      flow_tcp_update_lifetime (f, hdr);
-      l4_len -= tcp_header_bytes (hdr);
+    case IP_PROTOCOL_TCP:
+      diff = tcp_header_bytes ((tcp_header_t *) l4h);
+      break;
+    case IP_PROTOCOL_UDP:
+      diff = sizeof (udp_header_t);
+      break;
     }
-  else if (f->key.proto == IP_PROTOCOL_UDP)
-    l4_len -= sizeof (udp_header_t);
+  l4_len = l4_len > diff ? l4_len - diff : 0;
 
   f->stats[is_reverse].pkts++;
   f->stats[is_reverse].pkts_unreported++;

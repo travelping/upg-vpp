@@ -435,6 +435,7 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
       flow->is_redirect = (far
 			   && far->
 			   forward.flags & FAR_F_REDIRECT_INFORMATION);
+      flow->ipfix_policy = far->ipfix_policy;
     }
   reverse = flow->is_redirect ?
     origin : app_scan_for_uri (uri, flow, active, FT_REVERSE, reverse);

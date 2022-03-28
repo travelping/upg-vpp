@@ -134,8 +134,7 @@ acl_port_in_range (const u16 port, upf_acl_t * acl, int field)
 always_inline int
 upf_acl_classify_one (vlib_main_t * vm, u32 teid,
 		      flow_entry_t * flow, int is_reverse,
-		      u8 is_ip4, upf_acl_t * acl,
-                      struct rules *active)
+		      u8 is_ip4, upf_acl_t * acl, struct rules *active)
 {
   u32 pf_len = is_ip4 ? 32 : 64;
 
@@ -179,14 +178,12 @@ upf_acl_classify_one (vlib_main_t * vm, u32 teid,
 
       /* FIXME: should be able to handle PDRs w/o UE IP */
       if (!acl->match_ue_ip)
-        return 0;
+	return 0;
 
       pdr = vec_elt_at_index (active->pdr, acl->pdr_idx);
-      upf_debug("IP app db_id %d", pdr->pdi.adr.db_id);
-      if (!upf_app_ip_rule_match(pdr->pdi.adr.db_id,
-                                 flow,
-                                 &acl->ue_ip))
-        return 0;
+      upf_debug ("IP app db_id %d", pdr->pdi.adr.db_id);
+      if (!upf_app_ip_rule_match (pdr->pdi.adr.db_id, flow, &acl->ue_ip))
+	return 0;
     }
 
   upf_debug ("Protocol: 0x%04x/0x%04x, 0x%04x\n",
@@ -278,6 +275,8 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 	      *pdr_idx = acl->pdr_idx;
 
 	    far = pfcp_get_far_by_id (active, pdr->far_id);
+	    flow->ipfix_policy = far->ipfix_policy;
+
 	    if (flow->key.proto == IP_PROTOCOL_TCP &&
 		far && far->forward.flags & FAR_F_REDIRECT_INFORMATION)
 	      {
@@ -466,7 +465,7 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  n_left_to_next -= 1;
 
 	  b = vlib_get_buffer (vm, bi);
-          UPF_CHECK_INNER_NODE (b);
+	  UPF_CHECK_INNER_NODE (b);
 
 	  /* Get next node index and adj index from tunnel next_dpo */
 	  sidx = upf_buffer_opaque (b)->gtpu.session_index;
@@ -516,8 +515,8 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		upf_acl_classify_forward (vm,
 					  upf_buffer_opaque (b)->gtpu.teid,
 					  flow, active, is_ip4,
-					  &upf_buffer_opaque (b)->
-					  gtpu.pdr_idx);
+					  &upf_buffer_opaque (b)->gtpu.
+					  pdr_idx);
 	      if (reclassify_proxy_flow)	/* for app detection */
 		{
 		  if (upf_buffer_opaque (b)->gtpu.is_proxied)
@@ -535,15 +534,15 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  upf_acl_classify_proxied (vm,
 					    upf_buffer_opaque (b)->gtpu.teid,
 					    flow, active, is_ip4,
-					    &upf_buffer_opaque (b)->
-					    gtpu.pdr_idx);
+					    &upf_buffer_opaque (b)->gtpu.
+					    pdr_idx);
 	      else
 		next =
 		  upf_acl_classify_return (vm,
 					   upf_buffer_opaque (b)->gtpu.teid,
 					   flow, active, is_ip4,
-					   &upf_buffer_opaque (b)->
-					   gtpu.pdr_idx);
+					   &upf_buffer_opaque (b)->gtpu.
+					   pdr_idx);
 	    }
 
 	  if (flow->app_detection_done)

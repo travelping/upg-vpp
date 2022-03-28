@@ -45,6 +45,7 @@
 #include "upf_pfcp_api.h"
 #include "upf_app_db.h"
 #include "upf_ipfilter.h"
+#include "upf_ipfix.h"
 
 #include <vlib/unix/plugin.h>
 
@@ -1581,7 +1582,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
       }
 
     if (ISSET_BIT (far->grp.fields, CREATE_FAR_TP_IPFIX_POLICY))
-      create->ipfix_policy = vec_dup (far->ipfix_policy);
+      create->ipfix_policy = upf_ipfix_lookup_policy (far->ipfix_policy);
   }
 
   pfcp_sort_fars (rules);
@@ -1740,7 +1741,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	//TODO: header_enrichment
       }
     if (ISSET_BIT (far->grp.fields, UPDATE_FAR_TP_IPFIX_POLICY))
-      update->ipfix_policy = vec_dup (far->ipfix_policy);
+      update->ipfix_policy = upf_ipfix_lookup_policy (far->ipfix_policy);
   }
 
   return 0;
