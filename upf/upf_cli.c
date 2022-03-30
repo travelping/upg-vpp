@@ -234,6 +234,11 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
 	is_add = 0;
       else if (unformat (line_input, "nwi %_%v%_", &nwi_s))
 	;
+      else
+	{
+	  error = unformat_parse_error (line_input);
+	  goto done;
+	}
     }
 
   nwi_name = upf_name_to_labels (nwi_s);
@@ -241,8 +246,8 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
 
   rc = vnet_upf_ue_ip_pool_add_del (name, nwi_name, is_add);
 
+done:
   return error;
-
 }
 
 /* *INDENT-OFF* */
@@ -291,6 +296,11 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
 	;
       else if (unformat (line_input, "del"))
 	is_add = 0;
+      else
+	{
+	  error = unformat_parse_error (line_input);
+	  goto done;
+	}
     }
 
   nwi_name = upf_name_to_labels (nwi_s);
@@ -303,6 +313,7 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
   if (rv)
     error = clib_error_return (0, "Unable to create NAT Pool");
 
+done:
   return error;
 }
 
