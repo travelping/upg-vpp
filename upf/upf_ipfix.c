@@ -586,18 +586,56 @@ upf_ipfix_init (vlib_main_t * vm)
   return error;
 }
 
-upf_ipfix_policy_t upf_ipfix_lookup_policy (u8 * name)
+upf_ipfix_policy_t
+upf_ipfix_lookup_policy (u8 * name, bool * ok)
 {
   upf_ipfix_policy_t policy;
   u32 name_len = vec_len (name);
+
+  if (ok)
+    *ok = false;
 
   for (policy = UPF_IPFIX_POLICY_NONE+1; policy < UPF_IPFIX_N_POLICIES; policy++)
     {
       u32 l = strlen(upf_ipfix_templates[policy].name);
       if (l == name_len && !memcmp(name, upf_ipfix_templates[policy].name, l))
-	return policy;
+	{
+	  if (ok)
+	    *ok = true;
+	  return policy;
+	}
     }
 
-  clib_warning("Bad IPFIX policy: %v", name);
+  /* avoid silently ignoring the error */
+  if (!ok)
+    clib_warning("Bad IPFIX policy: %v", name);
+
   return UPF_IPFIX_POLICY_NONE;
+}
+
+uword unformat_ipfix_policy (unformat_input_t * i, va_list * args)
+{
+  bool ok;
+  upf_ipfix_policy_t *policy = va_arg (*args, upf_ipfix_policy_t *);
+  u8 * name;
+
+  if (unformat_check_input (i) == UNFORMAT_END_OF_INPUT)
+    return 0;
+
+  if (!unformat (i, "%_%v%_", &name))
+    return 0;
+
+  *policy = upf_ipfix_lookup_policy (name, &ok);
+  if (!ok)
+    return 0;
+
+  return 1;
+}
+
+u8 *format_upf_ipfix_policy (u8 * s, va_list * args)
+{
+  upf_ipfix_policy_t policy = va_arg (*args, upf_ipfix_policy_t);
+  return policy < UPF_IPFIX_N_POLICIES ?
+    format (s, "%s", upf_ipfix_templates[policy].name) :
+    format (s, "<unknown %u>", policy);
 }

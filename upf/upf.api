@@ -235,6 +235,7 @@ autoreply define upf_nwi_add_del {
   u8 add;
   u32 ip4_table_id;
   u32 ip6_table_id;
+  u8 ipfix_policy[32];
   u8 nwi_len;
   u8 nwi[nwi_len];
 };
@@ -244,6 +245,7 @@ define upf_nwi_details {
   u32 context;
   u32 ip4_fib_table;
   u32 ip6_fib_table;
+  u8 ipfix_policy[32];
   u8 nwi_len;
   u8 nwi[nwi_len];
 };

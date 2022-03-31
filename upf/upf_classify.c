@@ -217,6 +217,8 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 {
   u32 next = UPF_CLASSIFY_NEXT_DROP;
   upf_acl_t *acl, *acl_vec;
+  upf_main_t *gtm = &upf_main;
+
   /*
    * If the proxy was used before session modification,
    * we must either continue using it or drop the traffic
@@ -275,7 +277,14 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 	      *pdr_idx = acl->pdr_idx;
 
 	    far = pfcp_get_far_by_id (active, pdr->far_id);
-	    flow->ipfix_policy = far->ipfix_policy;
+	    if (far->ipfix_policy != UPF_IPFIX_POLICY_NONE)
+	      flow->ipfix_policy = far->ipfix_policy;
+	    else
+	      {
+		upf_ipfix_policy_t policy;
+		upf_nwi_ipfix_policy (gtm, far->forward.nwi_index, &policy);
+		flow->ipfix_policy = policy;
+	      }
 
 	    if (flow->key.proto == IP_PROTOCOL_TCP &&
 		far && far->forward.flags & FAR_F_REDIRECT_INFORMATION)

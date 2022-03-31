@@ -144,6 +144,7 @@ upf_ipfix_template_dest_ip6_values (vlib_buffer_t * to_b,
 upf_ipfix_template_t upf_ipfix_templates[UPF_IPFIX_N_POLICIES] = {
   [UPF_IPFIX_POLICY_NONE] = {
     .field_count = 0,
+    .name = "none",
   },
   [UPF_IPFIX_POLICY_DEFAULT] = {
     .name = "default",

@@ -150,6 +150,19 @@ upf_nwi_fib_index (fib_protocol_t proto, u32 nwi_index)
     return ~0;
 }
 
+static inline void
+upf_nwi_ipfix_policy (upf_main_t * gtm, u32 nwi_index,
+		      upf_ipfix_policy_t * policy)
+{
+  if (!pool_is_free_index (gtm->nwis, nwi_index))
+    {
+      upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, nwi_index);
+      *policy = nwi->ipfix_policy;
+    }
+  else
+    *policy = UPF_IPFIX_POLICY_NONE;
+}
+
 static_always_inline u32
 flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
 	      struct rules *r)

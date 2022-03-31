@@ -368,6 +368,7 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
   upf_pdr_t *origin = 0, *reverse = 0;
   u16 port;
   u8 *uri = NULL;
+  upf_main_t *gtm = &upf_main;
 
   /* this runs after the forward and reverse ACL rules have been established */
   /* reverse and origin may not be there yet during flow reclassification */
@@ -435,7 +436,14 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
       flow->is_redirect = (far
 			   && far->
 			   forward.flags & FAR_F_REDIRECT_INFORMATION);
-      flow->ipfix_policy = far->ipfix_policy;
+      if (far->ipfix_policy != UPF_IPFIX_POLICY_NONE)
+	flow->ipfix_policy = far->ipfix_policy;
+      else
+	{
+	  upf_ipfix_policy_t policy;
+	  upf_nwi_ipfix_policy (gtm, far->forward.nwi_index, &policy);
+	  flow->ipfix_policy = policy;
+	}
     }
   reverse = flow->is_redirect ?
     origin : app_scan_for_uri (uri, flow, active, FT_REVERSE, reverse);

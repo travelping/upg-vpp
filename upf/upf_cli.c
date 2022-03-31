@@ -29,6 +29,7 @@
 #include <upf/pfcp.h>
 #include <upf/upf_pfcp_server.h>
 #include <upf/upf_proxy.h>
+#include <upf/upf_ipfix.h>
 
 /* Action function shared between message handler and debug CLI */
 #include <upf/flowtable.h>
@@ -374,6 +375,7 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
   u8 *name = NULL;
   u8 *s;
   u32 table_id = 0;
+  upf_ipfix_policy_t ipfix_policy = UPF_IPFIX_POLICY_NONE;
   u8 add = 1;
   int rv;
 
@@ -395,6 +397,9 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
 	;
       else if (unformat (line_input, "vrf %u", &table_id))
 	;
+      else if (unformat (line_input, "ipfix-policy %U",
+			 unformat_ipfix_policy, &ipfix_policy))
+	;
       else
 	{
 	  error = unformat_parse_error (line_input);
@@ -413,7 +418,7 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
   if (~0 == fib_table_find (FIB_PROTOCOL_IP6, table_id))
     clib_warning ("table %d not (yet) defined for IPv6", table_id);
 
-  rv = vnet_upf_nwi_add_del (name, table_id, table_id, add);
+  rv = vnet_upf_nwi_add_del (name, table_id, table_id, ipfix_policy, add);
 
   switch (rv)
     {
@@ -444,7 +449,7 @@ VLIB_CLI_COMMAND (upf_nwi_add_del_command, static) =
 {
   .path = "upf nwi",
   .short_help =
-  "upf nwi name <name> [table <table-id>] [del]",
+  "upf nwi name <name> [table <table-id>] [vrf <vrf-id] [ipfix-policy <name>] [del]",
   .function = upf_nwi_add_del_command_fn,
 };
 /* *INDENT-ON* */
@@ -486,10 +491,12 @@ upf_show_nwi_command_fn (vlib_main_t * vm,
     if (name && !vec_is_equal (name, nwi->name))
       continue;
 
-    vlib_cli_output (vm, "%U, ip4-fib-index %u, ip6-fib-index %u\n",
+    vlib_cli_output (vm, "%U, ip4-fib-index %u, ip6-fib-index %u, ipfix-policy %U\n",
 		     format_dns_labels, nwi->name,
 		     nwi->fib_index[FIB_PROTOCOL_IP4],
-		     nwi->fib_index[FIB_PROTOCOL_IP6]);
+		     nwi->fib_index[FIB_PROTOCOL_IP6],
+		     format_upf_ipfix_policy,
+		     nwi->ipfix_policy);
   }
 
 done:

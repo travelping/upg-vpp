@@ -22,8 +22,6 @@ cloud.google.com/go/storage v1.0.0/go.mod h1:IhtSnM/ZTZV8YYJWCY8RULGVqBDmpoyjwiy
 cloud.google.com/go/storage v1.5.0/go.mod h1:tpKbwo567HUNpVclU5sGELwQWBDZ8gh0ZeosJ0Rtdos=
 cloud.google.com/go/storage v1.6.0/go.mod h1:N7U0C8pVQ/+NIKOBQyamJIeKQKkZ+mxpohlUTyfDhBk=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
-git.fd.io/govpp.git v0.3.6-0.20201023094155-cb540dc166c1 h1:9ZDVGnXCZTdvPV+SiqEzcWSLIwN2y5O4dO0hqvI8VsA=
-git.fd.io/govpp.git v0.3.6-0.20201023094155-cb540dc166c1/go.mod h1:OCVd4W8SH+666KRQoMj6PM+oipLDZAHhqMz9B1TGbgI=
 github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX56iTiv29bbRTIsUNlaFfuhWRQBWjQdVyAevI8=
 github.com/Azure/go-autorest v14.2.0+incompatible/go.mod h1:r+4oMnoxhatjLLJ6zxSWATqVooLgysK6ZNox3g/xq24=
 github.com/Azure/go-autorest/autorest v0.11.12/go.mod h1:eipySxLmqSyC5s5k1CLupqet0PSENBEDP93LQ9a8QYw=
@@ -232,6 +230,8 @@ github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJ
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/ivan4th/go-ipfix v0.2.1-0.20220221212718-b192e67cc721 h1:ErQJQPrIma7114oU/nyZClGQ6sE6BXKMpgvi7xgcIeQ=
 github.com/ivan4th/go-ipfix v0.2.1-0.20220221212718-b192e67cc721/go.mod h1:yzbG1rv+yJ8GeMrRm+MDhOV3akygNZUHLhC1pDoD2AY=
+github.com/ivan4th/govpp v0.4.1-0.20220216073644-c8c0b63ea640 h1:d1lvCPZiqDLvxOU+uRxf3cQc1Zp82EWyQ8PUdLW6Qlw=
+github.com/ivan4th/govpp v0.4.1-0.20220216073644-c8c0b63ea640/go.mod h1:OCVd4W8SH+666KRQoMj6PM+oipLDZAHhqMz9B1TGbgI=
 github.com/ivan4th/ping v0.0.0-20201105224649-bfa92e2c3093 h1:owqw3ykbmKwUvDsIdiZLtS3D1Mt5YfJ7qCZyYcbwO3E=
 github.com/ivan4th/ping v0.0.0-20201105224649-bfa92e2c3093/go.mod h1:35JbSyV/BYqHwwRA6Zr1uVDm1637YlNOU61wI797NPI=
 github.com/j-keck/arping v0.0.0-20160618110441-2cf9dc699c56/go.mod h1:ymszkNOg6tORTn+6F6j+Jc8TOr5osrynvN6ivFWZ2GA=

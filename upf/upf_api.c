@@ -29,6 +29,7 @@
 #include <upf/upf_app_db.h>
 #include <upf/upf_pfcp_server.h>
 #include <upf/upf_pfcp.h>
+#include <upf/upf_ipfix.h>
 
 #include <vnet/format_fns.h>
 #include <upf/upf.api_enum.h>
@@ -487,6 +488,9 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
   u8 *nwi_name = 0;
   u32 ip4_table_id = 0;
   u32 ip6_table_id = 0;
+  bool ok;
+  u8 *ipfix_policy_name;
+  upf_ipfix_policy_t ipfix_policy;
   int rv = 0;
 
   vec_validate (nwi_name, mp->nwi_len - 1);
@@ -500,11 +504,23 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
       goto out;
     }
 
+  mp->ipfix_policy[sizeof (mp->ipfix_policy) - 1] = 0;
+  ipfix_policy_name = format(0, "%s", mp->ipfix_policy);
+  ipfix_policy = upf_ipfix_lookup_policy (ipfix_policy_name, &ok);
+  vec_free (ipfix_policy_name);
+  if (!ok)
+    {
+      upf_debug ("Invalid IPFIX policy %s", mp->ipfix_policy);
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      goto out;
+    }
+
   /* if only one of table IDs given in a request, assign both IDs to it */
   if ((ip4_table_id == 0) || (ip6_table_id == 0))
     ip4_table_id = ip6_table_id = clib_max (ip4_table_id, ip6_table_id);
 
-  rv = vnet_upf_nwi_add_del (nwi_name, ip4_table_id, ip6_table_id, mp->add);
+  rv = vnet_upf_nwi_add_del (nwi_name, ip4_table_id, ip6_table_id,
+			     ipfix_policy, mp->add);
 
 out:
   vec_free (nwi_name);
@@ -517,19 +533,24 @@ send_upf_nwi_details (vl_api_registration_t * reg,
 {
   vl_api_upf_nwi_details_t *mp;
   upf_main_t *sm = &upf_main;
-  u8 len;
+  u32 name_len, ipfix_policy_len;
+  u8 *ipfix_policy = format(0, "%U", format_upf_ipfix_policy, nwi->ipfix_policy);
 
-  len = vec_len (nwi->name);
-  mp = vl_msg_api_alloc (sizeof (*mp) + len * sizeof (u8));
-  clib_memset (mp, 0, sizeof (*mp) + len * sizeof (u8));
+  name_len = vec_len (nwi->name);
+  mp = vl_msg_api_alloc (sizeof (*mp) + name_len * sizeof (u8));
+  clib_memset (mp, 0, sizeof (*mp) + name_len * sizeof (u8));
 
   mp->_vl_msg_id = htons (VL_API_UPF_NWI_DETAILS + sm->msg_id_base);
   mp->context = context;
   mp->ip4_fib_table = htonl (nwi->fib_index[FIB_PROTOCOL_IP4]);
   mp->ip6_fib_table = htonl (nwi->fib_index[FIB_PROTOCOL_IP6]);
 
-  memcpy (mp->nwi, nwi->name, len);
-  mp->nwi_len = len;
+  ipfix_policy_len = clib_min (sizeof (mp->ipfix_policy) - 1, vec_len (ipfix_policy));
+  memcpy (mp->ipfix_policy, ipfix_policy, ipfix_policy_len);
+  mp->ipfix_policy[ipfix_policy_len] = 0;
+
+  memcpy (mp->nwi, nwi->name, name_len);
+  mp->nwi_len = name_len;
 
   vl_api_send_msg (reg, (u8 *) mp);
 }

@@ -92,6 +92,8 @@ upf_ipfix_context (upf_ipfix_main_t * fm, bool ip6, upf_ipfix_policy_t policy)
     &fm->runtime_templates[policy].context_ip4;
 }
 
-upf_ipfix_policy_t upf_ipfix_lookup_policy (u8 * name);
+upf_ipfix_policy_t upf_ipfix_lookup_policy (u8 * name, bool * ok);
+uword unformat_ipfix_policy (unformat_input_t * i, va_list * args);
+u8 *format_upf_ipfix_policy (u8 * s, va_list * args);
 
 #endif

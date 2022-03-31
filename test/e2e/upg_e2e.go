@@ -27,9 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"git.fd.io/govpp.git/binapi/fib_types"
-	"git.fd.io/govpp.git/binapi/ip_types"
-
 	"github.com/google/gopacket/layers"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -38,11 +35,13 @@ import (
 	"github.com/wmnsk/go-pfcp/ie"
 	"github.com/wmnsk/go-pfcp/message"
 
+	"github.com/travelping/upg-vpp/test/e2e/binapi/fib_types"
+	"github.com/travelping/upg-vpp/test/e2e/binapi/ip_types"
+	"github.com/travelping/upg-vpp/test/e2e/binapi/upf"
 	"github.com/travelping/upg-vpp/test/e2e/framework"
 	"github.com/travelping/upg-vpp/test/e2e/network"
 	"github.com/travelping/upg-vpp/test/e2e/pfcp"
 	"github.com/travelping/upg-vpp/test/e2e/traffic"
-	"github.com/travelping/upg-vpp/test/e2e/upf"
 	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
@@ -144,6 +143,7 @@ func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMo
 				describeNAT(f)
 			}
 		}
+		describeIPFIX(mode, ipMode)
 	})
 }
 
@@ -185,230 +185,6 @@ func describeMeasurement(f *framework.Framework) {
 					proto = layers.IPProtocolICMPv6
 				}
 				verifyNonAppMeasurement(f, ms, proto, nil)
-			})
-		})
-
-		ginkgo.Context("[ipfix]", func() {
-			var ipfixHandler *ipfixHandler
-			var beginTS, ulStartTS, ulEndTS, dlStartTS, dlEndTS time.Time
-			ginkgo.BeforeEach(func() {
-				// FIXME: use binapi & multiple exporters
-				f.VPP.Ctl("set ipfix exporter collector %s src %s "+
-					"template-interval 1 port %d path-mtu 1450",
-					f.PFCPCfg.CNodeIP,
-					f.PFCPCfg.UNodeIP,
-					IPFIX_PORT,
-				)
-				ipfixHandler = setupIPFIX(f)
-				beginTS = time.Now()
-				ulStartTS = time.Time{}
-				ulEndTS = beginTS
-				dlStartTS = time.Time{}
-				dlEndTS = beginTS
-
-				ginkgo.By("waiting for the templates...")
-				gomega.Eventually(func() bool {
-					// IPv4 & IPv6 templates
-					return ipfixHandler.haveTemplateIDs(256, 257)
-				}, 20*time.Second, 1*time.Second).Should(gomega.BeTrue())
-			})
-
-			ginkgo.AfterEach(func() {
-				defer ipfixHandler.stop()
-			})
-
-			verifyIPFIX := func(template string, trafficCfg traffic.TrafficConfig, protocol layers.IPProtocol) []ipfixRecord {
-				seid = startMeasurementSession(f, &framework.SessionConfig{
-					IMSI:          "313460000000001",
-					IPFIXTemplate: template,
-				})
-				sessionStr, err := f.VPP.Ctl("show upf session")
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				gomega.Expect(sessionStr).To(gomega.ContainSubstring("313460000000001"))
-				runTrafficGen(f, trafficCfg, &traffic.PreciseTrafficRec{})
-				ginkgo.By("waiting for the flow to expire")
-				gomega.Eventually(func() string {
-					flowStr, err := f.VPP.Ctl("show upf flows")
-					framework.ExpectNoError(err)
-					return flowStr
-				}, 80*time.Second, 5*time.Second).
-					ShouldNot(gomega.ContainSubstring("proto 0x"),
-						"the flow should be gone")
-				ms = deleteSession(f, seid, true)
-				verifyNonAppMeasurement(f, ms, protocol, nil)
-
-				return ipfixHandler.getRecords()
-			}
-
-			verifyIPFIXDefaultRecords := func(recs []ipfixRecord, protocol layers.IPProtocol, port uint16) {
-				// total counts not used for now, but kept here in case if they're needed later
-				// var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
-				var initiatorPackets, responderPackets uint64
-				var initiatorOctets, responderOctets uint64
-				var clientPort uint16
-				for _, r := range recs {
-					// The record looks like:
-					// mobileIMSI: 313460000000001
-					// packetTotalCount: 80
-					// flowStartNanoseconds: 2022-02-22 02:30:32.097219204 +0000 UTC
-					// flowEndNanoseconds: 2022-02-22 02:30:47.152832735 +0000 UTC
-					// sourceIPv4Address: 10.1.0.3
-					// destinationIPv4Address: 10.0.1.3
-					// protocolIdentifier: 6
-					// octetTotalCount: 4262
-					// sourceTransportPort: 36960
-					// destinationTransportPort: 80
-					gomega.Expect(r).To(gomega.HaveKeyWithValue("mobileIMSI", "313460000000001"))
-					// gomega.Expect(r).To(gomega.HaveKey("packetTotalCount"))
-					gomega.Expect(r).To(gomega.HaveKey("flowStartNanoseconds"))
-					gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
-					gomega.Expect(r["flowEndNanoseconds"]).
-						To(gomega.BeTemporally(">=", r["flowStartNanoseconds"].(time.Time)),
-							"flowEndNanoseconds >= flowStartNanoseconds")
-					gomega.Expect(r).To(gomega.HaveKeyWithValue("protocolIdentifier", uint8(protocol)))
-
-					srcAddressKey := "sourceIPv4Address"
-					dstAddressKey := "destinationIPv4Address"
-					if f.IPMode == framework.UPGIPModeV6 {
-						srcAddressKey = "sourceIPv6Address"
-						dstAddressKey = "destinationIPv6Address"
-					}
-					gomega.Expect(r).To(gomega.HaveKey(srcAddressKey))
-					gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
-					// gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
-					gomega.Expect(r).To(gomega.HaveKey("initiatorPackets"))
-					gomega.Expect(r).To(gomega.HaveKey("responderPackets"))
-					gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
-					gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
-					initiatorPackets += r["initiatorPackets"].(uint64)
-					responderPackets += r["responderPackets"].(uint64)
-					initiatorOctets += r["initiatorOctets"].(uint64)
-					responderOctets += r["responderOctets"].(uint64)
-					if r[srcAddressKey].(net.IP).Equal(f.UEIP()) {
-						// upload
-						if ulStartTS.IsZero() {
-							ulStartTS = r["flowStartNanoseconds"].(time.Time)
-							// FIXME: should be working (wrong time on the VPP side?)
-							// gomega.Expect(ulStartTS).To(gomega.BeTemporally(">=", beginTS))
-						} else {
-							gomega.Expect(r["flowStartNanoseconds"]).To(gomega.Equal(ulStartTS))
-						}
-						gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", ulEndTS))
-						ulEndTS = r["flowEndNanoseconds"].(time.Time)
-						gomega.Expect(r[dstAddressKey].(net.IP).Equal(f.ServerIP())).To(gomega.BeTrue())
-						// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", ulPacketCount))
-						// ulPacketCount = r["packetTotalCount"].(uint64)
-						// gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", ulOctets))
-						// ulOctets = r["octetTotalCount"].(uint64)
-						gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(port))
-						if clientPort == 0 {
-							clientPort = r["sourceTransportPort"].(uint16)
-						} else {
-							gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(clientPort))
-						}
-						// gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(1))) // egress flow
-					} else {
-						// download
-						if dlStartTS.IsZero() {
-							dlStartTS = r["flowStartNanoseconds"].(time.Time)
-							// FIXME: should be working (wrong time on the VPP side?)
-							// gomega.Expect(dlStartTS).To(gomega.BeTemporally(">=", beginTS))
-						} else {
-							gomega.Expect(r["flowStartNanoseconds"]).To(gomega.Equal(dlStartTS))
-						}
-						gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", dlEndTS))
-						dlEndTS = r["flowEndNanoseconds"].(time.Time)
-						gomega.Expect(r[srcAddressKey].(net.IP).Equal(f.ServerIP())).To(gomega.BeTrue())
-						gomega.Expect(r[dstAddressKey].(net.IP).Equal(f.UEIP())).To(gomega.BeTrue())
-						// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", dlPacketCount))
-						// dlPacketCount = r["packetTotalCount"].(uint64)
-						// gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", dlOctets))
-						// dlOctets = r["octetTotalCount"].(uint64)
-						gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(port))
-						if clientPort == 0 {
-							clientPort = r["destinationTransportPort"].(uint16)
-						} else {
-							gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(clientPort))
-						}
-						// gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(0))) // ingress flow
-					}
-				}
-
-				// gomega.Expect(ulPacketCount).To(gomega.Equal(*ms.Reports[1][0].UplinkPacketCount), "uplink packet count")
-				// gomega.Expect(dlPacketCount).To(gomega.Equal(*ms.Reports[1][0].DownlinkPacketCount), "downlink packet count")
-				gomega.Expect(initiatorPackets).To(gomega.Equal(*ms.Reports[1][0].UplinkPacketCount), "initiatorPackets")
-				gomega.Expect(responderPackets).To(gomega.Equal(*ms.Reports[1][0].DownlinkPacketCount), "responderPackets")
-				// gomega.Expect(ulOctets).To(gomega.Equal(*ms.Reports[1][0].UplinkVolume), "uplink volume")
-				// gomega.Expect(dlOctets).To(gomega.Equal(*ms.Reports[1][0].DownlinkVolume), "downlink volume")
-
-				l4UL, l4DL := getL4TrafficCountsFromCapture(f, protocol, nil)
-				gomega.Expect(initiatorOctets).To(gomega.Equal(l4UL), "initiatorOctets")
-				gomega.Expect(responderOctets).To(gomega.Equal(l4DL), "responderOctets")
-			}
-
-			verifyIPFIXDestRecords := func(recs []ipfixRecord, protocol layers.IPProtocol, port uint16) {
-				// total counts not used for now, but kept here in case if they're needed later
-				// var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
-				var initiatorOctets, responderOctets uint64
-				for _, r := range recs {
-					gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
-
-					dstAddressKey := "destinationIPv4Address"
-					if f.IPMode == framework.UPGIPModeV6 {
-						dstAddressKey = "destinationIPv6Address"
-					}
-					gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
-					gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
-					gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
-					gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
-					initiatorOctets += r["initiatorOctets"].(uint64)
-					responderOctets += r["responderOctets"].(uint64)
-					if !r[dstAddressKey].(net.IP).Equal(f.UEIP()) {
-						// upload
-						gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", ulEndTS))
-						ulEndTS = r["flowEndNanoseconds"].(time.Time)
-						gomega.Expect(r[dstAddressKey].(net.IP).Equal(f.ServerIP())).To(gomega.BeTrue())
-						gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(1))) // egress flow
-					} else {
-						// download
-						gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", dlEndTS))
-						dlEndTS = r["flowEndNanoseconds"].(time.Time)
-						gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(0))) // ingress flow
-					}
-				}
-
-				l4UL, l4DL := getL4TrafficCountsFromCapture(f, protocol, nil)
-				gomega.Expect(initiatorOctets).To(gomega.Equal(l4UL), "initiatorOctets")
-				gomega.Expect(responderOctets).To(gomega.Equal(l4DL), "responderOctets")
-			}
-
-			ginkgo.It("doesn't send IPFIX reports when no template is configured in the FAR", func() {
-				recs := verifyIPFIX("", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
-				gomega.Expect(recs).To(gomega.BeEmpty())
-			})
-
-			ginkgo.Context("default template", func() {
-				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
-					recs := verifyIPFIX("default", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
-					verifyIPFIXDefaultRecords(recs, layers.IPProtocolTCP, 80)
-				})
-
-				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
-					recs := verifyIPFIX("default", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
-					verifyIPFIXDefaultRecords(recs, layers.IPProtocolUDP, 12345)
-				})
-			})
-
-			ginkgo.Context("dest template", func() {
-				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
-					recs := verifyIPFIX("dest", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
-					verifyIPFIXDestRecords(recs, layers.IPProtocolTCP, 80)
-				})
-
-				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
-					recs := verifyIPFIX("dest", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
-					verifyIPFIXDestRecords(recs, layers.IPProtocolUDP, 12345)
-				})
 			})
 		})
 
@@ -831,15 +607,16 @@ var _ = ginkgo.Describe("Binapi", func() {
 	})
 	ginkgo.Context("for NWIs", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-		ginkgo.It("adds, removes and lists the NWI", func() {
+		ginkgo.It("adds, removes and lists the NWIs", func() {
 			nwi := &upf.UpfNwiAddDel{
-				IP4TableID: 200,
-				Add:        1,
+				IP4TableID:  200,
+				IpfixPolicy: []byte("dest"),
+				Add:         1,
 			}
 			nwi.Nwi = EncodeFQDN("testing")
 			nwiReply := &upf.UpfNwiAddDelReply{}
 			err := f.VPP.ApiChannel.SendRequest(nwi).ReceiveReply(nwiReply)
-			gomega.Expect(err).To(gomega.BeNil())
+			gomega.Expect(err).To(gomega.BeNil(), "upf_nwi_add_del")
 
 			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfNwiDump{})
 			var found bool
@@ -855,7 +632,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 				}
 				found = true
 			}
-			gomega.Expect(found).To(gomega.BeTrue())
+			gomega.Expect(found).To(gomega.BeTrue(), "upf_nwi_dump")
 
 			nwi.Add = 0
 			nwiReply = &upf.UpfNwiAddDelReply{}
@@ -874,6 +651,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if DecodeFQDN(msg.Nwi) != "testing" {
 					continue
 				}
+				gomega.Expect(msg.IpfixPolicy).To(gomega.Equal("dest"))
 				found = true
 			}
 			gomega.Expect(found).To(gomega.BeFalse())
@@ -1777,6 +1555,289 @@ func describeRoutingPolicy(f *framework.Framework) {
 
 		ginkgo.It("applies to the proxied traffic", func() {
 			verify(framework.SessionConfig{AppName: "TST"})
+		})
+	})
+}
+
+func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
+	ginkgo.Context("[ipfix]", func() {
+		var ipfixHandler *ipfixHandler
+		var beginTS, ulStartTS, ulEndTS, dlStartTS, dlEndTS time.Time
+		var seid pfcp.SEID
+		var ms *pfcp.PFCPMeasurement
+
+		withIPFIXHandler := func(f *framework.Framework) {
+			ginkgo.BeforeEach(func() {
+				// FIXME: use binapi & multiple exporters
+				f.VPP.Ctl("set ipfix exporter collector %s src %s "+
+					"template-interval 1 port %d path-mtu 1450",
+					f.PFCPCfg.CNodeIP,
+					f.PFCPCfg.UNodeIP,
+					IPFIX_PORT,
+				)
+				ipfixHandler = setupIPFIX(f)
+				beginTS = time.Now()
+				ulStartTS = time.Time{}
+				ulEndTS = beginTS
+				dlStartTS = time.Time{}
+				dlEndTS = beginTS
+
+				ginkgo.By("waiting for the templates...")
+				gomega.Eventually(func() bool {
+					// IPv4 & IPv6 templates
+					return ipfixHandler.haveTemplateIDs(256, 257)
+				}, 20*time.Second, 1*time.Second).Should(gomega.BeTrue())
+			})
+
+			ginkgo.AfterEach(func() {
+				defer ipfixHandler.stop()
+			})
+		}
+
+		verifyIPFIX := func(f *framework.Framework, template string, trafficCfg traffic.TrafficConfig, protocol layers.IPProtocol) []ipfixRecord {
+			seid = startMeasurementSession(f, &framework.SessionConfig{
+				IMSI:          "313460000000001",
+				IPFIXTemplate: template,
+			})
+			sessionStr, err := f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(sessionStr).To(gomega.ContainSubstring("313460000000001"))
+			runTrafficGen(f, trafficCfg, &traffic.PreciseTrafficRec{})
+			ginkgo.By("waiting for the flow to expire")
+			gomega.Eventually(func() string {
+				flowStr, err := f.VPP.Ctl("show upf flows")
+				framework.ExpectNoError(err)
+				return flowStr
+			}, 80*time.Second, 5*time.Second).
+				ShouldNot(gomega.ContainSubstring("proto 0x"),
+					"the flow should be gone")
+			ms = deleteSession(f, seid, true)
+			verifyNonAppMeasurement(f, ms, protocol, nil)
+
+			return ipfixHandler.getRecords()
+		}
+
+		verifyIPFIXDefaultRecords := func(f *framework.Framework, recs []ipfixRecord, protocol layers.IPProtocol, port uint16) {
+			// total counts not used for now, but kept here in case if they're needed later
+			// var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
+			var initiatorPackets, responderPackets uint64
+			var initiatorOctets, responderOctets uint64
+			var clientPort uint16
+			for _, r := range recs {
+				// The record looks like:
+				// mobileIMSI: 313460000000001
+				// packetTotalCount: 80
+				// flowStartNanoseconds: 2022-02-22 02:30:32.097219204 +0000 UTC
+				// flowEndNanoseconds: 2022-02-22 02:30:47.152832735 +0000 UTC
+				// sourceIPv4Address: 10.1.0.3
+				// destinationIPv4Address: 10.0.1.3
+				// protocolIdentifier: 6
+				// octetTotalCount: 4262
+				// sourceTransportPort: 36960
+				// destinationTransportPort: 80
+				gomega.Expect(r).To(gomega.HaveKeyWithValue("mobileIMSI", "313460000000001"))
+				// gomega.Expect(r).To(gomega.HaveKey("packetTotalCount"))
+				gomega.Expect(r).To(gomega.HaveKey("flowStartNanoseconds"))
+				gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
+				gomega.Expect(r["flowEndNanoseconds"]).
+					To(gomega.BeTemporally(">=", r["flowStartNanoseconds"].(time.Time)),
+						"flowEndNanoseconds >= flowStartNanoseconds")
+				gomega.Expect(r).To(gomega.HaveKeyWithValue("protocolIdentifier", uint8(protocol)))
+
+				srcAddressKey := "sourceIPv4Address"
+				dstAddressKey := "destinationIPv4Address"
+				if f.IPMode == framework.UPGIPModeV6 {
+					srcAddressKey = "sourceIPv6Address"
+					dstAddressKey = "destinationIPv6Address"
+				}
+				gomega.Expect(r).To(gomega.HaveKey(srcAddressKey))
+				gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
+				// gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
+				gomega.Expect(r).To(gomega.HaveKey("initiatorPackets"))
+				gomega.Expect(r).To(gomega.HaveKey("responderPackets"))
+				gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
+				gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
+				initiatorPackets += r["initiatorPackets"].(uint64)
+				responderPackets += r["responderPackets"].(uint64)
+				initiatorOctets += r["initiatorOctets"].(uint64)
+				responderOctets += r["responderOctets"].(uint64)
+				if r[srcAddressKey].(net.IP).Equal(f.UEIP()) {
+					// upload
+					if ulStartTS.IsZero() {
+						ulStartTS = r["flowStartNanoseconds"].(time.Time)
+						// FIXME: should be working (wrong time on the VPP side?)
+						// gomega.Expect(ulStartTS).To(gomega.BeTemporally(">=", beginTS))
+					} else {
+						gomega.Expect(r["flowStartNanoseconds"]).To(gomega.Equal(ulStartTS))
+					}
+					gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", ulEndTS))
+					ulEndTS = r["flowEndNanoseconds"].(time.Time)
+					gomega.Expect(r[dstAddressKey].(net.IP).Equal(f.ServerIP())).To(gomega.BeTrue())
+					// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", ulPacketCount))
+					// ulPacketCount = r["packetTotalCount"].(uint64)
+					// gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", ulOctets))
+					// ulOctets = r["octetTotalCount"].(uint64)
+					gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(port))
+					if clientPort == 0 {
+						clientPort = r["sourceTransportPort"].(uint16)
+					} else {
+						gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(clientPort))
+					}
+					// gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(1))) // egress flow
+				} else {
+					// download
+					if dlStartTS.IsZero() {
+						dlStartTS = r["flowStartNanoseconds"].(time.Time)
+						// FIXME: should be working (wrong time on the VPP side?)
+						// gomega.Expect(dlStartTS).To(gomega.BeTemporally(">=", beginTS))
+					} else {
+						gomega.Expect(r["flowStartNanoseconds"]).To(gomega.Equal(dlStartTS))
+					}
+					gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", dlEndTS))
+					dlEndTS = r["flowEndNanoseconds"].(time.Time)
+					gomega.Expect(r[srcAddressKey].(net.IP).Equal(f.ServerIP())).To(gomega.BeTrue())
+					gomega.Expect(r[dstAddressKey].(net.IP).Equal(f.UEIP())).To(gomega.BeTrue())
+					// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", dlPacketCount))
+					// dlPacketCount = r["packetTotalCount"].(uint64)
+					// gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", dlOctets))
+					// dlOctets = r["octetTotalCount"].(uint64)
+					gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(port))
+					if clientPort == 0 {
+						clientPort = r["destinationTransportPort"].(uint16)
+					} else {
+						gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(clientPort))
+					}
+					// gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(0))) // ingress flow
+				}
+			}
+
+			// gomega.Expect(ulPacketCount).To(gomega.Equal(*ms.Reports[1][0].UplinkPacketCount), "uplink packet count")
+			// gomega.Expect(dlPacketCount).To(gomega.Equal(*ms.Reports[1][0].DownlinkPacketCount), "downlink packet count")
+			gomega.Expect(initiatorPackets).To(gomega.Equal(*ms.Reports[1][0].UplinkPacketCount), "initiatorPackets")
+			gomega.Expect(responderPackets).To(gomega.Equal(*ms.Reports[1][0].DownlinkPacketCount), "responderPackets")
+			// gomega.Expect(ulOctets).To(gomega.Equal(*ms.Reports[1][0].UplinkVolume), "uplink volume")
+			// gomega.Expect(dlOctets).To(gomega.Equal(*ms.Reports[1][0].DownlinkVolume), "downlink volume")
+
+			l4UL, l4DL := getL4TrafficCountsFromCapture(f, protocol, nil)
+			gomega.Expect(initiatorOctets).To(gomega.Equal(l4UL), "initiatorOctets")
+			gomega.Expect(responderOctets).To(gomega.Equal(l4DL), "responderOctets")
+		}
+
+		verifyIPFIXDestRecords := func(f *framework.Framework, recs []ipfixRecord, protocol layers.IPProtocol, port uint16) {
+			// total counts not used for now, but kept here in case if they're needed later
+			// var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
+			var initiatorOctets, responderOctets uint64
+			for _, r := range recs {
+				gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
+
+				dstAddressKey := "destinationIPv4Address"
+				if f.IPMode == framework.UPGIPModeV6 {
+					dstAddressKey = "destinationIPv6Address"
+				}
+				gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
+				gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
+				gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
+				gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
+				initiatorOctets += r["initiatorOctets"].(uint64)
+				responderOctets += r["responderOctets"].(uint64)
+				if !r[dstAddressKey].(net.IP).Equal(f.UEIP()) {
+					// upload
+					gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", ulEndTS))
+					ulEndTS = r["flowEndNanoseconds"].(time.Time)
+					gomega.Expect(r[dstAddressKey].(net.IP).Equal(f.ServerIP())).To(gomega.BeTrue())
+					gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(1))) // egress flow
+				} else {
+					// download
+					gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", dlEndTS))
+					dlEndTS = r["flowEndNanoseconds"].(time.Time)
+					gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(0))) // ingress flow
+				}
+			}
+
+			l4UL, l4DL := getL4TrafficCountsFromCapture(f, protocol, nil)
+			gomega.Expect(initiatorOctets).To(gomega.Equal(l4UL), "initiatorOctets")
+			gomega.Expect(responderOctets).To(gomega.Equal(l4DL), "responderOctets")
+		}
+
+		ginkgo.Context("[FAR-based]", func() {
+			f := framework.NewDefaultFramework(mode, ipMode)
+
+			ginkgo.It("doesn't send IPFIX reports when no template is configured in the FAR", func() {
+				recs := verifyIPFIX(f, "", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
+				gomega.Expect(recs).To(gomega.BeEmpty())
+			})
+
+			ginkgo.Context("default template", func() {
+				withIPFIXHandler(f)
+
+				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
+					recs := verifyIPFIX(f, "default", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
+					verifyIPFIXDefaultRecords(f, recs, layers.IPProtocolTCP, 80)
+				})
+
+				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
+					recs := verifyIPFIX(f, "default", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
+					verifyIPFIXDefaultRecords(f, recs, layers.IPProtocolUDP, 12345)
+				})
+			})
+
+			ginkgo.Context("dest template", func() {
+				withIPFIXHandler(f)
+
+				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
+					recs := verifyIPFIX(f, "dest", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
+					verifyIPFIXDestRecords(f, recs, layers.IPProtocolTCP, 80)
+				})
+
+				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
+					recs := verifyIPFIX(f, "dest", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
+					verifyIPFIXDestRecords(f, recs, layers.IPProtocolUDP, 12345)
+				})
+			})
+		})
+
+		ginkgo.Context("[NWI-based]", func() {
+			setNWIIPFIXPolicy := func(f *framework.Framework, name string) {
+				for n, cmd := range f.VPPCfg.SetupCommands {
+					if strings.HasPrefix(cmd, "upf nwi name") {
+						f.VPPCfg.SetupCommands[n] = fmt.Sprintf(
+							"%s ipfix-policy %s",
+							cmd, name)
+					}
+				}
+			}
+
+			ginkgo.Context("default template", func() {
+				f := framework.NewDefaultFramework(mode, ipMode)
+				setNWIIPFIXPolicy(f, "default")
+				withIPFIXHandler(f)
+
+				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
+					recs := verifyIPFIX(f, "", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
+					verifyIPFIXDefaultRecords(f, recs, layers.IPProtocolTCP, 80)
+				})
+
+				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
+					recs := verifyIPFIX(f, "", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
+					verifyIPFIXDefaultRecords(f, recs, layers.IPProtocolUDP, 12345)
+				})
+			})
+
+			ginkgo.Context("dest template", func() {
+				f := framework.NewDefaultFramework(mode, ipMode)
+				setNWIIPFIXPolicy(f, "dest")
+				withIPFIXHandler(f)
+
+				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
+					recs := verifyIPFIX(f, "", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
+					verifyIPFIXDestRecords(f, recs, layers.IPProtocolTCP, 80)
+				})
+
+				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
+					recs := verifyIPFIX(f, "", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
+					verifyIPFIXDestRecords(f, recs, layers.IPProtocolUDP, 12345)
+				})
+			})
 		})
 	})
 }

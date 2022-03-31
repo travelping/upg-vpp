@@ -857,6 +857,8 @@ typedef struct
   /* vnet intfc index */
   u32 sw_if_index;
   u32 hw_if_index;
+
+  upf_ipfix_policy_t ipfix_policy;
 } upf_nwi_t;
 
 typedef struct
@@ -1051,7 +1053,7 @@ int vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index,
 				    u8 add);
 void vnet_upf_pfcp_set_polling (vlib_main_t * vm, u8 polling);
 int vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
-			  u8 add);
+			  upf_ipfix_policy_t ipfix_policy, u8 add);
 int vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
 			   u8 * name, u8 intf, u32 teid, u32 mask, u8 add);
 

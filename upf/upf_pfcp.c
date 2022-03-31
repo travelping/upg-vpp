@@ -117,7 +117,7 @@ VNET_HW_INTERFACE_CLASS (gtpu_hw_class) =
 
 static int
 vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
-			u32 * sw_if_idx)
+			upf_ipfix_policy_t ipfix_policy, u32 * sw_if_idx)
 {
   vnet_main_t *vnm = upf_main.vnet_main;
   l2input_main_t *l2im = &l2input_main;
@@ -143,6 +143,7 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
   memset (&nwi->fib_index, ~0, sizeof (nwi->fib_index));
 
   nwi->name = vec_dup (name);
+  nwi->ipfix_policy = ipfix_policy;
 
   if_index = nwi - gtm->nwis;
 
@@ -253,10 +254,12 @@ vnet_upf_delete_nwi_if (u8 * name, u32 * sw_if_idx)
 }
 
 int
-vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id, u8 add)
+vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
+		      upf_ipfix_policy_t ipfix_policy, u8 add)
 {
   return (add) ?
-    vnet_upf_create_nwi_if (name, ip4_table_id, ip6_table_id, NULL) :
+    vnet_upf_create_nwi_if (name, ip4_table_id, ip6_table_id,
+			    ipfix_policy, NULL) :
     vnet_upf_delete_nwi_if (name, NULL);
 }
 
