@@ -1953,14 +1953,14 @@ pfcp_update_apply (upf_session_t * sx)
 						  !!(urr->triggers &
 						     REPORTING_TRIGGER_TIME_QUOTA));
 	  }
-	if (urr->update_flags & PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME)
-	  {
-	    urr->quota_validity_time.base = now;
-	    upf_pfcp_session_start_stop_urr_time (si,
-						  &urr->quota_validity_time,
-						  !!(urr->triggers &
-						     REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
-	  }
+      }
+    if (urr->update_flags & PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME)
+      {
+	urr->quota_validity_time.base = now;
+	upf_pfcp_session_start_stop_urr_time (si,
+					      &urr->quota_validity_time,
+					      !!(urr->triggers &
+						 REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
       }
   }
 
