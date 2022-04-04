@@ -245,13 +245,17 @@ func (cfg SessionConfig) DeleteFARs() []*ie.IE {
 
 func (cfg SessionConfig) CreateOrUpdateURR(id uint32, update bool) *ie.IE {
 	triggers := uint16(0)
+	measurementMethodDURAT := 1
 	mk := ie.NewCreateURR
 	if update {
 		mk = ie.NewUpdateURR
 	}
+	if cfg.VTime != 0 {
+		measurementMethodDURAT = 0
+	}
 	urr := mk(ie.NewURRID(id),
 		// VOLUM=1 DURAT=1
-		ie.NewMeasurementMethod(0, 1, 1))
+		ie.NewMeasurementMethod(0, 1, measurementMethodDURAT))
 	if !cfg.MonitoringTime.IsZero() {
 		urr.Add(ie.NewMonitoringTime(cfg.MonitoringTime))
 	}
