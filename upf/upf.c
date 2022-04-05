@@ -207,6 +207,34 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
   return 0;
 }
 
+void
+upf_pfcp_policer_config_init (upf_main_t * gtm)
+{
+  qos_pol_cfg_params_st *cfg = &pfcp_rate_cfg_main;
+
+  cfg->rate_type = QOS_RATE_PPS;
+  cfg->rnd_type = QOS_ROUND_TO_CLOSEST;
+  cfg->rfc = QOS_POLICER_TYPE_1R2C;
+  cfg->color_aware = 0;
+  cfg->conform_action.action_type = QOS_ACTION_TRANSMIT;
+  cfg->exceed_action.action_type = QOS_ACTION_DROP;
+  cfg->violate_action.action_type = QOS_ACTION_DROP;
+  cfg->rb.pps.cir_pps = 1 << 20;
+  cfg->rb.pps.cb_ms = 1000;
+}
+
+void
+upf_pfcp_policers_recalculate (qos_pol_cfg_params_st * cfg)
+{
+  upf_main_t *gtm = &upf_main;
+  policer_t *p;
+
+  pool_foreach (p, gtm->pfcp_policers)
+  {
+    pol_logical_2_physical (cfg, p);
+  }
+}
+
 int
 vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
 		       u8 * name, u8 intf, u32 teid, u32 mask, u8 add)
@@ -581,6 +609,8 @@ upf_init (vlib_main_t * vm)
   error = flowtable_init (vm);
   if (error)
     return error;
+
+  upf_pfcp_policer_config_init (sm);
 
   return pfcp_server_main_init (vm);
 }

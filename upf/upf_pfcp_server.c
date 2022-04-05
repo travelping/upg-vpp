@@ -39,6 +39,9 @@
 #define TW_SECS_PER_CLOCK 10e-3	/* 10ms */
 #define TW_CLOCKS_PER_SECOND (1 / TW_SECS_PER_CLOCK)
 
+/* as defined in vnet/policer, PPS-based QOS fixed size */
+#define UPF_POLICER_FIXED_PKT_SIZE 256
+
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #define urr_debug_out(format, args...)				\
@@ -407,6 +410,14 @@ upf_pfcp_server_send_session_request (upf_session_t * sx,
 				      pfcp_decoded_msg_t * dmsg)
 {
   pfcp_msg_t *msg;
+  upf_main_t *gtm = &upf_main;
+  upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, sx->assoc.node);
+  policer_t *p = pool_elt_at_index (gtm->pfcp_policers, n->policer_idx);
+
+  if (vnet_police_packet
+      (p, UPF_POLICER_FIXED_PKT_SIZE, POLICE_CONFORM,
+       vlib_time_now (gtm->vlib_main)) != POLICE_CONFORM)
+    return;
 
   if ((msg = build_pfcp_session_msg (sx, dmsg)))
     {

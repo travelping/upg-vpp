@@ -175,6 +175,48 @@ VLIB_CLI_COMMAND (upf_pfcp_show_endpoint_command, static) =
 /* *INDENT-ON* */
 
 static clib_error_t *
+upf_pfcp_policer_set_fn (vlib_main_t * vm,
+			 unformat_input_t * main_input,
+			 vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  clib_error_t *error = NULL;
+  qos_pol_cfg_params_st *cfg = &pfcp_rate_cfg_main;
+  u32 cir_pps;
+  u32 cb_ms;
+
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    return 0;
+
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "cir-pps %u", &cir_pps))
+	cfg->rb.pps.cir_pps = cir_pps;
+      else if (unformat (line_input, "cb-ms %u", &cb_ms))
+	cfg->rb.pps.cb_ms = cb_ms;
+      else
+	{
+	  error = unformat_parse_error (line_input);
+	  return error;
+	}
+    }
+
+  upf_pfcp_policers_recalculate (cfg);
+
+  return NULL;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_pfcp_policer_set, static) =
+{
+  .path = "upf pfcp policer set",
+  .short_help =
+  "upf pfcp policer set cir-pps <packet-per-second> cb-ms <burst-ms>",
+  .function = upf_pfcp_policer_set_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
 upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
 				  unformat_input_t * main_input,
 				  vlib_cli_command_t * cmd)

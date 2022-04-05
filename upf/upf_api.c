@@ -714,6 +714,50 @@ vl_api_upf_pfcp_server_show_t_handler (vl_api_upf_pfcp_server_show_t * mp)
   vl_api_send_msg (reg, (u8 *) rmp);
 }
 
+/* API message handler */
+static void
+vl_api_upf_pfcp_policer_set_t_handler (vl_api_upf_pfcp_policer_set_t * mp)
+{
+  vl_api_upf_pfcp_policer_set_reply_t *rmp = NULL;
+  qos_pol_cfg_params_st *cfg = &pfcp_rate_cfg_main;
+  upf_main_t *sm = &upf_main;
+  int rv = 0;
+  cfg->rb.pps.cir_pps = clib_net_to_host_u32 (mp->cir_pps);
+  cfg->rb.pps.cb_ms = clib_net_to_host_u32 (mp->cb_ms);
+
+  upf_pfcp_policers_recalculate (cfg);
+
+  REPLY_MACRO (VL_API_UPF_PFCP_POLICER_SET_REPLY);
+}
+
+/* API message handler */
+static void
+vl_api_upf_pfcp_policer_show_t_handler (vl_api_upf_pfcp_policer_show_t * mp)
+{
+  vl_api_upf_pfcp_policer_show_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  qos_pol_cfg_params_st *cfg = &pfcp_rate_cfg_main;
+  vl_api_registration_t *reg;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    {
+      return;
+    }
+
+  rmp = vl_msg_api_alloc (sizeof (*rmp));
+  clib_memset (rmp, 0, sizeof (*rmp));
+
+  rmp->_vl_msg_id =
+    htons (VL_API_UPF_PFCP_POLICER_SHOW_REPLY + sm->msg_id_base);
+  rmp->context = mp->context;
+
+  rmp->cir_pps = htonl (cfg->rb.pps.cir_pps);
+  rmp->cb_ms = htonl (cfg->rb.pps.cb_ms);
+
+  vl_api_send_msg (reg, (u8 *) rmp);
+}
+
 #include <upf/upf.api.c>
 
 static clib_error_t *
