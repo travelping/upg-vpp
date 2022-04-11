@@ -140,10 +140,10 @@ flow_entry_free (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 always_inline void
 flowtable_entry_remove (flowtable_main_per_cpu_t * fmt, flow_entry_t * f)
 {
-  BVT (clib_bihash_kv) kv;
+  clib_bihash_kv_48_8_t kv;
 
   clib_memcpy (kv.key, f->key.key, sizeof (kv.key));
-  BV (clib_bihash_add_del) (&fmt->flows_ht, &kv, 0 /* is_add */ );
+  clib_bihash_add_del_48_8 (&fmt->flows_ht, &kv, 0 /* is_add */ );
 }
 
 always_inline bool
@@ -358,7 +358,7 @@ recycle_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt, u32 now)
 u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
-			       BVT (clib_bihash_kv) * kv,
+			       clib_bihash_kv_48_8_t * kv,
 			       timestamp_nsec_t timestamp, u32 const now,
 			       u8 is_reverse, u16 generation, int *created)
 {
@@ -367,7 +367,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   upf_main_t *gtm = &upf_main;
 
   if (PREDICT_FALSE
-      (BV (clib_bihash_search_inline) (&fmt->flows_ht, kv) == 0))
+      (clib_bihash_search_inline_48_8 (&fmt->flows_ht, kv) == 0))
     {
       return kv->value;
     }
@@ -427,7 +427,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
 
   /* insert in hash */
   kv->value = f - fm->flows;
-  BV (clib_bihash_add_del) (&fmt->flows_ht, kv, 1 /* is_add */ );
+  clib_bihash_add_del_48_8 (&fmt->flows_ht, kv, 1 /* is_add */ );
 
   return kv->value;
 }

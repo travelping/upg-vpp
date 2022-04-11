@@ -135,7 +135,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  upf_session_t *sx0, *sx1;
 	  struct rules *active0, *active1;
 	  u32 next0, next1;
-	  BVT (clib_bihash_kv) kv0, kv1;
+	  clib_bihash_kv_48_8_t kv0, kv1;
 	  int created0, created1;
 	  uword is_reverse0, is_reverse1;
 	  u32 flow_idx0, flow_idx1;
@@ -322,7 +322,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  u32 flow_idx;
 	  flow_entry_t *flow = NULL;
 	  uword is_reverse = 0;
-	  BVT (clib_bihash_kv) kv;
+	  clib_bihash_kv_48_8_t kv;
 	  u8 *p;
 	  uword len0;
 

@@ -194,7 +194,7 @@ typedef struct flow_entry
 typedef struct
 {
   /* hashtable */
-  BVT (clib_bihash) flows_ht;
+  clib_bihash_48_8_t flows_ht;
 
   /* timers */
   dlist_elt_t *timers;
@@ -255,7 +255,7 @@ clib_error_t *flowtable_lifetime_update (flowtable_timeout_type_t type,
 clib_error_t *flowtable_max_lifetime_update (u16 value);
 clib_error_t *flowtable_init (vlib_main_t * vm);
 
-void foreach_upf_flows (BVT (clib_bihash_kv) * kvp, void *arg);
+void foreach_upf_flows (clib_bihash_kv_48_8_t * kvp, void *arg);
 
 static inline u16
 flowtable_lifetime_get (flowtable_timeout_type_t type)
@@ -274,7 +274,7 @@ flowtable_get_flow (flowtable_main_t * fm, u32 flow_index)
 u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
-			       BVT (clib_bihash_kv) * kv,
+			       clib_bihash_kv_48_8_t * kv,
 			       timestamp_nsec_t timestamp, u32 const now,
 			       u8 is_reverse, u16 generation, int *created);
 
@@ -347,7 +347,7 @@ parse_ip6_packet (ip6_header_t * ip6, uword * is_reverse, flow_key_t * key)
 
 static inline void
 flow_mk_key (u64 seid, u8 * header, u8 is_ip4,
-	     uword * is_reverse, BVT (clib_bihash_kv) * kv)
+	     uword * is_reverse, clib_bihash_kv_48_8_t * kv)
 {
   flow_key_t *key = (flow_key_t *) & kv->key;
 

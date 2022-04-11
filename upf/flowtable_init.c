@@ -74,7 +74,7 @@ flowtable_init_cpu (flowtable_main_t * fm, u32 cpu_index)
   flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
 
   /* init hashtable */
-  BV (clib_bihash_init) (&fmt->flows_ht, "flow hash table",
+  clib_bihash_init_48_8 (&fmt->flows_ht, "flow hash table",
 			 FM_NUM_BUCKETS, FM_MEMORY_SIZE);
 
   /* init timer wheel */

@@ -1050,7 +1050,7 @@ VLIB_CLI_COMMAND (upf_show_gtpu_endpoint_command, static) =
 /* *INDENT-ON* */
 
 static int
-upf_flows_out_cb (BVT (clib_bihash_kv) * kvp, void *arg)
+upf_flows_out_cb (clib_bihash_kv_48_8_t * kvp, void *arg)
 {
   flowtable_main_t *fm = &flowtable_main;
   vlib_main_t *vm = (vlib_main_t *) arg;
@@ -1123,7 +1123,7 @@ upf_show_session_command_fn (vlib_main_t * vm,
 	  goto done;
 	}
 
-      BV (clib_bihash_foreach_key_value_pair)
+      clib_bihash_foreach_key_value_pair_48_8
 	(&sess->fmt.flows_ht, upf_flows_out_cb, vm);
       goto done;
     }
@@ -1278,7 +1278,7 @@ upf_show_flows_command_fn (vlib_main_t * vm,
   for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)
     {
       flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
-      BV (clib_bihash_foreach_key_value_pair)
+      clib_bihash_foreach_key_value_pair_48_8
 	(&fmt->flows_ht, upf_flows_out_cb, vm);
     }
 
