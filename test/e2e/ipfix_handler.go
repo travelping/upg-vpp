@@ -3,6 +3,7 @@ package exttest
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -129,12 +130,15 @@ func (h *ipfixHandler) getRecords() []ipfixRecord {
 	return h.recs
 }
 
-func setupIPFIX(f *framework.Framework) *ipfixHandler {
+func setupIPFIX(f *framework.Framework, listenIP net.IP) *ipfixHandler {
 	// Load the IPFIX global registry
 	registry.LoadRegistry()
 	// Initialize collecting process
+	if listenIP == nil {
+		listenIP = f.PFCPCfg.CNodeIP
+	}
 	cpInput := collector.CollectorInput{
-		Address:       fmt.Sprintf("%s:%d", f.PFCPCfg.CNodeIP, IPFIX_PORT),
+		Address:       fmt.Sprintf("%s:%d", listenIP, IPFIX_PORT),
 		Protocol:      "udp",
 		MaxBufferSize: 65535,
 		TemplateTTL:   0,

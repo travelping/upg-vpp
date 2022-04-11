@@ -110,10 +110,12 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				},
 			},
 		},
+		NWIs: []vpp.NWIConfig{
+			{Name: "cp", Table: 0},
+			{Name: "epc", Table: 100},
+			{Name: "sgi", Table: 200},
+		},
 		SetupCommands: []string{
-			"upf nwi name cp vrf 0",
-			"upf nwi name epc vrf 100",
-			"upf nwi name sgi vrf 200",
 			"upf node-id fqdn upg",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
@@ -179,10 +181,12 @@ func pgwVPPConfigIPv6() vpp.VPPConfig {
 				},
 			},
 		},
+		NWIs: []vpp.NWIConfig{
+			{Name: "cp", Table: 0},
+			{Name: "epc", Table: 100},
+			{Name: "sgi", Table: 200},
+		},
 		SetupCommands: []string{
-			"upf nwi name cp vrf 0",
-			"upf nwi name epc vrf 100",
-			"upf nwi name sgi vrf 200",
 			"upf node-id fqdn upg",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
@@ -248,10 +252,12 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 				},
 			},
 		},
+		NWIs: []vpp.NWIConfig{
+			{Name: "cp", Table: 0},
+			{Name: "access", Table: 100},
+			{Name: "sgi", Table: 200},
+		},
 		SetupCommands: []string{
-			"upf nwi name cp vrf 0",
-			"upf nwi name access vrf 100",
-			"upf nwi name sgi vrf 200",
 			"upf node-id ip4 172.1.1.1",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			// NOTE: "ip6" instead of "ip4" for IPv6
@@ -313,10 +319,12 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 				},
 			},
 		},
+		NWIs: []vpp.NWIConfig{
+			{Name: "cp", Table: 0},
+			{Name: "access", Table: 100},
+			{Name: "sgi", Table: 200},
+		},
 		SetupCommands: []string{
-			"upf nwi name cp vrf 0",
-			"upf nwi name access vrf 100",
-			"upf nwi name sgi vrf 200",
 			"upf node-id ip4 172.1.1.1",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			// FIXME: zero udp checksum on Session Modification Responses
@@ -384,10 +392,12 @@ func gtpProxyVPPConfigIPv4() vpp.VPPConfig {
 				// the default route is added by gtpu (sgw) code here
 			},
 		},
+		NWIs: []vpp.NWIConfig{
+			{Name: "cp", Table: 0},
+			{Name: "access", Table: 100},
+			{Name: "core", Table: 200},
+		},
 		SetupCommands: []string{
-			"upf nwi name cp vrf 0",
-			"upf nwi name access vrf 100",
-			"upf nwi name core vrf 200",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
 			"upf gtpu endpoint ip 10.0.2.2 nwi access teid 0x80000000/2",
@@ -453,10 +463,12 @@ func gtpProxyVPPConfigIPv6() vpp.VPPConfig {
 				// the default route is added by gtpu (sgw) code here
 			},
 		},
+		NWIs: []vpp.NWIConfig{
+			{Name: "cp", Table: 0},
+			{Name: "access", Table: 100},
+			{Name: "core", Table: 200},
+		},
 		SetupCommands: []string{
-			"upf nwi name cp vrf 0",
-			"upf nwi name access vrf 100",
-			"upf nwi name core vrf 200",
 			"upf pfcp endpoint ip 10.0.0.2 vrf 0",
 			"upf gtpu endpoint ip 10.0.0.2 nwi cp teid 0x80000000/2",
 			"upf gtpu endpoint ip6 2001:db8:13::2 nwi access teid 0x80000000/2",

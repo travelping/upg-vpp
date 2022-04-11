@@ -42,6 +42,7 @@ import (
 	"github.com/travelping/upg-vpp/test/e2e/network"
 	"github.com/travelping/upg-vpp/test/e2e/pfcp"
 	"github.com/travelping/upg-vpp/test/e2e/traffic"
+	"github.com/travelping/upg-vpp/test/e2e/util"
 	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
@@ -513,48 +514,6 @@ func describePDRReplacement(f *framework.Framework) {
 	})
 }
 
-// TODO: This functions are copied from https://github.com/wmnsk/go-pfcp/blob/master/internal/utils/utils.go
-// We have to update our fork of go-pfcp or use upstream one to use functions below as utils
-// EncodeFQDN encodes the given string as the Name Syntax defined
-// in RFC 2181, RFC 1035 and RFC 1123.
-func EncodeFQDN(fqdn string) []byte {
-	b := make([]byte, len(fqdn)+1)
-
-	var offset = 0
-	for _, label := range strings.Split(fqdn, ".") {
-		l := len(label)
-		b[offset] = uint8(l)
-		copy(b[offset+1:], label)
-		offset += l + 1
-	}
-
-	return b
-}
-
-// DecodeFQDN decodes the given Name Syntax-encoded []byte as
-// a string.
-func DecodeFQDN(b []byte) string {
-	var (
-		fqdn   []string
-		offset int
-	)
-
-	max := len(b)
-	for {
-		if offset >= max {
-			break
-		}
-		l := int(b[offset])
-		if offset+l+1 > max {
-			break
-		}
-		fqdn = append(fqdn, string(b[offset+1:offset+l+1]))
-		offset += l + 1
-	}
-
-	return strings.Join(fqdn, ".")
-}
-
 // TODO:
 // Some of Binapi test cases belong will be removed by enabling different kind of VPP configuration
 var _ = ginkgo.Describe("Binapi", func() {
@@ -608,14 +567,16 @@ var _ = ginkgo.Describe("Binapi", func() {
 	ginkgo.Context("for NWIs", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.It("adds, removes and lists the NWIs", func() {
-			nwi := &upf.UpfNwiAddDel{
-				IP4TableID:  200,
-				IpfixPolicy: []byte("dest"),
-				Add:         1,
+			ip, _ := ip_types.ParseAddress("192.168.42.1")
+			req := &upf.UpfNwiAddDel{
+				Nwi:              util.EncodeFQDN("testing"),
+				IP4TableID:       200,
+				IpfixPolicy:      []byte("dest"),
+				IpfixCollectorIP: ip,
+				Add:              1,
 			}
-			nwi.Nwi = EncodeFQDN("testing")
-			nwiReply := &upf.UpfNwiAddDelReply{}
-			err := f.VPP.ApiChannel.SendRequest(nwi).ReceiveReply(nwiReply)
+			reply := &upf.UpfNwiAddDelReply{}
+			err := f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
 			gomega.Expect(err).To(gomega.BeNil(), "upf_nwi_add_del")
 
 			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfNwiDump{})
@@ -627,16 +588,16 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if DecodeFQDN(msg.Nwi) != "testing" {
+				if util.DecodeFQDN(msg.Nwi) != "testing" {
 					continue
 				}
 				found = true
 			}
 			gomega.Expect(found).To(gomega.BeTrue(), "upf_nwi_dump")
 
-			nwi.Add = 0
-			nwiReply = &upf.UpfNwiAddDelReply{}
-			err = f.VPP.ApiChannel.SendRequest(nwi).ReceiveReply(nwiReply)
+			req.Add = 0
+			reply = &upf.UpfNwiAddDelReply{}
+			err = f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
 			gomega.Expect(err).To(gomega.BeNil())
 
 			reqCtx = f.VPP.ApiChannel.SendMultiRequest(&upf.UpfNwiDump{})
@@ -648,10 +609,11 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if DecodeFQDN(msg.Nwi) != "testing" {
+				if util.DecodeFQDN(msg.Nwi) != "testing" {
 					continue
 				}
 				gomega.Expect(msg.IpfixPolicy).To(gomega.Equal("dest"))
+				gomega.Expect(msg.IpfixCollectorIP.String()).To(gomega.Equal("192.168.42.1"))
 				found = true
 			}
 			gomega.Expect(found).To(gomega.BeFalse())
@@ -1565,40 +1527,58 @@ func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 		var beginTS, ulStartTS, ulEndTS, dlStartTS, dlEndTS time.Time
 		var seid pfcp.SEID
 		var ms *pfcp.PFCPMeasurement
+		var collectorIP net.IP
 
-		withIPFIXHandler := func(f *framework.Framework) {
+		expectTemplates := func(templateIDs []uint16) {
+			ginkgo.By("waiting for the templates...")
+			gomega.Eventually(func() bool {
+				return ipfixHandler.haveTemplateIDs(templateIDs...)
+			}, 20*time.Second, 1*time.Second).Should(gomega.BeTrue())
+		}
+
+		withIPFIXHandler := func(f *framework.Framework, templateIDs ...uint16) {
 			ginkgo.BeforeEach(func() {
-				// FIXME: use binapi & multiple exporters
+				// The default exporter can't be set via
+				// ipfix_exporter_create_delete API call
 				f.VPP.Ctl("set ipfix exporter collector %s src %s "+
 					"template-interval 1 port %d path-mtu 1450",
 					f.PFCPCfg.CNodeIP,
 					f.PFCPCfg.UNodeIP,
 					IPFIX_PORT,
 				)
-				ipfixHandler = setupIPFIX(f)
+				ipfixHandler = setupIPFIX(f, collectorIP)
 				beginTS = time.Now()
 				ulStartTS = time.Time{}
 				ulEndTS = beginTS
 				dlStartTS = time.Time{}
 				dlEndTS = beginTS
-
-				ginkgo.By("waiting for the templates...")
-				gomega.Eventually(func() bool {
-					// IPv4 & IPv6 templates
-					return ipfixHandler.haveTemplateIDs(256, 257)
-				}, 20*time.Second, 1*time.Second).Should(gomega.BeTrue())
+				if len(templateIDs) != 0 {
+					expectTemplates(templateIDs)
+				}
 			})
 
 			ginkgo.AfterEach(func() {
 				defer ipfixHandler.stop()
+				collectorIP = nil
 			})
 		}
 
-		verifyIPFIX := func(f *framework.Framework, template string, trafficCfg traffic.TrafficConfig, protocol layers.IPProtocol) []ipfixRecord {
+		expectNoTemplates := func() {
+			gomega.Consistently(func() bool {
+				// 1st template ID is always 256
+				return !ipfixHandler.haveTemplateIDs(256)
+			}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+		}
+
+		verifyIPFIX := func(f *framework.Framework, template string, trafficCfg traffic.TrafficConfig, protocol layers.IPProtocol, templateIDs ...uint16) []ipfixRecord {
 			seid = startMeasurementSession(f, &framework.SessionConfig{
 				IMSI:          "313460000000001",
 				IPFIXTemplate: template,
 			})
+			if len(templateIDs) != 0 {
+				// for FAR-based IPFIX policies, the templates are added when the session begins
+				expectTemplates(templateIDs)
+			}
 			sessionStr, err := f.VPP.Ctl("show upf session")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(sessionStr).To(gomega.ContainSubstring("313460000000001"))
@@ -1762,21 +1742,28 @@ func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 		ginkgo.Context("[FAR-based]", func() {
 			f := framework.NewDefaultFramework(mode, ipMode)
 
-			ginkgo.It("doesn't send IPFIX reports when no template is configured in the FAR", func() {
-				recs := verifyIPFIX(f, "", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
-				gomega.Expect(recs).To(gomega.BeEmpty())
+			ginkgo.Context("'none' template", func() {
+				withIPFIXHandler(f)
+
+				ginkgo.It("doesn't send IPFIX reports", func() {
+					expectNoTemplates()
+					recs := verifyIPFIX(f, "", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
+					gomega.Expect(recs).To(gomega.BeEmpty())
+				})
 			})
 
 			ginkgo.Context("default template", func() {
 				withIPFIXHandler(f)
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
-					recs := verifyIPFIX(f, "default", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
+					// IPFIX templates are only expected after the session starts as they're
+					// specified in NWI
+					recs := verifyIPFIX(f, "default", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP, 256, 257)
 					verifyIPFIXDefaultRecords(f, recs, layers.IPProtocolTCP, 80)
 				})
 
 				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
-					recs := verifyIPFIX(f, "default", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
+					recs := verifyIPFIX(f, "default", &traffic.UDPPingConfig{}, layers.IPProtocolUDP, 256, 257)
 					verifyIPFIXDefaultRecords(f, recs, layers.IPProtocolUDP, 12345)
 				})
 			})
@@ -1785,32 +1772,32 @@ func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 				withIPFIXHandler(f)
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
-					recs := verifyIPFIX(f, "dest", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
+					recs := verifyIPFIX(f, "dest", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP, 256, 257)
 					verifyIPFIXDestRecords(f, recs, layers.IPProtocolTCP, 80)
 				})
 
 				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
-					recs := verifyIPFIX(f, "dest", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
+					recs := verifyIPFIX(f, "dest", &traffic.UDPPingConfig{}, layers.IPProtocolUDP, 256, 257)
 					verifyIPFIXDestRecords(f, recs, layers.IPProtocolUDP, 12345)
 				})
 			})
 		})
 
 		ginkgo.Context("[NWI-based]", func() {
-			setNWIIPFIXPolicy := func(f *framework.Framework, name string) {
-				for n, cmd := range f.VPPCfg.SetupCommands {
-					if strings.HasPrefix(cmd, "upf nwi name") {
-						f.VPPCfg.SetupCommands[n] = fmt.Sprintf(
-							"%s ipfix-policy %s",
-							cmd, name)
+			withNWIIPFIXPolicy := func(f *framework.Framework, name string) {
+				for n, nwi := range f.VPPCfg.NWIs {
+					if nwi.Name == "sgi" {
+						f.VPPCfg.NWIs[n].IPFIXPolicy = name
 					}
 				}
 			}
 
 			ginkgo.Context("default template", func() {
 				f := framework.NewDefaultFramework(mode, ipMode)
-				setNWIIPFIXPolicy(f, "default")
-				withIPFIXHandler(f)
+				withNWIIPFIXPolicy(f, "default")
+				// Templates 256 and 257 are expected early because IPFIX policy
+				// is specified per NWI
+				withIPFIXHandler(f, 256, 257)
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					recs := verifyIPFIX(f, "", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
@@ -1825,8 +1812,8 @@ func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 
 			ginkgo.Context("dest template", func() {
 				f := framework.NewDefaultFramework(mode, ipMode)
-				setNWIIPFIXPolicy(f, "dest")
-				withIPFIXHandler(f)
+				withNWIIPFIXPolicy(f, "dest")
+				withIPFIXHandler(f, 256, 257)
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					recs := verifyIPFIX(f, "", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
@@ -1837,6 +1824,41 @@ func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 					recs := verifyIPFIX(f, "", &traffic.UDPPingConfig{}, layers.IPProtocolUDP)
 					verifyIPFIXDestRecords(f, recs, layers.IPProtocolUDP, 12345)
 				})
+			})
+		})
+
+		ginkgo.Context("[alt collector]", func() {
+			f := framework.NewDefaultFramework(mode, ipMode)
+
+			getCollectorIP := func() net.IP {
+				if collectorIP == nil {
+					collectorIP = f.AddCNodeIP()
+				}
+				return collectorIP
+			}
+
+			f.VPPCfg.IPFIXExporters = append(f.VPPCfg.IPFIXExporters,
+				vpp.IPFIXExporterConfig{
+					GetCollectorIP: getCollectorIP,
+					GetSrcIP: func() net.IP {
+						return f.PFCPCfg.UNodeIP
+					},
+					Port: IPFIX_PORT,
+					VRF:  0,
+				})
+			for n, nwi := range f.VPPCfg.NWIs {
+				if nwi.Name == "sgi" {
+					f.VPPCfg.NWIs[n].IPFIXPolicy = "default"
+					f.VPPCfg.NWIs[n].GetIPFIXCollectorIP = getCollectorIP
+				}
+			}
+
+			withIPFIXHandler(f, 256, 257)
+
+			ginkgo.It("sends IPFIX packets to the specified collector", func() {
+				gomega.Expect(collectorIP).NotTo(gomega.BeNil())
+				recs := verifyIPFIX(f, "", smallVolumeHTTPConfig(nil), layers.IPProtocolTCP)
+				verifyIPFIXDefaultRecords(f, recs, layers.IPProtocolTCP, 80)
 			})
 		})
 	})
