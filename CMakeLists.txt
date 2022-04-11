@@ -1,6 +1,18 @@
 # TBD: license (udpi etc.)
 
-cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+
+set(CMAKE_C_COMPILER_NAMES
+  clang-13
+  clang-12
+  clang-11
+  clang-10
+  clang-9
+  gcc-10
+  gcc-9
+  cc
+)
+
 project(upf-plugin)
 
 # rm
