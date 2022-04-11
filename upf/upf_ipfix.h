@@ -7,6 +7,7 @@
 
 #include <vppinfra/hash.h>
 #include <vppinfra/error.h>
+#include <vppinfra/bihash_24_8.h>
 #include <vnet/ipfix-export/flow_report.h>
 #include <vnet/ipfix-export/flow_report_classify.h>
 #include <vppinfra/tw_timer_2t_1w_2048sl.h>
@@ -30,13 +31,17 @@ typedef struct
   u16 rec_size;
   /** IPFIX template id **/
   u16 template_id;
+  /** Whether this is an IPv4 context */
+  bool is_ip4;
+  /** IPFIX policy **/
+  upf_ipfix_policy_t policy;
+  /** Collector IP address (null for the default collector) **/
+  ip_address_t collector_ip;
+  /** Exporter index **/
+  u32 exporter_index;
+  /** Reference count **/
+  u32 ref_count;
 } upf_ipfix_protocol_context_t;
-
-typedef struct
-{
-  upf_ipfix_protocol_context_t context_ip4;
-  upf_ipfix_protocol_context_t context_ip6;
-} upf_ipfix_runtime_template_t;
 
 /**
  * @file
@@ -44,7 +49,10 @@ typedef struct
  */
 typedef struct
 {
-  upf_ipfix_runtime_template_t runtime_templates[UPF_IPFIX_N_POLICIES];
+  clib_bihash_24_8_t context_by_key;
+  upf_ipfix_protocol_context_t *contexts;
+  u16 template_id;
+  upf_ipfix_policy_t policy;
 
   u32 vlib_time_0;
 
@@ -84,13 +92,14 @@ typedef struct
 
 extern upf_ipfix_template_t upf_ipfix_templates[];
 
-always_inline upf_ipfix_protocol_context_t *
-upf_ipfix_context (upf_ipfix_main_t * fm, bool ip6, upf_ipfix_policy_t policy)
-{
-  return ip6 ?
-    &fm->runtime_templates[policy].context_ip6 :
-    &fm->runtime_templates[policy].context_ip4;
-}
+u32
+upf_ref_ipfix_context (bool is_ip4,
+		       upf_ipfix_policy_t policy,
+		       const ip_address_t * ipfix_collector);
+void
+upf_ref_ipfix_context_by_index (u32 cidx);
+void
+upf_unref_ipfix_context_by_index (u32 cidx);
 
 upf_ipfix_policy_t upf_ipfix_lookup_policy (u8 * name, bool * ok);
 uword unformat_ipfix_policy (unformat_input_t * i, va_list * args);

@@ -150,17 +150,20 @@ upf_nwi_fib_index (fib_protocol_t proto, u32 nwi_index)
     return ~0;
 }
 
-static inline void
-upf_nwi_ipfix_policy (upf_main_t * gtm, u32 nwi_index,
-		      upf_ipfix_policy_t * policy)
+static_always_inline void
+upf_nwi_ipfix_context_index (upf_main_t * gtm,
+			     u32 nwi_index,
+			     u32 * ipfix_context_index, u8 is_ip4)
 {
   if (!pool_is_free_index (gtm->nwis, nwi_index))
     {
       upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, nwi_index);
-      *policy = nwi->ipfix_policy;
+      if (ipfix_context_index)
+	*ipfix_context_index = is_ip4 ? nwi->ipfix_context_index_ip4 :
+	  nwi->ipfix_context_index_ip6;
     }
-  else
-    *policy = UPF_IPFIX_POLICY_NONE;
+  else if (ipfix_context_index)
+    *ipfix_context_index = (u32) ~ 0;
 }
 
 static_always_inline u32

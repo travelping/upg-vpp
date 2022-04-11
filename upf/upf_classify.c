@@ -30,6 +30,7 @@
 #include <upf/upf_pfcp.h>
 #include <upf/upf_proxy.h>
 #include <upf/upf_app_dpo.h>
+#include <upf/upf_ipfix.h>
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -277,14 +278,25 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 	      *pdr_idx = acl->pdr_idx;
 
 	    far = pfcp_get_far_by_id (active, pdr->far_id);
-	    if (far->ipfix_policy != UPF_IPFIX_POLICY_NONE)
-	      flow->ipfix_policy = far->ipfix_policy;
-	    else
-	      {
-		upf_ipfix_policy_t policy;
-		upf_nwi_ipfix_policy (gtm, far->forward.nwi_index, &policy);
-		flow->ipfix_policy = policy;
-	      }
+	    flow->ipfix_context_index = is_ip4 ?
+	      far->ipfix_context_index_ip4 : far->ipfix_context_index_ip6;
+	    /*
+	     * If IPFIX policy is not set in the FAR, use the value
+	     * from the session
+	     */
+	    if (flow->ipfix_context_index == (u32) ~ 0)
+	      upf_nwi_ipfix_context_index (gtm,
+					   far->forward.nwi_index,
+					   &flow->ipfix_context_index,
+					   is_ip4);
+	    /*
+	     * Reference the IPFIX context from the flow.
+	     * The reference will be removed when the flow is removed.
+	     * This extra reference is needed because we don't
+	     * clean up the flows when deleting a session, yet.
+	     */
+	    if (flow->ipfix_context_index != (u32) ~ 0)
+	      upf_ref_ipfix_context_by_index (flow->ipfix_context_index);
 
 	    if (flow->key.proto == IP_PROTOCOL_TCP &&
 		far && far->forward.flags & FAR_F_REDIRECT_INFORMATION)

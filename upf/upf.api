@@ -236,6 +236,7 @@ autoreply define upf_nwi_add_del {
   u32 ip4_table_id;
   u32 ip6_table_id;
   u8 ipfix_policy[32];
+  vl_api_address_t ipfix_collector_ip;
   u8 nwi_len;
   u8 nwi[nwi_len];
 };
@@ -246,6 +247,7 @@ define upf_nwi_details {
   u32 ip4_fib_table;
   u32 ip6_fib_table;
   u8 ipfix_policy[32];
+  vl_api_address_t ipfix_collector_ip;
   u8 nwi_len;
   u8 nwi[nwi_len];
 };

@@ -378,6 +378,7 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
   upf_ipfix_policy_t ipfix_policy = UPF_IPFIX_POLICY_NONE;
   u8 add = 1;
   int rv;
+  ip_address_t ipfix_collector_ip = ip_address_initializer;
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
     return 0;
@@ -400,6 +401,9 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
       else if (unformat (line_input, "ipfix-policy %U",
 			 unformat_ipfix_policy, &ipfix_policy))
 	;
+      else if (unformat (line_input, "ipfix-collector-ip %U",
+			 unformat_ip_address, &ipfix_collector_ip))
+	;
       else
 	{
 	  error = unformat_parse_error (line_input);
@@ -418,7 +422,8 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
   if (~0 == fib_table_find (FIB_PROTOCOL_IP6, table_id))
     clib_warning ("table %d not (yet) defined for IPv6", table_id);
 
-  rv = vnet_upf_nwi_add_del (name, table_id, table_id, ipfix_policy, add);
+  rv = vnet_upf_nwi_add_del (name, table_id, table_id, ipfix_policy,
+			     &ipfix_collector_ip, add);
 
   switch (rv)
     {
@@ -491,12 +496,13 @@ upf_show_nwi_command_fn (vlib_main_t * vm,
     if (name && !vec_is_equal (name, nwi->name))
       continue;
 
-    vlib_cli_output (vm, "%U, ip4-fib-index %u, ip6-fib-index %u, ipfix-policy %U\n",
+    vlib_cli_output (vm,
+		     "%U, ip4-fib-index %u, ip6-fib-index %u, ipfix-policy %U, ipfix_collector_ip %U\n",
 		     format_dns_labels, nwi->name,
 		     nwi->fib_index[FIB_PROTOCOL_IP4],
 		     nwi->fib_index[FIB_PROTOCOL_IP6],
-		     format_upf_ipfix_policy,
-		     nwi->ipfix_policy);
+		     format_upf_ipfix_policy, nwi->ipfix_policy,
+		     format_ip_address, &nwi->ipfix_collector_ip);
   }
 
 done:

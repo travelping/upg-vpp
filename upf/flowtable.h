@@ -161,7 +161,7 @@ typedef struct flow_entry
   timestamp_nsec_t flow_end;
 
   u32 last_exported[FT_ORDER_MAX];
-  u8 ipfix_policy;
+  u32 ipfix_context_index;
 
   /* Generation ID that must match the session's if this flow is up to date */
   u16 generation;

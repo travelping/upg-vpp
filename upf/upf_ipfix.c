@@ -35,6 +35,11 @@
 #include "upf.h"
 #include "upf_ipfix.h"
 
+#define UPF_IPFIX_MAPPING_BUCKETS 64
+#define UPF_IPFIX_MAPPING_MEMORY_SIZE 16384
+/* FIXME: allow other Observation Domain IDs than 1 */
+#define UPF_IPFIX_OBSERVATION_DOMAIN_ID 1
+
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -46,6 +51,38 @@ upf_ipfix_main_t upf_ipfix_main;
 uword upf_ipfix_walker_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
 				vlib_frame_t * f);
 
+static inline ipfix_exporter_t *
+upf_ipfix_get_exporter (upf_ipfix_protocol_context_t * context)
+{
+  flow_report_main_t * frm = &flow_report_main;
+  ipfix_exporter_t * exp;
+  bool use_default = ip_address_is_zero (&context->collector_ip);
+
+  if (context->exporter_index != (u32) ~0 &&
+      !pool_is_free_index (frm->exporters,
+			   context->exporter_index))
+    {
+      /* Check if the exporter got replaced */
+      exp = pool_elt_at_index (frm->exporters,
+			       context->exporter_index);
+      if (use_default ||
+	  ip_address_cmp (&context->collector_ip,
+			  &exp->ipfix_collector) == 0)
+	return exp;
+    }
+
+  if (use_default)
+    {
+      context->exporter_index = 0;
+      return &frm->exporters[0];
+    }
+
+  exp = vnet_ipfix_exporter_lookup (&context->collector_ip);
+  context->exporter_index = exp ? exp - frm->exporters : (u32) ~0;
+
+  return exp;
+}
+
 /**
  * @brief Create an IPFIX template packet rewrite string
  * @param frm flow_report_main_t *
@@ -56,10 +93,12 @@ uword upf_ipfix_walker_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
  * @returns u8 * vector containing the indicated IPFIX template packet
  */
 static inline u8 *
-upf_ipfix_template_rewrite_inline (ipfix_exporter_t *exp, flow_report_t *fr,
-				   u16 collector_port,
-				   bool ip6)
+upf_ipfix_template_rewrite (ipfix_exporter_t *exp, flow_report_t *fr,
+			    u16 collector_port,
+			    ipfix_report_element_t *elts, u32 n_elts,
+			    u32 *stream_index)
 {
+  upf_ipfix_main_t *fm = &upf_ipfix_main;
   ip4_header_t *ip;
   udp_header_t *udp;
   ipfix_message_header_t *h;
@@ -71,11 +110,11 @@ upf_ipfix_template_rewrite_inline (ipfix_exporter_t *exp, flow_report_t *fr,
   ip4_ipfix_template_packet_t *tp;
   u32 field_count = 0;
   flow_report_stream_t *stream;
-  upf_ipfix_main_t *fm = &upf_ipfix_main;
-  upf_ipfix_policy_t policy = (upf_ipfix_policy_t)fr->opaque.as_uword;
-  upf_ipfix_template_t * template = upf_ipfix_templates + policy;
-  upf_ipfix_protocol_context_t * context = upf_ipfix_context(fm, ip6, policy);
+  upf_ipfix_protocol_context_t * context =
+    pool_elt_at_index (fm->contexts, fr->opaque.as_uword);
+  upf_ipfix_template_t * template = upf_ipfix_templates + context->policy;
 
+  ASSERT(context);
   ASSERT (template->field_count);
 
   stream = &exp->streams[fr->stream_index];
@@ -110,7 +149,7 @@ upf_ipfix_template_rewrite_inline (ipfix_exporter_t *exp, flow_report_t *fr,
   h->domain_id = clib_host_to_net_u32 (stream->domain_id);
 
   /* Add TLVs to the template */
-  f = ip6 ? template->add_ip6_fields (f) : template->add_ip4_fields (f);
+  f = context->is_ip4 ? template->add_ip4_fields (f) : template->add_ip6_fields (f);
 
   /* Back to the template packet... */
   ip = (ip4_header_t *) & tp->ip4;
@@ -146,58 +185,13 @@ upf_ipfix_template_rewrite_inline (ipfix_exporter_t *exp, flow_report_t *fr,
   return rewrite;
 }
 
-static u8 *
-upf_ipfix_template_rewrite_ip6 (ipfix_exporter_t *exp, flow_report_t *fr,
-				u16 collector_port,
-				ipfix_report_element_t *elts, u32 n_elts,
-				u32 *stream_index)
-{
-  return upf_ipfix_template_rewrite_inline (exp, fr, collector_port, true);
-}
-
-static u8 *
-upf_ipfix_template_rewrite_ip4 (ipfix_exporter_t *exp, flow_report_t *fr,
-				u16 collector_port,
-				ipfix_report_element_t *elts, u32 n_elts,
-				u32 *stream_index)
-{
-  return upf_ipfix_template_rewrite_inline (exp, fr, collector_port, false);
-}
-
 static vlib_buffer_t *
-upf_ipfix_get_buffer (vlib_main_t * vm, bool ip6, upf_ipfix_policy_t policy);
+upf_ipfix_get_buffer (vlib_main_t * vm, upf_ipfix_protocol_context_t * context);
 
 static void
 upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
-		       bool ip6, upf_ipfix_policy_t policy,
+		       upf_ipfix_protocol_context_t * context,
 		       u32 now);
-
-static inline void
-flush_record (bool ip6, u32 now)
-{
-  vlib_main_t *vm = vlib_get_main ();
-  vlib_buffer_t *b;
-  upf_ipfix_policy_t policy;
-
-  for (policy = UPF_IPFIX_POLICY_NONE + 1; policy < UPF_IPFIX_N_POLICIES; policy++)
-    {
-      b = upf_ipfix_get_buffer (vm, ip6, policy);
-      if (b)
-	upf_ipfix_export_send (vm, b, ip6, policy, now);
-    }
-}
-
-void
-upf_ipfix_flush_callback_ip4 (u32 now)
-{
-  flush_record (false, now);
-}
-
-void
-upf_ipfix_flush_callback_ip6 (u32 now)
-{
-  flush_record (true, now);
-}
 
 /**
  * @brief Flush accumulated data
@@ -210,42 +204,39 @@ upf_ipfix_flush_callback_ip6 (u32 now)
  * will be sent.
  */
 vlib_frame_t *
-upf_ipfix_data_callback_ip4 (flow_report_main_t *frm, ipfix_exporter_t *exp,
-			     flow_report_t *fr, vlib_frame_t *f, u32 *to_next,
-			     u32 node_index)
+upf_ipfix_data_callback (flow_report_main_t *frm, ipfix_exporter_t *exp,
+			 flow_report_t *fr, vlib_frame_t *f, u32 *to_next,
+			 u32 node_index)
 {
+  upf_ipfix_main_t *fm = &upf_ipfix_main;
   vlib_main_t *vm = vlib_get_main ();
   u32 now = (u32) vlib_time_now (vm);
-  upf_ipfix_flush_callback_ip4 (now);
-  return f;
-}
-
-vlib_frame_t *
-upf_ipfix_data_callback_ip6 (flow_report_main_t *frm, ipfix_exporter_t *exp,
-			     flow_report_t *fr, vlib_frame_t *f, u32 *to_next,
-			     u32 node_index)
-{
-  vlib_main_t *vm = vlib_get_main ();
-  u32 now = (u32) vlib_time_now (vm);
-  upf_ipfix_flush_callback_ip6 (now);
+  upf_ipfix_protocol_context_t * context =
+    pool_elt_at_index (fm->contexts, fr->opaque.as_uword);
+  vlib_buffer_t *b = upf_ipfix_get_buffer (vm, context);
+  if (b)
+    upf_ipfix_export_send (vm, b, context, now);
   return f;
 }
 
 static int
-upf_ipfix_template_add_del (u32 domain_id, u16 src_port,
-			    upf_ipfix_policy_t policy,
-			    vnet_flow_data_callback_t * flow_data_callback,
-			    vnet_flow_rewrite_callback_t * rewrite_callback,
-			    bool is_add, u16 * template_id)
+upf_ipfix_report_add_del (upf_ipfix_main_t *fm,
+			  u32 domain_id,
+			  u32 context_index,
+			  u16 * template_id,
+			  bool is_ip4, bool is_add)
 {
-  ipfix_exporter_t *exp = &flow_report_main.exporters[0];
+  upf_ipfix_protocol_context_t * context = fm->contexts + context_index;
+  ipfix_exporter_t * exp = upf_ipfix_get_exporter (context);
+  if (!exp)
+    return VNET_API_ERROR_INVALID_VALUE;
   vnet_flow_report_add_del_args_t a = {
-    .rewrite_callback = rewrite_callback,
-    .flow_data_callback = flow_data_callback,
+    .rewrite_callback = upf_ipfix_template_rewrite,
+    .flow_data_callback = upf_ipfix_data_callback,
     .is_add = is_add,
     .domain_id = domain_id,
-    .src_port = src_port,
-    .opaque.as_uword = policy,
+    .src_port = UDP_DST_PORT_ipfix, /* FIXME */
+    .opaque.as_uword = context_index,
   };
   return vnet_flow_report_add_del (exp, &a, template_id);
 }
@@ -263,12 +254,11 @@ upf_ipfix_get_headersize (void)
 
 static void
 upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
-		       bool ip6, upf_ipfix_policy_t policy,
+		       upf_ipfix_protocol_context_t * context,
 		       u32 now)
 {
-  upf_ipfix_main_t *fm = &upf_ipfix_main;
   flow_report_main_t *frm = &flow_report_main;
-  ipfix_exporter_t *exp = pool_elt_at_index (frm->exporters, 0);
+  ipfix_exporter_t *exp = upf_ipfix_get_exporter (context);
   vlib_frame_t *f;
   ip4_ipfix_template_packet_t *tp;
   ipfix_set_header_t *s;
@@ -276,7 +266,6 @@ upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
   ip4_header_t *ip;
   udp_header_t *udp;
   u32 my_cpu_number = vm->thread_index;
-  upf_ipfix_protocol_context_t * context = upf_ipfix_context(fm, ip6, policy);
 
   /* Fill in header */
   flow_report_stream_t *stream;
@@ -286,9 +275,7 @@ upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
       upf_ipfix_get_headersize ())
     return;
 
-  upf_debug ("export send [%s], policy %u",
-	     ip6 ? "ip6" : "ip4",
-	     policy);
+  upf_debug ("export send, context %u", context - fm->contexts);
 
   u32 i, index = vec_len (exp->streams);
   for (i = 0; i < index; i++)
@@ -378,14 +365,12 @@ upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
 }
 
 static vlib_buffer_t *
-upf_ipfix_get_buffer (vlib_main_t * vm, bool ip6, upf_ipfix_policy_t policy)
+upf_ipfix_get_buffer (vlib_main_t * vm, upf_ipfix_protocol_context_t * context)
 {
-  upf_ipfix_main_t *fm = &upf_ipfix_main;
-  ipfix_exporter_t *exp = pool_elt_at_index (flow_report_main.exporters, 0);
+  ipfix_exporter_t *exp = upf_ipfix_get_exporter (context);
   vlib_buffer_t *b0;
   u32 bi0;
   u32 my_cpu_number = vm->thread_index;
-  upf_ipfix_protocol_context_t * context = upf_ipfix_context(fm, ip6, policy);
 
   /* Find or allocate a buffer */
   b0 = context->buffers_per_worker[my_cpu_number];
@@ -418,33 +403,32 @@ upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t dir
 {
   u32 my_cpu_number = vm->thread_index;
   upf_ipfix_main_t *fm = &upf_ipfix_main;
-  /* ipfix_exporter_t *exp = pool_elt_at_index (flow_report_main.exporters, 0); */
   vlib_buffer_t *b0;
-  bool ip6 = !ip46_address_is_ip4 (&f->key.ip[FT_ORIGIN]);
   upf_main_t *gtm = &upf_main;
-  upf_ipfix_policy_t policy = f->ipfix_policy;
   upf_ipfix_protocol_context_t * context;
   u16 offset;
   upf_ipfix_template_t * template;
   upf_session_t *sx;
 
   /* FIXME: need to process IPFIX during session deletion */
-  if (policy == UPF_IPFIX_POLICY_NONE ||
+  if (f->ipfix_context_index == (u32) ~0 ||
       pool_is_free_index (gtm->sessions, f->session_index))
     return;
 
-  context = upf_ipfix_context (fm, ip6, policy);
+  context = pool_elt_at_index (fm->contexts, f->ipfix_context_index);
+  ASSERT (!!ip46_address_is_ip4 (&f->key.ip[FT_ORIGIN]) == context->is_ip4);
+
   offset = context->next_record_offset_per_worker[my_cpu_number];
-  template = upf_ipfix_templates + policy;
+  template = upf_ipfix_templates + context->policy;
   sx = pool_elt_at_index (gtm->sessions, f->session_index);
 
   upf_debug ("export entry [%s], policy %u",
-	     ip6 ? "ip6" : "ip4",
-	     policy);
+	     context->is_ip4 ? "ip4" : "ip6",
+	     context->policy);
   if (offset < upf_ipfix_get_headersize ())
     offset = upf_ipfix_get_headersize ();
 
-  b0 = upf_ipfix_get_buffer (vm, ip6, policy);
+  b0 = upf_ipfix_get_buffer (vm, context);
   /* No available buffer, what to do... */
   if (b0 == 0)
     {
@@ -452,15 +436,12 @@ upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t dir
       return;
     }
 
-  if (ip6)
-    offset += template->add_ip6_values (b0, f, direction, offset, sx);
-  else
+  if (context->is_ip4)
     offset += template->add_ip4_values (b0, f, direction, offset, sx);
+  else
+    offset += template->add_ip6_values (b0, f, direction, offset, sx);
 
   /* Reset per flow-export counters */
-  // TBD: reset delta stats
-  /* e->packetcount = 0; */
-  /* e->octetcount = 0; */
   flow_last_exported(f, direction) = now;
 
   b0->current_length = offset;
@@ -469,7 +450,7 @@ upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t dir
   /* Time to flush the buffer? */
   /* TODO uncomment! also: force upon removal */
   /* if (offset + context->rec_size > exp->path_mtu) */
-  upf_ipfix_export_send (vm, b0, ip6, policy, now);
+  upf_ipfix_export_send (vm, b0, context, now);
 }
 
 #define vec_neg_search(v,E)			\
@@ -484,40 +465,12 @@ upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t dir
     _v(i);					\
   })
 
-static int upf_ipfix_template_register (upf_ipfix_main_t *fm, upf_ipfix_policy_t policy)
-{
-  int rv = 0;
-  u16 template_id_ip4 = 0, template_id_ip6 = 0;
-
-  rv = upf_ipfix_template_add_del (1, UDP_DST_PORT_ipfix,
-				   policy,
-				   upf_ipfix_data_callback_ip4,
-				   upf_ipfix_template_rewrite_ip4,
-				   1 /* is_add */, &template_id_ip4);
-  if (!rv)
-    rv = upf_ipfix_template_add_del (1, UDP_DST_PORT_ipfix,
-				     policy,
-				     upf_ipfix_data_callback_ip6,
-				     upf_ipfix_template_rewrite_ip6,
-				     1 /* is_add */, &template_id_ip6);
-  if (rv && rv != VNET_API_ERROR_VALUE_EXIST)
-    {
-      clib_warning ("vnet_flow_report_add_del returned %d", rv);
-      return -1;
-    }
-
-  fm->runtime_templates[policy].context_ip4.template_id = template_id_ip4;
-  fm->runtime_templates[policy].context_ip6.template_id = template_id_ip6;
-
-  return 0;
-}
-
 void upf_ipfix_flow_update_hook (flow_entry_t * f, flow_direction_t direction, u32 now)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   vlib_main_t *vm = fm->vlib_main;
 
-  if (fm->disabled)
+  if (fm->disabled || f->ipfix_context_index == (u32) ~0)
       return;
 
   if (fm->active_timer == 0
@@ -530,11 +483,127 @@ void upf_ipfix_flow_removal_hook (flow_entry_t * f, u32 now)
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   vlib_main_t *vm = fm->vlib_main;
 
-  if (fm->disabled)
+  if (fm->disabled || f->ipfix_context_index == (u32) ~0)
     return;
 
+  /* TODO: unidirectional export */
   upf_ipfix_export_entry (vm, f, FT_ORIGIN, now);
   upf_ipfix_export_entry (vm, f, FT_REVERSE, now);
+
+  upf_unref_ipfix_context_by_index (f->ipfix_context_index);
+}
+
+static inline void
+upf_ipfix_context_mk_key(bool is_ip4,
+			 upf_ipfix_policy_t policy,
+			 const ip_address_t * collector_ip,
+			 clib_bihash_kv_24_8_t * kv)
+{
+  kv->key[2] = (policy << 2) | (is_ip4 ? 2 : 0);
+  /* Avoid any ambiguity due to IPv4/IPv6 zero IPs */
+  if (!collector_ip || ip_address_is_zero (collector_ip))
+    {
+      kv->key[0] = 0;
+      kv->key[1] = 0;
+    }
+  else
+    {
+      kv->key[0] = collector_ip->ip.as_u64[0];
+      kv->key[1] = collector_ip->ip.as_u64[1];
+      if (collector_ip->version == AF_IP4)
+	kv->key[2] |= 1;
+    }
+}
+
+u32
+upf_ref_ipfix_context (bool is_ip4,
+		       upf_ipfix_policy_t policy,
+		       const ip_address_t * collector_ip)
+{
+  int rv;
+  vlib_thread_main_t *tm = &vlib_thread_main;
+  upf_ipfix_main_t *fm = &upf_ipfix_main;
+  clib_bihash_kv_24_8_t kv, value;
+  upf_ipfix_protocol_context_t *context;
+  /* Decide how many worker threads we have */
+  u32 num_threads = 1 /* main thread */  + tm->n_threads;
+
+  upf_ipfix_context_mk_key(is_ip4, policy, collector_ip, &kv);
+
+  if (PREDICT_TRUE
+      (!clib_bihash_search_24_8
+       (&fm->context_by_key, &kv, &value)))
+    {
+      context = pool_elt_at_index (fm->contexts, value.value);
+      context->ref_count++;
+      return value.value;
+    }
+
+  pool_get_zero (fm->contexts, context);
+
+  vec_validate (context->buffers_per_worker, num_threads - 1);
+  vec_validate (context->frames_per_worker, num_threads - 1);
+  vec_validate (context->next_record_offset_per_worker,
+		num_threads - 1);
+  kv.value = context - fm->contexts;
+  clib_bihash_add_del_24_8 (&fm->context_by_key, &kv, 1);
+
+  context->policy = policy;
+  context->is_ip4 = is_ip4;
+  /* lookup the exporter a bit later */
+  context->exporter_index = (u32) ~0;
+  context->ref_count = 1;
+  if (collector_ip)
+    ip_address_copy (&context->collector_ip, collector_ip);
+
+  rv = upf_ipfix_report_add_del (fm, UPF_IPFIX_OBSERVATION_DOMAIN_ID,
+				 kv.value, &context->template_id,
+				 is_ip4, true);
+  if (rv)
+      clib_warning ("couldn't add IPFIX report, perhaps "
+		    "the exporter has been deleted?");
+
+  return context - fm->contexts;
+}
+
+void
+upf_ref_ipfix_context_by_index (u32 cidx)
+{
+  upf_ipfix_main_t *fm = &upf_ipfix_main;
+  upf_ipfix_protocol_context_t *context;
+
+  context = pool_elt_at_index (fm->contexts, cidx);
+  context->ref_count++;
+}
+
+void
+upf_unref_ipfix_context_by_index (u32 cidx)
+{
+  int rv;
+  upf_ipfix_main_t *fm = &upf_ipfix_main;
+  clib_bihash_kv_24_8_t kv;
+  upf_ipfix_protocol_context_t *context;
+
+  context = pool_elt_at_index (fm->contexts, cidx);
+  if (--context->ref_count)
+    return;
+
+  upf_ipfix_context_mk_key(context->is_ip4, context->policy,
+			   &context->collector_ip,
+			   &kv);
+  clib_bihash_add_del_24_8 (&fm->context_by_key, &kv, 0 /* is_add */ );
+
+  rv = upf_ipfix_report_add_del (fm, UPF_IPFIX_OBSERVATION_DOMAIN_ID,
+				 cidx, &context->template_id,
+				 context->is_ip4, false);
+  if (rv)
+    clib_warning ("couldn't remove IPFIX report, perhaps "
+		  "the exporter has been deleted?");
+
+  vec_free (context->buffers_per_worker);
+  vec_free (context->frames_per_worker);
+  vec_free (context->next_record_offset_per_worker);
+  pool_put (fm->contexts, context);
 }
 
 /**
@@ -546,10 +615,7 @@ clib_error_t *
 upf_ipfix_init (vlib_main_t * vm)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
-  vlib_thread_main_t *tm = &vlib_thread_main;
   clib_error_t *error = 0;
-  u32 num_threads;
-  upf_ipfix_policy_t policy;
 
   fm->vnet_main = vnet_get_main ();
   fm->vlib_main = vm; /* FIXME: shouldn't need that */
@@ -557,26 +623,12 @@ upf_ipfix_init (vlib_main_t * vm)
   /* Set up time reference pair */
   fm->vlib_time_0 = (u32)vlib_time_now (vm);
 
-  clib_memset (fm->runtime_templates, 0, sizeof (fm->runtime_templates));
-
-  /* Decide how many worker threads we have */
-  num_threads = 1 /* main thread */  + tm->n_threads;
-
-  /* Allocate per worker thread vectors per flavour */
-  for (policy = UPF_IPFIX_POLICY_NONE+1; policy < UPF_IPFIX_N_POLICIES; policy++)
-    {
-      upf_ipfix_runtime_template_t * rt = fm->runtime_templates + policy;
-      vec_validate (rt->context_ip4.buffers_per_worker, num_threads - 1);
-      vec_validate (rt->context_ip4.frames_per_worker, num_threads - 1);
-      vec_validate (rt->context_ip4.next_record_offset_per_worker,
-		    num_threads - 1);
-      vec_validate (rt->context_ip6.buffers_per_worker, num_threads - 1);
-      vec_validate (rt->context_ip6.frames_per_worker, num_threads - 1);
-      vec_validate (rt->context_ip6.next_record_offset_per_worker,
-		    num_threads - 1);
-      if (upf_ipfix_template_register (fm, policy) != 0)
-	error = clib_error_return (0, "error adding IPFIX templates");
-   }
+  /* initialize the IP/TEID hash's */
+  clib_bihash_init_24_8 (&fm->context_by_key,
+			 "context_by_key", UPF_IPFIX_MAPPING_BUCKETS,
+			 UPF_IPFIX_MAPPING_MEMORY_SIZE);
+  /* clib_bihash_set_kvp_format_fn_24_8 (&fm->context_by_key, */
+  /* 				      format_ipfix_context_key); */
 
   fm->active_timer = UPF_IPFIX_TIMER_ACTIVE;
 
@@ -634,7 +686,7 @@ uword unformat_ipfix_policy (unformat_input_t * i, va_list * args)
 
 u8 *format_upf_ipfix_policy (u8 * s, va_list * args)
 {
-  upf_ipfix_policy_t policy = va_arg (*args, upf_ipfix_policy_t);
+  upf_ipfix_policy_t policy = va_arg (*args, int);
   return policy < UPF_IPFIX_N_POLICIES ?
     format (s, "%s", upf_ipfix_templates[policy].name) :
     format (s, "<unknown %u>", policy);
