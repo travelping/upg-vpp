@@ -22,6 +22,10 @@ case "${BUILD_TYPE}" in
      ;;
 esac
 
-cmake -DCMAKE_BUILD_TYPE="${btype}" -DCMAKE_INSTALL_PREFIX=/usr /src
+opts=(-DCMAKE_BUILD_TYPE="${btype}" -DCMAKE_INSTALL_PREFIX=/usr)
+if [[ ${SANITIZE_ADDR} ]]; then
+  opts+=(-DVPP_ENABLE_SANITIZE_ADDR=1)
+fi
+cmake "${opts[@]}" /src
 
 make -C /src/build-root "$@"

@@ -17,6 +17,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : ${BUILD_TYPE:=debug}
 : ${DEV_IMAGE:=${VPP_IMAGE_BASE}_dev_${BUILD_TYPE}}
 : ${VPP_SRC:=}
+: ${SANITIZE_ADDR:=}
 
 if [[ ${GITHUB_RUN_ID:-} ]]; then
   # avoid overlong pod names (must be <= 63 chars including the -0 suffix)
@@ -35,7 +36,7 @@ function docker_buildenv {
   fi
   # TODO: use compgen trick below
   opts=(-e LC_ALL=C.UTF-8 -e LANG=C.UTF-8)
-  for var in $(compgen -v | grep '^E2E_') BUILD_TYPE; do
+  for var in $(compgen -v | grep '^E2E_') BUILD_TYPE SANITIZE_ADDR; do
     opts+=(-e "${var}=${!var}")
   done
   if [[ -t 0 ]]; then

@@ -3,6 +3,19 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 project(upf-plugin)
 
+option(VPP_ENABLE_SANITIZE_ADDR "Enable Address Sanitizer" OFF)
+set(VPP_SANITIZE_ADDR_OPTIONS
+  "unmap_shadow_on_exit=1:disable_coredump=0:abort_on_error=1:detect_leaks=0"
+  CACHE
+  STRING "Address sanitizer arguments"
+)
+
+if (VPP_ENABLE_SANITIZE_ADDR)
+  add_compile_options(-fsanitize=address)
+  add_compile_definitions(CLIB_SANITIZE_ADDR)
+  add_link_options(-fsanitize=address)
+endif (VPP_ENABLE_SANITIZE_ADDR)
+
 # rm
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
