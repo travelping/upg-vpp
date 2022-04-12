@@ -4024,10 +4024,10 @@ format_user_id (u8 * s0, va_list * args)
   pfcp_user_id_t *v = va_arg (*args, pfcp_user_id_t *);
   u8 *s = s0;
 
-  if (v->imei_len > 0)
-    s = format (s0, "IMEI:%U,", format_tbcd, v->imei, v->imei_len);
   if (v->imsi_len > 0)
     s = format (s, "IMSI:%U,", format_tbcd, v->imsi, v->imsi_len);
+  if (v->imei_len > 0)
+    s = format (s0, "IMEI:%U,", format_tbcd, v->imei, v->imei_len);
   if (v->msisdn_len > 0)
     s = format (s, "MSISDN:%U,", format_tbcd, v->msisdn, v->msisdn_len);
   if (vec_len (v->nai) > 0)
@@ -4053,22 +4053,6 @@ decode_user_id (u8 * data, u16 length, void *p)
   flags = get_u8 (data);
   length--;
 
-  if (flags & USER_ID_IMEI)
-    {
-      if (length < 1)
-	return PFCP_CAUSE_INVALID_LENGTH;
-
-      v->imei_len = get_u8 (data);
-      length--;
-
-      if (v->imei_len > 8 || length < v->imei_len)
-	return PFCP_CAUSE_INVALID_LENGTH;
-
-      memcpy (v->imei, data, v->imei_len);
-      data += v->imei_len;
-      length -= v->imei_len;
-    }
-
   if (flags & USER_ID_IMSI)
     {
       if (length < 1)
@@ -4083,6 +4067,22 @@ decode_user_id (u8 * data, u16 length, void *p)
       memcpy (v->imsi, data, v->imsi_len);
       data += v->imsi_len;
       length -= v->imsi_len;
+    }
+
+  if (flags & USER_ID_IMEI)
+    {
+      if (length < 1)
+	return PFCP_CAUSE_INVALID_LENGTH;
+
+      v->imei_len = get_u8 (data);
+      length--;
+
+      if (v->imei_len > 8 || length < v->imei_len)
+	return PFCP_CAUSE_INVALID_LENGTH;
+
+      memcpy (v->imei, data, v->imei_len);
+      data += v->imei_len;
+      length -= v->imei_len;
     }
 
   if (flags & USER_ID_MSISDN)
@@ -4135,16 +4135,16 @@ encode_user_id (void *p, u8 ** vec)
 
   put_u8 (*vec, flags);
 
-  if (v->imei_len > 0)
-    {
-      put_u8 (*vec, v->imei_len);
-      vec_add (*vec, v->imei, v->imei_len);
-    }
-
   if (v->imsi_len > 0)
     {
       put_u8 (*vec, v->imsi_len);
       vec_add (*vec, v->imsi, v->imsi_len);
+    }
+
+  if (v->imei_len > 0)
+    {
+      put_u8 (*vec, v->imei_len);
+      vec_add (*vec, v->imei, v->imei_len);
     }
 
   if (v->msisdn_len > 0)

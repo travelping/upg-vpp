@@ -13,7 +13,7 @@ from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     IE_NetworkInstance, IE_NodeId, IE_PDI, IE_PDR_Id, IE_Precedence, \
     IE_QueryURR, IE_RecoveryTimeStamp, IE_RedirectInformation, IE_ReportType, \
     IE_ReportingTriggers, IE_SDF_Filter, IE_SourceInterface, IE_StartTime, \
-    IE_TimeQuota, IE_UE_IP_Address, IE_URR_Id, IE_UR_SEQN, \
+    IE_TimeQuota, IE_UE_IP_Address, IE_URR_Id, IE_UR_SEQN, IE_UserId, \
     IE_FTEID, IE_OuterHeaderCreation, IE_OuterHeaderRemoval, \
     IE_UsageReportTrigger, IE_VolumeMeasurement, IE_ApplicationId, PFCP, \
     PFCPAssociationSetupRequest, PFCPAssociationSetupResponse, \
@@ -1748,7 +1748,12 @@ class TestPFCPReencode(framework.VppTestCase):
                     IE_URR_Id(id=1)
                 ]),
                 IE_FSEID(ipv4='172.18.1.1', v4=1, seid=0xffde7211a5ab800a),
-                IE_NodeId(id_type="FQDN", id="ergw")
+                IE_NodeId(id_type="FQDN", id="ergw"),
+                IE_UserId(NAIF=1, MSISDNF=1, IMEIF=1, IMSIF=1,
+                          imsi=b'\x09\x09\x60\x00\x02\x00\x00\xf9',
+                          imei=b'\x41\x09\x60\x00\x05\x00\x00\xf9',
+                          msisdn=b'\x54\x43\x44\xf5',
+                          nai="foo@example.com")
             ])
         self.verify_reencode("session_establishment_request", req)
 

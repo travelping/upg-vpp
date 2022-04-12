@@ -1006,7 +1006,7 @@ typedef struct
 #define USER_ID_IMSI					BIT(0)
 #define USER_ID_IMEI					BIT(1)
 #define USER_ID_MSISDN					BIT(2)
-#define USER_ID_NAI					BIT(4)
+#define USER_ID_NAI					BIT(3)
 
   u8 imei_len;			/* length in bytes, not in digits */
   u8 imei[8];
