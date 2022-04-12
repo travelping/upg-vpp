@@ -127,7 +127,10 @@ upf_init_nat_addresses (upf_nat_pool_t * np, ip4_address_t start_addr,
   end = clib_net_to_host_u32 (end_addr.as_u32);
 
   if (start > end)
-    return -1;
+    {
+      clib_warning ("invalid address range for the NAT pool");
+      return -1;
+    }
 
   vec_alloc (np->addresses, end - start + 1);
 
@@ -160,6 +163,15 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
       if (p)
 	return VNET_API_ERROR_VALUE_EXIST;
 
+      if (min_port < UPF_NAT_MIN_PORT ||
+	  max_port > UPF_NAT_MAX_PORT || min_port > max_port)
+	{
+	  clib_warning
+	    ("Invalid port range for the NAT pool (must be within %u - %u)",
+	     UPF_NAT_MIN_PORT, UPF_NAT_MAX_PORT);
+	  return VNET_API_ERROR_INVALID_ARGUMENT;
+	}
+
       pool_get (gtm->nat_pools, nat_pool);
 
       if (upf_init_nat_addresses (nat_pool, start_addr, end_addr))
@@ -171,8 +183,8 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
       nat_pool->name = vec_dup (name);
       nat_pool->network_instance = vec_dup (nwi_name);
       nat_pool->port_block_size = port_block_size;
-      nat_pool->min_port = UPF_NAT_MIN_PORT;
-      nat_pool->max_port = UPF_NAT_MAX_PORT;
+      nat_pool->min_port = min_port;
+      nat_pool->max_port = max_port;
       nat_pool->max_blocks_per_addr =
 	(u16) ((nat_pool->max_port - nat_pool->min_port) / port_block_size);
 
