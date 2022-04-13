@@ -253,14 +253,11 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
   u8 *nwi_name;
   u8 *nwi_s = 0;
   ip4_address_t start, end;
-  u16 min_port;
-  u16 max_port;
-  u16 port_block_size;
+  u32 min_port = UPF_NAT_MIN_PORT;
+  u32 max_port = UPF_NAT_MAX_PORT;
+  u32 port_block_size;
   u8 is_add = 1;
   int rv;
-
-  min_port = UPF_NAT_MIN_PORT;
-  max_port = UPF_NAT_MAX_PORT;
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
     return 0;
@@ -271,6 +268,10 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
 		    unformat_ip4_address, &start, unformat_ip4_address, &end))
 	;
       else if (unformat (line_input, "block_size %u", &port_block_size))
+	;
+      else if (unformat (line_input, "min_port %u", &min_port))
+	;
+      else if (unformat (line_input, "max_port %u", &max_port))
 	;
       else if (unformat (line_input, "nwi %_%v%_", &nwi_s))
 	;
@@ -285,15 +286,27 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
 	}
     }
 
-  nwi_name = upf_name_to_labels (nwi_s);
+  /*
+   * Extra port range check here because port values are parsed into
+   * u32 instead of u16
+   */
+  if (min_port < UPF_NAT_MIN_PORT ||
+      max_port > UPF_NAT_MAX_PORT || min_port > max_port)
+    error = clib_error_return (0, "Invalid port range");
+  else
+    {
+      nwi_name = upf_name_to_labels (nwi_s);
+
+      rv =
+	vnet_upf_nat_pool_add_del (nwi_name, start, end, name,
+				   port_block_size, min_port, max_port,
+				   is_add);
+
+      if (rv)
+	error = clib_error_return (0, "Unable to create NAT Pool");
+    }
+
   vec_free (nwi_s);
-
-  rv =
-    vnet_upf_nat_pool_add_del (nwi_name, start, end, name, port_block_size,
-			       min_port, max_port, is_add);
-
-  if (rv)
-    error = clib_error_return (0, "Unable to create NAT Pool");
 
 done:
   return error;
