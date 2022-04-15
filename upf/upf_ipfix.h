@@ -83,7 +83,8 @@ typedef u32 (*upf_ipfix_value_func_t) (vlib_buffer_t * to_b,
 typedef struct
 {
   char * name;
-  u16 field_count;
+  u16 field_count_ipv4;
+  u16 field_count_ipv6;
   upf_ipfix_field_func_t add_ip4_fields;
   upf_ipfix_field_func_t add_ip6_fields;
   upf_ipfix_value_func_t add_ip4_values;

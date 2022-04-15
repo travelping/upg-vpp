@@ -33,7 +33,9 @@
 #define IPFIX_TEMPLATE_DEFAULT_IPV4(F)		\
   IPFIX_FIELD_SOURCE_IPV4_ADDRESS(F)		\
   IPFIX_FIELD_DESTINATION_IPV4_ADDRESS(F)	\
-  IPFIX_FIELD_PROTOCOL_IDENTIFIER(F)
+  IPFIX_FIELD_PROTOCOL_IDENTIFIER(F)		\
+  IPFIX_FIELD_POST_NAT_SOURCE_IPV4_ADDRESS(F)	\
+  IPFIX_FIELD_POST_NAPT_SOURCE_TRANSPORT_PORT(F)
 
 #define IPFIX_TEMPLATE_DEFAULT_IPV6(F)		\
   IPFIX_FIELD_SOURCE_IPV6_ADDRESS(F)		\
@@ -50,12 +52,6 @@
   IPFIX_FIELD_FLOW_END_NANOSECONDS(F)		\
   IPFIX_FIELD_SOURCE_TRANSPORT_PORT(F)		\
   IPFIX_FIELD_DESTINATION_TRANSPORT_PORT(F)
-
-/*
- * TODO: the following fields should be in the NAT-only template:
- * IPFIX_FIELD_POST_NAT_IPV4_ADDRESS(F)
- * IPFIX_FIELD_POST_NAPT_SOURCE_TRANSPORT_PORT(F)
- */
 
 static ipfix_field_specifier_t *
 upf_ipfix_template_default_ip4_fields (ipfix_field_specifier_t * f)
@@ -143,13 +139,17 @@ upf_ipfix_template_dest_ip6_values (vlib_buffer_t * to_b,
 
 upf_ipfix_template_t upf_ipfix_templates[UPF_IPFIX_N_POLICIES] = {
   [UPF_IPFIX_POLICY_NONE] = {
-    .field_count = 0,
     .name = "none",
+    .field_count_ipv4 = 0,
+    .field_count_ipv6 = 0,
   },
   [UPF_IPFIX_POLICY_DEFAULT] = {
     .name = "default",
-    .field_count =
+    .field_count_ipv4 =
     IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEFAULT_IPV4,
+			  IPFIX_TEMPLATE_DEFAULT_COMMON),
+    .field_count_ipv6 =
+    IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEFAULT_IPV6,
 			  IPFIX_TEMPLATE_DEFAULT_COMMON),
     .add_ip4_fields = upf_ipfix_template_default_ip4_fields,
     .add_ip6_fields = upf_ipfix_template_default_ip6_fields,
@@ -158,8 +158,11 @@ upf_ipfix_template_t upf_ipfix_templates[UPF_IPFIX_N_POLICIES] = {
   },
   [UPF_IPFIX_POLICY_DEST] = {
     .name = "dest",
-    .field_count =
+    .field_count_ipv4 =
     IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEST_IPV4,
+			  IPFIX_TEMPLATE_DEST_COMMON),
+    .field_count_ipv6 =
+    IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEST_IPV6,
 			  IPFIX_TEMPLATE_DEST_COMMON),
     .add_ip4_fields = upf_ipfix_template_dest_ip4_fields,
     .add_ip6_fields = upf_ipfix_template_dest_ip6_fields,

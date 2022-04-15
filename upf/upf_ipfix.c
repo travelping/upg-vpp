@@ -114,12 +114,12 @@ upf_ipfix_template_rewrite (ipfix_exporter_t *exp, flow_report_t *fr,
     pool_elt_at_index (fm->contexts, fr->opaque.as_uword);
   upf_ipfix_template_t * template = upf_ipfix_templates + context->policy;
 
-  ASSERT(context);
-  ASSERT (template->field_count);
+  ASSERT (context);
+  field_count = context->is_ip4 ? template->field_count_ipv4 :
+    template->field_count_ipv6;
+  ASSERT (field_count);
 
   stream = &exp->streams[fr->stream_index];
-
-  field_count += template->field_count;
 
   /* allocate rewrite space */
 
