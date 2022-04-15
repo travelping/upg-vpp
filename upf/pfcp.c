@@ -2513,7 +2513,10 @@ format_tbcd (u8 * s, va_list * args)
   for (i = 0; i < n_bytes; i++)
     {
       if (bytes[i] & 0xf0 == 0xf0 && i == n_bytes - 1)
-	s = format (s, "%d", bytes[i] & 0xf);
+	{
+	  s = format (s, "%d", bytes[i] & 0xf);
+	  break;
+	}
       else
 	s = format (s, "%d%d", bytes[i] & 0xf, bytes[i] >> 4);
     }
