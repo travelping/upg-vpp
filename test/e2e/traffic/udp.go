@@ -40,6 +40,7 @@ type UDPPingConfig struct {
 	Retry          bool
 	Delay          time.Duration
 	NoMTUDiscovery bool
+	Burst          int
 }
 
 var _ TrafficConfig = &UDPPingConfig{}
@@ -226,8 +227,14 @@ func (up *UDPPing) Run(ctx context.Context, ns *network.NetNS) error {
 	recvBuf := make([]byte, up.cfg.PacketSize)
 	for i := 0; i < up.cfg.PacketCount; i++ {
 		up.genUDPPacket(i, sendBuf)
-		if _, err := c.Write(sendBuf); err != nil {
-			return errors.Wrap(err, "udp send")
+		n := 1
+		if up.cfg.Burst > 1 {
+			n = up.cfg.Burst
+		}
+		for i := 0; i < n; i++ {
+			if _, err := c.Write(sendBuf); err != nil {
+				return errors.Wrap(err, "udp send")
+			}
 		}
 		up.rec.RecordStats(TrafficStats{ClientSent: len(sendBuf)})
 		c.SetReadDeadline(time.Now().Add(up.cfg.Timeout))
