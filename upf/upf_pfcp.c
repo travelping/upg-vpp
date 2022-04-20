@@ -2405,6 +2405,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 	(upf_event_urr_hdr_t *) vec_header (uev,
 					    sizeof (upf_event_urr_hdr_t));
       ueh->session_idx = (uword) (sess - gtm->sessions);
+      ueh->cp_seid = sess->cp_seid;
       ueh->ue = tt.ip;
       ueh->status = status;
 
