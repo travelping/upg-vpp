@@ -110,6 +110,7 @@ typedef struct
 typedef struct
 {
   uword session_idx;
+  u64 cp_seid;
   ip46_address_t ue;
   u8 status;
 } upf_event_urr_hdr_t;

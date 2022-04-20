@@ -1210,9 +1210,21 @@ static uword
 		  (upf_event_urr_hdr_t *) vec_header (uev,
 						      sizeof
 						      (upf_event_urr_hdr_t));
-		upf_session_t *sx;
+		upf_session_t *sx = 0;
 
-		sx = pool_elt_at_index (gtm->sessions, ueh->session_idx);
+		/*
+		 * The session could have been freed or replaced after
+		 * this even has been queued, but before it has been
+		 * handled. So we check if the pool entry is free, and
+		 * also verify that CP-SEID in the session matches
+		 * CP-SEID in the event.
+		 */
+		if (!pool_is_free_index (gtm->sessions, ueh->session_idx))
+		  sx = pool_elt_at_index (gtm->sessions, ueh->session_idx);
+
+		if (!sx || sx->cp_seid != ueh->cp_seid)
+		  goto next_ev_urr;
+
 		if (!(ueh->status & URR_DROP_SESSION))
 		  {
 		    upf_debug
@@ -1236,6 +1248,7 @@ static uword
 		    pfcp_free_session (sx);
 		  }
 
+	      next_ev_urr:
 		vec_free_h (uev, sizeof (upf_event_urr_hdr_t));
 	      }
 	    break;
