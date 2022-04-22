@@ -1092,6 +1092,7 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 				PacketCount: 180, // 30s, but will be stopped when VPP exits
 				Retry:       true,
 				Delay:       100 * time.Millisecond,
+				Burst:       100,
 			}, &traffic.SimpleTrafficRec{})
 			tg.Start(f.Context, clientNS, serverNS)
 
@@ -1100,7 +1101,7 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 			gomega.Expect(now.Before(sessionCfg.MonitoringTime)).To(gomega.BeTrue())
 			time.Sleep(sessionCfg.MonitoringTime.Add(2 * time.Second).Sub(now))
 
-			ginkgo.By("Updating monitoring time in the session (1)")
+			ginkgo.By("Updating monitoring time in the session")
 			// note that measurement period is reset here, and we want the new
 			// monitoring time to be after the report
 			sessionCfg.MonitoringTime = time.Now().Add(2 * time.Second).Truncate(time.Second)
