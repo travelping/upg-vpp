@@ -864,6 +864,8 @@ typedef struct
 
   u32 sessions;
   u32 heartbeat_handle;
+
+  u32 policer_idx;
 } upf_node_assoc_t;
 
 typedef u8 *regex_t;
@@ -999,11 +1001,13 @@ typedef struct
   upf_ue_ip_pool_info_t *ueip_pools;
   uword *ue_ip_pool_index_by_identity;
 
+  policer_t *pfcp_policers;
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;
 extern const fib_node_vft_t upf_fp_vft;
 extern upf_main_t upf_main;
+extern qos_pol_cfg_params_st pfcp_rate_cfg_main;
 
 extern vlib_node_registration_t upf_gtpu4_input_node;
 extern vlib_node_registration_t upf_gtpu6_input_node;
@@ -1070,6 +1074,8 @@ int vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add);
 
 void upf_ip_lookup_tx (u32 bi, int is_ip4);
 void upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4);
+
+void upf_pfcp_policers_relalculate (qos_pol_cfg_params_st * cfg);
 
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)

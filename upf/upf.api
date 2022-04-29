@@ -281,3 +281,22 @@ define upf_pfcp_server_show_reply {
   u32 prealloc_fifos;
   u32 segment_size; /* in MB */
 };
+
+autoreply define upf_pfcp_policer_set {
+  u32 client_index;
+  u32 context;
+  u32 cir_pps;
+  u32 cb_ms;
+};
+
+define upf_pfcp_policer_show {
+  u32 client_index;
+  u32 context;
+};
+
+define upf_pfcp_policer_show_reply {
+  u32 client_index;
+  u32 context;
+  u32 cir_pps;
+  u32 cb_ms;
+};

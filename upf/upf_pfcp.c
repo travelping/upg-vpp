@@ -53,6 +53,7 @@
 #endif
 
 upf_main_t upf_main;
+qos_pol_cfg_params_st pfcp_rate_cfg_main;
 
 #define SESS_CREATE 0
 #define SESS_MODIFY 1
@@ -362,6 +363,20 @@ pfcp_get_association (pfcp_node_id_t * node_id)
   return pool_elt_at_index (gtm->nodes, p[0]);
 }
 
+static u32
+upf_init_association_policer ()
+{
+  qos_pol_cfg_params_st *cfg = &pfcp_rate_cfg_main;
+  upf_main_t *gtm = &upf_main;
+  policer_t *p;
+
+  pool_get (gtm->pfcp_policers, p);
+  memset (p, 0, sizeof (policer_t));
+  pol_logical_2_physical (cfg, p);
+
+  return (p - gtm->pfcp_policers);
+}
+
 upf_node_assoc_t *
 pfcp_new_association (session_handle_t session_handle,
 		      ip46_address_t * lcl_addr, ip46_address_t * rmt_addr,
@@ -391,6 +406,7 @@ pfcp_new_association (session_handle_t session_handle,
       break;
     }
 
+  n->policer_idx = upf_init_association_policer ();
   vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
 
@@ -434,6 +450,7 @@ pfcp_release_association (upf_node_assoc_t * n)
   ASSERT (n->sessions == ~0);
 
   upf_pfcp_server_deferred_free_msgs_by_node (node_id);
+  pool_put_index (gtm->pfcp_policers, n->policer_idx);
 
   pool_put (gtm->nodes, n);
 
