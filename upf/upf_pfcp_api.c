@@ -1581,20 +1581,21 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	  }			//TODO: header_enrichment
       }
 
+    create->ipfix_context_index_ip4 = (u32) ~ 0;
+    create->ipfix_context_index_ip6 = (u32) ~ 0;
+
     if (ISSET_BIT (far->grp.fields, CREATE_FAR_TP_IPFIX_POLICY))
       {
-	ip_address_t *collector_ip = nwi ? &nwi->ipfix_collector_ip : 0;
 	upf_ipfix_policy_t ipfix_policy =
 	  upf_ipfix_lookup_policy (far->ipfix_policy, 0);
-	create->ipfix_context_index_ip4 =
-	  upf_ref_ipfix_context (true, ipfix_policy, collector_ip);
-	create->ipfix_context_index_ip6 =
-	  upf_ref_ipfix_context (false, ipfix_policy, collector_ip);
-      }
-    else
-      {
-	create->ipfix_context_index_ip4 = (u32) ~ 0;
-	create->ipfix_context_index_ip6 = (u32) ~ 0;
+	if (ipfix_policy != UPF_IPFIX_POLICY_NONE)
+	  {
+	    ip_address_t *collector_ip = nwi ? &nwi->ipfix_collector_ip : 0;
+	    create->ipfix_context_index_ip4 =
+	      upf_ref_ipfix_context (true, ipfix_policy, collector_ip);
+	    create->ipfix_context_index_ip6 =
+	      upf_ref_ipfix_context (false, ipfix_policy, collector_ip);
+	  }
       }
   }
 

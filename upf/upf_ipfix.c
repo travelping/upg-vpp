@@ -647,7 +647,7 @@ upf_ipfix_lookup_policy (u8 * name, bool * ok)
   if (ok)
     *ok = false;
 
-  for (policy = UPF_IPFIX_POLICY_NONE+1; policy < UPF_IPFIX_N_POLICIES; policy++)
+  for (policy = UPF_IPFIX_POLICY_NONE; policy < UPF_IPFIX_N_POLICIES; policy++)
     {
       u32 l = strlen(upf_ipfix_templates[policy].name);
       if (l == name_len && !memcmp(name, upf_ipfix_templates[policy].name, l))

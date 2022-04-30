@@ -197,8 +197,10 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
   l2im->configs[sw_if_index].bd_index = 0;
 
   /* move into fib table */
-  ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, ip4_table_id);
-  ip_table_bind (FIB_PROTOCOL_IP6, sw_if_index, ip6_table_id);
+  if (ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, ip4_table_id) != 0)
+    clib_warning("failed to bind IPv4 table for NWI");
+  if (ip_table_bind (FIB_PROTOCOL_IP6, sw_if_index, ip6_table_id) != 0)
+    clib_warning("failed to bind IPv6 table for NWI");
 
   nwi->fib_index[FIB_PROTOCOL_IP4] =
     ip4_fib_table_get_index_for_sw_if_index (sw_if_index);
@@ -243,7 +245,7 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 }
 
 static int
-vnet_upf_delete_nwi_if (u8 * name, u32 * sw_if_idx)
+vnet_upf_delete_nwi_if (u8 * name)
 {
   vnet_main_t *vnm = upf_main.vnet_main;
   upf_main_t *gtm = &upf_main;
@@ -288,7 +290,7 @@ vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
   return (add) ?
     vnet_upf_create_nwi_if (name, ip4_table_id, ip6_table_id,
 			    ipfix_policy, ipfix_collector_ip, NULL) :
-    vnet_upf_delete_nwi_if (name, NULL);
+    vnet_upf_delete_nwi_if (name);
 }
 
 static int
