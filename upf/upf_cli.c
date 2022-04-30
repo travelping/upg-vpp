@@ -383,8 +383,8 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
     case 0:
       break;
 
-    case VNET_API_ERROR_VALUE_EXIST:
-      error = clib_error_return (0, "network instance already exists...");
+    case VNET_API_ERROR_IF_ALREADY_EXISTS:
+      error = clib_error_return (0, "Network instance '%v' already exists...",name);
       break;
 
     case VNET_API_ERROR_NO_SUCH_ENTRY:

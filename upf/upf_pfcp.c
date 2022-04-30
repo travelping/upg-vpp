@@ -136,7 +136,7 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
   if (p)
     {
       nwi = vec_elt_at_index (gtm->nwis, p[0]);
-      if (sw_if_index)
+      if (sw_if_idx)
 	*sw_if_idx = nwi->sw_if_index;
       return VNET_API_ERROR_IF_ALREADY_EXISTS;
     }
