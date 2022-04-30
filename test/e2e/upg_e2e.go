@@ -17,6 +17,7 @@
 package exttest
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -566,12 +567,20 @@ var _ = ginkgo.Describe("Binapi", func() {
 	})
 	ginkgo.Context("for NWIs", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.BeforeEach(func() {
+			_, err := f.VPP.Ctl("ip table add 42000")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			_, err = f.VPP.Ctl("ip6 table add 42001")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		})
+
 		ginkgo.It("adds, removes and lists the NWIs", func() {
 			ip, _ := ip_types.ParseAddress("192.168.42.1")
 			req := &upf.UpfNwiAddDel{
 				Nwi:              util.EncodeFQDN("testing"),
-				IP4TableID:       200,
-				IpfixPolicy:      []byte("dest"),
+				IP4TableID:       42000,
+				IP6TableID:       42001,
+				IpfixPolicy:      []byte("default"),
 				IpfixCollectorIP: ip,
 				Add:              1,
 			}
@@ -591,6 +600,11 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if util.DecodeFQDN(msg.Nwi) != "testing" {
 					continue
 				}
+				gomega.Expect(msg.IP4TableID).To(gomega.Equal(uint32(42000)))
+				gomega.Expect(msg.IP6TableID).To(gomega.Equal(uint32(42001)))
+				ipfixPolicy := string(bytes.Trim(msg.IpfixPolicy, "\x00"))
+				gomega.Expect(ipfixPolicy).To(gomega.Equal("default"))
+				gomega.Expect(msg.IpfixCollectorIP.String()).To(gomega.Equal("192.168.42.1"))
 				found = true
 			}
 			gomega.Expect(found).To(gomega.BeTrue(), "upf_nwi_dump")
@@ -612,8 +626,6 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if util.DecodeFQDN(msg.Nwi) != "testing" {
 					continue
 				}
-				gomega.Expect(msg.IpfixPolicy).To(gomega.Equal("dest"))
-				gomega.Expect(msg.IpfixCollectorIP.String()).To(gomega.Equal("192.168.42.1"))
 				found = true
 			}
 			gomega.Expect(found).To(gomega.BeFalse())
@@ -621,22 +633,26 @@ var _ = ginkgo.Describe("Binapi", func() {
 	})
 	ginkgo.Context("for PFCP endpoint", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-		ginkgo.It("lists and removes the PFCP endpoint", func() {
 
-			// It appears to be a little tricky to add new PFCP endpoint
-			// So far we will just check if it can list and remove PFCP endpoint
-			// Adding of endpoint will be checked during the change of configuration mechanism
-			pfcpEndpoint := &upf.UpfPfcpEndpointAddDel{
-				IsAdd:   0,
-				TableID: 0,
+		// avoid pre-creating a PFCP endpoint and starting a PFCP connection
+		f.VPPCfg.SetupCommands = nil
+		f.PFCPCfg = nil
+
+		ginkgo.It("lists and removes the PFCP endpoint", func() {
+			ipAddr, err := ip_types.ParseAddress("10.0.0.2")
+			gomega.Expect(err).To(gomega.BeNil())
+			req := &upf.UpfPfcpEndpointAddDel{
+				IsAdd: 1,
+				// TODO: verify other table IDs (somewhat tricky)
+				// TableID: 100,
+				IP: ipAddr,
 			}
-			ipAddr, er := ip_types.ParseAddress("10.0.0.2")
-			gomega.Expect(er).To(gomega.BeNil())
-			pfcpEndpoint.IP = ipAddr
+			reply := &upf.UpfPfcpEndpointAddDelReply{}
+			err = f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
+			gomega.Expect(err).To(gomega.BeNil(), "upf_pfcp_endpoint_add_del")
 
 			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPfcpEndpointDump{})
 			found := false
-
 			for {
 				msg := &upf.UpfPfcpEndpointDetails{}
 				stop, err := reqCtx.ReceiveReply(msg)
@@ -644,17 +660,19 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if msg.IP != pfcpEndpoint.IP {
+				if msg.IP != req.IP {
 					continue
 				}
 				found = true
-				gomega.Expect(msg.FibTable).To(gomega.BeEquivalentTo(0))
+				gomega.Expect(msg.TableID).To(gomega.BeEquivalentTo(0))
 			}
 			gomega.Expect(found).To(gomega.BeTrue())
 
+			req.IsAdd = 0
 			pfcpEndpointReply := &upf.UpfPfcpEndpointAddDelReply{}
-			err := f.VPP.ApiChannel.SendRequest(pfcpEndpoint).ReceiveReply(pfcpEndpointReply)
+			err = f.VPP.ApiChannel.SendRequest(req).ReceiveReply(pfcpEndpointReply)
 			gomega.Expect(err).To(gomega.BeNil())
+
 			reqCtx = f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPfcpEndpointDump{})
 			found = false
 			for {
@@ -664,7 +682,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if msg.IP != pfcpEndpoint.IP {
+				if msg.IP != req.IP {
 					continue
 				}
 				found = true
@@ -672,6 +690,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 			gomega.Expect(found).To(gomega.BeFalse())
 		})
 	})
+
 	ginkgo.Context("for PFCP Session Server", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.It("Configures PFCP Server", func() {
