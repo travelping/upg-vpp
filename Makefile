@@ -60,3 +60,6 @@ buildenv: version
 
 clean-buildenv:
 	hack/buildenv.sh clean
+
+genbinapi:
+	hack/buildenv.sh /bin/bash -c 'make install && hack/genbinapi.sh'
