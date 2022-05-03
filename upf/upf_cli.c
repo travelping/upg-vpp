@@ -493,14 +493,19 @@ upf_show_nwi_command_fn (vlib_main_t * vm,
 
   pool_foreach (nwi, gtm->nwis)
   {
+    ip4_fib_t *fib4;
+    ip6_fib_t *fib6;
     if (name && !vec_is_equal (name, nwi->name))
       continue;
 
+    fib4 = ip4_fib_get (nwi->fib_index[FIB_PROTOCOL_IP4]);
+    fib6 = ip6_fib_get (nwi->fib_index[FIB_PROTOCOL_IP6]);
+
     vlib_cli_output (vm,
-		     "%U, ip4-fib-index %u, ip6-fib-index %u, ipfix-policy %U, ipfix_collector_ip %U\n",
+		     "%U, ip4-table-id %u, ip6-table-id %u, ipfix-policy %U, ipfix-collector-ip %U\n",
 		     format_dns_labels, nwi->name,
-		     nwi->fib_index[FIB_PROTOCOL_IP4],
-		     nwi->fib_index[FIB_PROTOCOL_IP6],
+		     fib4->hash.table_id,
+		     fib6->table_id,
 		     format_upf_ipfix_policy, nwi->ipfix_policy,
 		     format_ip_address, &nwi->ipfix_collector_ip);
   }

@@ -609,6 +609,12 @@ var _ = ginkgo.Describe("Binapi", func() {
 			}
 			gomega.Expect(found).To(gomega.BeTrue(), "upf_nwi_dump")
 
+			out, err := f.VPP.Ctl("show upf nwi")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(out).To(gomega.ContainSubstring(
+				"testing, ip4-table-id 42000, ip6-table-id 42001, " +
+					"ipfix-policy default, ipfix-collector-ip 192.168.42.1"))
+
 			req.Add = 0
 			reply = &upf.UpfNwiAddDelReply{}
 			err = f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
@@ -629,8 +635,13 @@ var _ = ginkgo.Describe("Binapi", func() {
 				found = true
 			}
 			gomega.Expect(found).To(gomega.BeFalse())
+
+			out, err = f.VPP.Ctl("show upf nwi")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(out).NotTo(gomega.ContainSubstring("testing,"))
 		})
 	})
+
 	ginkgo.Context("for PFCP endpoint", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 
