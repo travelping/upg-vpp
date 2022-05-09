@@ -453,18 +453,6 @@ upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t dir
   upf_ipfix_export_send (vm, b0, context, now);
 }
 
-#define vec_neg_search(v,E)			\
-  ({						\
-    word _v(i) = 0;				\
-    while (_v(i) < vec_len(v) && v[_v(i)] == E)	\
-      {						\
-	_v(i)++;				\
-      }						\
-    if (_v(i) == vec_len(v))			\
-      _v(i) = ~0;				\
-    _v(i);					\
-  })
-
 void upf_ipfix_flow_update_hook (flow_entry_t * f, flow_direction_t direction, u32 now)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
