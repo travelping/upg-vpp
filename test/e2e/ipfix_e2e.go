@@ -159,7 +159,7 @@ func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 			})
 		})
 
-		if ipMode == framework.UPGIPModeV4 {
+		if ipMode == framework.UPGIPModeV4 && mode == framework.UPGModeTDF {
 			ginkgo.Context("[NAT fields]", func() {
 				f := framework.NewDefaultFramework(mode, ipMode)
 				v := &ipfixVerifier{f: f}
