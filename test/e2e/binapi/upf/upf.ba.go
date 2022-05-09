@@ -5,7 +5,7 @@
 // Contents:
 //   2 enums
 //   1 struct
-//  36 messages
+//  40 messages
 //
 package upf
 
@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0x2be8c89f
+	VersionCrc = 0x5da357c9
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -674,7 +674,7 @@ type UpfNwiAddDel struct {
 	Add              uint8            `binapi:"u8,name=add" json:"add,omitempty"`
 	IP4TableID       uint32           `binapi:"u32,name=ip4_table_id" json:"ip4_table_id,omitempty"`
 	IP6TableID       uint32           `binapi:"u32,name=ip6_table_id" json:"ip6_table_id,omitempty"`
-	IpfixPolicy      []byte           `binapi:"u8[32],name=ipfix_policy" json:"ipfix_policy,omitempty"`
+	IpfixPolicy      []byte           `binapi:"u8[64],name=ipfix_policy" json:"ipfix_policy,omitempty"`
 	IpfixCollectorIP ip_types.Address `binapi:"address,name=ipfix_collector_ip" json:"ipfix_collector_ip,omitempty"`
 	NwiLen           uint8            `binapi:"u8,name=nwi_len" json:"-"`
 	Nwi              []byte           `binapi:"u8[nwi_len],name=nwi" json:"nwi,omitempty"`
@@ -682,7 +682,7 @@ type UpfNwiAddDel struct {
 
 func (m *UpfNwiAddDel) Reset()               { *m = UpfNwiAddDel{} }
 func (*UpfNwiAddDel) GetMessageName() string { return "upf_nwi_add_del" }
-func (*UpfNwiAddDel) GetCrcString() string   { return "fd41aeb4" }
+func (*UpfNwiAddDel) GetCrcString() string   { return "5b11d951" }
 func (*UpfNwiAddDel) GetMessageType() api.MessageType {
 	return api.RequestMessage
 }
@@ -694,7 +694,7 @@ func (m *UpfNwiAddDel) Size() (size int) {
 	size += 1              // m.Add
 	size += 4              // m.IP4TableID
 	size += 4              // m.IP6TableID
-	size += 1 * 32         // m.IpfixPolicy
+	size += 1 * 64         // m.IpfixPolicy
 	size += 1              // m.IpfixCollectorIP.Af
 	size += 1 * 16         // m.IpfixCollectorIP.Un
 	size += 1              // m.NwiLen
@@ -709,7 +709,7 @@ func (m *UpfNwiAddDel) Marshal(b []byte) ([]byte, error) {
 	buf.EncodeUint8(m.Add)
 	buf.EncodeUint32(m.IP4TableID)
 	buf.EncodeUint32(m.IP6TableID)
-	buf.EncodeBytes(m.IpfixPolicy, 32)
+	buf.EncodeBytes(m.IpfixPolicy, 64)
 	buf.EncodeUint8(uint8(m.IpfixCollectorIP.Af))
 	buf.EncodeBytes(m.IpfixCollectorIP.Un.XXX_UnionData[:], 16)
 	buf.EncodeUint8(uint8(len(m.Nwi)))
@@ -721,7 +721,7 @@ func (m *UpfNwiAddDel) Unmarshal(b []byte) error {
 	m.Add = buf.DecodeUint8()
 	m.IP4TableID = buf.DecodeUint32()
 	m.IP6TableID = buf.DecodeUint32()
-	m.IpfixPolicy = make([]byte, 32)
+	m.IpfixPolicy = make([]byte, 64)
 	copy(m.IpfixPolicy, buf.DecodeBytes(len(m.IpfixPolicy)))
 	m.IpfixCollectorIP.Af = ip_types.AddressFamily(buf.DecodeUint8())
 	copy(m.IpfixCollectorIP.Un.XXX_UnionData[:], buf.DecodeBytes(16))
@@ -768,7 +768,7 @@ func (m *UpfNwiAddDelReply) Unmarshal(b []byte) error {
 type UpfNwiDetails struct {
 	IP4TableID       uint32           `binapi:"u32,name=ip4_table_id" json:"ip4_table_id,omitempty"`
 	IP6TableID       uint32           `binapi:"u32,name=ip6_table_id" json:"ip6_table_id,omitempty"`
-	IpfixPolicy      []byte           `binapi:"u8[32],name=ipfix_policy" json:"ipfix_policy,omitempty"`
+	IpfixPolicy      []byte           `binapi:"u8[64],name=ipfix_policy" json:"ipfix_policy,omitempty"`
 	IpfixCollectorIP ip_types.Address `binapi:"address,name=ipfix_collector_ip" json:"ipfix_collector_ip,omitempty"`
 	NwiLen           uint8            `binapi:"u8,name=nwi_len" json:"-"`
 	Nwi              []byte           `binapi:"u8[nwi_len],name=nwi" json:"nwi,omitempty"`
@@ -776,7 +776,7 @@ type UpfNwiDetails struct {
 
 func (m *UpfNwiDetails) Reset()               { *m = UpfNwiDetails{} }
 func (*UpfNwiDetails) GetMessageName() string { return "upf_nwi_details" }
-func (*UpfNwiDetails) GetCrcString() string   { return "4026328b" }
+func (*UpfNwiDetails) GetCrcString() string   { return "e676456e" }
 func (*UpfNwiDetails) GetMessageType() api.MessageType {
 	return api.RequestMessage
 }
@@ -787,7 +787,7 @@ func (m *UpfNwiDetails) Size() (size int) {
 	}
 	size += 4              // m.IP4TableID
 	size += 4              // m.IP6TableID
-	size += 1 * 32         // m.IpfixPolicy
+	size += 1 * 64         // m.IpfixPolicy
 	size += 1              // m.IpfixCollectorIP.Af
 	size += 1 * 16         // m.IpfixCollectorIP.Un
 	size += 1              // m.NwiLen
@@ -801,7 +801,7 @@ func (m *UpfNwiDetails) Marshal(b []byte) ([]byte, error) {
 	buf := codec.NewBuffer(b)
 	buf.EncodeUint32(m.IP4TableID)
 	buf.EncodeUint32(m.IP6TableID)
-	buf.EncodeBytes(m.IpfixPolicy, 32)
+	buf.EncodeBytes(m.IpfixPolicy, 64)
 	buf.EncodeUint8(uint8(m.IpfixCollectorIP.Af))
 	buf.EncodeBytes(m.IpfixCollectorIP.Un.XXX_UnionData[:], 16)
 	buf.EncodeUint8(uint8(len(m.Nwi)))
@@ -812,7 +812,7 @@ func (m *UpfNwiDetails) Unmarshal(b []byte) error {
 	buf := codec.NewBuffer(b)
 	m.IP4TableID = buf.DecodeUint32()
 	m.IP6TableID = buf.DecodeUint32()
-	m.IpfixPolicy = make([]byte, 32)
+	m.IpfixPolicy = make([]byte, 64)
 	copy(m.IpfixPolicy, buf.DecodeBytes(len(m.IpfixPolicy)))
 	m.IpfixCollectorIP.Af = ip_types.AddressFamily(buf.DecodeUint8())
 	copy(m.IpfixCollectorIP.Un.XXX_UnionData[:], buf.DecodeBytes(16))
@@ -1070,6 +1070,140 @@ func (m *UpfPfcpFormatReply) Unmarshal(b []byte) error {
 	m.TextLen = buf.DecodeUint32()
 	m.Text = make([]byte, m.TextLen)
 	copy(m.Text, buf.DecodeBytes(len(m.Text)))
+	return nil
+}
+
+// UpfPfcpPolicerSet defines message 'upf_pfcp_policer_set'.
+type UpfPfcpPolicerSet struct {
+	CirPps uint32 `binapi:"u32,name=cir_pps" json:"cir_pps,omitempty"`
+	CbMs   uint32 `binapi:"u32,name=cb_ms" json:"cb_ms,omitempty"`
+}
+
+func (m *UpfPfcpPolicerSet) Reset()               { *m = UpfPfcpPolicerSet{} }
+func (*UpfPfcpPolicerSet) GetMessageName() string { return "upf_pfcp_policer_set" }
+func (*UpfPfcpPolicerSet) GetCrcString() string   { return "8d0512f3" }
+func (*UpfPfcpPolicerSet) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfPfcpPolicerSet) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.CirPps
+	size += 4 // m.CbMs
+	return size
+}
+func (m *UpfPfcpPolicerSet) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeUint32(m.CirPps)
+	buf.EncodeUint32(m.CbMs)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpPolicerSet) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.CirPps = buf.DecodeUint32()
+	m.CbMs = buf.DecodeUint32()
+	return nil
+}
+
+// UpfPfcpPolicerSetReply defines message 'upf_pfcp_policer_set_reply'.
+type UpfPfcpPolicerSetReply struct {
+	Retval int32 `binapi:"i32,name=retval" json:"retval,omitempty"`
+}
+
+func (m *UpfPfcpPolicerSetReply) Reset()               { *m = UpfPfcpPolicerSetReply{} }
+func (*UpfPfcpPolicerSetReply) GetMessageName() string { return "upf_pfcp_policer_set_reply" }
+func (*UpfPfcpPolicerSetReply) GetCrcString() string   { return "e8d4e804" }
+func (*UpfPfcpPolicerSetReply) GetMessageType() api.MessageType {
+	return api.ReplyMessage
+}
+
+func (m *UpfPfcpPolicerSetReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Retval
+	return size
+}
+func (m *UpfPfcpPolicerSetReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeInt32(m.Retval)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpPolicerSetReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Retval = buf.DecodeInt32()
+	return nil
+}
+
+// UpfPfcpPolicerShow defines message 'upf_pfcp_policer_show'.
+type UpfPfcpPolicerShow struct{}
+
+func (m *UpfPfcpPolicerShow) Reset()               { *m = UpfPfcpPolicerShow{} }
+func (*UpfPfcpPolicerShow) GetMessageName() string { return "upf_pfcp_policer_show" }
+func (*UpfPfcpPolicerShow) GetCrcString() string   { return "51077d14" }
+func (*UpfPfcpPolicerShow) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfPfcpPolicerShow) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	return size
+}
+func (m *UpfPfcpPolicerShow) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpPolicerShow) Unmarshal(b []byte) error {
+	return nil
+}
+
+// UpfPfcpPolicerShowReply defines message 'upf_pfcp_policer_show_reply'.
+type UpfPfcpPolicerShowReply struct {
+	CirPps uint32 `binapi:"u32,name=cir_pps" json:"cir_pps,omitempty"`
+	CbMs   uint32 `binapi:"u32,name=cb_ms" json:"cb_ms,omitempty"`
+}
+
+func (m *UpfPfcpPolicerShowReply) Reset()               { *m = UpfPfcpPolicerShowReply{} }
+func (*UpfPfcpPolicerShowReply) GetMessageName() string { return "upf_pfcp_policer_show_reply" }
+func (*UpfPfcpPolicerShowReply) GetCrcString() string   { return "8d0512f3" }
+func (*UpfPfcpPolicerShowReply) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfPfcpPolicerShowReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.CirPps
+	size += 4 // m.CbMs
+	return size
+}
+func (m *UpfPfcpPolicerShowReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeUint32(m.CirPps)
+	buf.EncodeUint32(m.CbMs)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpPolicerShowReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.CirPps = buf.DecodeUint32()
+	m.CbMs = buf.DecodeUint32()
 	return nil
 }
 
@@ -1695,9 +1829,9 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfApplicationsDump)(nil), "upf_applications_dump_51077d14")
 	api.RegisterMessage((*UpfNatPoolDetails)(nil), "upf_nat_pool_details_536a8c46")
 	api.RegisterMessage((*UpfNatPoolDump)(nil), "upf_nat_pool_dump_51077d14")
-	api.RegisterMessage((*UpfNwiAddDel)(nil), "upf_nwi_add_del_fd41aeb4")
+	api.RegisterMessage((*UpfNwiAddDel)(nil), "upf_nwi_add_del_5b11d951")
 	api.RegisterMessage((*UpfNwiAddDelReply)(nil), "upf_nwi_add_del_reply_e8d4e804")
-	api.RegisterMessage((*UpfNwiDetails)(nil), "upf_nwi_details_4026328b")
+	api.RegisterMessage((*UpfNwiDetails)(nil), "upf_nwi_details_e676456e")
 	api.RegisterMessage((*UpfNwiDump)(nil), "upf_nwi_dump_51077d14")
 	api.RegisterMessage((*UpfPfcpEndpointAddDel)(nil), "upf_pfcp_endpoint_add_del_c10b6079")
 	api.RegisterMessage((*UpfPfcpEndpointAddDelReply)(nil), "upf_pfcp_endpoint_add_del_reply_e8d4e804")
@@ -1705,6 +1839,10 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfPfcpEndpointDump)(nil), "upf_pfcp_endpoint_dump_51077d14")
 	api.RegisterMessage((*UpfPfcpFormat)(nil), "upf_pfcp_format_d522d6e1")
 	api.RegisterMessage((*UpfPfcpFormatReply)(nil), "upf_pfcp_format_reply_8706f872")
+	api.RegisterMessage((*UpfPfcpPolicerSet)(nil), "upf_pfcp_policer_set_8d0512f3")
+	api.RegisterMessage((*UpfPfcpPolicerSetReply)(nil), "upf_pfcp_policer_set_reply_e8d4e804")
+	api.RegisterMessage((*UpfPfcpPolicerShow)(nil), "upf_pfcp_policer_show_51077d14")
+	api.RegisterMessage((*UpfPfcpPolicerShowReply)(nil), "upf_pfcp_policer_show_reply_8d0512f3")
 	api.RegisterMessage((*UpfPfcpReencode)(nil), "upf_pfcp_reencode_d522d6e1")
 	api.RegisterMessage((*UpfPfcpReencodeReply)(nil), "upf_pfcp_reencode_reply_68800422")
 	api.RegisterMessage((*UpfPfcpServerSet)(nil), "upf_pfcp_server_set_747f398b")
@@ -1746,6 +1884,10 @@ func AllMessages() []api.Message {
 		(*UpfPfcpEndpointDump)(nil),
 		(*UpfPfcpFormat)(nil),
 		(*UpfPfcpFormatReply)(nil),
+		(*UpfPfcpPolicerSet)(nil),
+		(*UpfPfcpPolicerSetReply)(nil),
+		(*UpfPfcpPolicerShow)(nil),
+		(*UpfPfcpPolicerShowReply)(nil),
 		(*UpfPfcpReencode)(nil),
 		(*UpfPfcpReencodeReply)(nil),
 		(*UpfPfcpServerSet)(nil),
