@@ -507,8 +507,6 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
   ip4_table_id = clib_net_to_host_u32 (mp->ip4_table_id);
   ip6_table_id = clib_net_to_host_u32 (mp->ip6_table_id);
 
-  clib_warning ("(1) ip4_table_id %u, ip6_table_id %u", ip4_table_id,
-		ip6_table_id);
   /*
    * If just one of the table IDs is present in a request, use it for
    * both IPv4 and IPv6. But at least one of the IDs must be specified
@@ -523,8 +521,6 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
       rv = VNET_API_ERROR_INVALID_VALUE;
       goto out;
     }
-  clib_warning ("(2) ip4_table_id %u, ip6_table_id %u", ip4_table_id,
-		ip6_table_id);
 
   if (mp->ipfix_policy[0])
     {
