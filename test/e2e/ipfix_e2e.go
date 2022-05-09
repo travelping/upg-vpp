@@ -68,8 +68,12 @@ func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 
 				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate:         "default",
-						trafficCfg:          &traffic.UDPPingConfig{},
+						farTemplate: "default",
+						trafficCfg: &traffic.UDPPingConfig{
+							// have it span at several IPFIX reports
+							PacketCount: 55,
+							Delay:       210 * time.Millisecond,
+						},
 						protocol:            layers.IPProtocolUDP,
 						lateTemplateIDs:     []uint16{256, 257},
 						expectedTrafficPort: 12345,
