@@ -2815,6 +2815,7 @@ u8 *format_node_id (u8 * s, va_list * args);
 u8 *format_outer_header_creation (u8 * s, va_list * args);
 u8 *format_tbcd (u8 * s, va_list * args);
 u8 *format_dmsg (u8 * s, va_list * args);
+u8 *format_user_id (u8 * s0, va_list * args);
 
 void free_node_id (void *p);
 

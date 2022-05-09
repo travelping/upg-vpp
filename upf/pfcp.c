@@ -4021,7 +4021,7 @@ encode_ethernet_filter_properties (void *p, u8 ** vec)
 #define decode_suggested_buffering_packets_count decode_u8_ie
 #define encode_suggested_buffering_packets_count encode_u8_ie
 
-static u8 *
+u8 *
 format_user_id (u8 * s0, va_list * args)
 {
   pfcp_user_id_t *v = va_arg (*args, pfcp_user_id_t *);

@@ -198,9 +198,9 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 
   /* move into fib table */
   if (ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, ip4_table_id) != 0)
-    clib_warning("failed to bind IPv4 table for NWI");
+    clib_warning ("failed to bind IPv4 table for NWI");
   if (ip_table_bind (FIB_PROTOCOL_IP6, sw_if_index, ip6_table_id) != 0)
-    clib_warning("failed to bind IPv6 table for NWI");
+    clib_warning ("failed to bind IPv6 table for NWI");
 
   nwi->fib_index[FIB_PROTOCOL_IP4] =
     ip4_fib_table_get_index_for_sw_if_index (sw_if_index);
@@ -2738,6 +2738,7 @@ format_pfcp_session (u8 * s, va_list * args)
   upf_far_t *far;
   upf_urr_t *urr;
   upf_qer_t *qer;
+  u8 *user_id_str;
 
   s = format (s,
 	      "CP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U\n"
@@ -2746,8 +2747,9 @@ format_pfcp_session (u8 * s, va_list * args)
 	      IP46_TYPE_ANY, sx->cp_seid, sx->cp_seid, format_ip46_address,
 	      &sx->up_address, IP46_TYPE_ANY, sx);
 
-  if (sx->imsi_len)
-    s = format (s, "IMSI: %U\n", format_tbcd, sx->imsi, (int) sx->imsi_len);
+  user_id_str = format (0, "%U", format_user_id, &sx->user_id);
+  if (user_id_str)
+    s = format (s, "User ID: %v\n", user_id_str);
 
   if (debug)
     s = format (s, "  SIdx: %u\n  Pointer: %p\n  PDR: %p\n  FAR: %p\n",

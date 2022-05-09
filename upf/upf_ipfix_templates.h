@@ -116,7 +116,7 @@
 #define IPFIX_FIELD_MOBILE_IMSI(F)				\
   F(455, 65535,							\
     IPFIX_VALUE_MOBILE_IMSI,					\
-    sx->imsi, sx->imsi_len, 1)
+    sx->user_id.imsi, sx->user_id.imsi_len, 1)
 #define IPFIX_FIELD_PACKET_TOTAL_COUNT(F)		       	\
   F(packetTotalCount, 8,					\
     IPFIX_VALUE_U64,						\

@@ -2605,10 +2605,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
     }
 
   if (ISSET_BIT (req->grp.fields, SESSION_ESTABLISHMENT_REQUEST_USER_ID))
-    {
-      sess->imsi_len = req->user_id.imsi_len;
-      memcpy (sess->imsi, req->user_id.imsi, req->user_id.imsi_len);
-    }
+    memcpy (&sess->user_id, &req->user_id, sizeof (pfcp_user_id_t));
 
   if ((r = handle_create_pdr (sess, req->create_pdr, resp)) != 0)
     goto out_send_resp;

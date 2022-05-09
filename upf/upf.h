@@ -792,8 +792,7 @@ typedef struct
 
   f64 unix_time_start;
 
-  u8 imsi_len;
-  u8 imsi[8];
+  pfcp_user_id_t user_id;
 
   u16 generation;
 } upf_session_t;
