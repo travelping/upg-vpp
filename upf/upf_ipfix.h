@@ -40,7 +40,7 @@ typedef struct
   /** Exporter index **/
   u32 exporter_index;
   /** Reference count **/
-  u32 ref_count;
+  u32 refcnt;
 } upf_ipfix_protocol_context_t;
 
 /**
@@ -49,6 +49,7 @@ typedef struct
  */
 typedef struct
 {
+  clib_spinlock_t lock;
   clib_bihash_24_8_t context_by_key;
   upf_ipfix_protocol_context_t *contexts;
   u16 template_id;

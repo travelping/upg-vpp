@@ -527,6 +527,9 @@ upf_ref_ipfix_context (bool is_ip4,
   upf_ipfix_protocol_context_t *context;
   /* Decide how many worker threads we have */
   u32 num_threads = 1 /* main thread */  + tm->n_threads;
+  u32 idx = ~0;
+
+  clib_spinlock_lock (&fm->lock);
 
   upf_ipfix_context_mk_key(is_ip4, policy, collector_ip, &kv);
 
@@ -535,8 +538,9 @@ upf_ref_ipfix_context (bool is_ip4,
        (&fm->context_by_key, &kv, &value)))
     {
       context = pool_elt_at_index (fm->contexts, value.value);
-      context->ref_count++;
-      return value.value;
+      clib_atomic_add_fetch (&context->refcnt, 1);
+      idx = value.value;
+      goto done;
     }
 
   pool_get_zero (fm->contexts, context);
@@ -552,7 +556,7 @@ upf_ref_ipfix_context (bool is_ip4,
   context->is_ip4 = is_ip4;
   /* lookup the exporter a bit later */
   context->exporter_index = (u32) ~0;
-  context->ref_count = 1;
+  context->refcnt = 1;
   if (collector_ip)
     ip_address_copy (&context->collector_ip, collector_ip);
 
@@ -563,7 +567,11 @@ upf_ref_ipfix_context (bool is_ip4,
       clib_warning ("couldn't add IPFIX report, perhaps "
 		    "the exporter has been deleted?");
 
-  return context - fm->contexts;
+  idx = context - fm->contexts;
+
+ done:
+  clib_spinlock_unlock (&fm->lock);
+  return idx;
 }
 
 void
@@ -572,8 +580,10 @@ upf_ref_ipfix_context_by_index (u32 cidx)
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   upf_ipfix_protocol_context_t *context;
 
+  clib_spinlock_lock (&fm->lock);
   context = pool_elt_at_index (fm->contexts, cidx);
-  context->ref_count++;
+  clib_atomic_add_fetch (&context->refcnt, 1);
+  clib_spinlock_unlock (&fm->lock);
 }
 
 void
@@ -584,9 +594,10 @@ upf_unref_ipfix_context_by_index (u32 cidx)
   clib_bihash_kv_24_8_t kv;
   upf_ipfix_protocol_context_t *context;
 
+  clib_spinlock_lock (&fm->lock);
   context = pool_elt_at_index (fm->contexts, cidx);
-  if (--context->ref_count)
-    return;
+  if (clib_atomic_sub_fetch (&context->refcnt, 1))
+    goto done;
 
   upf_ipfix_context_mk_key(context->is_ip4, context->policy,
 			   &context->collector_ip,
@@ -604,6 +615,9 @@ upf_unref_ipfix_context_by_index (u32 cidx)
   vec_free (context->frames_per_worker);
   vec_free (context->next_record_offset_per_worker);
   pool_put (fm->contexts, context);
+
+ done:
+  clib_spinlock_unlock (&fm->lock);
 }
 
 /**
@@ -616,6 +630,8 @@ upf_ipfix_init (vlib_main_t * vm)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   clib_error_t *error = 0;
+
+  clib_spinlock_init (&fm->lock);
 
   fm->vnet_main = vnet_get_main ();
   fm->vlib_main = vm; /* FIXME: shouldn't need that */
