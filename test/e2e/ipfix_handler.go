@@ -35,9 +35,10 @@ type ipfixRecord map[string]interface{}
 
 type ipfixHandler struct {
 	sync.Mutex
-	recs   []ipfixRecord
-	stopCh chan struct{}
-	ids    map[uint16]bool
+	recs          []ipfixRecord
+	stopCh        chan struct{}
+	ids           map[uint16]bool
+	firstReportTS time.Time
 }
 
 func (h *ipfixHandler) handleIPFIXMessage(msg *entities.Message) {
@@ -65,6 +66,9 @@ func (h *ipfixHandler) handleIPFIXMessage(msg *entities.Message) {
 			}
 		}
 	} else {
+		if h.firstReportTS.IsZero() {
+			h.firstReportTS = time.Now()
+		}
 		fmt.Fprint(&buf, "DATA SET:\n")
 		for i, record := range set.GetRecords() {
 			fmt.Fprintf(&buf, "  DATA RECORD-%d:\n", i)
@@ -144,6 +148,12 @@ func (h *ipfixHandler) getRecords() []ipfixRecord {
 	h.Lock()
 	defer h.Unlock()
 	return h.recs
+}
+
+func (h *ipfixHandler) getFirstReportTS() time.Time {
+	h.Lock()
+	defer h.Unlock()
+	return h.firstReportTS
 }
 
 func setupIPFIX(f *framework.Framework, listenIP net.IP) *ipfixHandler {

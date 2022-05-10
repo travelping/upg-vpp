@@ -380,13 +380,20 @@ func (v *ipfixVerifier) verifyNoRecs() {
 	gomega.Expect(v.recs).To(gomega.BeEmpty())
 }
 
+func (v *ipfixVerifier) verifyIPFIXStart() {
+	// make sure the first report is not sent out immediately
+	t := v.ipfixHandler.getFirstReportTS().Sub(v.beginTS)
+	gomega.Expect(t.Seconds()).To(gomega.BeNumerically(">=", 2))
+}
+
 func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
+	v.verifyIPFIXStart()
 	// total counts not used for now, but kept here in case if they're needed later
 	// var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
 	var initiatorPackets, responderPackets uint64
 	var initiatorOctets, responderOctets uint64
 	var clientPort uint16
-	for n, r := range v.recs {
+	for _, r := range v.recs {
 		// The record looks like:
 		// mobileIMSI: 313460000000001
 		// packetTotalCount: 80
@@ -451,8 +458,7 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 				gomega.Expect(r["postNATSourceIPv4Address"]).
 					To(gomega.Equal(v.cfg.postNATSourceIPv4Address))
 			}
-			// FIXME: the first record has postNAPTSourceTransportPort of 0
-			if n > 0 && v.cfg.postNAPTSourceTransportPort != 0 {
+			if v.cfg.postNAPTSourceTransportPort != 0 {
 				gomega.Expect(r["postNAPTSourceTransportPort"]).
 					To(gomega.Equal(v.cfg.postNAPTSourceTransportPort))
 			}
@@ -496,6 +502,7 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 }
 
 func (v *ipfixVerifier) verifyIPFIXDestRecords() {
+	v.verifyIPFIXStart()
 	// total counts not used for now, but kept here in case if they're needed later
 	// var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
 	var initiatorOctets, responderOctets uint64
