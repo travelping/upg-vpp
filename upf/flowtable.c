@@ -413,6 +413,12 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   flow_tc (f, FT_ORIGIN).thread_index = ~0;
   flow_tc (f, FT_REVERSE).conn_index = ~0;
   flow_tc (f, FT_REVERSE).thread_index = ~0;
+  /*
+   * IPFIX export shouldn't happen immediately.
+   * Need to wait for the first interval to pass
+   */
+  flow_last_exported (f, FT_ORIGIN) = now;
+  flow_last_exported (f, FT_REVERSE) = now;
   f->ps_index = ~0;
 
   /* insert in timer list */
