@@ -151,18 +151,30 @@ upf_nwi_fib_index (fib_protocol_t proto, u32 nwi_index)
 }
 
 static_always_inline void
-upf_nwi_ipfix_context_index (upf_main_t * gtm,
-			     u32 nwi_index,
-			     u32 * ipfix_context_index, u8 is_ip4)
+upf_load_far_ipfix_context_index (upf_main_t * gtm,
+				  upf_far_t * far,
+				  u8 is_ip4, u32 * ipfix_context_index)
 {
-  if (!pool_is_free_index (gtm->nwis, nwi_index))
+  /*
+   * IPFIX policy specified in the FAR itself, if any, takes
+   * precedence. Note that it can be UPF_IPFIX_POLICY_NONE which is
+   * specified as an empty string on the PFCP level.
+   */
+  if (far->ipfix_policy_specified)
+    *ipfix_context_index = is_ip4 ?
+      far->ipfix_context_index_ip4 : far->ipfix_context_index_ip6;
+  else if (!pool_is_free_index (gtm->nwis, far->forward.nwi_index))
     {
-      upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, nwi_index);
+      /*
+       * If IPFIX policy is not set in the FAR, use the value
+       * from the NWI
+       */
+      upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, far->forward.nwi_index);
       if (ipfix_context_index)
 	*ipfix_context_index = is_ip4 ? nwi->ipfix_context_index_ip4 :
 	  nwi->ipfix_context_index_ip6;
     }
-  else if (ipfix_context_index)
+  else
     *ipfix_context_index = (u32) ~ 0;
 }
 
@@ -179,6 +191,7 @@ flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
   pdr = pfcp_get_pdr_by_id (r, pdr_id);
   return pdr ? pdr - r->pdr : ~0;
 }
+
 
 #endif /* _UPF_PFCP_H_ */
 

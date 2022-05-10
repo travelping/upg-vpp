@@ -551,6 +551,7 @@ typedef struct
   };
   u32 ipfix_context_index_ip4;
   u32 ipfix_context_index_ip6;
+  bool ipfix_policy_specified;
 } upf_far_t;
 
 typedef struct

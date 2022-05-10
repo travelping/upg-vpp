@@ -438,16 +438,8 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
       flow->is_redirect = (far
 			   && far->
 			   forward.flags & FAR_F_REDIRECT_INFORMATION);
-      flow->ipfix_context_index =
-	is_ip4 ? far->ipfix_context_index_ip4 : far->ipfix_context_index_ip6;
-      /*
-       * If IPFIX policy is not set in the FAR, use the value
-       * from the session
-       */
-      if (flow->ipfix_context_index == (u32) ~ 0)
-	upf_nwi_ipfix_context_index (gtm,
-				     far->forward.nwi_index,
-				     &flow->ipfix_context_index, is_ip4);
+      upf_load_far_ipfix_context_index (gtm, far, is_ip4,
+					&flow->ipfix_context_index);
       /*
        * Reference the IPFIX context from the flow.
        * The reference will be removed when the flow is removed.

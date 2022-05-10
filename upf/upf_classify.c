@@ -278,17 +278,8 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 	      *pdr_idx = acl->pdr_idx;
 
 	    far = pfcp_get_far_by_id (active, pdr->far_id);
-	    flow->ipfix_context_index = is_ip4 ?
-	      far->ipfix_context_index_ip4 : far->ipfix_context_index_ip6;
-	    /*
-	     * If IPFIX policy is not set in the FAR, use the value
-	     * from the session
-	     */
-	    if (flow->ipfix_context_index == (u32) ~ 0)
-	      upf_nwi_ipfix_context_index (gtm,
-					   far->forward.nwi_index,
-					   &flow->ipfix_context_index,
-					   is_ip4);
+	    upf_load_far_ipfix_context_index (gtm, far, is_ip4,
+					      &flow->ipfix_context_index);
 	    /*
 	     * Reference the IPFIX context from the flow.
 	     * The reference will be removed when the flow is removed.

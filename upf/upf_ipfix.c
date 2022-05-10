@@ -648,7 +648,13 @@ upf_ipfix_lookup_policy (u8 * name, bool * ok)
   upf_ipfix_policy_t policy;
   u32 name_len = vec_len (name);
 
-  if (ok)
+  if (!name_len)
+    {
+      if (ok)
+	*ok = true;
+      return UPF_IPFIX_POLICY_NONE;
+    }
+  else if (ok)
     *ok = false;
 
   for (policy = UPF_IPFIX_POLICY_NONE; policy < UPF_IPFIX_N_POLICIES; policy++)
