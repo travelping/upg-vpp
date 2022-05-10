@@ -66,6 +66,20 @@ func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 					v.verifyIPFIXDefaultRecords()
 				})
 
+				ginkgo.It("sends IPFIX reports as requested [TCP] [proxy]", func() {
+					v.verifyIPFIX(ipfixVerifierCfg{
+						farTemplate: "default",
+						trafficCfg:  smallVolumeHTTPConfig(nil),
+						protocol:    layers.IPProtocolTCP,
+						// IPFIX templates are only expected after the session starts as they're
+						// specified in NWI
+						lateTemplateIDs:     []uint16{256, 257},
+						expectedTrafficPort: 80,
+						adf:                 true,
+					})
+					v.verifyIPFIXDefaultRecords()
+				})
+
 				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
 						farTemplate: "default",
@@ -235,6 +249,7 @@ type ipfixVerifierCfg struct {
 	natPoolName                 string
 	postNATSourceIPv4Address    net.IP
 	postNAPTSourceTransportPort uint16
+	adf                         bool
 }
 
 type ipfixVerifier struct {
@@ -329,10 +344,15 @@ func (v *ipfixVerifier) withAltCollector() {
 
 func (v *ipfixVerifier) verifyIPFIX(cfg ipfixVerifierCfg) {
 	v.cfg = cfg
+	appName := ""
+	if cfg.adf {
+		appName = framework.HTTPAppName
+	}
 	v.seid = startMeasurementSession(v.f, &framework.SessionConfig{
 		IMSI:          "313460000000001",
 		IPFIXTemplate: cfg.farTemplate,
 		NatPoolName:   cfg.natPoolName,
+		AppName:       appName,
 	})
 	if len(cfg.lateTemplateIDs) != 0 {
 		// for FAR-based IPFIX policies, the templates are added when the session begins
