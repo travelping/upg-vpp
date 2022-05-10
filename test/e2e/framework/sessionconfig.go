@@ -137,6 +137,11 @@ func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 	}
 
 	if cfg.IPFIXTemplate != "" {
+		template := cfg.IPFIXTemplate
+		if template == "none" {
+			// "none" template is specified as an empty string
+			template = ""
+		}
 		ies = append(ies, newVendorSpecificStringIE(
 			ETYPE_MASK|TP_IPFIX_TEMPLATE, TP_EID, cfg.IPFIXTemplate))
 	}

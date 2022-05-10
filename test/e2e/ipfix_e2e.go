@@ -124,6 +124,24 @@ func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
 				expectedTrafficPort: 12345,
 			}
 
+			ginkgo.Context("FAR override", func() {
+				f := framework.NewDefaultFramework(mode, ipMode)
+				v := &ipfixVerifier{f: f}
+				v.withNWIIPFIXPolicy("default")
+				// Templates 256 and 257 are expected early because IPFIX policy
+				// is specified per NWI
+				v.withIPFIXHandler(256, 257)
+
+				ginkgo.It("should take precedence over NWI", func() {
+					v.verifyIPFIX(ipfixVerifierCfg{
+						farTemplate: "none",
+						trafficCfg:  &traffic.UDPPingConfig{},
+						protocol:    layers.IPProtocolUDP,
+					})
+					v.verifyNoRecs()
+				})
+			})
+
 			ginkgo.Context("default template", func() {
 				f := framework.NewDefaultFramework(mode, ipMode)
 				v := &ipfixVerifier{f: f}
