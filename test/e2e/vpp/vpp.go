@@ -43,7 +43,11 @@ import (
 	"golang.org/x/sys/unix"
 	"gopkg.in/tomb.v2"
 
+	"github.com/travelping/upg-vpp/test/e2e/binapi/ip_types"
+	"github.com/travelping/upg-vpp/test/e2e/binapi/ipfix_export"
+	"github.com/travelping/upg-vpp/test/e2e/binapi/upf"
 	"github.com/travelping/upg-vpp/test/e2e/network"
+	"github.com/travelping/upg-vpp/test/e2e/util"
 )
 
 const (
@@ -77,10 +81,26 @@ type VPPNetworkNamespace struct {
 	Placement     int
 }
 
+type NWIConfig struct {
+	Name                string
+	Table               int
+	IPFIXPolicy         string
+	GetIPFIXCollectorIP func() net.IP
+}
+
+type IPFIXExporterConfig struct {
+	GetCollectorIP func() net.IP
+	GetSrcIP       func() net.IP
+	Port           int
+	VRF            int
+}
+
 type VPPConfig struct {
-	BaseDir       string
-	Namespaces    []VPPNetworkNamespace
-	SetupCommands []string
+	BaseDir        string
+	Namespaces     []VPPNetworkNamespace
+	IPFIXExporters []IPFIXExporterConfig
+	NWIs           []NWIConfig
+	SetupCommands  []string
 }
 
 func (cfg VPPConfig) GetVPPAddress(namespace string) *net.IPNet {
@@ -576,6 +596,53 @@ func (vi *VPPInstance) setupDispatchTrace() error {
 	return nil
 }
 
+func (vi *VPPInstance) setupExporters() error {
+	for _, expCfg := range vi.cfg.IPFIXExporters {
+		req := &ipfix_export.IpfixExporterCreateDelete{
+			IsCreate:         true,
+			CollectorAddress: ip_types.AddressFromIP(expCfg.GetCollectorIP()),
+			CollectorPort:    uint16(expCfg.Port),
+			SrcAddress:       ip_types.AddressFromIP(expCfg.GetSrcIP()),
+			VrfID:            uint32(expCfg.VRF),
+			PathMtu:          1450,
+			TemplateInterval: 1,
+		}
+
+		reply := &ipfix_export.IpfixExporterCreateDeleteReply{}
+		if err := vi.ApiChannel.SendRequest(req).ReceiveReply(reply); err != nil {
+			return errors.Wrap(err, "ipfix_exporter_create_delete error")
+		}
+	}
+
+	return nil
+}
+
+func (vi *VPPInstance) setupNWIs() error {
+	for _, nwiCfg := range vi.cfg.NWIs {
+		req := &upf.UpfNwiAddDel{
+			Nwi:        util.EncodeFQDN(nwiCfg.Name),
+			IP4TableID: uint32(nwiCfg.Table),
+			IP6TableID: uint32(nwiCfg.Table),
+			Add:        1,
+		}
+
+		if nwiCfg.IPFIXPolicy != "" {
+			req.IpfixPolicy = []byte(nwiCfg.IPFIXPolicy)
+		}
+
+		if nwiCfg.GetIPFIXCollectorIP != nil {
+			req.IpfixCollectorIP = ip_types.AddressFromIP(nwiCfg.GetIPFIXCollectorIP())
+		}
+
+		reply := &upf.UpfNwiAddDelReply{}
+		if err := vi.ApiChannel.SendRequest(req).ReceiveReply(reply); err != nil {
+			return errors.Wrap(err, "upf_nwi_add_del binapi error")
+		}
+	}
+
+	return nil
+}
+
 func (vi *VPPInstance) Configure() error {
 	if vi.startupCfg.DispatchTrace {
 		if err := vi.setupDispatchTrace(); err != nil {
@@ -583,17 +650,30 @@ func (vi *VPPInstance) Configure() error {
 		}
 	}
 
-	allCmds := []string{
+	initialCmds := []string{
 		"upf pfcp server set fifo-size 512",
 	}
 	for _, nsCfg := range vi.cfg.Namespaces {
-		allCmds = append(allCmds, vi.interfaceCmds(nsCfg)...)
+		initialCmds = append(initialCmds, vi.interfaceCmds(nsCfg)...)
 	}
-	allCmds = append(allCmds, vi.cfg.SetupCommands...)
+
+	if err := vi.runCmds(initialCmds...); err != nil {
+		return err
+	}
+
+	if err := vi.setupExporters(); err != nil {
+		return err
+	}
+
+	if err := vi.setupNWIs(); err != nil {
+		return err
+	}
+
+	cmds := vi.cfg.SetupCommands
 	if vi.startupCfg.Trace {
-		allCmds = append(allCmds, "trace add af-packet-input 10000")
+		cmds = append(cmds, "trace add af-packet-input 10000")
 	}
-	return vi.runCmds(allCmds...)
+	return vi.runCmds(cmds...)
 }
 
 func (vi *VPPInstance) copyPipeToLog(pipe io.ReadCloser, what string) {

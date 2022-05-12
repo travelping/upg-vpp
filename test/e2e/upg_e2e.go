@@ -17,10 +17,9 @@
 package exttest
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"git.fd.io/govpp.git/binapi/fib_types"
-	"git.fd.io/govpp.git/binapi/ip_types"
 	"net"
 	"regexp"
 	"sort"
@@ -37,16 +36,20 @@ import (
 	"github.com/wmnsk/go-pfcp/ie"
 	"github.com/wmnsk/go-pfcp/message"
 
+	"github.com/travelping/upg-vpp/test/e2e/binapi/fib_types"
+	"github.com/travelping/upg-vpp/test/e2e/binapi/ip_types"
+	"github.com/travelping/upg-vpp/test/e2e/binapi/upf"
 	"github.com/travelping/upg-vpp/test/e2e/framework"
 	"github.com/travelping/upg-vpp/test/e2e/network"
 	"github.com/travelping/upg-vpp/test/e2e/pfcp"
 	"github.com/travelping/upg-vpp/test/e2e/traffic"
-	"github.com/travelping/upg-vpp/test/e2e/upf"
+	"github.com/travelping/upg-vpp/test/e2e/util"
 	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
 const (
 	NON_APP_TRAFFIC_THRESHOLD = 1000
+	IPFIX_PORT                = 4739
 )
 
 var _ = ginkgo.Describe("TDF", func() {
@@ -142,6 +145,7 @@ func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMo
 				describeNAT(f)
 			}
 		}
+		describeIPFIX(mode, ipMode)
 	})
 }
 
@@ -511,48 +515,6 @@ func describePDRReplacement(f *framework.Framework) {
 	})
 }
 
-// TODO: This functions are copied from https://github.com/wmnsk/go-pfcp/blob/master/internal/utils/utils.go
-// We have to update our fork of go-pfcp or use upstream one to use functions below as utils
-// EncodeFQDN encodes the given string as the Name Syntax defined
-// in RFC 2181, RFC 1035 and RFC 1123.
-func EncodeFQDN(fqdn string) []byte {
-	b := make([]byte, len(fqdn)+1)
-
-	var offset = 0
-	for _, label := range strings.Split(fqdn, ".") {
-		l := len(label)
-		b[offset] = uint8(l)
-		copy(b[offset+1:], label)
-		offset += l + 1
-	}
-
-	return b
-}
-
-// DecodeFQDN decodes the given Name Syntax-encoded []byte as
-// a string.
-func DecodeFQDN(b []byte) string {
-	var (
-		fqdn   []string
-		offset int
-	)
-
-	max := len(b)
-	for {
-		if offset >= max {
-			break
-		}
-		l := int(b[offset])
-		if offset+l+1 > max {
-			break
-		}
-		fqdn = append(fqdn, string(b[offset+1:offset+l+1]))
-		offset += l + 1
-	}
-
-	return strings.Join(fqdn, ".")
-}
-
 // TODO:
 // Some of Binapi test cases belong will be removed by enabling different kind of VPP configuration
 var _ = ginkgo.Describe("Binapi", func() {
@@ -605,15 +567,26 @@ var _ = ginkgo.Describe("Binapi", func() {
 	})
 	ginkgo.Context("for NWIs", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-		ginkgo.It("adds, removes and lists the NWI", func() {
-			nwi := &upf.UpfNwiAddDel{
-				IP4TableID: 200,
-				Add:        1,
+		ginkgo.BeforeEach(func() {
+			_, err := f.VPP.Ctl("ip table add 42000")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			_, err = f.VPP.Ctl("ip6 table add 42001")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		})
+
+		ginkgo.It("adds, removes and lists the NWIs", func() {
+			ip, _ := ip_types.ParseAddress("192.168.42.1")
+			req := &upf.UpfNwiAddDel{
+				Nwi:              util.EncodeFQDN("testing"),
+				IP4TableID:       42000,
+				IP6TableID:       42001,
+				IpfixPolicy:      []byte("default"),
+				IpfixCollectorIP: ip,
+				Add:              1,
 			}
-			nwi.Nwi = EncodeFQDN("testing")
-			nwiReply := &upf.UpfNwiAddDelReply{}
-			err := f.VPP.ApiChannel.SendRequest(nwi).ReceiveReply(nwiReply)
-			gomega.Expect(err).To(gomega.BeNil())
+			reply := &upf.UpfNwiAddDelReply{}
+			err := f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
+			gomega.Expect(err).To(gomega.BeNil(), "upf_nwi_add_del")
 
 			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfNwiDump{})
 			var found bool
@@ -624,16 +597,27 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if DecodeFQDN(msg.Nwi) != "testing" {
+				if util.DecodeFQDN(msg.Nwi) != "testing" {
 					continue
 				}
+				gomega.Expect(msg.IP4TableID).To(gomega.Equal(uint32(42000)))
+				gomega.Expect(msg.IP6TableID).To(gomega.Equal(uint32(42001)))
+				ipfixPolicy := string(bytes.Trim(msg.IpfixPolicy, "\x00"))
+				gomega.Expect(ipfixPolicy).To(gomega.Equal("default"))
+				gomega.Expect(msg.IpfixCollectorIP.String()).To(gomega.Equal("192.168.42.1"))
 				found = true
 			}
-			gomega.Expect(found).To(gomega.BeTrue())
+			gomega.Expect(found).To(gomega.BeTrue(), "upf_nwi_dump")
 
-			nwi.Add = 0
-			nwiReply = &upf.UpfNwiAddDelReply{}
-			err = f.VPP.ApiChannel.SendRequest(nwi).ReceiveReply(nwiReply)
+			out, err := f.VPP.Ctl("show upf nwi")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(out).To(gomega.ContainSubstring(
+				"testing, ip4-table-id 42000, ip6-table-id 42001, " +
+					"ipfix-policy default, ipfix-collector-ip 192.168.42.1"))
+
+			req.Add = 0
+			reply = &upf.UpfNwiAddDelReply{}
+			err = f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
 			gomega.Expect(err).To(gomega.BeNil())
 
 			reqCtx = f.VPP.ApiChannel.SendMultiRequest(&upf.UpfNwiDump{})
@@ -645,32 +629,41 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if DecodeFQDN(msg.Nwi) != "testing" {
+				if util.DecodeFQDN(msg.Nwi) != "testing" {
 					continue
 				}
 				found = true
 			}
 			gomega.Expect(found).To(gomega.BeFalse())
+
+			out, err = f.VPP.Ctl("show upf nwi")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(out).NotTo(gomega.ContainSubstring("testing,"))
 		})
 	})
+
 	ginkgo.Context("for PFCP endpoint", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-		ginkgo.It("lists and removes the PFCP endpoint", func() {
 
-			// It appears to be a little tricky to add new PFCP endpoint
-			// So far we will just check if it can list and remove PFCP endpoint
-			// Adding of endpoint will be checked during the change of configuration mechanism
-			pfcpEndpoint := &upf.UpfPfcpEndpointAddDel{
-				IsAdd:   0,
-				TableID: 0,
+		// avoid pre-creating a PFCP endpoint and starting a PFCP connection
+		f.VPPCfg.SetupCommands = nil
+		f.PFCPCfg = nil
+
+		ginkgo.It("lists and removes the PFCP endpoint", func() {
+			ipAddr, err := ip_types.ParseAddress("10.0.0.2")
+			gomega.Expect(err).To(gomega.BeNil())
+			req := &upf.UpfPfcpEndpointAddDel{
+				IsAdd: 1,
+				// TODO: verify other table IDs (somewhat tricky)
+				// TableID: 100,
+				IP: ipAddr,
 			}
-			ipAddr, er := ip_types.ParseAddress("10.0.0.2")
-			gomega.Expect(er).To(gomega.BeNil())
-			pfcpEndpoint.IP = ipAddr
+			reply := &upf.UpfPfcpEndpointAddDelReply{}
+			err = f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
+			gomega.Expect(err).To(gomega.BeNil(), "upf_pfcp_endpoint_add_del")
 
 			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPfcpEndpointDump{})
 			found := false
-
 			for {
 				msg := &upf.UpfPfcpEndpointDetails{}
 				stop, err := reqCtx.ReceiveReply(msg)
@@ -678,17 +671,19 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if msg.IP != pfcpEndpoint.IP {
+				if msg.IP != req.IP {
 					continue
 				}
 				found = true
-				gomega.Expect(msg.FibTable).To(gomega.BeEquivalentTo(0))
+				gomega.Expect(msg.TableID).To(gomega.BeEquivalentTo(0))
 			}
 			gomega.Expect(found).To(gomega.BeTrue())
 
+			req.IsAdd = 0
 			pfcpEndpointReply := &upf.UpfPfcpEndpointAddDelReply{}
-			err := f.VPP.ApiChannel.SendRequest(pfcpEndpoint).ReceiveReply(pfcpEndpointReply)
+			err = f.VPP.ApiChannel.SendRequest(req).ReceiveReply(pfcpEndpointReply)
 			gomega.Expect(err).To(gomega.BeNil())
+
 			reqCtx = f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPfcpEndpointDump{})
 			found = false
 			for {
@@ -698,7 +693,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 				if stop {
 					break
 				}
-				if msg.IP != pfcpEndpoint.IP {
+				if msg.IP != req.IP {
 					continue
 				}
 				found = true
@@ -706,6 +701,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 			gomega.Expect(found).To(gomega.BeFalse())
 		})
 	})
+
 	ginkgo.Context("for PFCP Session Server", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.It("Configures PFCP Server", func() {
@@ -1485,10 +1481,7 @@ func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
 func describeNAT(f *framework.Framework) {
 	ginkgo.Describe("NAT translations", func() {
 		ginkgo.BeforeEach(func() {
-			f.VPP.Ctl("nat44 enable sessions 1000")
-			f.VPP.Ctl("set interface nat44 out host-sgi0 output-feature")
-			f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing")
-			f.VPP.Ctl("nat44 controlled enable")
+			setupNAT(f)
 		})
 
 		verify := func(sessionCfg framework.SessionConfig) {
@@ -1783,7 +1776,7 @@ func verifyPreAppReport(ms *pfcp.PFCPMeasurement, urrId uint32, toleration uint6
 		"too much non-app ul traffic: %d (max %d)", *r.DownlinkVolume, toleration)
 }
 
-func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol, serverIP net.IP) (ul, dl uint64) {
+func finalizeUECapture(f *framework.Framework) *network.Capture {
 	var c *network.Capture
 	if f.SlowGTPU() {
 		// NOTE: if we use UE, we can get bad traffic figures,
@@ -1799,6 +1792,7 @@ func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol
 		// And kernel-based GTPU is just fast enough.
 		c = f.VPP.Captures["ue"]
 	}
+
 	if c == nil {
 		panic("capture not found")
 	}
@@ -1806,12 +1800,28 @@ func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol
 	// make sure the capture is finished, grabbing all of the late packets
 	c.Stop()
 
+	return c
+}
+
+func getTrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol, serverIP net.IP) (ul, dl uint64) {
+	c := finalizeUECapture(f)
 	if serverIP == nil {
 		serverIP = f.ServerIP()
 	}
 	ul = c.GetTrafficCount(network.Make5Tuple(f.UEIP(), -1, serverIP, -1, proto))
 	dl = c.GetTrafficCount(network.Make5Tuple(serverIP, -1, f.UEIP(), -1, proto))
 	framework.Logf("capture stats: UL: %d, DL: %d", ul, dl)
+	return ul, dl
+}
+
+func getL4TrafficCountsFromCapture(f *framework.Framework, proto layers.IPProtocol, serverIP net.IP) (ul, dl uint64) {
+	c := finalizeUECapture(f)
+	if serverIP == nil {
+		serverIP = f.ServerIP()
+	}
+	ul = c.GetL4TrafficCount(network.Make5Tuple(f.UEIP(), -1, serverIP, -1, proto))
+	dl = c.GetL4TrafficCount(network.Make5Tuple(serverIP, -1, f.UEIP(), -1, proto))
+	framework.Logf("l4 capture stats: UL: %d, DL: %d", ul, dl)
 	return ul, dl
 }
 
@@ -1898,4 +1908,11 @@ func verifyPSDBU(m message.Message, numUsageReports int) {
 			gomega.Expect(urt.Payload[2] & 2).NotTo(gomega.BeZero()) // TEBUR bit is set
 		}
 	}
+}
+
+func setupNAT(f *framework.Framework) {
+	f.VPP.Ctl("nat44 enable sessions 1000")
+	f.VPP.Ctl("set interface nat44 out host-sgi0 output-feature")
+	f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing")
+	f.VPP.Ctl("nat44 controlled enable")
 }

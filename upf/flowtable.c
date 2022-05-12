@@ -31,10 +31,13 @@
 #define upf_debug(...)				\
   do { } while (0)
 #endif
+#define FLOWTABLE_PROCESS_WAIT 1
 
 vlib_node_registration_t upf_flow_node;
 
 flow_expiration_hook_t flow_expiration_hook = 0;
+flow_update_hook_t flow_update_hook = 0;
+flow_removal_hook_t flow_removal_hook = 0;
 
 always_inline void
 flow_entry_cache_fill (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
@@ -137,10 +140,10 @@ flow_entry_free (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 always_inline void
 flowtable_entry_remove (flowtable_main_per_cpu_t * fmt, flow_entry_t * f)
 {
-  BVT (clib_bihash_kv) kv;
+  clib_bihash_kv_48_8_t kv;
 
   clib_memcpy (kv.key, f->key.key, sizeof (kv.key));
-  BV (clib_bihash_add_del) (&fmt->flows_ht, &kv, 0 /* is_add */ );
+  clib_bihash_add_del_48_8 (&fmt->flows_ht, &kv, 0 /* is_add */ );
 }
 
 always_inline bool
@@ -188,6 +191,8 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
     {
       upf_main_t *gtm = &upf_main;
       upf_debug ("Flow Remove %d", f - fm->flows);
+      if (flow_removal_hook)
+	flow_removal_hook (f, now);
 
       /* timers unlink */
       clib_dlist_remove (fmt->timers, e - fmt->timers);
@@ -353,7 +358,8 @@ recycle_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt, u32 now)
 u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
-			       BVT (clib_bihash_kv) * kv, u32 const now,
+			       clib_bihash_kv_48_8_t * kv,
+			       timestamp_nsec_t timestamp, u32 const now,
 			       u8 is_reverse, u16 generation, int *created)
 {
   flow_entry_t *f;
@@ -361,7 +367,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   upf_main_t *gtm = &upf_main;
 
   if (PREDICT_FALSE
-      (BV (clib_bihash_search_inline) (&fmt->flows_ht, kv) == 0))
+      (clib_bihash_search_inline_48_8 (&fmt->flows_ht, kv) == 0))
     {
       return kv->value;
     }
@@ -389,7 +395,10 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   f->is_reverse = is_reverse;
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
+  f->flow_start = timestamp;
+  f->flow_end = timestamp;
   f->application_id = ~0;
+  f->ipfix_context_index = ~0;
 #if CLIB_DEBUG > 0
   f->cpu_index = os_get_thread_index ();
 #endif
@@ -404,6 +413,12 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   flow_tc (f, FT_ORIGIN).thread_index = ~0;
   flow_tc (f, FT_REVERSE).conn_index = ~0;
   flow_tc (f, FT_REVERSE).thread_index = ~0;
+  /*
+   * IPFIX export shouldn't happen immediately.
+   * Need to wait for the first interval to pass
+   */
+  flow_last_exported (f, FT_ORIGIN) = now;
+  flow_last_exported (f, FT_REVERSE) = now;
   f->ps_index = ~0;
 
   /* insert in timer list */
@@ -419,7 +434,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
 
   /* insert in hash */
   kv->value = f - fm->flows;
-  BV (clib_bihash_add_del) (&fmt->flows_ht, kv, 1 /* is_add */ );
+  clib_bihash_add_del_48_8 (&fmt->flows_ht, kv, 1 /* is_add */ );
 
   return kv->value;
 }
@@ -638,6 +653,45 @@ VLIB_CLI_COMMAND (upf_show_flow_timeout_command, static) =
   .function = upf_show_flow_timeout_command_fn,
 };
 /* *INDENT-ON* */
+
+static uword
+flowtable_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
+		   vlib_frame_t * f)
+{
+  flowtable_main_t *fm = &flowtable_main;
+
+  while (1)
+    {
+      u32 num_expired;
+      u32 current_time = (u32) vlib_time_now (vm);
+      // TODO: support multiple cores here
+      // (although this is only needed for debugging)
+      u32 cpu_index = os_get_thread_index ();
+      flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+      (void) vlib_process_wait_for_event_or_clock (vm,
+						   FLOWTABLE_PROCESS_WAIT);
+      vlib_worker_thread_barrier_sync (vm);
+      timer_wheel_index_update (fm, fmt, current_time);
+      num_expired = flowtable_timer_expire (fm, fmt, current_time);
+      if (num_expired > 0)
+	upf_debug ("expired %d flows", num_expired);
+      vlib_node_increment_counter (vm, rt->node_index,
+				   FLOWTABLE_ERROR_TIMER_EXPIRE, num_expired);
+      vlib_worker_thread_barrier_release (vm);
+    }
+
+  return 0;
+}
+
+/* *INDENT-OFF* */
+VLIB_REGISTER_NODE (flowtable_process_node) = {
+  .function = flowtable_process,
+  .type = VLIB_NODE_TYPE_PROCESS,
+  .process_log2_n_stack_bytes = 16,
+  .runtime_data_bytes = sizeof (void *),
+  .name = "upf-flowtable",
+  .state = VLIB_NODE_STATE_DISABLED,
+};
 
 /*
  * fd.io coding-style-patch-verification: ON

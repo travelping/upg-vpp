@@ -88,7 +88,11 @@ typedef struct
 typedef struct
 {
   u32 pkts;
+  u32 pkts_unreported;
   u64 bytes;
+  u64 bytes_unreported;
+  u64 l4_bytes;
+  u64 l4_bytes_unreported;
 } flow_stats_t;
 
 typedef enum
@@ -107,6 +111,12 @@ typedef struct flow_tc
   u32 conn_index;
   u32 thread_index;
 } flow_tc_t;
+
+typedef struct
+{
+  u32 sec;
+  u32 nsec;
+} timestamp_nsec_t;
 
 typedef struct flow_entry
 {
@@ -146,6 +156,13 @@ typedef struct flow_entry
   u32 _tsval_offs[FT_ORDER_MAX];
 
   u8 *app_uri;
+
+  timestamp_nsec_t flow_start;
+  timestamp_nsec_t flow_end;
+
+  u32 last_exported[FT_ORDER_MAX];
+  u32 ipfix_context_index;
+
   /* Generation ID that must match the session's if this flow is up to date */
   u16 generation;
 #if CLIB_DEBUG > 0
@@ -162,6 +179,8 @@ typedef struct flow_entry
 #define flow_tc(F, D) flow_member((F), _tc, (D))
 #define flow_seq_offs(F, D) flow_member((F), _seq_offs, (D))
 #define flow_tsval_offs(F, D) flow_member((F), _tsval_offs, (D))
+#define flow_stats(F, D) flow_member((F), stats, (D))
+#define flow_last_exported(F, D) flow_member((F), last_exported, (D))
 
 /* Timers (in seconds) */
 #define TIMER_DEFAULT_LIFETIME (60)
@@ -175,7 +194,7 @@ typedef struct flow_entry
 typedef struct
 {
   /* hashtable */
-  BVT (clib_bihash) flows_ht;
+  clib_bihash_48_8_t flows_ht;
 
   /* timers */
   dlist_elt_t *timers;
@@ -220,8 +239,13 @@ typedef struct
 
 extern flowtable_main_t flowtable_main;
 typedef int (*flow_expiration_hook_t) (flow_entry_t * flow);
+typedef void (*flow_update_hook_t) (flow_entry_t * flow,
+				    flow_direction_t direction, u32 now);
+typedef void (*flow_removal_hook_t) (flow_entry_t * flow, u32 now);
 
 extern flow_expiration_hook_t flow_expiration_hook;
+extern flow_update_hook_t flow_update_hook;
+extern flow_removal_hook_t flow_removal_hook;
 
 u8 *format_flow_key (u8 *, va_list *);
 u8 *format_flow (u8 *, va_list *);
@@ -231,7 +255,7 @@ clib_error_t *flowtable_lifetime_update (flowtable_timeout_type_t type,
 clib_error_t *flowtable_max_lifetime_update (u16 value);
 clib_error_t *flowtable_init (vlib_main_t * vm);
 
-void foreach_upf_flows (BVT (clib_bihash_kv) * kvp, void *arg);
+void foreach_upf_flows (clib_bihash_kv_48_8_t * kvp, void *arg);
 
 static inline u16
 flowtable_lifetime_get (flowtable_timeout_type_t type)
@@ -250,9 +274,9 @@ flowtable_get_flow (flowtable_main_t * fm, u32 flow_index)
 u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
-			       BVT (clib_bihash_kv) * kv,
-			       u32 const now, u8 is_reverse, u16 generation,
-			       int *created);
+			       clib_bihash_kv_48_8_t * kv,
+			       timestamp_nsec_t timestamp, u32 const now,
+			       u8 is_reverse, u16 generation, int *created);
 
 void
 timer_wheel_index_update (flowtable_main_t * fm,
@@ -323,7 +347,7 @@ parse_ip6_packet (ip6_header_t * ip6, uword * is_reverse, flow_key_t * key)
 
 static inline void
 flow_mk_key (u64 seid, u8 * header, u8 is_ip4,
-	     uword * is_reverse, BVT (clib_bihash_kv) * kv)
+	     uword * is_reverse, clib_bihash_kv_48_8_t * kv)
 {
   flow_key_t *key = (flow_key_t *) & kv->key;
 
@@ -343,7 +367,7 @@ flow_mk_key (u64 seid, u8 * header, u8 is_ip4,
     }
 }
 
-always_inline int
+always_inline void
 flow_tcp_update_lifetime (flow_entry_t * f, tcp_header_t * hdr)
 {
   tcp_f_state_t old_state, new_state;
@@ -375,38 +399,70 @@ flow_tcp_update_lifetime (flow_entry_t * f, tcp_header_t * hdr)
       timer_slot_head_index =
 	(f->active + f->lifetime) % fm->timer_max_lifetime;
       clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
-
-      return 1;
     }
-
-  return 0;
 }
 
-always_inline int
-flow_update_lifetime (flow_entry_t * f, u8 * iph, u8 is_ip4)
+always_inline void
+flow_update (vlib_main_t * vm, flow_entry_t * f,
+	     u8 * iph, u8 is_ip4, u16 len, u32 now)
 {
-  /*
-   * CHECK-ME: assert we have enough wellformed data to read the tcp header.
-   */
-  if (f->key.proto == IP_PROTOCOL_TCP)
+  ASSERT (f->active <= now);
+  f->active = now;
+
+  if (f->key.proto == IP_PROTOCOL_TCP && len >= sizeof (tcp_header_t))
     {
       tcp_header_t *hdr = (tcp_header_t *) (is_ip4 ?
 					    ip4_next_header ((ip4_header_t *)
 							     iph) :
 					    ip6_next_header ((ip6_header_t *)
 							     iph));
-
-      return flow_tcp_update_lifetime (f, hdr);
+      flow_tcp_update_lifetime (f, hdr);
     }
-
-  return 0;
 }
 
 always_inline void
-flow_update_active (flow_entry_t * f, u32 now)
+flow_update_stats (vlib_main_t * vm, vlib_buffer_t * b,
+		   flow_entry_t * f, u8 is_ip4,
+		   timestamp_nsec_t timestamp, u32 now)
 {
-  ASSERT (f->active <= now);
-  f->active = now;
+  /*
+   * Performance note:
+   * vlib_buffer_length_in_chain() caches its result for the buffer
+   */
+  u16 len = vlib_buffer_length_in_chain (vm, b);
+  u8 *iph = vlib_buffer_get_current (b);
+  u8 *l4h = (is_ip4 ?
+	     ip4_next_header ((ip4_header_t *)
+			      iph) : ip6_next_header ((ip6_header_t *) iph));
+  u16 l4_len = len - (l4h - iph);
+  u16 diff;
+  flow_direction_t is_reverse =
+    is_ip4 ?
+    ip4_packet_is_reverse ((ip4_header_t *) iph) :
+    ip6_packet_is_reverse ((ip6_header_t *) iph);
+
+  flow_direction_t direction = f->is_reverse ^ is_reverse;
+  switch (f->key.proto)
+    {
+    case IP_PROTOCOL_TCP:
+      diff = tcp_header_bytes ((tcp_header_t *) l4h);
+      break;
+    case IP_PROTOCOL_UDP:
+      diff = sizeof (udp_header_t);
+      break;
+    }
+  l4_len = l4_len > diff ? l4_len - diff : 0;
+
+  f->stats[is_reverse].pkts++;
+  f->stats[is_reverse].pkts_unreported++;
+  f->stats[is_reverse].bytes += len;
+  f->stats[is_reverse].bytes_unreported += len;
+  f->stats[is_reverse].l4_bytes += l4_len;
+  f->stats[is_reverse].l4_bytes_unreported += l4_len;
+  f->flow_end = timestamp;
+
+  if (flow_update_hook != 0)
+    flow_update_hook (f, direction, now);
 }
 
 always_inline void
@@ -419,6 +475,8 @@ timer_wheel_insert_flow (flowtable_main_t * fm,
     (fmt->time_index + f->lifetime) % fm->timer_max_lifetime;
   clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
 }
+
+extern vlib_node_registration_t flowtable_process_node;
 
 #endif /* __flowtable_h__ */
 

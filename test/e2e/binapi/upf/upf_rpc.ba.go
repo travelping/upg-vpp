@@ -8,7 +8,7 @@ import (
 	"io"
 
 	api "git.fd.io/govpp.git/api"
-	vpe "git.fd.io/govpp.git/binapi/vpe"
+	memclnt "github.com/travelping/upg-vpp/test/e2e/binapi/memclnt"
 )
 
 // RPCService defines RPC service upf.
@@ -25,6 +25,8 @@ type RPCService interface {
 	UpfPfcpEndpointAddDel(ctx context.Context, in *UpfPfcpEndpointAddDel) (*UpfPfcpEndpointAddDelReply, error)
 	UpfPfcpEndpointDump(ctx context.Context, in *UpfPfcpEndpointDump) (RPCService_UpfPfcpEndpointDumpClient, error)
 	UpfPfcpFormat(ctx context.Context, in *UpfPfcpFormat) (*UpfPfcpFormatReply, error)
+	UpfPfcpPolicerSet(ctx context.Context, in *UpfPfcpPolicerSet) (*UpfPfcpPolicerSetReply, error)
+	UpfPfcpPolicerShow(ctx context.Context, in *UpfPfcpPolicerShow) (*UpfPfcpPolicerShowReply, error)
 	UpfPfcpReencode(ctx context.Context, in *UpfPfcpReencode) (*UpfPfcpReencodeReply, error)
 	UpfPfcpServerSet(ctx context.Context, in *UpfPfcpServerSet) (*UpfPfcpServerSetReply, error)
 	UpfPfcpServerShow(ctx context.Context, in *UpfPfcpServerShow) (*UpfPfcpServerShowReply, error)
@@ -86,7 +88,7 @@ func (c *serviceClient) UpfApplicationL7RuleDump(ctx context.Context, in *UpfApp
 	if err := x.Stream.SendMsg(in); err != nil {
 		return nil, err
 	}
-	if err = x.Stream.SendMsg(&vpe.ControlPing{}); err != nil {
+	if err = x.Stream.SendMsg(&memclnt.ControlPing{}); err != nil {
 		return nil, err
 	}
 	return x, nil
@@ -109,7 +111,11 @@ func (c *serviceClient_UpfApplicationL7RuleDumpClient) Recv() (*UpfApplicationL7
 	switch m := msg.(type) {
 	case *UpfApplicationL7RuleDetails:
 		return m, nil
-	case *vpe.ControlPingReply:
+	case *memclnt.ControlPingReply:
+		err = c.Stream.Close()
+		if err != nil {
+			return nil, err
+		}
 		return nil, io.EOF
 	default:
 		return nil, fmt.Errorf("unexpected message: %T %v", m, m)
@@ -125,7 +131,7 @@ func (c *serviceClient) UpfApplicationsDump(ctx context.Context, in *UpfApplicat
 	if err := x.Stream.SendMsg(in); err != nil {
 		return nil, err
 	}
-	if err = x.Stream.SendMsg(&vpe.ControlPing{}); err != nil {
+	if err = x.Stream.SendMsg(&memclnt.ControlPing{}); err != nil {
 		return nil, err
 	}
 	return x, nil
@@ -148,7 +154,11 @@ func (c *serviceClient_UpfApplicationsDumpClient) Recv() (*UpfApplicationsDetail
 	switch m := msg.(type) {
 	case *UpfApplicationsDetails:
 		return m, nil
-	case *vpe.ControlPingReply:
+	case *memclnt.ControlPingReply:
+		err = c.Stream.Close()
+		if err != nil {
+			return nil, err
+		}
 		return nil, io.EOF
 	default:
 		return nil, fmt.Errorf("unexpected message: %T %v", m, m)
@@ -164,7 +174,7 @@ func (c *serviceClient) UpfNatPoolDump(ctx context.Context, in *UpfNatPoolDump) 
 	if err := x.Stream.SendMsg(in); err != nil {
 		return nil, err
 	}
-	if err = x.Stream.SendMsg(&vpe.ControlPing{}); err != nil {
+	if err = x.Stream.SendMsg(&memclnt.ControlPing{}); err != nil {
 		return nil, err
 	}
 	return x, nil
@@ -187,7 +197,11 @@ func (c *serviceClient_UpfNatPoolDumpClient) Recv() (*UpfNatPoolDetails, error) 
 	switch m := msg.(type) {
 	case *UpfNatPoolDetails:
 		return m, nil
-	case *vpe.ControlPingReply:
+	case *memclnt.ControlPingReply:
+		err = c.Stream.Close()
+		if err != nil {
+			return nil, err
+		}
 		return nil, io.EOF
 	default:
 		return nil, fmt.Errorf("unexpected message: %T %v", m, m)
@@ -212,7 +226,7 @@ func (c *serviceClient) UpfNwiDump(ctx context.Context, in *UpfNwiDump) (RPCServ
 	if err := x.Stream.SendMsg(in); err != nil {
 		return nil, err
 	}
-	if err = x.Stream.SendMsg(&vpe.ControlPing{}); err != nil {
+	if err = x.Stream.SendMsg(&memclnt.ControlPing{}); err != nil {
 		return nil, err
 	}
 	return x, nil
@@ -235,7 +249,11 @@ func (c *serviceClient_UpfNwiDumpClient) Recv() (*UpfNwiDetails, error) {
 	switch m := msg.(type) {
 	case *UpfNwiDetails:
 		return m, nil
-	case *vpe.ControlPingReply:
+	case *memclnt.ControlPingReply:
+		err = c.Stream.Close()
+		if err != nil {
+			return nil, err
+		}
 		return nil, io.EOF
 	default:
 		return nil, fmt.Errorf("unexpected message: %T %v", m, m)
@@ -260,7 +278,7 @@ func (c *serviceClient) UpfPfcpEndpointDump(ctx context.Context, in *UpfPfcpEndp
 	if err := x.Stream.SendMsg(in); err != nil {
 		return nil, err
 	}
-	if err = x.Stream.SendMsg(&vpe.ControlPing{}); err != nil {
+	if err = x.Stream.SendMsg(&memclnt.ControlPing{}); err != nil {
 		return nil, err
 	}
 	return x, nil
@@ -283,7 +301,11 @@ func (c *serviceClient_UpfPfcpEndpointDumpClient) Recv() (*UpfPfcpEndpointDetail
 	switch m := msg.(type) {
 	case *UpfPfcpEndpointDetails:
 		return m, nil
-	case *vpe.ControlPingReply:
+	case *memclnt.ControlPingReply:
+		err = c.Stream.Close()
+		if err != nil {
+			return nil, err
+		}
 		return nil, io.EOF
 	default:
 		return nil, fmt.Errorf("unexpected message: %T %v", m, m)
@@ -297,6 +319,24 @@ func (c *serviceClient) UpfPfcpFormat(ctx context.Context, in *UpfPfcpFormat) (*
 		return nil, err
 	}
 	return out, api.RetvalToVPPApiError(out.Retval)
+}
+
+func (c *serviceClient) UpfPfcpPolicerSet(ctx context.Context, in *UpfPfcpPolicerSet) (*UpfPfcpPolicerSetReply, error) {
+	out := new(UpfPfcpPolicerSetReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, api.RetvalToVPPApiError(out.Retval)
+}
+
+func (c *serviceClient) UpfPfcpPolicerShow(ctx context.Context, in *UpfPfcpPolicerShow) (*UpfPfcpPolicerShowReply, error) {
+	out := new(UpfPfcpPolicerShowReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *serviceClient) UpfPfcpReencode(ctx context.Context, in *UpfPfcpReencode) (*UpfPfcpReencodeReply, error) {
@@ -344,7 +384,7 @@ func (c *serviceClient) UpfPolicyDump(ctx context.Context, in *UpfPolicyDump) (R
 	if err := x.Stream.SendMsg(in); err != nil {
 		return nil, err
 	}
-	if err = x.Stream.SendMsg(&vpe.ControlPing{}); err != nil {
+	if err = x.Stream.SendMsg(&memclnt.ControlPing{}); err != nil {
 		return nil, err
 	}
 	return x, nil
@@ -367,7 +407,11 @@ func (c *serviceClient_UpfPolicyDumpClient) Recv() (*UpfPolicyDetails, error) {
 	switch m := msg.(type) {
 	case *UpfPolicyDetails:
 		return m, nil
-	case *vpe.ControlPingReply:
+	case *memclnt.ControlPingReply:
+		err = c.Stream.Close()
+		if err != nil {
+			return nil, err
+		}
 		return nil, io.EOF
 	default:
 		return nil, fmt.Errorf("unexpected message: %T %v", m, m)

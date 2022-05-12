@@ -281,7 +281,8 @@ load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction,
   if (!tcp_opts_tstamp (&opts))
     return;
 
-  flow_tsval_offs (flow, direction) = opts.tsval - tcp_time_tstamp (thread_index);
+  flow_tsval_offs (flow, direction) =
+    opts.tsval - tcp_time_tstamp (thread_index);
 }
 
 static uword
@@ -293,6 +294,8 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
   vnet_main_t *vnm = gtm->vnet_main;
   vnet_interface_main_t *im = &vnm->interface_main;
   flowtable_main_t *fm = &flowtable_main;
+  timestamp_nsec_t timestamp;
+  u32 current_time = (u32) vlib_time_now (vm);
 
   from = vlib_frame_vector_args (from_frame);
   n_left_from = from_frame->n_vectors;
@@ -306,6 +309,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
   next_index = node->cached_next_index;
   stats_sw_if_index = node->runtime_data[0];
   stats_n_packets = stats_n_bytes = 0;
+  unix_time_now_nsec_fraction (&timestamp.sec, &timestamp.nsec);
 
   while (n_left_from > 0)
     {
@@ -457,7 +461,6 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  goto stats;
 		}
 
-
 #define IS_DL(_pdr, _far)						\
               ((_pdr)->pdi.src_intf == SRC_INTF_CORE || (_far)->forward.dst_intf == DST_INTF_ACCESS)
 #define IS_UL(_pdr, _far)						\
@@ -468,6 +471,8 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 				   IS_DL (pdr, far), IS_UL (pdr, far), next);
 	      next = process_urrs (vm, sess, node_name, active, pdr, b,
 				   IS_DL (pdr, far), IS_UL (pdr, far), next);
+	      flow_update_stats (vm, b, flow, is_ip4,
+				 timestamp, current_time);
 
 #undef IS_DL
 #undef IS_UL

@@ -11,10 +11,17 @@ include vpp.spec
 install-hooks:
 	hack/install-hooks.sh
 
+# avoid rebuilding part of the source each time
 version:
-	echo "#ifndef UPG_VERSION" >upf/version.h
-	echo "#define UPG_VERSION \"$(VERSION)\"" >>upf/version.h
-	echo "#endif" >>upf/version.h
+	ver_tmp=`mktemp version-XXXXXXXX`; \
+	echo "#ifndef UPG_VERSION" >"$${ver_tmp}"; \
+	echo "#define UPG_VERSION \"$(VERSION)\"" >>"$${ver_tmp}"; \
+	echo "#endif" >>"$${ver_tmp}"; \
+	if ! cmp upf/version.h "$${ver_tmp}"; then \
+	  mv "$${ver_tmp}" upf/version.h; \
+	else \
+	  rm -f "$${ver_tmp}"; \
+	fi
 
 # TODO: checktyle shouldn't require VPP checkout but presently it's
 # needed for getting the build image tag
@@ -53,3 +60,6 @@ buildenv: version
 
 clean-buildenv:
 	hack/buildenv.sh clean
+
+genbinapi:
+	hack/buildenv.sh /bin/bash -c 'make install && hack/genbinapi.sh'

@@ -20,7 +20,8 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     /build-root/upf-plugin-dev_*.deb && \
     apt-get clean && \
     mkdir -p /install && \
-    cp -av /build-root/*.deb /install
+    cp -av /build-root/*.deb /install && \
+    git config --global --add safe.directory /src
 
 # this stage is used to copy out the debs
 FROM scratch as artifacts

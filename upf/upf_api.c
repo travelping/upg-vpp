@@ -20,6 +20,8 @@
 #include <vnet/api_errno.h>
 #include <vnet/feature/feature.h>
 #include <vnet/fib/fib_table.h>
+#include <vnet/fib/ip4_fib.h>
+#include <vnet/fib/ip6_fib.h>
 
 #include <vppinfra/byte_order.h>
 #include <vlibmemory/api.h>
@@ -29,6 +31,7 @@
 #include <upf/upf_app_db.h>
 #include <upf/upf_pfcp_server.h>
 #include <upf/upf_pfcp.h>
+#include <upf/upf_ipfix.h>
 
 #include <vnet/format_fns.h>
 #include <upf/upf.api_enum.h>
@@ -485,26 +488,60 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
   vl_api_upf_nwi_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
   u8 *nwi_name = 0;
-  u32 ip4_table_id = 0;
-  u32 ip6_table_id = 0;
+  u32 ip4_table_id, ip6_table_id;
+  bool ok;
+  u8 *ipfix_policy_name;
+  upf_ipfix_policy_t ipfix_policy = UPF_IPFIX_POLICY_NONE;
   int rv = 0;
+  ip_address_t ipfix_collector_ip;
+
+  if (mp->nwi_len == 0)
+    {
+      upf_debug ("NWI name not specified");
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      goto out;
+    }
 
   vec_validate (nwi_name, mp->nwi_len - 1);
   memcpy (nwi_name, mp->nwi, mp->nwi_len);
   ip4_table_id = clib_net_to_host_u32 (mp->ip4_table_id);
   ip6_table_id = clib_net_to_host_u32 (mp->ip6_table_id);
-  if (!ip4_table_id && !ip6_table_id)
+
+  /*
+   * If just one of the table IDs is present in a request, use it for
+   * both IPv4 and IPv6. But at least one of the IDs must be specified
+   */
+  if (ip4_table_id == (u32) ~ 0)
+    ip4_table_id = ip6_table_id;
+  else if (ip6_table_id == (u32) ~ 0)
+    ip6_table_id = ip4_table_id;
+  if (ip4_table_id == (u32) ~ 0)
     {
       upf_debug ("At least one of ip[46]_table_id should be defined");
       rv = VNET_API_ERROR_INVALID_VALUE;
       goto out;
     }
 
-  /* if only one of table IDs given in a request, assign both IDs to it */
-  if ((ip4_table_id == 0) || (ip6_table_id == 0))
-    ip4_table_id = ip6_table_id = clib_max (ip4_table_id, ip6_table_id);
+  if (mp->ipfix_policy[0])
+    {
+      mp->ipfix_policy[sizeof (mp->ipfix_policy) - 1] = 0;
+      ipfix_policy_name = format (0, "%s", mp->ipfix_policy);
+      ipfix_policy = upf_ipfix_lookup_policy (ipfix_policy_name, &ok);
+      vec_free (ipfix_policy_name);
+      if (!ok)
+	{
+	  upf_debug ("Invalid IPFIX policy '%s'", mp->ipfix_policy);
+	  rv = VNET_API_ERROR_INVALID_VALUE;
+	  goto out;
+	}
+    }
 
-  rv = vnet_upf_nwi_add_del (nwi_name, ip4_table_id, ip6_table_id, mp->add);
+  ip_address_decode (&mp->ipfix_collector_ip, &ipfix_collector_ip.ip);
+  ipfix_collector_ip.version =
+    ip46_address_is_ip4 (&ipfix_collector_ip.ip) ? AF_IP4 : AF_IP6;
+
+  rv = vnet_upf_nwi_add_del (nwi_name, ip4_table_id, ip6_table_id,
+			     ipfix_policy, &ipfix_collector_ip, mp->add);
 
 out:
   vec_free (nwi_name);
@@ -517,19 +554,31 @@ send_upf_nwi_details (vl_api_registration_t * reg,
 {
   vl_api_upf_nwi_details_t *mp;
   upf_main_t *sm = &upf_main;
-  u8 len;
+  u32 name_len, ipfix_policy_len;
+  u8 *ipfix_policy =
+    format (0, "%U", format_upf_ipfix_policy, nwi->ipfix_policy);
+  ip4_fib_t *fib4 = ip4_fib_get (nwi->fib_index[FIB_PROTOCOL_IP4]);
+  ip6_fib_t *fib6 = ip6_fib_get (nwi->fib_index[FIB_PROTOCOL_IP6]);
 
-  len = vec_len (nwi->name);
-  mp = vl_msg_api_alloc (sizeof (*mp) + len * sizeof (u8));
-  clib_memset (mp, 0, sizeof (*mp) + len * sizeof (u8));
+  name_len = vec_len (nwi->name);
+  mp = vl_msg_api_alloc (sizeof (*mp) + name_len * sizeof (u8));
+  clib_memset (mp, 0, sizeof (*mp) + name_len * sizeof (u8));
 
   mp->_vl_msg_id = htons (VL_API_UPF_NWI_DETAILS + sm->msg_id_base);
   mp->context = context;
-  mp->ip4_fib_table = htonl (nwi->fib_index[FIB_PROTOCOL_IP4]);
-  mp->ip6_fib_table = htonl (nwi->fib_index[FIB_PROTOCOL_IP6]);
+  mp->ip4_table_id = htonl (fib4->hash.table_id);
+  mp->ip6_table_id = htonl (fib6->table_id);
 
-  memcpy (mp->nwi, nwi->name, len);
-  mp->nwi_len = len;
+  ipfix_policy_len =
+    clib_min (sizeof (mp->ipfix_policy) - 1, vec_len (ipfix_policy));
+  memcpy (mp->ipfix_policy, ipfix_policy, ipfix_policy_len);
+  mp->ipfix_policy[ipfix_policy_len] = 0;
+
+  memcpy (mp->nwi, nwi->name, name_len);
+  mp->nwi_len = name_len;
+
+  ip_address_encode (&nwi->ipfix_collector_ip, IP46_TYPE_ANY,
+		     &mp->ipfix_collector_ip);
 
   vl_api_send_msg (reg, (u8 *) mp);
 }
@@ -610,7 +659,11 @@ send_upf_pfcp_endpoint_details (vl_api_registration_t * reg,
   mp->_vl_msg_id = htons (VL_API_UPF_PFCP_ENDPOINT_DETAILS + sm->msg_id_base);
   mp->context = context;
 
-  mp->fib_table = htonl (key->fib_index);
+  if (ip46_address_is_ip4 (&key->addr))
+    mp->table_id = htonl (ip4_fib_get (key->fib_index)->hash.table_id);
+  else
+    mp->table_id = htonl (ip6_fib_get (key->fib_index)->table_id);
+
   ip_address_encode (&key->addr, IP46_TYPE_ANY, &mp->ip);
 
   vl_api_send_msg (reg, (u8 *) mp);

@@ -2503,6 +2503,27 @@ format_outer_header_creation (u8 * s, va_list * args)
   return s;
 }
 
+u8 *
+format_tbcd (u8 * s, va_list * args)
+{
+  u8 *bytes = va_arg (*args, u8 *);
+  int n_bytes = va_arg (*args, int);
+  uword i;
+
+  for (i = 0; i < n_bytes; i++)
+    {
+      if (bytes[i] & 0xf0 == 0xf0 && i == n_bytes - 1)
+	{
+	  s = format (s, "%d", bytes[i] & 0xf);
+	  break;
+	}
+      else
+	s = format (s, "%d%d", bytes[i] & 0xf, bytes[i] >> 4);
+    }
+
+  return s;
+}
+
 static int
 decode_outer_header_creation (u8 * data, u16 length, void *p)
 {
@@ -4000,18 +4021,18 @@ encode_ethernet_filter_properties (void *p, u8 ** vec)
 #define decode_suggested_buffering_packets_count decode_u8_ie
 #define encode_suggested_buffering_packets_count encode_u8_ie
 
-static u8 *
+u8 *
 format_user_id (u8 * s0, va_list * args)
 {
   pfcp_user_id_t *v = va_arg (*args, pfcp_user_id_t *);
   u8 *s = s0;
 
-  if (v->imei_len > 0)
-    s = format (s0, "IMEI:%U,", format_hex_bytes, v->imei, v->imei_len);
   if (v->imsi_len > 0)
-    s = format (s, "IMSI:%U,", format_hex_bytes, v->imsi, v->imsi_len);
+    s = format (s, "IMSI:%U,", format_tbcd, v->imsi, v->imsi_len);
+  if (v->imei_len > 0)
+    s = format (s0, "IMEI:%U,", format_tbcd, v->imei, v->imei_len);
   if (v->msisdn_len > 0)
-    s = format (s, "MSISDN:%U,", format_hex_bytes, v->msisdn, v->msisdn_len);
+    s = format (s, "MSISDN:%U,", format_tbcd, v->msisdn, v->msisdn_len);
   if (vec_len (v->nai) > 0)
     s = format (s, "NAI:%v,", v->nai);
 
@@ -4035,22 +4056,6 @@ decode_user_id (u8 * data, u16 length, void *p)
   flags = get_u8 (data);
   length--;
 
-  if (flags & USER_ID_IMEI)
-    {
-      if (length < 1)
-	return PFCP_CAUSE_INVALID_LENGTH;
-
-      v->imei_len = get_u8 (data);
-      length--;
-
-      if (v->imei_len > 8 || length < v->imei_len)
-	return PFCP_CAUSE_INVALID_LENGTH;
-
-      memcpy (v->imei, data, v->imei_len);
-      data += v->imei_len;
-      length -= v->imei_len;
-    }
-
   if (flags & USER_ID_IMSI)
     {
       if (length < 1)
@@ -4065,6 +4070,22 @@ decode_user_id (u8 * data, u16 length, void *p)
       memcpy (v->imsi, data, v->imsi_len);
       data += v->imsi_len;
       length -= v->imsi_len;
+    }
+
+  if (flags & USER_ID_IMEI)
+    {
+      if (length < 1)
+	return PFCP_CAUSE_INVALID_LENGTH;
+
+      v->imei_len = get_u8 (data);
+      length--;
+
+      if (v->imei_len > 8 || length < v->imei_len)
+	return PFCP_CAUSE_INVALID_LENGTH;
+
+      memcpy (v->imei, data, v->imei_len);
+      data += v->imei_len;
+      length -= v->imei_len;
     }
 
   if (flags & USER_ID_MSISDN)
@@ -4117,16 +4138,16 @@ encode_user_id (void *p, u8 ** vec)
 
   put_u8 (*vec, flags);
 
-  if (v->imei_len > 0)
-    {
-      put_u8 (*vec, v->imei_len);
-      vec_add (*vec, v->imei, v->imei_len);
-    }
-
   if (v->imsi_len > 0)
     {
       put_u8 (*vec, v->imsi_len);
       vec_add (*vec, v->imsi, v->imsi_len);
+    }
+
+  if (v->imei_len > 0)
+    {
+      put_u8 (*vec, v->imei_len);
+      vec_add (*vec, v->imei, v->imei_len);
     }
 
   if (v->msisdn_len > 0)
@@ -4737,6 +4758,11 @@ encode_alternative_smf_ip_address (void *p, u8 ** vec)
 #define decode_tp_line_number decode_u32_ie
 #define encode_tp_line_number encode_u32_ie
 
+#define format_tp_ipfix_policy format_simple_vec_ie
+#define decode_tp_ipfix_policy decode_simple_vec_ie
+#define encode_tp_ipfix_policy encode_simple_vec_ie
+#define free_tp_ipfix_policy free_simple_vec_ie
+
 /* BBF Encoder-decoder */
 
 //BBF NAT port block
@@ -4996,6 +5022,11 @@ static struct pfcp_group_ie_def pfcp_create_far_group[] =
     [CREATE_FAR_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
       .offset = offsetof(pfcp_create_far_t, bar_id)
+    },
+    [CREATE_FAR_TP_IPFIX_POLICY] = {
+      .type = PFCP_IE_TP_IPFIX_POLICY,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_create_far_t, ipfix_policy)
     },
   };
 
@@ -5302,6 +5333,11 @@ static struct pfcp_group_ie_def pfcp_update_far_group[] =
     [UPDATE_FAR_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
       .offset = offsetof(pfcp_update_far_t, bar_id)
+    },
+    [UPDATE_FAR_TP_IPFIX_POLICY] = {
+      .type = PFCP_IE_TP_IPFIX_POLICY,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_update_far_t, ipfix_policy)
     },
   };
 
@@ -6931,6 +6967,7 @@ static struct pfcp_ie_def vendor_tp_specs[] =
    SIMPLE_IE_FREE(PFCP_IE_TP_ERROR_MESSAGE, tp_error_message, "TP: Error Message"),
    SIMPLE_IE_FREE(PFCP_IE_TP_FILE_NAME, tp_file_name, "TP: File Name"),
    SIMPLE_IE(PFCP_IE_TP_LINE_NUMBER, tp_line_number, "TP: Line Number"),
+   SIMPLE_IE_FREE(PFCP_IE_TP_IPFIX_POLICY, tp_ipfix_policy, "TP: IPFIX Policy"),
   };
 
 static struct pfcp_ie_def vendor_bbf_specs[] =

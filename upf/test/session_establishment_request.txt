@@ -92,12 +92,14 @@ Create FAR
   Forwarding Parameters
     Destination Interface: Access
     Network Instance: access
+  TP: IPFIX Policy: testing
 Create FAR
   FAR ID: 1
   Apply Action: DROP:0,FORW:1,BUFF:0,NOCP:0,DUPL:0,IPMA:0,IPMD:0
   Forwarding Parameters
     Destination Interface: Access
     Network Instance: access
+  TP: IPFIX Policy: testing
 Create URR
   URR ID: 2
   Measurement Method: DURAT:0,VOLUM:1,EVENT:0
@@ -110,4 +112,5 @@ Create URR
   URR ID: 1
   Measurement Method: DURAT:0,VOLUM:1,EVENT:0
   Reporting Triggers: PERIO:0,VOLTH:0,TIMTH:0,QUHTI:0,START:0,STOPT:0,DROTH:0,LIUSA:0,VOLQU:0,TIMQU:0,ENVCL:0,MACAR:0,EVETH:0,EVEQU:0,IPMJL:0,QUVTI:0
+User ID: IMSI:909006002000009,IMEI:149006005000009,MSISDN:4534445,NAI:foo@example.com,
 

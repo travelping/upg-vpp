@@ -1003,10 +1003,10 @@ typedef u8 pfcp_suggested_buffering_packets_count_t;
 #define PFCP_IE_USER_ID					141
 typedef struct
 {
-#define USER_ID_IMEI					BIT(0)
-#define USER_ID_IMSI					BIT(1)
+#define USER_ID_IMSI					BIT(0)
+#define USER_ID_IMEI					BIT(1)
 #define USER_ID_MSISDN					BIT(2)
-#define USER_ID_NAI					BIT(4)
+#define USER_ID_NAI					BIT(3)
 
   u8 imei_len;			/* length in bytes, not in digits */
   u8 imei[8];
@@ -1213,6 +1213,9 @@ typedef u8 *pfcp_tp_file_name_t;
 typedef u32 pfcp_tp_line_number_t;
 
 #define PFCP_IE_TP_CREATED_NAT_BINDING			10
+
+#define PFCP_IE_TP_IPFIX_POLICY 			11
+typedef u8 *pfcp_tp_ipfix_policy_t;
 
 /* Grouped PFCP Information Elements */
 
@@ -1581,7 +1584,8 @@ enum
   CREATE_FAR_FORWARDING_PARAMETERS,
   CREATE_FAR_DUPLICATING_PARAMETERS,
   CREATE_FAR_BAR_ID,
-  CREATE_FAR_LAST = CREATE_FAR_BAR_ID
+  CREATE_FAR_TP_IPFIX_POLICY,
+  CREATE_FAR_LAST = CREATE_FAR_TP_IPFIX_POLICY
 };
 
 typedef struct
@@ -1593,6 +1597,7 @@ typedef struct
   pfcp_forwarding_parameters_t forwarding_parameters;
   pfcp_duplicating_parameters_t duplicating_parameters;
   pfcp_bar_id_t bar_id;
+  pfcp_tp_ipfix_policy_t ipfix_policy;
 } pfcp_create_far_t;
 
 enum
@@ -1602,7 +1607,8 @@ enum
   UPDATE_FAR_UPDATE_FORWARDING_PARAMETERS,
   UPDATE_FAR_UPDATE_DUPLICATING_PARAMETERS,
   UPDATE_FAR_BAR_ID,
-  UPDATE_FAR_LAST = UPDATE_FAR_BAR_ID
+  UPDATE_FAR_TP_IPFIX_POLICY,
+  UPDATE_FAR_LAST = UPDATE_FAR_TP_IPFIX_POLICY
 };
 
 typedef struct
@@ -1614,6 +1620,7 @@ typedef struct
   pfcp_update_forwarding_parameters_t update_forwarding_parameters;
   pfcp_update_duplicating_parameters_t update_duplicating_parameters;
   pfcp_bar_id_t bar_id;
+  pfcp_tp_ipfix_policy_t ipfix_policy;
 } pfcp_update_far_t;
 
 enum
@@ -2806,7 +2813,9 @@ u8 *format_redirect_information (u8 * s, va_list * args);
 u8 *format_ue_ip_address (u8 * s, va_list * args);
 u8 *format_node_id (u8 * s, va_list * args);
 u8 *format_outer_header_creation (u8 * s, va_list * args);
+u8 *format_tbcd (u8 * s, va_list * args);
 u8 *format_dmsg (u8 * s, va_list * args);
+u8 *format_user_id (u8 * s0, va_list * args);
 
 void free_node_id (void *p);
 

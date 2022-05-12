@@ -110,6 +110,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
   flowtable_main_t *fm = &flowtable_main;
   u32 cpu_index = os_get_thread_index ();
   flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+  timestamp_nsec_t timestamp;
 
 #define _(sym, str) u32 CPT_ ## sym = 0;
   foreach_flowtable_error
@@ -120,6 +121,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 
   u32 current_time = (u32) vlib_time_now (vm);
   timer_wheel_index_update (fm, fmt, current_time);
+  unix_time_now_nsec_fraction (&timestamp.sec, &timestamp.nsec);
 
   while (n_left_from > 0)
     {
@@ -133,12 +135,13 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  upf_session_t *sx0, *sx1;
 	  struct rules *active0, *active1;
 	  u32 next0, next1;
-	  BVT (clib_bihash_kv) kv0, kv1;
+	  clib_bihash_kv_48_8_t kv0, kv1;
 	  int created0, created1;
 	  uword is_reverse0, is_reverse1;
 	  u32 flow_idx0, flow_idx1;
 	  flow_entry_t *flow0, *flow1;
 	  u8 *p0, *p1;
+	  uword len0, len1;
 
 	  /* prefetch next iteration */
 	  {
@@ -160,8 +163,10 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  bi0 = to_next[0] = from[0];
 	  bi1 = to_next[1] = from[1];
 	  b0 = vlib_get_buffer (vm, bi0);
+	  len0 = vlib_buffer_length_in_chain (vm, b0);
 	  UPF_CHECK_INNER_NODE (b0);
 	  b1 = vlib_get_buffer (vm, bi1);
+	  len1 = vlib_buffer_length_in_chain (vm, b1);
 	  UPF_CHECK_INNER_NODE (b1);
 
 	  created0 = created1 = 0;
@@ -218,11 +223,13 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  /* lookup/create flow */
 	  flow_idx0 =
-	    flowtable_entry_lookup_create (fm, fmt, &kv0, current_time,
+	    flowtable_entry_lookup_create (fm, fmt, &kv0,
+					   timestamp, current_time,
 					   is_reverse0, sx0->generation,
 					   &created0);
 	  flow_idx1 =
-	    flowtable_entry_lookup_create (fm, fmt, &kv1, current_time,
+	    flowtable_entry_lookup_create (fm, fmt, &kv1,
+					   timestamp, current_time,
 					   is_reverse1, sx0->generation,
 					   &created1);
 
@@ -244,22 +251,13 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  FLOW_DEBUG (fm, flow0);
 	  FLOW_DEBUG (fm, flow1);
 
-	  /* timer management */
-	  flow_update_active (flow0, current_time);
-	  flow_update_active (flow1, current_time);
-
-	  /*
-	   * Should update lifetime after updating flow activity to
-	   * avoid scheduling flows "in the past"
-	   */
-	  flow_update_lifetime (flow0, p0, is_ip4);
-	  flow_update_lifetime (flow1, p1, is_ip4);
-
-	  /* flow statistics */
-	  flow0->stats[is_reverse0].pkts++;
-	  flow0->stats[is_reverse0].bytes += b0->current_length;
-	  flow1->stats[is_reverse1].pkts++;
-	  flow1->stats[is_reverse1].bytes += b1->current_length;
+	  /* handle flow stats / timer / activity / ipfix */
+	  flow_update (vm, flow0, p0, is_ip4,
+		       len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
+		       current_time);
+	  flow_update (vm, flow1, p1, is_ip4,
+		       len1 - upf_buffer_opaque (b1)->gtpu.data_offset,
+		       current_time);
 
 	  /* fill buffer with flow data */
 	  next0 =
@@ -324,11 +322,13 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  u32 flow_idx;
 	  flow_entry_t *flow = NULL;
 	  uword is_reverse = 0;
-	  BVT (clib_bihash_kv) kv;
+	  clib_bihash_kv_48_8_t kv;
 	  u8 *p;
+	  uword len0;
 
 	  bi0 = to_next[0] = from[0];
 	  b0 = vlib_get_buffer (vm, bi0);
+	  len0 = vlib_buffer_length_in_chain (vm, b0);
 	  UPF_CHECK_INNER_NODE (b0);
 
 	  if (PREDICT_FALSE
@@ -361,7 +361,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  /* lookup/create flow */
 	  flow_mk_key (sx0->cp_seid, p, is_ip4, &is_reverse, &kv);
 	  flow_idx =
-	    flowtable_entry_lookup_create (fm, fmt, &kv, current_time,
+	    flowtable_entry_lookup_create (fm, fmt, &kv,
+					   timestamp, current_time,
 					   is_reverse, sx0->generation,
 					   &created);
 
@@ -380,18 +381,10 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow_debug ("is_rev: %u, flow: %u, c: %u", is_reverse,
 		      flow->is_reverse, created);
 
-	  /* timer management */
-	  flow_update_active (flow, current_time);
-
-	  /*
-	   * Should update lifetime after updating flow activity to
-	   * avoid scheduling flows "in the past"
-	   */
-	  flow_update_lifetime (flow, p, is_ip4);
-
-	  /* flow statistics */
-	  flow->stats[is_reverse].pkts++;
-	  flow->stats[is_reverse].bytes += b0->current_length;
+	  /* handle flow stats / timer / activity / ipfix */
+	  flow_update (vm, flow, p, is_ip4,
+		       len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
+		       current_time);
 
 	  /* fill opaque buffer with flow data */
 	  next0 =

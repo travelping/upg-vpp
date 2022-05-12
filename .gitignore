@@ -10,3 +10,4 @@ artifacts
 attic
 upf/version.h
 build-root
+test/e2e/bin

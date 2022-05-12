@@ -45,6 +45,7 @@
 #include "upf_pfcp_api.h"
 #include "upf_app_db.h"
 #include "upf_ipfilter.h"
+#include "upf_ipfix.h"
 
 #include <vlib/unix/plugin.h>
 
@@ -1455,6 +1456,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
   vec_foreach (far, create_far)
   {
     upf_far_t *create;
+    upf_nwi_t *nwi;
 
     vec_add2 (rules->far, create, 1);
     memset (create, 0, sizeof (*create));
@@ -1471,8 +1473,7 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
 		       FORWARDING_PARAMETERS_NETWORK_INSTANCE))
 	  {
-	    upf_nwi_t *nwi =
-	      lookup_nwi (far->forwarding_parameters.network_instance);
+	    nwi = lookup_nwi (far->forwarding_parameters.network_instance);
 	    if (!nwi)
 	      {
 		far_error (response, far, "unknown Network Instance");
@@ -1579,6 +1580,24 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	      }
 	  }			//TODO: header_enrichment
       }
+
+    create->ipfix_context_index_ip4 = (u32) ~ 0;
+    create->ipfix_context_index_ip6 = (u32) ~ 0;
+
+    if (ISSET_BIT (far->grp.fields, CREATE_FAR_TP_IPFIX_POLICY))
+      {
+	upf_ipfix_policy_t ipfix_policy =
+	  upf_ipfix_lookup_policy (far->ipfix_policy, 0);
+	create->ipfix_policy_specified = true;
+	if (ipfix_policy != UPF_IPFIX_POLICY_NONE)
+	  {
+	    ip_address_t *collector_ip = nwi ? &nwi->ipfix_collector_ip : 0;
+	    create->ipfix_context_index_ip4 =
+	      upf_ref_ipfix_context (true, ipfix_policy, collector_ip);
+	    create->ipfix_context_index_ip6 =
+	      upf_ref_ipfix_context (false, ipfix_policy, collector_ip);
+	  }
+      }
   }
 
   pfcp_sort_fars (rules);
@@ -1614,6 +1633,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
   vec_foreach (far, update_far)
   {
     upf_far_t *update;
+    upf_nwi_t *nwi;
 
     update = pfcp_get_far (sx, PFCP_PENDING, far->far_id);
     if (!update)
@@ -1634,7 +1654,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	    if (vec_len (far->update_forwarding_parameters.network_instance)
 		!= 0)
 	      {
-		upf_nwi_t *nwi =
+		nwi =
 		  lookup_nwi (far->
 			      update_forwarding_parameters.network_instance);
 		if (!nwi)
@@ -1735,6 +1755,24 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	      }
 	  }
 	//TODO: header_enrichment
+      }
+
+    update->ipfix_context_index_ip4 = (u32) ~ 0;
+    update->ipfix_context_index_ip6 = (u32) ~ 0;
+
+    if (ISSET_BIT (far->grp.fields, UPDATE_FAR_TP_IPFIX_POLICY))
+      {
+	ip_address_t *collector_ip = nwi ? &nwi->ipfix_collector_ip : 0;
+	upf_ipfix_policy_t ipfix_policy =
+	  upf_ipfix_lookup_policy (far->ipfix_policy, 0);
+	update->ipfix_policy_specified = true;
+	if (ipfix_policy != UPF_IPFIX_POLICY_NONE)
+	  {
+	    update->ipfix_context_index_ip4 =
+	      upf_ref_ipfix_context (true, ipfix_policy, collector_ip);
+	    update->ipfix_context_index_ip6 =
+	      upf_ref_ipfix_context (false, ipfix_policy, collector_ip);
+	  }
       }
   }
 
@@ -2569,6 +2607,9 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       pending->inactivity_timer.period = req->user_plane_inactivity_timer;
       pending->inactivity_timer.handle = ~0;
     }
+
+  if (ISSET_BIT (req->grp.fields, SESSION_ESTABLISHMENT_REQUEST_USER_ID))
+    memcpy (&sess->user_id, &req->user_id, sizeof (pfcp_user_id_t));
 
   if ((r = handle_create_pdr (sess, req->create_pdr, resp)) != 0)
     goto out_send_resp;

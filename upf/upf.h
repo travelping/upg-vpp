@@ -525,6 +525,14 @@ typedef struct
   u32 forward_index;
 } upf_forwarding_policy_t;
 
+typedef enum
+{
+  UPF_IPFIX_POLICY_NONE,
+  UPF_IPFIX_POLICY_DEFAULT,
+  UPF_IPFIX_POLICY_DEST,
+  UPF_IPFIX_N_POLICIES
+} __clib_packed upf_ipfix_policy_t;
+
 /* Forward Action Rules */
 typedef struct
 {
@@ -541,6 +549,9 @@ typedef struct
     upf_far_forward_t forward;
     u16 bar_id;
   };
+  u32 ipfix_context_index_ip4;
+  u32 ipfix_context_index_ip6;
+  bool ipfix_policy_specified;
 } upf_far_t;
 
 typedef struct
@@ -769,9 +780,6 @@ typedef struct
 #define PFCP_ACTIVE  0
 #define PFCP_PENDING 1
 
-  /** FIFO to hold the DL pkts for this session */
-  vlib_buffer_t *dl_fifo;
-
   /* DPO locks */
   u32 dpo_locks;
 
@@ -784,6 +792,8 @@ typedef struct
   upf_nat_addr_t *nat_addr;
 
   f64 unix_time_start;
+
+  pfcp_user_id_t user_id;
 
   u16 generation;
 } upf_session_t;
@@ -848,6 +858,11 @@ typedef struct
   /* vnet intfc index */
   u32 sw_if_index;
   u32 hw_if_index;
+
+  upf_ipfix_policy_t ipfix_policy;
+  ip_address_t ipfix_collector_ip;
+  u32 ipfix_context_index_ip4;
+  u32 ipfix_context_index_ip6;
 } upf_nwi_t;
 
 typedef struct
@@ -1042,7 +1057,8 @@ int vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index,
 				    u8 add);
 void vnet_upf_pfcp_set_polling (vlib_main_t * vm, u8 polling);
 int vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
-			  u8 add);
+			  upf_ipfix_policy_t ipfix_policy,
+			  ip_address_t * ipfix_collector_ip, u8 add);
 int vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
 			   u8 * name, u8 intf, u32 teid, u32 mask, u8 add);
 

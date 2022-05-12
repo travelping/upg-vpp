@@ -29,6 +29,7 @@
 #include <upf/upf_app_db.h>
 #include <upf/upf_pfcp.h>
 #include <upf/upf_proxy.h>
+#include <upf/upf_ipfix.h>
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -368,6 +369,7 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
   upf_pdr_t *origin = 0, *reverse = 0;
   u16 port;
   u8 *uri = NULL;
+  upf_main_t *gtm = &upf_main;
 
   /* this runs after the forward and reverse ACL rules have been established */
   /* reverse and origin may not be there yet during flow reclassification */
@@ -430,11 +432,22 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
   if (origin)
     {
       upf_far_t *far;
+      u8 is_ip4 = ip46_address_is_ip4 (&flow->key.ip[FT_ORIGIN]);
 
       far = pfcp_get_far_by_id (active, origin->far_id);
       flow->is_redirect = (far
 			   && far->
 			   forward.flags & FAR_F_REDIRECT_INFORMATION);
+      upf_load_far_ipfix_context_index (gtm, far, is_ip4,
+					&flow->ipfix_context_index);
+      /*
+       * Reference the IPFIX context from the flow.
+       * The reference will be removed when the flow is removed.
+       * This extra reference is needed because we don't
+       * clean up the flows when deleting a session, yet.
+       */
+      if (flow->ipfix_context_index != (u32) ~ 0)
+	upf_ref_ipfix_context_by_index (flow->ipfix_context_index);
     }
   reverse = flow->is_redirect ?
     origin : app_scan_for_uri (uri, flow, active, FT_REVERSE, reverse);
