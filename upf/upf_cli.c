@@ -667,14 +667,6 @@ VLIB_CLI_COMMAND (upf_tdf_ul_table_add_del_command, static) =
 };
 /* *INDENT-ON* */
 
-static u32
-upf_table_id_from_fib_index (fib_protocol_t fproto, u32 fib_index)
-{
-  return (fproto == FIB_PROTOCOL_IP4) ?
-    ip4_fib_get (fib_index)->hash.
-    table_id : ip6_fib_get (fib_index)->table_id;
-};
-
 static clib_error_t *
 upf_tdf_ul_table_show_fn (vlib_main_t * vm,
 			  unformat_input_t * input, vlib_cli_command_t * cmd)
@@ -691,12 +683,10 @@ upf_tdf_ul_table_show_fn (vlib_main_t * vm,
     {
       if (~0 != vec_elt (gtm->tdf_ul_table[fproto], ii))
 	{
-	  u32 vrf_table_id = upf_table_id_from_fib_index (fproto, ii);
-	  u32 fib_table_id = upf_table_id_from_fib_index (fproto,
-							  vec_elt
-							  (gtm->tdf_ul_table
-							   [fproto],
-							   ii));
+	  u32 vrf_table_id = fib_table_get_table_id (ii, fproto);
+	  u32 fib_table_id =
+	    fib_table_get_table_id (vec_elt (gtm->tdf_ul_table[fproto], ii),
+				    fproto);
 
 	  vlib_cli_output (vm, "  %u -> %u", vrf_table_id, fib_table_id);
 	}

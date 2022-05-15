@@ -557,8 +557,6 @@ send_upf_nwi_details (vl_api_registration_t * reg,
   u32 name_len, ipfix_policy_len;
   u8 *ipfix_policy =
     format (0, "%U", format_upf_ipfix_policy, nwi->ipfix_policy);
-  ip4_fib_t *fib4 = ip4_fib_get (nwi->fib_index[FIB_PROTOCOL_IP4]);
-  ip6_fib_t *fib6 = ip6_fib_get (nwi->fib_index[FIB_PROTOCOL_IP6]);
 
   name_len = vec_len (nwi->name);
   mp = vl_msg_api_alloc (sizeof (*mp) + name_len * sizeof (u8));
@@ -566,8 +564,12 @@ send_upf_nwi_details (vl_api_registration_t * reg,
 
   mp->_vl_msg_id = htons (VL_API_UPF_NWI_DETAILS + sm->msg_id_base);
   mp->context = context;
-  mp->ip4_table_id = htonl (fib4->hash.table_id);
-  mp->ip6_table_id = htonl (fib6->table_id);
+  mp->ip4_table_id =
+    htonl (fib_table_get_table_id
+	   (nwi->fib_index[FIB_PROTOCOL_IP4], FIB_PROTOCOL_IP4));
+  mp->ip6_table_id =
+    htonl (fib_table_get_table_id
+	   (nwi->fib_index[FIB_PROTOCOL_IP6], FIB_PROTOCOL_IP6));
 
   ipfix_policy_len =
     clib_min (sizeof (mp->ipfix_policy) - 1, vec_len (ipfix_policy));
@@ -659,10 +661,11 @@ send_upf_pfcp_endpoint_details (vl_api_registration_t * reg,
   mp->_vl_msg_id = htons (VL_API_UPF_PFCP_ENDPOINT_DETAILS + sm->msg_id_base);
   mp->context = context;
 
-  if (ip46_address_is_ip4 (&key->addr))
-    mp->table_id = htonl (ip4_fib_get (key->fib_index)->hash.table_id);
-  else
-    mp->table_id = htonl (ip6_fib_get (key->fib_index)->table_id);
+  mp->table_id = htonl (fib_table_get_table_id (key->fib_index,
+						ip46_address_is_ip4
+						(&key->addr) ?
+						FIB_PROTOCOL_IP4 :
+						FIB_PROTOCOL_IP6));
 
   ip_address_encode (&key->addr, IP46_TYPE_ANY, &mp->ip);
 

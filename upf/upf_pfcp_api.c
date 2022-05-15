@@ -1521,14 +1521,14 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	      &far->forwarding_parameters.outer_header_creation;
 	    u32 fib_index;
 	    int is_ip4 = !!(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
+	    fib_protocol_t fproto =
+	      is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
 
 	    create->forward.flags |= FAR_F_OUTER_HEADER_CREATION;
 	    create->forward.outer_header_creation =
 	      far->forwarding_parameters.outer_header_creation;
 
-	    fib_index =
-	      upf_nwi_fib_index (is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
-				 create->forward.nwi_index);
+	    fib_index = upf_nwi_fib_index (fproto, create->forward.nwi_index);
 	    if (~0 == fib_index)
 	      {
 		far_error (response, far,
@@ -1541,10 +1541,9 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	    if (~0 == create->forward.dst_sw_if_index)
 	      {
 		far_error (response, far,
-			   "no route to %U in FIB index %d",
+			   "no route to %U in table %u",
 			   format_ip46_address, &ohc->ip, IP46_TYPE_ANY,
-			   is_ip4 ? ip4_fib_get (fib_index)->hash.table_id :
-			   ip6_fib_get (fib_index)->table_id);
+			   fib_table_get_table_id (fib_index, fproto));
 		goto out_error;
 	      }
 
@@ -1690,6 +1689,8 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	      &far->update_forwarding_parameters.outer_header_creation;
 	    u32 fib_index;
 	    int is_ip4 = !!(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
+	    fib_protocol_t fproto =
+	      is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
 
 	    if (ISSET_BIT (far->update_forwarding_parameters.grp.fields,
 			   UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS) &&
@@ -1700,9 +1701,7 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	    update->forward.flags |= FAR_F_OUTER_HEADER_CREATION;
 	    update->forward.outer_header_creation = *ohc;
 
-	    fib_index =
-	      upf_nwi_fib_index (is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
-				 update->forward.nwi_index);
+	    fib_index = upf_nwi_fib_index (fproto, update->forward.nwi_index);
 	    if (~0 == fib_index)
 	      {
 		far_error (response, far,
@@ -1716,10 +1715,9 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	    if (~0 == update->forward.dst_sw_if_index)
 	      {
 		far_error (response, far,
-			   "no route to %U in FIB index %d",
+			   "no route to %U in table %u",
 			   format_ip46_address, &ohc->ip, IP46_TYPE_ANY,
-			   is_ip4 ? ip4_fib_get (fib_index)->hash.table_id :
-			   ip6_fib_get (fib_index)->table_id);
+			   fib_table_get_table_id (fib_index, fproto));
 		goto out_error;
 	      }
 
