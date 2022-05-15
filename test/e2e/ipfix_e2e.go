@@ -30,9 +30,8 @@ import (
 	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
-func describeIPFIX(mode framework.UPGMode, ipMode framework.UPGIPMode) {
-	ginkgo.Context("[ipfix]", func() {
-
+func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPMode) {
+	ginkgo.Context(title+" [ipfix]", func() {
 		ginkgo.Context("[FAR-based]", func() {
 			f := framework.NewDefaultFramework(mode, ipMode)
 			v := &ipfixVerifier{f: f}

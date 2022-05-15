@@ -30,7 +30,7 @@ env:
   # But don't forget to comment it back for a finished PR!
   # E2E_FOCUS: "TDF.*IPv4.*no proxy.*counts plain HTTP traffic"
 
-  E2E_PARALLEL_NODES: "6"
+  E2E_PARALLEL_NODES: "10"
 
 jobs:
   build:

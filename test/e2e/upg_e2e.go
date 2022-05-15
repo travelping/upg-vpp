@@ -145,8 +145,8 @@ func describeMode(title string, mode framework.UPGMode, ipMode framework.UPGIPMo
 				describeNAT(f)
 			}
 		}
-		describeIPFIX(mode, ipMode)
 	})
+	describeIPFIX(title, mode, ipMode)
 }
 
 func describeMeasurement(f *framework.Framework) {
