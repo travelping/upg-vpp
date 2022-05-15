@@ -516,19 +516,31 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 		gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
 		gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
 		gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
+		gomega.Expect(r).To(gomega.HaveKey("ingressVRFID"))
+		gomega.Expect(r).To(gomega.HaveKey("egressVRFID"))
 		initiatorOctets += r["initiatorOctets"].(uint64)
 		responderOctets += r["responderOctets"].(uint64)
+		vrfNamePrefix := "ipv4-VRF:"
+		if v.f.IPMode == framework.UPGIPModeV6 {
+			vrfNamePrefix = "ipv6-VRF:"
+		}
 		if !r[dstAddressKey].(net.IP).Equal(v.f.UEIP()) {
 			// upload
 			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
 			v.ulEndTS = r["flowEndNanoseconds"].(time.Time)
 			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
 			gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(1))) // egress flow
+			gomega.Expect(r["ingressVRFID"]).To(gomega.Equal(uint32(100)))
+			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(uint32(200)))
+			gomega.Expect(r["VRFname"]).To(gomega.Equal(vrfNamePrefix + "200"))
 		} else {
 			// download
 			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
 			v.dlEndTS = r["flowEndNanoseconds"].(time.Time)
 			gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(0))) // ingress flow
+			gomega.Expect(r["ingressVRFID"]).To(gomega.Equal(uint32(200)))
+			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(uint32(100)))
+			gomega.Expect(r["VRFname"]).To(gomega.Equal(vrfNamePrefix + "100"))
 		}
 	}
 
