@@ -29,6 +29,7 @@
 #include "upf.h"
 #include "upf_ipfix.h"
 #include "upf_ipfix_templates.h"
+#include "upf_pfcp.h"
 
 #define IPFIX_TEMPLATE_DEFAULT_IPV4(F)		\
   IPFIX_FIELD_SOURCE_IPV4_ADDRESS(F)		\
@@ -90,10 +91,16 @@ upf_ipfix_template_default_ip6_values (vlib_buffer_t * to_b,
 }
 
 #define IPFIX_TEMPLATE_DEST_IPV4(F)		\
-  IPFIX_FIELD_DESTINATION_IPV4_ADDRESS(F)
+  IPFIX_FIELD_DESTINATION_IPV4_ADDRESS(F)	\
+  IPFIX_FIELD_IPV4_INGRESS_VRF_ID(F)		\
+  IPFIX_FIELD_IPV4_EGRESS_VRF_ID(F)		\
+  IPFIX_FIELD_IPV4_VRF_NAME(F)
 
 #define IPFIX_TEMPLATE_DEST_IPV6(F)		\
-  IPFIX_FIELD_DESTINATION_IPV6_ADDRESS(F)
+  IPFIX_FIELD_DESTINATION_IPV6_ADDRESS(F)	\
+  IPFIX_FIELD_IPV6_INGRESS_VRF_ID(F)		\
+  IPFIX_FIELD_IPV6_EGRESS_VRF_ID(F)		\
+  IPFIX_FIELD_IPV6_VRF_NAME(F)
 
 #define IPFIX_TEMPLATE_DEST_COMMON(F)	       	\
   IPFIX_FIELD_INITIATOR_OCTETS(F)		\
@@ -122,6 +129,7 @@ upf_ipfix_template_dest_ip4_values (vlib_buffer_t * to_b,
 				       u16 offset,
 				       upf_session_t *sx)
 {
+  IPFIX_NWIS ();
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV4,
 			 IPFIX_TEMPLATE_DEST_COMMON);
 }
@@ -133,6 +141,7 @@ upf_ipfix_template_dest_ip6_values (vlib_buffer_t * to_b,
 				       u16 offset,
 				       upf_session_t *sx)
 {
+  IPFIX_NWIS ();
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV6,
 			 IPFIX_TEMPLATE_DEST_COMMON);
 }

@@ -192,6 +192,21 @@ flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
   return pdr ? pdr - r->pdr : ~0;
 }
 
+static_always_inline void
+flow_load_nwis (upf_main_t * gtm, upf_session_t * sx,
+		flow_entry_t * flow,
+		flow_direction_t direction,
+		upf_nwi_t ** ingress_nwi, upf_nwi_t ** egress_nwi)
+{
+  struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
+  u32 pdr_id = flow_pdr_id (flow, direction);
+  upf_pdr_t *pdr = pdr_id != ~0 ? pfcp_get_pdr_by_id (active, pdr_id) : 0;
+  upf_far_t *far = pdr ? pfcp_get_far_by_id (active, pdr->far_id) : 0;
+  *ingress_nwi = pdr && !pool_is_free_index (gtm->nwis, pdr->pdi.nwi_index) ?
+    pool_elt_at_index (gtm->nwis, pdr->pdi.nwi_index) : 0;
+  *egress_nwi = far && pool_elt_at_index (gtm->nwis, far->forward.nwi_index) ?
+    pool_elt_at_index (gtm->nwis, far->forward.nwi_index) : 0;
+}
 
 #endif /* _UPF_PFCP_H_ */
 
