@@ -411,12 +411,16 @@ upf_pfcp_server_send_session_request (upf_session_t * sx,
 {
   pfcp_msg_t *msg;
   upf_main_t *gtm = &upf_main;
+  u64 time_in_policer_periods;
   upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, sx->assoc.node);
   policer_t *p = pool_elt_at_index (gtm->pfcp_policers, n->policer_idx);
 
+  time_in_policer_periods =
+    clib_cpu_time_now () >> POLICER_TICKS_PER_PERIOD_SHIFT;
+
   if (vnet_police_packet
       (p, UPF_POLICER_FIXED_PKT_SIZE, POLICE_CONFORM,
-       vlib_time_now (gtm->vlib_main)) != POLICE_CONFORM)
+       time_in_policer_periods) != POLICE_CONFORM)
     return;
 
   if ((msg = build_pfcp_session_msg (sx, dmsg)))
