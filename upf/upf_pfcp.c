@@ -119,7 +119,10 @@ VNET_HW_INTERFACE_CLASS (gtpu_hw_class) =
 static int
 vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 			upf_ipfix_policy_t ipfix_policy,
-			ip_address_t * ipfix_collector_ip, u32 * sw_if_idx)
+			ip_address_t * ipfix_collector_ip,
+			u32 observation_domain_id,
+			u8 * observation_domain_name,
+			u64 observation_point_id, u32 * sw_if_idx)
 {
   vnet_main_t *vnm = upf_main.vnet_main;
   l2input_main_t *l2im = &l2input_main;
@@ -223,23 +226,12 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 
   hash_set_mem (gtm->nwi_index_by_name, nwi->name, if_index);
 
+  nwi->observation_domain_id = observation_domain_id;
+  nwi->observation_domain_name = vec_dup (observation_domain_name);
+  nwi->observation_point_id = observation_point_id;
+
   if (sw_if_idx)
     *sw_if_idx = nwi->sw_if_index;
-
-  if (nwi->ipfix_policy != UPF_IPFIX_POLICY_NONE)
-    {
-      nwi->ipfix_context_index_ip4 =
-	upf_ref_ipfix_context (true /* is_ip4 */ ,
-			       nwi->ipfix_policy, &nwi->ipfix_collector_ip);
-      nwi->ipfix_context_index_ip6 =
-	upf_ref_ipfix_context (false /* is_ip6 */ ,
-			       nwi->ipfix_policy, &nwi->ipfix_collector_ip);
-    }
-  else
-    {
-      nwi->ipfix_context_index_ip4 = (u32) ~ 0;
-      nwi->ipfix_context_index_ip6 = (u32) ~ 0;
-    }
 
   return 0;
 }
@@ -258,11 +250,6 @@ vnet_upf_delete_nwi_if (u8 * name)
 
   nwi = pool_elt_at_index (gtm->nwis, p[0]);
 
-  if (nwi->ipfix_context_index_ip4 != (u32) ~ 0)
-    upf_unref_ipfix_context_by_index (nwi->ipfix_context_index_ip4);
-  if (nwi->ipfix_context_index_ip6 != (u32) ~ 0)
-    upf_unref_ipfix_context_by_index (nwi->ipfix_context_index_ip6);
-
   /* disable nwi if */
   vnet_sw_interface_set_flags (vnm, nwi->sw_if_index, 0 /* down */ );
   vnet_sw_interface_t *si = vnet_get_sw_interface (vnm, nwi->sw_if_index);
@@ -276,6 +263,7 @@ vnet_upf_delete_nwi_if (u8 * name)
   vec_add1 (gtm->free_nwi_hw_if_indices, nwi->hw_if_index);
 
   hash_unset_mem (gtm->nwi_index_by_name, nwi->name);
+  vec_free (nwi->observation_domain_name);
   vec_free (nwi->name);
   pool_put (gtm->nwis, nwi);
 
@@ -285,12 +273,18 @@ vnet_upf_delete_nwi_if (u8 * name)
 int
 vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 		      upf_ipfix_policy_t ipfix_policy,
-		      ip_address_t * ipfix_collector_ip, u8 add)
+		      ip_address_t * ipfix_collector_ip,
+		      u32 observation_domain_id,
+		      u8 * observation_domain_name,
+		      u64 observation_point_id, u8 add)
 {
   return (add) ?
     vnet_upf_create_nwi_if (name, ip4_table_id, ip6_table_id,
-			    ipfix_policy, ipfix_collector_ip, NULL) :
-    vnet_upf_delete_nwi_if (name);
+			    ipfix_policy, ipfix_collector_ip,
+			    observation_domain_id,
+			    observation_domain_name,
+			    observation_point_id,
+			    NULL) : vnet_upf_delete_nwi_if (name);
 }
 
 static int
@@ -809,10 +803,6 @@ pfcp_free_far (upf_far_t * far)
     free_redirect_information (&far->forward.redirect_information);
   if (far->forward.flags & FAR_F_FORWARDING_POLICY)
     vec_free (far->forward.forwarding_policy.identifier);
-  if (far->ipfix_context_index_ip4 != (u32) ~ 0)
-    upf_unref_ipfix_context_by_index (far->ipfix_context_index_ip4);
-  if (far->ipfix_context_index_ip6 != (u32) ~ 0)
-    upf_unref_ipfix_context_by_index (far->ipfix_context_index_ip6);
 }
 
 int
@@ -837,13 +827,6 @@ pfcp_make_pending_far (upf_session_t * sx)
 	new->forward.rewrite = NULL;
 	clib_memset (&new->forward.redirect_information, 0,
 		     sizeof (new->forward.redirect_information));
-
-	new->ipfix_context_index_ip4 = old->ipfix_context_index_ip4;
-	if (new->ipfix_context_index_ip4 != (u32) ~ 0)
-	  upf_ref_ipfix_context_by_index (new->ipfix_context_index_ip4);
-	new->ipfix_context_index_ip6 = old->ipfix_context_index_ip6;
-	if (new->ipfix_context_index_ip6 != (u32) ~ 0)
-	  upf_ref_ipfix_context_by_index (new->ipfix_context_index_ip6);
 
 	if (!(old->apply_action & FAR_FORWARD))
 	  continue;

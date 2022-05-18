@@ -36,6 +36,8 @@
 #include <vnet/dpo/dpo.h>
 #include <vnet/adj/adj_types.h>
 #include <vnet/fib/fib_table.h>
+#include <vnet/fib/ip4_fib.h>
+#include <vnet/fib/ip6_fib.h>
 #include <vnet/policer/policer.h>
 #include <vnet/session/session_types.h>
 #include <vlib/vlib.h>
@@ -530,7 +532,8 @@ typedef enum
   UPF_IPFIX_POLICY_NONE,
   UPF_IPFIX_POLICY_DEFAULT,
   UPF_IPFIX_POLICY_DEST,
-  UPF_IPFIX_N_POLICIES
+  UPF_IPFIX_N_POLICIES,
+  UPF_IPFIX_POLICY_UNSPECIFIED = UPF_IPFIX_N_POLICIES
 } __clib_packed upf_ipfix_policy_t;
 
 /* Forward Action Rules */
@@ -549,9 +552,7 @@ typedef struct
     upf_far_forward_t forward;
     u16 bar_id;
   };
-  u32 ipfix_context_index_ip4;
-  u32 ipfix_context_index_ip6;
-  bool ipfix_policy_specified;
+  upf_ipfix_policy_t ipfix_policy;
 } upf_far_t;
 
 typedef struct
@@ -861,8 +862,10 @@ typedef struct
 
   upf_ipfix_policy_t ipfix_policy;
   ip_address_t ipfix_collector_ip;
-  u32 ipfix_context_index_ip4;
-  u32 ipfix_context_index_ip6;
+
+  u32 observation_domain_id;
+  u64 observation_point_id;
+  u8 *observation_domain_name;
 } upf_nwi_t;
 
 typedef struct
@@ -1058,7 +1061,10 @@ int vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index,
 void vnet_upf_pfcp_set_polling (vlib_main_t * vm, u8 polling);
 int vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 			  upf_ipfix_policy_t ipfix_policy,
-			  ip_address_t * ipfix_collector_ip, u8 add);
+			  ip_address_t * ipfix_collector_ip,
+			  u32 observation_domain_id,
+			  u8 * observation_domain_name,
+			  u64 observation_point_id, u8 add);
 int vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
 			   u8 * name, u8 intf, u32 teid, u32 mask, u8 add);
 
@@ -1098,6 +1104,30 @@ upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
 {
   vnet_buffer (b)->l3_hdr_offset = b->current_data;
   b->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
+}
+
+/* from src/vnet/ip/ping.c */
+static_always_inline fib_node_index_t
+upf_ip46_fib_table_lookup_host (u32 fib_index, ip46_address_t * pa46,
+				int is_ip4)
+{
+  fib_node_index_t fib_entry_index = is_ip4 ?
+    ip4_fib_table_lookup (ip4_fib_get (fib_index), &pa46->ip4, 32) :
+    ip6_fib_table_lookup (fib_index, &pa46->ip6, 128);
+  return fib_entry_index;
+}
+
+/* from src/vnet/ip/ping.c */
+static_always_inline u32
+upf_ip46_get_resolving_interface (u32 fib_index, ip46_address_t * pa46,
+				  int is_ip4)
+{
+  fib_node_index_t fib_entry_index;
+
+  ASSERT (~0 != fib_index);
+
+  fib_entry_index = upf_ip46_fib_table_lookup_host (fib_index, pa46, is_ip4);
+  return fib_entry_get_resolving_interface (fib_entry_index);
 }
 
 void upf_proxy_init (vlib_main_t * vm);

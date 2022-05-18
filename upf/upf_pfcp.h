@@ -150,34 +150,6 @@ upf_nwi_fib_index (fib_protocol_t proto, u32 nwi_index)
     return ~0;
 }
 
-static_always_inline void
-upf_load_far_ipfix_context_index (upf_main_t * gtm,
-				  upf_far_t * far,
-				  u8 is_ip4, u32 * ipfix_context_index)
-{
-  /*
-   * IPFIX policy specified in the FAR itself, if any, takes
-   * precedence. Note that it can be UPF_IPFIX_POLICY_NONE which is
-   * specified as an empty string on the PFCP level.
-   */
-  if (far->ipfix_policy_specified)
-    *ipfix_context_index = is_ip4 ?
-      far->ipfix_context_index_ip4 : far->ipfix_context_index_ip6;
-  else if (!pool_is_free_index (gtm->nwis, far->forward.nwi_index))
-    {
-      /*
-       * If IPFIX policy is not set in the FAR, use the value
-       * from the NWI
-       */
-      upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, far->forward.nwi_index);
-      if (ipfix_context_index)
-	*ipfix_context_index = is_ip4 ? nwi->ipfix_context_index_ip4 :
-	  nwi->ipfix_context_index_ip6;
-    }
-  else
-    *ipfix_context_index = (u32) ~ 0;
-}
-
 static_always_inline u32
 flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
 	      struct rules *r)
@@ -190,22 +162,6 @@ flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
 
   pdr = pfcp_get_pdr_by_id (r, pdr_id);
   return pdr ? pdr - r->pdr : ~0;
-}
-
-static_always_inline void
-flow_load_nwis (upf_main_t * gtm, upf_session_t * sx,
-		flow_entry_t * flow,
-		flow_direction_t direction,
-		upf_nwi_t ** ingress_nwi, upf_nwi_t ** egress_nwi)
-{
-  struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
-  u32 pdr_id = flow_pdr_id (flow, direction);
-  upf_pdr_t *pdr = pdr_id != ~0 ? pfcp_get_pdr_by_id (active, pdr_id) : 0;
-  upf_far_t *far = pdr ? pfcp_get_far_by_id (active, pdr->far_id) : 0;
-  *ingress_nwi = pdr && !pool_is_free_index (gtm->nwis, pdr->pdi.nwi_index) ?
-    pool_elt_at_index (gtm->nwis, pdr->pdi.nwi_index) : 0;
-  *egress_nwi = far && pool_elt_at_index (gtm->nwis, far->forward.nwi_index) ?
-    pool_elt_at_index (gtm->nwis, far->forward.nwi_index) : 0;
 }
 
 #endif /* _UPF_PFCP_H_ */

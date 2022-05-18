@@ -218,7 +218,6 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 {
   u32 next = UPF_CLASSIFY_NEXT_DROP;
   upf_acl_t *acl, *acl_vec;
-  upf_main_t *gtm = &upf_main;
 
   /*
    * If the proxy was used before session modification,
@@ -278,16 +277,6 @@ upf_acl_classify_forward (vlib_main_t * vm, u32 teid, flow_entry_t * flow,
 	      *pdr_idx = acl->pdr_idx;
 
 	    far = pfcp_get_far_by_id (active, pdr->far_id);
-	    upf_load_far_ipfix_context_index (gtm, far, is_ip4,
-					      &flow->ipfix_context_index);
-	    /*
-	     * Reference the IPFIX context from the flow.
-	     * The reference will be removed when the flow is removed.
-	     * This extra reference is needed because we don't
-	     * clean up the flows when deleting a session, yet.
-	     */
-	    if (flow->ipfix_context_index != (u32) ~ 0)
-	      upf_ref_ipfix_context_by_index (flow->ipfix_context_index);
 
 	    if (flow->key.proto == IP_PROTOCOL_TCP &&
 		far && far->forward.flags & FAR_F_REDIRECT_INFORMATION)

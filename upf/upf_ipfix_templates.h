@@ -22,12 +22,6 @@
  */
 #define NTP_TIMESTAMP 2208988800LU
 
-#define IPFIX_NWIS()					\
-  upf_main_t * gtm = &upf_main;				\
-  upf_nwi_t * ingress_nwi, * egress_nwi;		\
-  flow_load_nwis (gtm, sx, f, direction,		\
-		  &ingress_nwi, &egress_nwi);
-
 /*
  * In each value macro:
  * - v represents the value
@@ -67,6 +61,13 @@
     offset += sizeof (u16);					\
   } while (0)
 
+#define IPFIX_VALUE_U32(v, n, c)				\
+  do {								\
+    u64 tmp = clib_host_to_net_u32 (v);				\
+    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u32));	\
+    offset += sizeof (u32);					\
+  } while (0)
+
 #define IPFIX_VALUE_U64(v, n, c)				\
   do {								\
     u64 tmp = clib_host_to_net_u64 (v);				\
@@ -99,48 +100,13 @@
     offset += n;					\
   } while (0)
 
-#define IPFIX_VALUE_NWI_IPV4_TABLE_ID(v, n, c)				\
-  do {									\
-    u32 table_id = v ?							\
-      clib_host_to_net_u32(  						\
-        fib_table_get_table_id (v->fib_index[FIB_PROTOCOL_IP4],		\
-				FIB_PROTOCOL_IP4)) :			\
-      0;								\
-    clib_memcpy_fast (to_b->data + offset, &table_id, sizeof (u32));	\
-    offset += sizeof (u32);						\
-  } while (0)
-
-#define IPFIX_VALUE_NWI_IPV4_TABLE_NAME(v, n, c)			\
-  do {									\
-    u8 * ft_desc = fib_table_get(					\
-      v->fib_index[FIB_PROTOCOL_IP4], FIB_PROTOCOL_IP4)->		\
-      ft_desc;								\
-    u32 l = clib_min(255, vec_len (ft_desc));				\
-    to_b->data[offset++] = (u8) l;					\
-    clib_memcpy_fast (to_b->data + offset, ft_desc, l);			\
-    offset += l;							\
-  } while (0)
-
-#define IPFIX_VALUE_NWI_IPV6_TABLE_ID(v, n, c)				\
-  do {									\
-    u32 table_id = v ?							\
-      clib_host_to_net_u32(  						\
-        fib_table_get_table_id (v->fib_index[FIB_PROTOCOL_IP6],		\
-				FIB_PROTOCOL_IP6)) :			\
-      0;								\
-    clib_memcpy_fast (to_b->data + offset, &table_id, sizeof (u32));	\
-    offset += sizeof (u32);						\
-  } while (0)
-
-#define IPFIX_VALUE_NWI_IPV6_TABLE_NAME(v, n, c)			\
-  do {									\
-    u8 * ft_desc = fib_table_get(					\
-      v->fib_index[FIB_PROTOCOL_IP6], FIB_PROTOCOL_IP6)->		\
-      ft_desc;								\
-    u32 l = clib_min(255, vec_len (ft_desc));				\
-    to_b->data[offset++] = (u8) l;					\
-    clib_memcpy_fast (to_b->data + offset, ft_desc, l);			\
-    offset += l;							\
+#define IPFIX_VALUE_STRING(v, n, c)			\
+  do {							\
+    u64 l = clib_min(255, vec_len (v));			\
+    to_b->data[offset++] = (u8) l;			\
+    if (l)						\
+      clib_memcpy_fast (to_b->data + offset, v, l);	\
+    offset += l;					\
   } while (0)
 
 #define IPFIX_FIELD_SOURCE_IPV4_ADDRESS(F)			\
@@ -241,30 +207,33 @@
     &sx->nat_addr->ext_addr,					\
     sizeof(ip4_address_t),					\
     sx->nat_addr)
-#define IPFIX_FIELD_IPV4_INGRESS_VRF_ID(F)			\
+#define IPFIX_FIELD_INGRESS_VRF_ID(F)				\
   F(ingressVRFID, 4,						\
-    IPFIX_VALUE_NWI_IPV4_TABLE_ID,				\
-    ingress_nwi, sizeof(u32), 1)
-#define IPFIX_FIELD_IPV4_EGRESS_VRF_ID(F)			\
+    IPFIX_VALUE_U32,						\
+    info->ingress_vrf_id, sizeof(u32), 1)
+#define IPFIX_FIELD_EGRESS_VRF_ID(F)				\
   F(egressVRFID, 4,						\
-    IPFIX_VALUE_NWI_IPV4_TABLE_ID,				\
-    egress_nwi, sizeof(u32), 1)
-#define IPFIX_FIELD_IPV4_VRF_NAME(F)				\
+    IPFIX_VALUE_U32,						\
+    info->egress_vrf_id, sizeof(u32), 1)
+#define IPFIX_FIELD_VRF_NAME(F)					\
   F(VRFname, 65535,						\
-    IPFIX_VALUE_NWI_IPV4_TABLE_NAME,				\
-    egress_nwi, vec_len (ft_desc), 1)
-#define IPFIX_FIELD_IPV6_INGRESS_VRF_ID(F)			\
-  F(ingressVRFID, 4,						\
-    IPFIX_VALUE_NWI_IPV6_TABLE_ID,				\
-    ingress_nwi, sizeof(u32), 1)
-#define IPFIX_FIELD_IPV6_EGRESS_VRF_ID(F)			\
-  F(egressVRFID, 4,						\
-    IPFIX_VALUE_NWI_IPV6_TABLE_ID,				\
-    egress_nwi, sizeof(u32), 1)
-#define IPFIX_FIELD_IPV6_VRF_NAME(F)				\
-  F(VRFname, 65535,						\
-    IPFIX_VALUE_NWI_IPV6_TABLE_NAME,				\
-    egress_nwi, vec_len (ft_desc), 1)
+    IPFIX_VALUE_STRING,						\
+    info->vrf_name, vec_len (info->vrf_name), 1)
+#define IPFIX_FIELD_INTERFACE_NAME(F)				\
+  F(interfaceName, 65535,					\
+    IPFIX_VALUE_STRING,						\
+    info->interface_name,					\
+    vec_len (info->interface_name), 1)
+#define IPFIX_FIELD_OBSERVATION_DOMAIN_NAME(F)			\
+  F(observationDomainName, 65535,				\
+    IPFIX_VALUE_STRING,						\
+    info->observation_domain_name, 				\
+    vec_len (info->observation_domain_name), 1)
+#define IPFIX_FIELD_OBSERVATION_POINT_ID(F)			\
+  F(observationPointId, 8,					\
+    IPFIX_VALUE_U64,						\
+    info->observation_point_id,					\
+    sizeof(u64), 1)
 
 #define IPFIX_FIELD(fieldName, specLen, valCopy, v, n, c)	\
   do {								\

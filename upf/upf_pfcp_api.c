@@ -1368,30 +1368,6 @@ ip_udp_gtpu_rewrite (upf_far_forward_t * ff, u32 fib_index, int is_ip4)
   return;
 }
 
-/* from src/vnet/ip/ping.c */
-static fib_node_index_t
-upf_ip46_fib_table_lookup_host (u32 fib_index, ip46_address_t * pa46,
-				int is_ip4)
-{
-  fib_node_index_t fib_entry_index = is_ip4 ?
-    ip4_fib_table_lookup (ip4_fib_get (fib_index), &pa46->ip4, 32) :
-    ip6_fib_table_lookup (fib_index, &pa46->ip6, 128);
-  return fib_entry_index;
-}
-
-/* from src/vnet/ip/ping.c */
-static u32
-upf_ip46_get_resolving_interface (u32 fib_index, ip46_address_t * pa46,
-				  int is_ip4)
-{
-  fib_node_index_t fib_entry_index;
-
-  ASSERT (~0 != fib_index);
-
-  fib_entry_index = upf_ip46_fib_table_lookup_host (fib_index, pa46, is_ip4);
-  return fib_entry_get_resolving_interface (fib_entry_index);
-}
-
 #define far_error(r, far, fmt, ...)					\
   do {									\
     tp_session_error_report ((r), "FAR ID %u, " fmt, (far)->far_id, ## __VA_ARGS__); \
@@ -1580,23 +1556,10 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	  }			//TODO: header_enrichment
       }
 
-    create->ipfix_context_index_ip4 = (u32) ~ 0;
-    create->ipfix_context_index_ip6 = (u32) ~ 0;
-
     if (ISSET_BIT (far->grp.fields, CREATE_FAR_TP_IPFIX_POLICY))
-      {
-	upf_ipfix_policy_t ipfix_policy =
-	  upf_ipfix_lookup_policy (far->ipfix_policy, 0);
-	create->ipfix_policy_specified = true;
-	if (ipfix_policy != UPF_IPFIX_POLICY_NONE)
-	  {
-	    ip_address_t *collector_ip = nwi ? &nwi->ipfix_collector_ip : 0;
-	    create->ipfix_context_index_ip4 =
-	      upf_ref_ipfix_context (true, ipfix_policy, collector_ip);
-	    create->ipfix_context_index_ip6 =
-	      upf_ref_ipfix_context (false, ipfix_policy, collector_ip);
-	  }
-      }
+      create->ipfix_policy = upf_ipfix_lookup_policy (far->ipfix_policy, 0);
+    else
+      create->ipfix_policy = UPF_IPFIX_POLICY_UNSPECIFIED;
   }
 
   pfcp_sort_fars (rules);
@@ -1755,23 +1718,10 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	//TODO: header_enrichment
       }
 
-    update->ipfix_context_index_ip4 = (u32) ~ 0;
-    update->ipfix_context_index_ip6 = (u32) ~ 0;
-
     if (ISSET_BIT (far->grp.fields, UPDATE_FAR_TP_IPFIX_POLICY))
-      {
-	ip_address_t *collector_ip = nwi ? &nwi->ipfix_collector_ip : 0;
-	upf_ipfix_policy_t ipfix_policy =
-	  upf_ipfix_lookup_policy (far->ipfix_policy, 0);
-	update->ipfix_policy_specified = true;
-	if (ipfix_policy != UPF_IPFIX_POLICY_NONE)
-	  {
-	    update->ipfix_context_index_ip4 =
-	      upf_ref_ipfix_context (true, ipfix_policy, collector_ip);
-	    update->ipfix_context_index_ip6 =
-	      upf_ref_ipfix_context (false, ipfix_policy, collector_ip);
-	  }
-      }
+      update->ipfix_policy = upf_ipfix_lookup_policy (far->ipfix_policy, 0);
+    else
+      update->ipfix_policy = UPF_IPFIX_POLICY_UNSPECIFIED;
   }
 
   return 0;
