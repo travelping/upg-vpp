@@ -1146,6 +1146,8 @@ pfcp_free_session (upf_session_t * sx)
   if (sx->nat_addr)
     upf_delete_nat_binding (sx);
 
+  free_user_id (&sx->user_id);
+
   clib_spinlock_free (&sx->lock);
   pool_put (gtm->sessions, sx);
 
