@@ -72,7 +72,9 @@ func (h *ipfixHandler) handleIPFIXMessage(msg *entities.Message) {
 		fmt.Fprint(&buf, "DATA SET:\n")
 		for i, record := range set.GetRecords() {
 			fmt.Fprintf(&buf, "  DATA RECORD-%d:\n", i)
-			r := make(map[string]interface{})
+			r := map[string]interface{}{
+				"observationDomainId": msg.GetObsDomainID(),
+			}
 			for _, ie := range record.GetOrderedElementList() {
 				elem := ie.GetInfoElement()
 				var v interface{}
