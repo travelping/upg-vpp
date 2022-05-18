@@ -82,10 +82,13 @@ type VPPNetworkNamespace struct {
 }
 
 type NWIConfig struct {
-	Name                string
-	Table               int
-	IPFIXPolicy         string
-	GetIPFIXCollectorIP func() net.IP
+	Name                  string
+	Table                 int
+	IPFIXPolicy           string
+	ObservationDomainId   int
+	ObservationDomainName string
+	ObservationPointId    int
+	GetIPFIXCollectorIP   func() net.IP
 }
 
 type IPFIXExporterConfig struct {
@@ -620,10 +623,16 @@ func (vi *VPPInstance) setupExporters() error {
 func (vi *VPPInstance) setupNWIs() error {
 	for _, nwiCfg := range vi.cfg.NWIs {
 		req := &upf.UpfNwiAddDel{
-			Nwi:        util.EncodeFQDN(nwiCfg.Name),
-			IP4TableID: uint32(nwiCfg.Table),
-			IP6TableID: uint32(nwiCfg.Table),
-			Add:        1,
+			Nwi:                 util.EncodeFQDN(nwiCfg.Name),
+			IP4TableID:          uint32(nwiCfg.Table),
+			IP6TableID:          uint32(nwiCfg.Table),
+			ObservationDomainID: uint32(nwiCfg.ObservationDomainId),
+			ObservationPointID:  uint64(nwiCfg.ObservationPointId),
+			Add:                 1,
+		}
+
+		if nwiCfg.ObservationDomainName != "" {
+			req.ObservationDomainName = []byte(nwiCfg.ObservationDomainName)
 		}
 
 		if nwiCfg.IPFIXPolicy != "" {

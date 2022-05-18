@@ -40,7 +40,6 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				v.withIPFIXHandler()
 
 				ginkgo.It("doesn't send IPFIX reports", func() {
-					v.expectNoTemplates()
 					v.verifyIPFIX(ipfixVerifierCfg{
 						trafficCfg: &traffic.UDPPingConfig{},
 						protocol:   layers.IPProtocolUDP,
@@ -266,21 +265,25 @@ type ipfixVerifier struct {
 	cfg          ipfixVerifierCfg
 }
 
-func (v *ipfixVerifier) expectTemplates(templateIDs []uint16) {
-	ginkgo.By("waiting for the templates...")
-	gomega.Eventually(func() bool {
-		return v.ipfixHandler.haveTemplateIDs(templateIDs...)
-	}, 20*time.Second, 1*time.Second).Should(gomega.BeTrue())
-}
-
-func (v *ipfixVerifier) expectNoTemplates() {
-	gomega.Consistently(func() bool {
-		// 1st template ID is always 256
-		return !v.ipfixHandler.haveTemplateIDs(256)
-	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+func (v *ipfixVerifier) modifySGi(callback func(nwiCfg *vpp.NWIConfig)) {
+	for n := range v.f.VPPCfg.NWIs {
+		nwiCfg := &v.f.VPPCfg.NWIs[n]
+		if nwiCfg.Name == "sgi" {
+			callback(nwiCfg)
+		}
+	}
 }
 
 func (v *ipfixVerifier) withIPFIXHandler(initialTemplateIDs ...uint16) {
+	v.modifySGi(func(nwiCfg *vpp.NWIConfig) {
+		// always set observationDomain{Id/Name} / observationPointId
+		// as these values are used when the ipfix policy is specified
+		// via a FAR, too
+		nwiCfg.ObservationDomainId = 42
+		nwiCfg.ObservationDomainName = "test-domain"
+		nwiCfg.ObservationPointId = 4242
+	})
+
 	ginkgo.BeforeEach(func() {
 		// The default exporter can't be set via
 		// ipfix_exporter_create_delete API call
@@ -296,9 +299,6 @@ func (v *ipfixVerifier) withIPFIXHandler(initialTemplateIDs ...uint16) {
 		v.ulEndTS = v.beginTS
 		v.dlStartTS = time.Time{}
 		v.dlEndTS = v.beginTS
-		if len(initialTemplateIDs) != 0 {
-			v.expectTemplates(initialTemplateIDs)
-		}
 	})
 
 	ginkgo.AfterEach(func() {
@@ -308,11 +308,9 @@ func (v *ipfixVerifier) withIPFIXHandler(initialTemplateIDs ...uint16) {
 }
 
 func (v *ipfixVerifier) withNWIIPFIXPolicy(name string) {
-	for n, nwi := range v.f.VPPCfg.NWIs {
-		if nwi.Name == "sgi" {
-			v.f.VPPCfg.NWIs[n].IPFIXPolicy = name
-		}
-	}
+	v.modifySGi(func(nwiCfg *vpp.NWIConfig) {
+		nwiCfg.IPFIXPolicy = name
+	})
 }
 
 func (v *ipfixVerifier) getCollectorIP() net.IP {
@@ -333,12 +331,10 @@ func (v *ipfixVerifier) withAltCollector() {
 			VRF:  0,
 		})
 
-	for n, nwi := range v.f.VPPCfg.NWIs {
-		if nwi.Name == "sgi" {
-			v.f.VPPCfg.NWIs[n].IPFIXPolicy = "default"
-			v.f.VPPCfg.NWIs[n].GetIPFIXCollectorIP = v.getCollectorIP
-		}
-	}
+	v.modifySGi(func(nwiCfg *vpp.NWIConfig) {
+		nwiCfg.IPFIXPolicy = "default"
+		nwiCfg.GetIPFIXCollectorIP = v.getCollectorIP
+	})
 }
 
 func (v *ipfixVerifier) verifyIPFIX(cfg ipfixVerifierCfg) {
@@ -353,10 +349,6 @@ func (v *ipfixVerifier) verifyIPFIX(cfg ipfixVerifierCfg) {
 		NatPoolName:   cfg.natPoolName,
 		AppName:       appName,
 	})
-	if len(cfg.lateTemplateIDs) != 0 {
-		// for FAR-based IPFIX policies, the templates are added when the session begins
-		v.expectTemplates(cfg.lateTemplateIDs)
-	}
 	sessionStr, err := v.f.VPP.Ctl("show upf session")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(sessionStr).To(gomega.ContainSubstring("313460000000001"))
@@ -430,6 +422,9 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 		responderPackets += r["responderPackets"].(uint64)
 		initiatorOctets += r["initiatorOctets"].(uint64)
 		responderOctets += r["responderOctets"].(uint64)
+
+		gomega.Expect(r).To(gomega.HaveKeyWithValue("observationDomainId", uint32(42)))
+
 		if r[srcAddressKey].(net.IP).Equal(v.f.UEIP()) {
 			// upload
 			if v.ulStartTS.IsZero() {
@@ -524,6 +519,12 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 		if v.f.IPMode == framework.UPGIPModeV6 {
 			vrfNamePrefix = "ipv6-VRF:"
 		}
+
+		gomega.Expect(r).To(gomega.HaveKey("interfaceName"))
+		gomega.Expect(r).To(gomega.HaveKeyWithValue("observationDomainId", uint32(42)))
+		gomega.Expect(r).To(gomega.HaveKeyWithValue("observationDomainName", "test-domain"))
+		gomega.Expect(r).To(gomega.HaveKeyWithValue("observationPointId", uint64(4242)))
+
 		if !r[dstAddressKey].(net.IP).Equal(v.f.UEIP()) {
 			// upload
 			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
@@ -533,6 +534,7 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			gomega.Expect(r["ingressVRFID"]).To(gomega.Equal(uint32(100)))
 			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(uint32(200)))
 			gomega.Expect(r["VRFname"]).To(gomega.Equal(vrfNamePrefix + "200"))
+			gomega.Expect(r["interfaceName"]).To(gomega.Equal("host-sgi0"))
 		} else {
 			// download
 			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
@@ -541,6 +543,11 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			gomega.Expect(r["ingressVRFID"]).To(gomega.Equal(uint32(200)))
 			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(uint32(100)))
 			gomega.Expect(r["VRFname"]).To(gomega.Equal(vrfNamePrefix + "100"))
+			expectedIfName := "host-access0"
+			if v.f.Mode == framework.UPGModePGW {
+				expectedIfName = "host-grx0"
+			}
+			gomega.Expect(r["interfaceName"]).To(gomega.Equal(expectedIfName))
 		}
 	}
 
