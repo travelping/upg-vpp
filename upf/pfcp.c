@@ -4165,7 +4165,7 @@ encode_user_id (void *p, u8 ** vec)
   return 0;
 }
 
-static void
+void
 free_user_id (void *p)
 {
   pfcp_user_id_t *v = p;

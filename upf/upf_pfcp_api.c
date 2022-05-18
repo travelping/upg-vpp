@@ -2609,7 +2609,10 @@ handle_session_establishment_request (pfcp_msg_t * msg,
     }
 
   if (ISSET_BIT (req->grp.fields, SESSION_ESTABLISHMENT_REQUEST_USER_ID))
-    memcpy (&sess->user_id, &req->user_id, sizeof (pfcp_user_id_t));
+    {
+      memcpy (&sess->user_id, &req->user_id, sizeof (pfcp_user_id_t));
+      sess->user_id.nai = vec_dup (req->user_id.nai);
+    }
 
   if ((r = handle_create_pdr (sess, req->create_pdr, resp)) != 0)
     goto out_send_resp;
