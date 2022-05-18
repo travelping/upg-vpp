@@ -2,6 +2,7 @@
 
 #include "upf.h"
 #include "upf_ipfilter.h"
+#include "pfcp.h"
 #include "upf_app_db.h"
 
 static int upf_test_do_debug = 0;
@@ -271,6 +272,21 @@ ip_app_test_v6 (void)
   return res;
 }
 
+static int
+tbcd_test()
+{
+  int res = 0;
+  u8 sample_value[] = { 0x09, 0x09, 0x60, 0x00, 0xa2, 0xcb, 0xed, 0xf9 };
+  u8 * expected = "909006002*#abc9";
+  u8 * actual = format(0, "%U", format_tbcd, sample_value, sizeof(sample_value));
+
+  UPF_TEST (vec_len (actual) == strlen (expected) &&
+	    !memcmp (actual, expected, strlen(expected)),
+	    "bad format_tbcd result");
+
+  return res;
+}
+
 static clib_error_t *
 test_upf_command_fn (vlib_main_t * vm,
 		     unformat_input_t * input, vlib_cli_command_t * cmd)
@@ -278,7 +294,7 @@ test_upf_command_fn (vlib_main_t * vm,
   if (unformat (input, "debug"))
     upf_test_do_debug = 1;
 
-  if (ip_app_test_v4() == 0 && ip_app_test_v6() == 0)
+  if (ip_app_test_v4 () == 0 && ip_app_test_v6 () == 0 && tbcd_test () == 0)
     return 0;
   else
     return clib_error_return (0, "test failed");
@@ -288,7 +304,7 @@ test_upf_command_fn (vlib_main_t * vm,
 VLIB_CLI_COMMAND (test_upf_command, static) =
   {
     .path = "test upf",
-    .short_help = "upf unit test",
+    .short_help = "test upf [debug]",
     .function = test_upf_command_fn,
   };
 /* *INDENT-ON* */
