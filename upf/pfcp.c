@@ -2509,16 +2509,20 @@ format_tbcd (u8 * s, va_list * args)
   u8 *bytes = va_arg (*args, u8 *);
   int n_bytes = va_arg (*args, int);
   uword i;
+  /* value 15 is an error, thus '?' */
+  static char *tbcd_chars = "0123456789*#abc?";
 
   for (i = 0; i < n_bytes; i++)
     {
       if (bytes[i] & 0xf0 == 0xf0 && i == n_bytes - 1)
 	{
-	  s = format (s, "%d", bytes[i] & 0xf);
+	  s = format (s, "%c", tbcd_chars[bytes[i] & 0xf]);
 	  break;
 	}
       else
-	s = format (s, "%d%d", bytes[i] & 0xf, bytes[i] >> 4);
+	s =
+	  format (s, "%c%c", tbcd_chars[bytes[i] & 0xf],
+		  tbcd_chars[bytes[i] >> 4]);
     }
 
   return s;
