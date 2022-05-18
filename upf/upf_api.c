@@ -494,6 +494,9 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
   upf_ipfix_policy_t ipfix_policy = UPF_IPFIX_POLICY_NONE;
   int rv = 0;
   ip_address_t ipfix_collector_ip;
+  u32 observation_domain_id;
+  u8 *observation_domain_name = 0;
+  u64 observation_point_id;
 
   if (mp->nwi_len == 0)
     {
@@ -540,11 +543,24 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
   ipfix_collector_ip.version =
     ip46_address_is_ip4 (&ipfix_collector_ip.ip) ? AF_IP4 : AF_IP6;
 
+  observation_domain_id = clib_net_to_host_u32 (mp->observation_domain_id);
+  if (mp->observation_domain_name[0])
+    {
+      mp->observation_domain_name[sizeof (mp->observation_domain_name) - 1] =
+	0;
+      observation_domain_name = format (0, "%s", mp->observation_domain_name);
+    }
+  observation_point_id = clib_net_to_host_u64 (mp->observation_point_id);
+
   rv = vnet_upf_nwi_add_del (nwi_name, ip4_table_id, ip6_table_id,
-			     ipfix_policy, &ipfix_collector_ip, mp->add);
+			     ipfix_policy, &ipfix_collector_ip,
+			     observation_domain_id,
+			     observation_domain_name,
+			     observation_point_id, mp->add);
 
 out:
   vec_free (nwi_name);
+  vec_free (observation_domain_name);
   REPLY_MACRO (VL_API_UPF_NWI_ADD_DEL_REPLY);
 }
 
@@ -577,7 +593,7 @@ send_upf_nwi_details (vl_api_registration_t * reg,
   memcpy (mp->nwi, nwi->name, name_len);
   mp->nwi_len = name_len;
 
-  ip_address_encode (&nwi->ipfix_collector_ip, IP46_TYPE_ANY,
+  ip_address_encode (&ip_addr_46 (&nwi->ipfix_collector_ip), IP46_TYPE_ANY,
 		     &mp->ipfix_collector_ip);
 
   vl_api_send_msg (reg, (u8 *) mp);

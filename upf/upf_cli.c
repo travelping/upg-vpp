@@ -379,6 +379,9 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
   u8 add = 1;
   int rv;
   ip_address_t ipfix_collector_ip = ip_address_initializer;
+  u32 observation_domain_id = 1;
+  u8 *observation_domain_name = 0;
+  u64 observation_point_id = 1;
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
     return 0;
@@ -405,6 +408,19 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
 			 unformat_ip_address, &ipfix_collector_ip))
 	;
       else
+	if (unformat
+	    (line_input, "observation-domain-id %u", &observation_domain_id))
+	;
+      else
+	if (unformat
+	    (line_input, "observation-domain-name %_%v%_",
+	     &observation_domain_name))
+	;
+      else
+	if (unformat
+	    (line_input, "observation-point-id %lu", &observation_point_id))
+	;
+      else
 	{
 	  error = unformat_parse_error (line_input);
 	  goto done;
@@ -423,7 +439,10 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
     clib_warning ("table %d not (yet) defined for IPv6", table_id);
 
   rv = vnet_upf_nwi_add_del (name, table_id, table_id, ipfix_policy,
-			     &ipfix_collector_ip, add);
+			     &ipfix_collector_ip,
+			     observation_domain_id,
+			     observation_domain_name,
+			     observation_point_id, add);
 
   switch (rv)
     {
@@ -445,6 +464,7 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
 
 done:
   vec_free (name);
+  vec_free (observation_domain_name);
   unformat_free (line_input);
   return error;
 }
@@ -454,7 +474,10 @@ VLIB_CLI_COMMAND (upf_nwi_add_del_command, static) =
 {
   .path = "upf nwi",
   .short_help =
-  "upf nwi name <name> [table <table-id>] [vrf <vrf-id] [ipfix-policy <name>] [del]",
+  "upf nwi name <name> [table <table-id>] [vrf <vrf-id>] [ipfix-policy <name>] "
+  "[ipfix-collector-ip <ip>] [observation-domain-id <id>] "
+  "[observation-domain-name <name>] [observation-point-id <id>] "
+  "[del]",
   .function = upf_nwi_add_del_command_fn,
 };
 /* *INDENT-ON* */

@@ -398,7 +398,8 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   f->flow_start = timestamp;
   f->flow_end = timestamp;
   f->application_id = ~0;
-  f->ipfix_context_index = ~0;
+  flow_ipfix_info (f, FT_ORIGIN) = ~0;
+  flow_ipfix_info (f, FT_REVERSE) = ~0;
 #if CLIB_DEBUG > 0
   f->cpu_index = os_get_thread_index ();
 #endif

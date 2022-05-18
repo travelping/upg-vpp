@@ -161,7 +161,7 @@ typedef struct flow_entry
   timestamp_nsec_t flow_end;
 
   u32 last_exported[FT_ORDER_MAX];
-  u32 ipfix_context_index;
+  u32 ipfix_info_index[FT_ORDER_MAX];
 
   /* Generation ID that must match the session's if this flow is up to date */
   u16 generation;
@@ -181,6 +181,7 @@ typedef struct flow_entry
 #define flow_tsval_offs(F, D) flow_member((F), _tsval_offs, (D))
 #define flow_stats(F, D) flow_member((F), stats, (D))
 #define flow_last_exported(F, D) flow_member((F), last_exported, (D))
+#define flow_ipfix_info(F, D) flow_member((F), ipfix_info_index, (D))
 
 /* Timers (in seconds) */
 #define TIMER_DEFAULT_LIFETIME (60)
