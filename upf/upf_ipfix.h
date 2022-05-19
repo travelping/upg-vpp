@@ -30,6 +30,7 @@ typedef struct {
        */
       u32 info_nwi_index;
       u32 sw_if_index;
+      u32 forwarding_policy_index;
       upf_ipfix_policy_t policy;
       u8 is_ip4;
     };

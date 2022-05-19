@@ -625,7 +625,16 @@ upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key)
   egress_table = fib_table_get (key->egress_fib_index, fproto);
   info->ingress_vrf_id = ingress_table->ft_table_id;
   info->egress_vrf_id = egress_table->ft_table_id;
-  info->vrf_name = vec_dup (egress_table->ft_desc);
+
+  if (key->forwarding_policy_index == ~0)
+    info->vrf_name = vec_dup (egress_table->ft_desc);
+  else
+    {
+      upf_forwarding_policy_t *fp_entry =
+	pool_elt_at_index (gtm->upf_forwarding_policies,
+			   key->forwarding_policy_index);
+      info->vrf_name = vec_dup (fp_entry->policy_id);
+    }
 
   clib_memset(&context_key, 0, sizeof (context_key));
   /* FIXME: introduce refcounting for NWIs */
@@ -671,6 +680,7 @@ upf_unref_ipfix_info (u32 iidx)
   clib_memcpy_fast (&kv.key, &info->key, sizeof (kv.key));
   clib_bihash_add_del_24_8 (&fm->info_by_key, &kv, 0 /* is_add */ );
 
+  /* TODO: unref forwarding policy object */
   upf_unref_ipfix_context_by_index (info->context_index);
   vec_free (info->vrf_name);
   vec_free (info->observation_domain_name);
@@ -792,6 +802,7 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
   upf_ipfix_info_key_t info_key;
   upf_nwi_t *ingress_nwi, *egress_nwi;
   fib_protocol_t fproto;
+  upf_ipfix_info_t * other_info = 0;
 
   if (flow_ipfix_info (f, direction) != ~0)
     return true;
@@ -817,6 +828,13 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
   egress_nwi = pool_elt_at_index (gtm->nwis, far->forward.nwi_index);
 
   /*
+   * for the reverse flow direction, forwarding policy and IPFIX
+   * policy can be reused from the forward flow direction
+   */
+  if (direction == FT_REVERSE && flow_ipfix_info (f, FT_ORIGIN) != ~0)
+    other_info = pool_elt_at_index (fm->infos, flow_ipfix_info (f, FT_ORIGIN));
+
+  /*
    * IPFIX policy specified in the FAR itself, if any, takes
    * precedence over the policy specified in the egress NWI. Note that
    * it can be UPF_IPFIX_POLICY_NONE which is specified as an empty
@@ -830,9 +848,8 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
        * If this is the reverse flow direction, check if there's a
        * policy specified for the forward direction
        */
-      if (direction == FT_REVERSE && flow_ipfix_info (f, FT_ORIGIN) != ~0)
+      if (other_info)
 	{
-	  upf_ipfix_info_t * other_info = pool_elt_at_index (fm->infos, flow_ipfix_info (f, FT_ORIGIN));
 	  info_key.policy = other_info->key.policy;
 	  info_key.info_nwi_index = other_info->key.info_nwi_index;
 	}
@@ -849,28 +866,35 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
   info_key.ingress_fib_index = ingress_nwi->fib_index[fproto];
   info_key.egress_fib_index = egress_nwi->fib_index[fproto];
   info_key.sw_if_index = ~0;
+  info_key.forwarding_policy_index = ~0;
 
   /*
    * If there's a forwarding policy specified in FAR, try to find the
    * proper fib_index from it
    */
-  if (direction == FT_ORIGIN &&
-      (far->forward.flags & FAR_F_FORWARDING_POLICY))
+  if (direction == FT_ORIGIN)
     {
-      fib_route_path_t *rpath;
-      upf_forwarding_policy_t *fp_entry =
-	pool_elt_at_index (gtm->upf_forwarding_policies,
-			   far->forward.fp_pool_index);
-      vec_foreach (rpath, fp_entry->rpaths)
-	{
-	  if (rpath->frp_proto ==
-	      (info_key.is_ip4 ? DPO_PROTO_IP4 : DPO_PROTO_IP6))
-	    {
-	      info_key.egress_fib_index = rpath->frp_fib_index;
-	      break;
-	    }
-	}
+      if ((far->forward.flags & FAR_F_FORWARDING_POLICY))
+      {
+	fib_route_path_t *rpath;
+	upf_forwarding_policy_t *fp_entry =
+	  pool_elt_at_index (gtm->upf_forwarding_policies,
+			     far->forward.fp_pool_index);
+	/* TODO: add ref for the forwarding policy object */
+	info_key.forwarding_policy_index = far->forward.fp_pool_index;
+	vec_foreach (rpath, fp_entry->rpaths)
+	  {
+	    if (rpath->frp_proto ==
+		(info_key.is_ip4 ? DPO_PROTO_IP4 : DPO_PROTO_IP6))
+	      {
+		info_key.egress_fib_index = rpath->frp_fib_index;
+		break;
+	      }
+	  }
+      }
     }
+  else if (other_info)
+    info_key.forwarding_policy_index = other_info->key.forwarding_policy_index;
 
   if ((far->forward.flags & FAR_F_OUTER_HEADER_CREATION))
     info_key.sw_if_index = far->forward.dst_sw_if_index;
