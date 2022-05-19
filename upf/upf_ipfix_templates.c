@@ -31,12 +31,13 @@
 #include "upf_ipfix_templates.h"
 #include "upf_pfcp.h"
 
-#define IPFIX_TEMPLATE_DEFAULT_IPV4(F)		\
-  IPFIX_FIELD_SOURCE_IPV4_ADDRESS(F)		\
-  IPFIX_FIELD_DESTINATION_IPV4_ADDRESS(F)	\
-  IPFIX_FIELD_PROTOCOL_IDENTIFIER(F)		\
-  IPFIX_FIELD_POST_NAT_SOURCE_IPV4_ADDRESS(F)	\
-  IPFIX_FIELD_POST_NAPT_SOURCE_TRANSPORT_PORT(F)
+#define IPFIX_TEMPLATE_DEFAULT_IPV4(F)			\
+  IPFIX_FIELD_SOURCE_IPV4_ADDRESS(F)			\
+  IPFIX_FIELD_DESTINATION_IPV4_ADDRESS(F)		\
+  IPFIX_FIELD_PROTOCOL_IDENTIFIER(F)			\
+  IPFIX_FIELD_POST_NAT_SOURCE_IPV4_ADDRESS(F)		\
+  IPFIX_FIELD_POST_NAPT_SOURCE_TRANSPORT_PORT(F)	\
+  IPFIX_FIELD_NAT_EVENT(F)
 
 #define IPFIX_TEMPLATE_DEFAULT_IPV6(F)		\
   IPFIX_FIELD_SOURCE_IPV6_ADDRESS(F)		\
@@ -71,7 +72,9 @@ upf_ipfix_template_default_ip4_values (vlib_buffer_t * to_b,
 				       flow_entry_t * f,
 				       flow_direction_t direction,
 				       u16 offset,
-				       upf_session_t *sx)
+				       upf_session_t *sx,
+				       upf_ipfix_info_t *info,
+				       bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV4,
 			 IPFIX_TEMPLATE_DEFAULT_COMMON);
@@ -82,7 +85,9 @@ upf_ipfix_template_default_ip6_values (vlib_buffer_t * to_b,
 				       flow_entry_t * f,
 				       flow_direction_t direction,
 				       u16 offset,
-				       upf_session_t *sx)
+				       upf_session_t *sx,
+				       upf_ipfix_info_t *info,
+				       bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV6,
 			 IPFIX_TEMPLATE_DEFAULT_COMMON);
@@ -125,7 +130,8 @@ upf_ipfix_template_dest_ip4_values (vlib_buffer_t * to_b,
 				    flow_direction_t direction,
 				    u16 offset,
 				    upf_session_t *sx,
-				    upf_ipfix_info_t *info)
+				    upf_ipfix_info_t *info,
+				    bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV4,
 			 IPFIX_TEMPLATE_DEST_COMMON);
@@ -137,7 +143,8 @@ upf_ipfix_template_dest_ip6_values (vlib_buffer_t * to_b,
 				    flow_direction_t direction,
 				    u16 offset,
 				    upf_session_t *sx,
-				    upf_ipfix_info_t *info)
+				    upf_ipfix_info_t *info,
+				    bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV6,
 			 IPFIX_TEMPLATE_DEST_COMMON);

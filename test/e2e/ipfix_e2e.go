@@ -205,8 +205,14 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				})
 
 				ginkgo.It("includes NAT fields in IPFIX reports", func() {
+					trafficCfg := smallVolumeHTTPConfig(nil)
+					// Make sure the flow lasts long enough so that
+					// we have start, end, and "in-between" IPFIX records
+					// for it
+					trafficCfg.ChunkCount = 40
+					trafficCfg.ChunkDelay = 500 * time.Millisecond
 					v.verifyIPFIX(ipfixVerifierCfg{
-						trafficCfg:                  smallVolumeHTTPConfig(nil),
+						trafficCfg:                  trafficCfg,
 						protocol:                    layers.IPProtocolTCP,
 						expectedTrafficPort:         80,
 						natPoolName:                 "testing",
@@ -214,6 +220,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 						postNAPTSourceTransportPort: 10128,
 					})
 					v.verifyIPFIXDefaultRecords()
+					v.verifyNAT()
 				})
 			})
 		}
@@ -375,6 +382,19 @@ func (v *ipfixVerifier) verifyIPFIXStart() {
 	// make sure the first report is not sent out immediately
 	t := v.ipfixHandler.getFirstReportTS().Sub(v.beginTS)
 	gomega.Expect(t.Seconds()).To(gomega.BeNumerically(">=", 2))
+}
+
+func (v *ipfixVerifier) verifyNAT() {
+	gomega.Expect(len(v.recs)).To(gomega.BeNumerically(">", 2))
+	// 1st IPFIX record for the flow, NAT44 session create
+	framework.ExpectEqual(v.recs[0]["natEvent"], uint8(4))
+	last := len(v.recs) - 1
+	// last IPFIX record for the flow NAT44 session delete
+	framework.ExpectEqual(v.recs[last]["natEvent"], uint8(5))
+	// other records have 0 as natEvent (reserved, no event)
+	for _, r := range v.recs[1:last] {
+		framework.ExpectEqual(r["natEvent"], uint8(0))
+	}
 }
 
 func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {

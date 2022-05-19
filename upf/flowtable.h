@@ -133,6 +133,7 @@ typedef struct flow_entry
   u8 spliced_dirty:1;
   u8 dont_splice:1;
   u8 app_detection_done:1;
+  u8 exported:1;
   u16 tcp_state;
   u32 ps_index;
 
