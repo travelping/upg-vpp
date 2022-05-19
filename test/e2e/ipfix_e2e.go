@@ -53,12 +53,9 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate: "default",
-						trafficCfg:  smallVolumeHTTPConfig(nil),
-						protocol:    layers.IPProtocolTCP,
-						// IPFIX templates are only expected after the session starts as they're
-						// specified in NWI
-						lateTemplateIDs:     []uint16{256, 257},
+						farTemplate:         "default",
+						trafficCfg:          smallVolumeHTTPConfig(nil),
+						protocol:            layers.IPProtocolTCP,
 						expectedTrafficPort: 80,
 					})
 					v.verifyIPFIXDefaultRecords()
@@ -66,12 +63,9 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 
 				ginkgo.It("sends IPFIX reports as requested [TCP] [proxy]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate: "default",
-						trafficCfg:  smallVolumeHTTPConfig(nil),
-						protocol:    layers.IPProtocolTCP,
-						// IPFIX templates are only expected after the session starts as they're
-						// specified in NWI
-						lateTemplateIDs:     []uint16{256, 257},
+						farTemplate:         "default",
+						trafficCfg:          smallVolumeHTTPConfig(nil),
+						protocol:            layers.IPProtocolTCP,
 						expectedTrafficPort: 80,
 						adf:                 true,
 					})
@@ -87,7 +81,6 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 							Delay:       210 * time.Millisecond,
 						},
 						protocol:            layers.IPProtocolUDP,
-						lateTemplateIDs:     []uint16{256, 257},
 						expectedTrafficPort: 12345,
 					})
 					v.verifyIPFIXDefaultRecords()
@@ -99,12 +92,9 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate: "dest",
-						trafficCfg:  smallVolumeHTTPConfig(nil),
-						protocol:    layers.IPProtocolTCP,
-						// IPFIX templates are only expected after the session starts as they're
-						// specified in NWI
-						lateTemplateIDs:     []uint16{256, 257},
+						farTemplate:         "dest",
+						trafficCfg:          smallVolumeHTTPConfig(nil),
+						protocol:            layers.IPProtocolTCP,
 						expectedTrafficPort: 80,
 					})
 					v.verifyIPFIXDestRecords()
@@ -115,11 +105,11 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 						farTemplate:         "dest",
 						trafficCfg:          &traffic.UDPPingConfig{},
 						protocol:            layers.IPProtocolUDP,
-						lateTemplateIDs:     []uint16{256, 257},
 						expectedTrafficPort: 12345,
 					})
 					v.verifyIPFIXDestRecords()
 				})
+
 			})
 		})
 
@@ -142,7 +132,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				v.withNWIIPFIXPolicy("default")
 				// Templates 256 and 257 are expected early because IPFIX policy
 				// is specified per NWI
-				v.withIPFIXHandler(256, 257)
+				v.withIPFIXHandler()
 
 				ginkgo.It("should take precedence over NWI", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
@@ -160,7 +150,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				v.withNWIIPFIXPolicy("default")
 				// Templates 256 and 257 are expected early because IPFIX policy
 				// is specified per NWI
-				v.withIPFIXHandler(256, 257)
+				v.withIPFIXHandler()
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					v.verifyIPFIX(tcpCfg)
@@ -179,7 +169,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				v.withNWIIPFIXPolicy("dest")
 				// Templates 256 and 257 are expected early because IPFIX policy
 				// is specified per NWI
-				v.withIPFIXHandler(256, 257)
+				v.withIPFIXHandler()
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					v.verifyIPFIX(tcpCfg)
@@ -190,6 +180,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 					v.verifyIPFIX(udpCfg)
 					v.verifyIPFIXDestRecords()
 				})
+
 			})
 		})
 
@@ -198,7 +189,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				f := framework.NewDefaultFramework(mode, ipMode)
 				v := &ipfixVerifier{f: f}
 				v.withNWIIPFIXPolicy("default")
-				v.withIPFIXHandler(256, 257)
+				v.withIPFIXHandler()
 
 				ginkgo.BeforeEach(func() {
 					setupNAT(f)
@@ -229,17 +220,38 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 			f := framework.NewDefaultFramework(mode, ipMode)
 			v := &ipfixVerifier{f: f}
 			v.withAltCollector()
-			v.withIPFIXHandler(256, 257)
+			v.withIPFIXHandler()
 
 			ginkgo.It("sends IPFIX packets to the specified collector", func() {
 				gomega.Expect(v.collectorIP).NotTo(gomega.BeNil())
 				v.verifyIPFIX(ipfixVerifierCfg{
-					// NOTE: no farTemplate
+					// no farTemplate as NWI is configured
+					// with IPFIX policy by withAltCollector()
 					trafficCfg:          smallVolumeHTTPConfig(nil),
 					protocol:            layers.IPProtocolTCP,
 					expectedTrafficPort: 80,
 				})
 				v.verifyIPFIXDefaultRecords()
+			})
+		})
+
+		ginkgo.Context("[forwarding policy]", func() {
+			f := framework.NewDefaultFramework(mode, ipMode)
+			v := &ipfixVerifier{f: f}
+			v.withForwardingPolicy("altIP")
+			v.withNWIIPFIXPolicy("dest")
+			v.withIPFIXHandler()
+			ginkgo.It("records forwarding policy name in VRFname", func() {
+				v.verifyIPFIX(ipfixVerifierCfg{
+					// NOTE: no farTemplate
+					trafficCfg:             smallVolumeHTTPConfig(nil),
+					protocol:               layers.IPProtocolTCP,
+					expectedTrafficPort:    80,
+					forwardingPolicyID:     "altIP",
+					expectedOriginVRFName:  "altIP",
+					expectedReverseVRFName: "altIP",
+				})
+				v.verifyIPFIXDestRecords()
 			})
 		})
 	})
@@ -250,11 +262,13 @@ type ipfixVerifierCfg struct {
 	trafficCfg                  traffic.TrafficConfig
 	expectedTrafficPort         uint16
 	protocol                    layers.IPProtocol
-	lateTemplateIDs             []uint16
 	natPoolName                 string
 	postNATSourceIPv4Address    net.IP
 	postNAPTSourceTransportPort uint16
 	adf                         bool
+	forwardingPolicyID          string
+	expectedOriginVRFName       string
+	expectedReverseVRFName      string
 }
 
 type ipfixVerifier struct {
@@ -270,6 +284,8 @@ type ipfixVerifier struct {
 	collectorIP  net.IP
 	recs         []ipfixRecord
 	cfg          ipfixVerifierCfg
+	altServerIP  *net.IPNet
+	fpIPTable    uint32
 }
 
 func (v *ipfixVerifier) modifySGi(callback func(nwiCfg *vpp.NWIConfig)) {
@@ -281,7 +297,26 @@ func (v *ipfixVerifier) modifySGi(callback func(nwiCfg *vpp.NWIConfig)) {
 	}
 }
 
-func (v *ipfixVerifier) withIPFIXHandler(initialTemplateIDs ...uint16) {
+func (v *ipfixVerifier) withForwardingPolicy(fpID string) {
+	ginkgo.BeforeEach(func() {
+		v.f.VPP.Ctl("ip table add 201")
+		v.f.VPP.Ctl("ip6 table add 301")
+		v.f.VPP.Ctl("upf policy add id %s via ip4-lookup-in-table 201 via ip6-lookup-in-table 301",
+			fpID)
+		if v.f.IPMode == framework.UPGIPModeV4 {
+			v.altServerIP = framework.MustParseIPNet("192.168.99.3/32")
+			v.fpIPTable = 201
+		} else {
+			v.altServerIP = framework.MustParseIPNet("2001:db8:aa::3/128")
+			v.fpIPTable = 301
+		}
+		v.f.AddCustomServerIP(v.altServerIP)
+		v.f.VPP.Ctl("ip route add %s table %d via %s host-sgi0",
+			v.altServerIP, v.fpIPTable, v.f.ServerIP())
+	})
+}
+
+func (v *ipfixVerifier) withIPFIXHandler() {
 	v.modifySGi(func(nwiCfg *vpp.NWIConfig) {
 		// always set observationDomain{Id/Name} / observationPointId
 		// as these values are used when the ipfix policy is specified
@@ -351,14 +386,18 @@ func (v *ipfixVerifier) verifyIPFIX(cfg ipfixVerifierCfg) {
 		appName = framework.HTTPAppName
 	}
 	v.seid = startMeasurementSession(v.f, &framework.SessionConfig{
-		IMSI:          "313460000000001",
-		IPFIXTemplate: cfg.farTemplate,
-		NatPoolName:   cfg.natPoolName,
-		AppName:       appName,
+		IMSI:               "313460000000001",
+		IPFIXTemplate:      cfg.farTemplate,
+		NatPoolName:        cfg.natPoolName,
+		AppName:            appName,
+		ForwardingPolicyID: cfg.forwardingPolicyID,
 	})
 	sessionStr, err := v.f.VPP.Ctl("show upf session")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(sessionStr).To(gomega.ContainSubstring("313460000000001"))
+	if cfg.forwardingPolicyID != "" {
+		cfg.trafficCfg.AddServerIP(v.altServerIP.IP)
+	}
 	runTrafficGen(v.f, cfg.trafficCfg, &traffic.PreciseTrafficRec{})
 	ginkgo.By("waiting for the flow to expire")
 	gomega.Eventually(func() string {
@@ -369,7 +408,11 @@ func (v *ipfixVerifier) verifyIPFIX(cfg ipfixVerifierCfg) {
 		ShouldNot(gomega.ContainSubstring("proto 0x"),
 			"the flow should be gone")
 	v.ms = deleteSession(v.f, v.seid, true)
-	verifyNonAppMeasurement(v.f, v.ms, cfg.protocol, nil)
+	var serverIP net.IP
+	if v.altServerIP != nil {
+		serverIP = v.altServerIP.IP
+	}
+	verifyNonAppMeasurement(v.f, v.ms, cfg.protocol, serverIP)
 
 	v.recs = v.ipfixHandler.getRecords()
 }
@@ -546,9 +589,17 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 		gomega.Expect(r).To(gomega.HaveKey("octetDeltaCount"))
 		gomega.Expect(r).To(gomega.HaveKey("ingressVRFID"))
 		gomega.Expect(r).To(gomega.HaveKey("egressVRFID"))
-		vrfNamePrefix := "ipv4-VRF:"
+		originVRFName := "ipv4-VRF:200"
+		reverseVRFName := "ipv4-VRF:100"
+		if v.cfg.expectedOriginVRFName != "" {
+			originVRFName = v.cfg.expectedOriginVRFName
+		}
+		if v.cfg.expectedReverseVRFName != "" {
+			reverseVRFName = v.cfg.expectedReverseVRFName
+		}
 		if v.f.IPMode == framework.UPGIPModeV6 {
-			vrfNamePrefix = "ipv6-VRF:"
+			originVRFName = "ipv6-VRF:200"
+			reverseVRFName = "ipv6-VRF:100"
 		}
 
 		gomega.Expect(r).To(gomega.HaveKey("interfaceName"))
@@ -560,11 +611,20 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			// upload
 			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
 			v.ulEndTS = r["flowEndNanoseconds"].(time.Time)
-			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
+			serverIP := v.f.ServerIP()
+			expectedEgressVRFID := uint32(200)
+			if v.altServerIP != nil {
+				serverIP = v.altServerIP.IP
+				expectedEgressVRFID = 201
+				if v.f.IPMode == framework.UPGIPModeV6 {
+					expectedEgressVRFID = 301
+				}
+			}
+			gomega.Expect(r[dstAddressKey].(net.IP).Equal(serverIP)).To(gomega.BeTrue())
 			gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(1))) // egress flow
 			gomega.Expect(r["ingressVRFID"]).To(gomega.Equal(uint32(100)))
-			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(uint32(200)))
-			gomega.Expect(r["VRFname"]).To(gomega.Equal(vrfNamePrefix + "200"))
+			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(expectedEgressVRFID))
+			gomega.Expect(r["VRFname"]).To(gomega.Equal(originVRFName))
 			gomega.Expect(r["interfaceName"]).To(gomega.Equal("host-sgi0"))
 			ulOctets += r["octetDeltaCount"].(uint64)
 		} else {
@@ -574,7 +634,7 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(0))) // ingress flow
 			gomega.Expect(r["ingressVRFID"]).To(gomega.Equal(uint32(200)))
 			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(uint32(100)))
-			gomega.Expect(r["VRFname"]).To(gomega.Equal(vrfNamePrefix + "100"))
+			gomega.Expect(r["VRFname"]).To(gomega.Equal(reverseVRFName))
 			expectedIfName := "host-access0"
 			if v.f.Mode == framework.UPGModePGW {
 				expectedIfName = "host-grx0"
