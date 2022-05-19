@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0x855eb6f7
+	VersionCrc = 0xc56bea88
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -676,6 +676,7 @@ type UpfNwiAddDel struct {
 	IP6TableID            uint32           `binapi:"u32,name=ip6_table_id" json:"ip6_table_id,omitempty"`
 	IpfixPolicy           []byte           `binapi:"u8[64],name=ipfix_policy" json:"ipfix_policy,omitempty"`
 	IpfixCollectorIP      ip_types.Address `binapi:"address,name=ipfix_collector_ip" json:"ipfix_collector_ip,omitempty"`
+	IpfixReportInterval   uint32           `binapi:"u32,name=ipfix_report_interval" json:"ipfix_report_interval,omitempty"`
 	ObservationDomainID   uint32           `binapi:"u32,name=observation_domain_id" json:"observation_domain_id,omitempty"`
 	ObservationDomainName []byte           `binapi:"u8[256],name=observation_domain_name" json:"observation_domain_name,omitempty"`
 	ObservationPointID    uint64           `binapi:"u64,name=observation_point_id" json:"observation_point_id,omitempty"`
@@ -685,7 +686,7 @@ type UpfNwiAddDel struct {
 
 func (m *UpfNwiAddDel) Reset()               { *m = UpfNwiAddDel{} }
 func (*UpfNwiAddDel) GetMessageName() string { return "upf_nwi_add_del" }
-func (*UpfNwiAddDel) GetCrcString() string   { return "0d3a4bda" }
+func (*UpfNwiAddDel) GetCrcString() string   { return "07485c64" }
 func (*UpfNwiAddDel) GetMessageType() api.MessageType {
 	return api.RequestMessage
 }
@@ -700,6 +701,7 @@ func (m *UpfNwiAddDel) Size() (size int) {
 	size += 1 * 64         // m.IpfixPolicy
 	size += 1              // m.IpfixCollectorIP.Af
 	size += 1 * 16         // m.IpfixCollectorIP.Un
+	size += 4              // m.IpfixReportInterval
 	size += 4              // m.ObservationDomainID
 	size += 1 * 256        // m.ObservationDomainName
 	size += 8              // m.ObservationPointID
@@ -718,6 +720,7 @@ func (m *UpfNwiAddDel) Marshal(b []byte) ([]byte, error) {
 	buf.EncodeBytes(m.IpfixPolicy, 64)
 	buf.EncodeUint8(uint8(m.IpfixCollectorIP.Af))
 	buf.EncodeBytes(m.IpfixCollectorIP.Un.XXX_UnionData[:], 16)
+	buf.EncodeUint32(m.IpfixReportInterval)
 	buf.EncodeUint32(m.ObservationDomainID)
 	buf.EncodeBytes(m.ObservationDomainName, 256)
 	buf.EncodeUint64(m.ObservationPointID)
@@ -734,6 +737,7 @@ func (m *UpfNwiAddDel) Unmarshal(b []byte) error {
 	copy(m.IpfixPolicy, buf.DecodeBytes(len(m.IpfixPolicy)))
 	m.IpfixCollectorIP.Af = ip_types.AddressFamily(buf.DecodeUint8())
 	copy(m.IpfixCollectorIP.Un.XXX_UnionData[:], buf.DecodeBytes(16))
+	m.IpfixReportInterval = buf.DecodeUint32()
 	m.ObservationDomainID = buf.DecodeUint32()
 	m.ObservationDomainName = make([]byte, 256)
 	copy(m.ObservationDomainName, buf.DecodeBytes(len(m.ObservationDomainName)))
@@ -1842,7 +1846,7 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfApplicationsDump)(nil), "upf_applications_dump_51077d14")
 	api.RegisterMessage((*UpfNatPoolDetails)(nil), "upf_nat_pool_details_536a8c46")
 	api.RegisterMessage((*UpfNatPoolDump)(nil), "upf_nat_pool_dump_51077d14")
-	api.RegisterMessage((*UpfNwiAddDel)(nil), "upf_nwi_add_del_0d3a4bda")
+	api.RegisterMessage((*UpfNwiAddDel)(nil), "upf_nwi_add_del_07485c64")
 	api.RegisterMessage((*UpfNwiAddDelReply)(nil), "upf_nwi_add_del_reply_e8d4e804")
 	api.RegisterMessage((*UpfNwiDetails)(nil), "upf_nwi_details_e676456e")
 	api.RegisterMessage((*UpfNwiDump)(nil), "upf_nwi_dump_51077d14")

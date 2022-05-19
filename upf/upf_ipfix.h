@@ -14,9 +14,6 @@
 
 #include "flowtable.h"
 
-/* Default timers in seconds */
-#define UPF_IPFIX_TIMER_ACTIVE   (5) // FIXME: use different value
-
 #define FLOW_MAXIMUM_EXPORT_ENTRIES	(1024)
 
 typedef struct {
@@ -82,6 +79,8 @@ typedef struct
   upf_ipfix_info_key_t key;
   /** Context index */
   u32 context_index;
+  /** Report interval in seconds */
+  u32 report_interval;
   /** IPFIX field: ingressVRFID */
   u32 ingress_vrf_id;
   /** IPFIX field: egressVRFID */
@@ -113,8 +112,6 @@ typedef struct
   upf_ipfix_policy_t policy;
 
   u32 vlib_time_0;
-
-  u32 active_timer;
 
   bool initialized;
   bool disabled;

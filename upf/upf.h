@@ -862,6 +862,7 @@ typedef struct
 
   upf_ipfix_policy_t ipfix_policy;
   ip_address_t ipfix_collector_ip;
+  u32 ipfix_report_interval;
 
   u32 observation_domain_id;
   u64 observation_point_id;
@@ -1062,6 +1063,7 @@ void vnet_upf_pfcp_set_polling (vlib_main_t * vm, u8 polling);
 int vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 			  upf_ipfix_policy_t ipfix_policy,
 			  ip_address_t * ipfix_collector_ip,
+			  u32 ipfix_report_interval,
 			  u32 observation_domain_id,
 			  u8 * observation_domain_name,
 			  u64 observation_point_id, u8 add);

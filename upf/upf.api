@@ -237,6 +237,7 @@ autoreply define upf_nwi_add_del {
   u32 ip6_table_id;
   u8 ipfix_policy[64];
   vl_api_address_t ipfix_collector_ip;
+  u32 ipfix_report_interval;
   u32 observation_domain_id;
   u8 observation_domain_name[256];
   u64 observation_point_id;
