@@ -380,9 +380,9 @@ func (v *ipfixVerifier) verifyIPFIXStart() {
 func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 	v.verifyIPFIXStart()
 	// total counts not used for now, but kept here in case if they're needed later
-	// var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
-	var initiatorPackets, responderPackets uint64
-	var initiatorOctets, responderOctets uint64
+	var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
+	// var initiatorPackets, responderPackets uint64
+	// var initiatorOctets, responderOctets uint64
 	var clientPort uint16
 	for _, r := range v.recs {
 		// The record looks like:
@@ -413,15 +413,21 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 		}
 		gomega.Expect(r).To(gomega.HaveKey(srcAddressKey))
 		gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
-		// gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
-		gomega.Expect(r).To(gomega.HaveKey("initiatorPackets"))
-		gomega.Expect(r).To(gomega.HaveKey("responderPackets"))
-		gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
-		gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
-		initiatorPackets += r["initiatorPackets"].(uint64)
-		responderPackets += r["responderPackets"].(uint64)
-		initiatorOctets += r["initiatorOctets"].(uint64)
-		responderOctets += r["responderOctets"].(uint64)
+
+		// For now, we're using octetDeltaCount / packetDeltaCount
+		// values instead of initator.../responder... fields.
+		// Unlike initiator/responder, these depend on the
+		// direction of the flow
+		// gomega.Expect(r).To(gomega.HaveKey("initiatorPackets"))
+		// gomega.Expect(r).To(gomega.HaveKey("responderPackets"))
+		// gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
+		// gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
+		// initiatorPackets += r["initiatorPackets"].(uint64)
+		// responderPackets += r["responderPackets"].(uint64)
+		// initiatorOctets += r["initiatorOctets"].(uint64)
+		// responderOctets += r["responderOctets"].(uint64)
+		gomega.Expect(r).To(gomega.HaveKey("packetDeltaCount"))
+		gomega.Expect(r).To(gomega.HaveKey("octetDeltaCount"))
 
 		gomega.Expect(r).To(gomega.HaveKeyWithValue("observationDomainId", uint32(42)))
 
@@ -438,9 +444,9 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 			v.ulEndTS = r["flowEndNanoseconds"].(time.Time)
 			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
 			// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", ulPacketCount))
-			// ulPacketCount = r["packetTotalCount"].(uint64)
+			ulPacketCount += r["packetDeltaCount"].(uint64)
 			// gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", ulOctets))
-			// ulOctets = r["octetTotalCount"].(uint64)
+			ulOctets += r["octetDeltaCount"].(uint64)
 			gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(v.cfg.expectedTrafficPort))
 			if clientPort == 0 {
 				clientPort = r["sourceTransportPort"].(uint16)
@@ -470,9 +476,9 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 			gomega.Expect(r[srcAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
 			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.UEIP())).To(gomega.BeTrue())
 			// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", dlPacketCount))
-			// dlPacketCount = r["packetTotalCount"].(uint64)
+			dlPacketCount += r["packetDeltaCount"].(uint64)
 			// gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", dlOctets))
-			// dlOctets = r["octetTotalCount"].(uint64)
+			dlOctets += r["octetDeltaCount"].(uint64)
 			gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(v.cfg.expectedTrafficPort))
 			if clientPort == 0 {
 				clientPort = r["destinationTransportPort"].(uint16)
@@ -483,23 +489,23 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 		}
 	}
 
-	// gomega.Expect(ulPacketCount).To(gomega.Equal(*v.ms.Reports[1][0].UplinkPacketCount), "uplink packet count")
-	// gomega.Expect(dlPacketCount).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkPacketCount), "downlink packet count")
-	gomega.Expect(initiatorPackets).To(gomega.Equal(*v.ms.Reports[1][0].UplinkPacketCount), "initiatorPackets")
-	gomega.Expect(responderPackets).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkPacketCount), "responderPackets")
-	// gomega.Expect(ulOctets).To(gomega.Equal(*v.ms.Reports[1][0].UplinkVolume), "uplink volume")
-	// gomega.Expect(dlOctets).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkVolume), "downlink volume")
+	gomega.Expect(ulPacketCount).To(gomega.Equal(*v.ms.Reports[1][0].UplinkPacketCount), "uplink packet count")
+	gomega.Expect(dlPacketCount).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkPacketCount), "downlink packet count")
+	// gomega.Expect(initiatorPackets).To(gomega.Equal(*v.ms.Reports[1][0].UplinkPacketCount), "initiatorPackets")
+	// gomega.Expect(responderPackets).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkPacketCount), "responderPackets")
+	gomega.Expect(ulOctets).To(gomega.Equal(*v.ms.Reports[1][0].UplinkVolume), "uplink volume")
+	gomega.Expect(dlOctets).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkVolume), "downlink volume")
 
-	l4UL, l4DL := getL4TrafficCountsFromCapture(v.f, v.cfg.protocol, nil)
-	gomega.Expect(initiatorOctets).To(gomega.Equal(l4UL), "initiatorOctets")
-	gomega.Expect(responderOctets).To(gomega.Equal(l4DL), "responderOctets")
+	// l4UL, l4DL := getL4TrafficCountsFromCapture(v.f, v.cfg.protocol, nil)
+	// gomega.Expect(initiatorOctets).To(gomega.Equal(l4UL), "initiatorOctets")
+	// gomega.Expect(responderOctets).To(gomega.Equal(l4DL), "responderOctets")
 }
 
 func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 	v.verifyIPFIXStart()
 	// total counts not used for now, but kept here in case if they're needed later
-	// var ulPacketCount, dlPacketCount, ulOctets, dlOctets uint64
-	var initiatorOctets, responderOctets uint64
+	var ulOctets, dlOctets uint64
+	// var initiatorOctets, responderOctets uint64
 	for _, r := range v.recs {
 		gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
 
@@ -509,12 +515,17 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 		}
 		gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
 		gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
-		gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
-		gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
+		// For now, we're using octetDeltaCount
+		// values instead of initator.../responder... fields.
+		// Unlike initiator/responder, these depend on the
+		// direction of the flow
+		// gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
+		// gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
+		// initiatorOctets += r["initiatorOctets"].(uint64)
+		// responderOctets += r["responderOctets"].(uint64)
+		gomega.Expect(r).To(gomega.HaveKey("octetDeltaCount"))
 		gomega.Expect(r).To(gomega.HaveKey("ingressVRFID"))
 		gomega.Expect(r).To(gomega.HaveKey("egressVRFID"))
-		initiatorOctets += r["initiatorOctets"].(uint64)
-		responderOctets += r["responderOctets"].(uint64)
 		vrfNamePrefix := "ipv4-VRF:"
 		if v.f.IPMode == framework.UPGIPModeV6 {
 			vrfNamePrefix = "ipv6-VRF:"
@@ -535,6 +546,7 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(uint32(200)))
 			gomega.Expect(r["VRFname"]).To(gomega.Equal(vrfNamePrefix + "200"))
 			gomega.Expect(r["interfaceName"]).To(gomega.Equal("host-sgi0"))
+			ulOctets += r["octetDeltaCount"].(uint64)
 		} else {
 			// download
 			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
@@ -548,10 +560,14 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 				expectedIfName = "host-grx0"
 			}
 			gomega.Expect(r["interfaceName"]).To(gomega.Equal(expectedIfName))
+			dlOctets += r["octetDeltaCount"].(uint64)
 		}
 	}
 
-	l4UL, l4DL := getL4TrafficCountsFromCapture(v.f, v.cfg.protocol, nil)
-	gomega.Expect(initiatorOctets).To(gomega.Equal(l4UL), "initiatorOctets")
-	gomega.Expect(responderOctets).To(gomega.Equal(l4DL), "responderOctets")
+	// l4UL, l4DL := getL4TrafficCountsFromCapture(v.f, v.cfg.protocol, nil)
+	// gomega.Expect(initiatorOctets).To(gomega.Equal(l4UL), "initiatorOctets")
+	// gomega.Expect(responderOctets).To(gomega.Equal(l4DL), "responderOctets")
+
+	gomega.Expect(ulOctets).To(gomega.Equal(*v.ms.Reports[1][0].UplinkVolume), "uplink volume")
+	gomega.Expect(dlOctets).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkVolume), "downlink volume")
 }
