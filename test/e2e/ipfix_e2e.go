@@ -243,7 +243,6 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 			v.withIPFIXHandler()
 			ginkgo.It("records forwarding policy name in VRFname", func() {
 				v.verifyIPFIX(ipfixVerifierCfg{
-					// NOTE: no farTemplate
 					trafficCfg:             smallVolumeHTTPConfig(nil),
 					protocol:               layers.IPProtocolTCP,
 					expectedTrafficPort:    80,
@@ -252,6 +251,27 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 					expectedReverseVRFName: "altIP",
 				})
 				v.verifyIPFIXDestRecords()
+			})
+		})
+
+		ginkgo.Context("reporting interval", func() {
+			f := framework.NewDefaultFramework(mode, ipMode)
+			v := &ipfixVerifier{f: f}
+			v.withNWIIPFIXPolicy("dest")
+			v.withIPFIXHandler()
+			v.withReportingInterval(7)
+			ginkgo.It("can be set via NWI", func() {
+				trafficCfg := smallVolumeHTTPConfig(nil)
+				// Make sure the flow lasts long enough to measure the intervals
+				trafficCfg.ChunkCount = 50
+				trafficCfg.ChunkDelay = 500 * time.Millisecond
+				v.verifyIPFIX(ipfixVerifierCfg{
+					trafficCfg:          trafficCfg,
+					protocol:            layers.IPProtocolTCP,
+					expectedTrafficPort: 80,
+				})
+				v.verifyIPFIXDestRecords()
+				v.verifyReportingInterval(7)
 			})
 		})
 	})
@@ -352,6 +372,12 @@ func (v *ipfixVerifier) withIPFIXHandler() {
 func (v *ipfixVerifier) withNWIIPFIXPolicy(name string) {
 	v.modifySGi(func(nwiCfg *vpp.NWIConfig) {
 		nwiCfg.IPFIXPolicy = name
+	})
+}
+
+func (v *ipfixVerifier) withReportingInterval(seconds int) {
+	v.modifySGi(func(nwiCfg *vpp.NWIConfig) {
+		nwiCfg.IPFIXReportingInterval = seconds
 	})
 }
 
@@ -591,15 +617,15 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 		gomega.Expect(r).To(gomega.HaveKey("egressVRFID"))
 		originVRFName := "ipv4-VRF:200"
 		reverseVRFName := "ipv4-VRF:100"
+		if v.f.IPMode == framework.UPGIPModeV6 {
+			originVRFName = "ipv6-VRF:200"
+			reverseVRFName = "ipv6-VRF:100"
+		}
 		if v.cfg.expectedOriginVRFName != "" {
 			originVRFName = v.cfg.expectedOriginVRFName
 		}
 		if v.cfg.expectedReverseVRFName != "" {
 			reverseVRFName = v.cfg.expectedReverseVRFName
-		}
-		if v.f.IPMode == framework.UPGIPModeV6 {
-			originVRFName = "ipv6-VRF:200"
-			reverseVRFName = "ipv6-VRF:100"
 		}
 
 		gomega.Expect(r).To(gomega.HaveKey("interfaceName"))
@@ -650,4 +676,29 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 
 	gomega.Expect(ulOctets).To(gomega.Equal(*v.ms.Reports[1][0].UplinkVolume), "uplink volume")
 	gomega.Expect(dlOctets).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkVolume), "downlink volume")
+}
+
+func (v *ipfixVerifier) verifyReportingInterval(expectedSeconds int) {
+	var ingressTimes, egressTimes []time.Time
+	for _, r := range v.recs {
+		dir := r["flowDirection"].(uint8)
+		ts := r["ts"].(time.Time)
+		if dir == 0 {
+			ingressTimes = append(ingressTimes, ts)
+		} else {
+			framework.ExpectEqual(dir, uint8(1))
+			egressTimes = append(egressTimes, ts)
+		}
+	}
+	atLeastMs := uint64(expectedSeconds) * 1000
+	verifyIntervals(ingressTimes, atLeastMs)
+	verifyIntervals(egressTimes, atLeastMs)
+}
+
+func verifyIntervals(times []time.Time, atLeastMs uint64) {
+	gomega.Expect(len(times)).To(gomega.BeNumerically(">", 3))
+	for n := 1; n < len(times); n++ {
+		deltaT := times[n].Sub(times[n-1]).Milliseconds()
+		gomega.Expect(deltaT).To(gomega.BeNumerically(">=", atLeastMs-200))
+	}
 }

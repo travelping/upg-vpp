@@ -494,6 +494,7 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
   upf_ipfix_policy_t ipfix_policy = UPF_IPFIX_POLICY_NONE;
   int rv = 0;
   ip_address_t ipfix_collector_ip;
+  u32 ipfix_report_interval;
   u32 observation_domain_id;
   u8 *observation_domain_name = 0;
   u64 observation_point_id;
@@ -543,6 +544,7 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
   ipfix_collector_ip.version =
     ip46_address_is_ip4 (&ipfix_collector_ip.ip) ? AF_IP4 : AF_IP6;
 
+  ipfix_report_interval = clib_net_to_host_u32 (mp->ipfix_report_interval);
   observation_domain_id = clib_net_to_host_u32 (mp->observation_domain_id);
   if (mp->observation_domain_name[0])
     {
@@ -554,6 +556,7 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
 
   rv = vnet_upf_nwi_add_del (nwi_name, ip4_table_id, ip6_table_id,
 			     ipfix_policy, &ipfix_collector_ip,
+			     ipfix_report_interval,
 			     observation_domain_id,
 			     observation_domain_name,
 			     observation_point_id, mp->add);

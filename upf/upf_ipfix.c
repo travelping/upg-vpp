@@ -46,11 +46,14 @@
   do { } while (0)
 #endif
 
+/* Default report interval in seconds */
+#define UPF_IPFIX_DEFAULT_REPORT_INTERVAL 5
+
 upf_ipfix_main_t upf_ipfix_main;
 uword upf_ipfix_walker_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
 				vlib_frame_t * f);
 
-static bool
+static u32
 upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction);
 
 static inline ipfix_exporter_t *
@@ -468,15 +471,17 @@ void upf_ipfix_flow_update_hook (flow_entry_t * f, flow_direction_t direction, u
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   vlib_main_t *vm = fm->vlib_main;
+  u32 iidx;
+  upf_ipfix_info_t *info;
 
   if (fm->disabled)
       return;
 
-  if (!upf_ipfix_ensure_flow_ipfix_info (f, direction))
+  if ((iidx = upf_ipfix_ensure_flow_ipfix_info (f, direction)) == ~0)
     return;
 
-  if (fm->active_timer == 0
-      || (now > flow_last_exported(f, direction) + fm->active_timer))
+  info = pool_elt_at_index (fm->infos, iidx);
+  if (now > flow_last_exported(f, direction) + info->report_interval)
     upf_ipfix_export_entry (vm, f, direction, now, false);
 }
 
@@ -641,6 +646,7 @@ upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key)
   if (!pool_is_free_index(gtm->nwis, key->info_nwi_index))
     {
       upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, key->info_nwi_index);
+      info->report_interval = nwi->ipfix_report_interval;
       context_key.observation_domain_id = nwi->observation_domain_id;
       info->observation_point_id = nwi->observation_point_id;
       info->observation_domain_name = vec_dup (nwi->observation_domain_name);
@@ -648,6 +654,9 @@ upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key)
     }
   else
     clib_warning ("non-existent egress NWI at index %u", key->info_nwi_index);
+
+  if (info->report_interval == 0 || info->report_interval == ~0)
+    info->report_interval = UPF_IPFIX_DEFAULT_REPORT_INTERVAL;
 
   context_key.policy = key->policy;
   context_key.is_ip4 = key->is_ip4;
@@ -721,8 +730,6 @@ upf_ipfix_init (vlib_main_t * vm)
   /* clib_bihash_set_kvp_format_fn_24_8 (&fm->info_by_key, */
   /* 				      format_ipfix_info_key); */
 
-  fm->active_timer = UPF_IPFIX_TIMER_ACTIVE;
-
   flow_update_hook = upf_ipfix_flow_update_hook;
   flow_removal_hook = upf_ipfix_flow_removal_hook;
 
@@ -789,7 +796,7 @@ u8 *format_upf_ipfix_policy (u8 * s, va_list * args)
     format (s, "<unknown %u>", policy);
 }
 
-static bool
+static u32
 upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
@@ -803,27 +810,28 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
   upf_nwi_t *ingress_nwi, *egress_nwi;
   fib_protocol_t fproto;
   upf_ipfix_info_t * other_info = 0;
+  u32 iidx;
 
-  if (flow_ipfix_info (f, direction) != ~0)
-    return true;
+  if ((iidx = flow_ipfix_info (f, direction)) != ~0)
+    return iidx;
 
   if (pool_is_free_index (gtm->sessions, f->session_index))
-    return false;
+    return ~0;
 
   sx = pool_elt_at_index (gtm->sessions, f->session_index);
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
   pdr_id = flow_pdr_id (f, direction);
   if (pdr_id == ~0)
-    return false;
+    return ~0;
 
   pdr = pfcp_get_pdr_by_id (active, pdr_id);
   if (!pdr || pool_is_free_index (gtm->nwis, pdr->pdi.nwi_index))
-    return false;
+    return ~0;
 
   far = pfcp_get_far_by_id (active, pdr->far_id);
   if (!far || pool_is_free_index (gtm->nwis, far->forward.nwi_index))
-    return false;
+    return ~0;
 
   egress_nwi = pool_elt_at_index (gtm->nwis, far->forward.nwi_index);
 
@@ -854,7 +862,7 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
 	  info_key.info_nwi_index = other_info->key.info_nwi_index;
 	}
       else
-	return false;
+	return ~0;
     }
   else
     info_key.info_nwi_index = far->forward.nwi_index;
@@ -904,8 +912,8 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
 					&f->key.ip[FT_REVERSE ^ f->is_reverse ^ direction],
 					info_key.is_ip4);
 
-  vnet_main_t *vnm = vnet_get_main ();
+  iidx = upf_ensure_ref_ipfix_info(&info_key);
+  flow_ipfix_info(f, direction) = iidx;
 
-  flow_ipfix_info(f, direction) = upf_ensure_ref_ipfix_info(&info_key);
-  return true;
+  return iidx;
 }
