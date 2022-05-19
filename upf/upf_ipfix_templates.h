@@ -132,20 +132,10 @@
 #define IPFIX_FIELD_PROTOCOL_IDENTIFIER(F)			\
   F(protocolIdentifier, 1,					\
     IPFIX_VALUE_DIRECT, f->key.proto, 1, 1)
-#define IPFIX_FIELD_OCTET_TOTAL_COUNT(F)			\
-  F(octetTotalCount, 8,						\
-    IPFIX_VALUE_U64,						\
-    flow_stats(f, direction).bytes,				\
-    sizeof (u64), 1)
 #define IPFIX_FIELD_MOBILE_IMSI(F)				\
   F(455, 65535,							\
     IPFIX_VALUE_MOBILE_IMSI,					\
     sx->user_id.imsi, sx->user_id.imsi_len, 1)
-#define IPFIX_FIELD_PACKET_TOTAL_COUNT(F)		       	\
-  F(packetTotalCount, 8,					\
-    IPFIX_VALUE_U64,						\
-    flow_stats(f, direction).pkts,				\
-    sizeof(u64), 1)
 #define IPFIX_FIELD_INITIATOR_PACKETS(F)			\
   F(initiatorPackets, 8,					\
     IPFIX_VALUE_DELTA_U64,					\
@@ -166,6 +156,26 @@
     IPFIX_VALUE_DELTA_U64,					\
     flow_stats(f, FT_REVERSE).l4_bytes_unreported,		\
     sizeof(u64), 1)
+#define IPFIX_FIELD_PACKET_DELTA_COUNT(F)			\
+  F(packetDeltaCount, 8,					\
+    IPFIX_VALUE_DELTA_U64,					\
+    flow_stats(f, direction).pkts_unreported,			\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_OCTET_DELTA_COUNT(F)			\
+  F(octetDeltaCount, 8,						\
+    IPFIX_VALUE_DELTA_U64,					\
+    flow_stats(f, direction).bytes_unreported,			\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_PACKET_TOTAL_COUNT(F)		       	\
+  F(packetTotalCount, 8,					\
+    IPFIX_VALUE_U64,						\
+    flow_stats(f, direction).pkts,				\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_OCTET_TOTAL_COUNT(F)			\
+  F(octetTotalCount, 8,						\
+    IPFIX_VALUE_U64,						\
+    flow_stats(f, direction).bytes,				\
+    sizeof (u64), 1)
 #define IPFIX_FIELD_FLOW_START_NANOSECONDS(F)			\
   F(flowStartNanoseconds, 8,					\
     IPFIX_VALUE_NSEC,						\
