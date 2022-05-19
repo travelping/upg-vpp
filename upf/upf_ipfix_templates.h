@@ -47,6 +47,9 @@
     offset += n;					\
   } while (0)
 
+#define IPFIX_VALUE_U8_COND(v, n, c)	\
+  to_b->data[offset++] = (c) ? (v) : 0
+
 #define IPFIX_VALUE_U16(v, n, c)				\
   do {								\
     u16 tmp = clib_host_to_net_u16 (v);				\
@@ -244,6 +247,15 @@
     IPFIX_VALUE_U64,						\
     info->observation_point_id,					\
     sizeof(u64), 1)
+
+#define UPF_NAT_EVENT_NAT44_SESSION_CREATE 4
+#define UPF_NAT_EVENT_NAT44_SESSION_DELETE 5
+#define IPFIX_FIELD_NAT_EVENT(F)				\
+  F(natEvent, 1,						\
+    IPFIX_VALUE_U8_COND,					\
+    !f->exported ? UPF_NAT_EVENT_NAT44_SESSION_CREATE :		\
+    last ? UPF_NAT_EVENT_NAT44_SESSION_DELETE : 0,		\
+    sizeof (u8), 1)
 
 #define IPFIX_FIELD(fieldName, specLen, valCopy, v, n, c)	\
   do {								\

@@ -248,7 +248,7 @@ upf_ipfix_report_add_del (upf_ipfix_main_t *fm,
   return vnet_flow_report_add_del (exp, &a, template_id);
 }
 
-static void upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t direction, u32 now);
+static void upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t direction, u32 now, bool last);
 
 /* TBD: add trace */
 
@@ -406,7 +406,7 @@ upf_ipfix_get_buffer (vlib_main_t * vm, upf_ipfix_protocol_context_t * context)
 }
 
 static void
-upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t direction, u32 now)
+upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t direction, u32 now, bool last)
 {
   u32 my_cpu_number = vm->thread_index;
   upf_ipfix_main_t *fm = &upf_ipfix_main;
@@ -447,12 +447,13 @@ upf_ipfix_export_entry (vlib_main_t * vm, flow_entry_t * f, flow_direction_t dir
     }
 
   if (context->key.is_ip4)
-    offset += template->add_ip4_values (b0, f, direction, offset, sx, info);
+    offset += template->add_ip4_values (b0, f, direction, offset, sx, info, last);
   else
-    offset += template->add_ip6_values (b0, f, direction, offset, sx, info);
+    offset += template->add_ip6_values (b0, f, direction, offset, sx, info, last);
 
   /* Reset per flow-export counters */
   flow_last_exported(f, direction) = now;
+  f->exported = 1;
 
   b0->current_length = offset;
 
@@ -476,7 +477,7 @@ void upf_ipfix_flow_update_hook (flow_entry_t * f, flow_direction_t direction, u
 
   if (fm->active_timer == 0
       || (now > flow_last_exported(f, direction) + fm->active_timer))
-    upf_ipfix_export_entry (vm, f, direction, now);
+    upf_ipfix_export_entry (vm, f, direction, now, false);
 }
 
 void upf_ipfix_flow_removal_hook (flow_entry_t * f, u32 now)
@@ -489,13 +490,14 @@ void upf_ipfix_flow_removal_hook (flow_entry_t * f, u32 now)
 
   if (flow_ipfix_info(f, FT_ORIGIN) != ~0)
     {
-      upf_ipfix_export_entry (vm, f, FT_ORIGIN, now);
+      bool last = flow_ipfix_info(f, FT_REVERSE) == ~0;
+      upf_ipfix_export_entry (vm, f, FT_ORIGIN, now, last);
       upf_unref_ipfix_info (flow_ipfix_info(f, FT_ORIGIN));
     }
 
   if (flow_ipfix_info(f, FT_REVERSE) != ~0)
     {
-      upf_ipfix_export_entry (vm, f, FT_REVERSE, now);
+      upf_ipfix_export_entry (vm, f, FT_REVERSE, now, true);
       upf_unref_ipfix_info (flow_ipfix_info(f, FT_REVERSE));
     }
 }
