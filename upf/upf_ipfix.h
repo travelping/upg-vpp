@@ -136,7 +136,8 @@ typedef u32 (*upf_ipfix_value_func_t) (vlib_buffer_t * to_b,
 				       flow_direction_t direction,
 				       u16 offset,
 				       upf_session_t *sx,
-				       upf_ipfix_info_t *info);
+				       upf_ipfix_info_t *info,
+				       bool last);
 
 typedef struct
 {
