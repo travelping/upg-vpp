@@ -379,6 +379,7 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
   u8 add = 1;
   int rv;
   ip_address_t ipfix_collector_ip = ip_address_initializer;
+  u32 ipfix_report_interval = 0;
   u32 observation_domain_id = 1;
   u8 *observation_domain_name = 0;
   u64 observation_point_id = 1;
@@ -406,6 +407,9 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
 	;
       else if (unformat (line_input, "ipfix-collector-ip %U",
 			 unformat_ip_address, &ipfix_collector_ip))
+	;
+      else if (unformat (line_input, "ipfix-report-interval %u",
+			 &ipfix_report_interval))
 	;
       else
 	if (unformat
@@ -440,6 +444,7 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
 
   rv = vnet_upf_nwi_add_del (name, table_id, table_id, ipfix_policy,
 			     &ipfix_collector_ip,
+			     ipfix_report_interval,
 			     observation_domain_id,
 			     observation_domain_name,
 			     observation_point_id, add);
@@ -474,9 +479,13 @@ VLIB_CLI_COMMAND (upf_nwi_add_del_command, static) =
 {
   .path = "upf nwi",
   .short_help =
-  "upf nwi name <name> [table <table-id>] [vrf <vrf-id>] [ipfix-policy <name>] "
-  "[ipfix-collector-ip <ip>] [observation-domain-id <id>] "
-  "[observation-domain-name <name>] [observation-point-id <id>] "
+  "upf nwi name <name> [table <table-id>] [vrf <vrf-id>] "
+  "[ipfix-policy <name>] "
+  "[ipfix-collector-ip <ip>] "
+  "[ipfix-report-interval <secs>] "
+  "[observation-domain-id <id>] "
+  "[observation-domain-name <name>] "
+  "[observation-point-id <id>] "
   "[del]",
   .function = upf_nwi_add_del_command_fn,
 };

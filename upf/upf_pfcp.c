@@ -120,6 +120,7 @@ static int
 vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 			upf_ipfix_policy_t ipfix_policy,
 			ip_address_t * ipfix_collector_ip,
+			u32 ipfix_report_interval,
 			u32 observation_domain_id,
 			u8 * observation_domain_name,
 			u64 observation_point_id, u32 * sw_if_idx)
@@ -226,6 +227,7 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 
   hash_set_mem (gtm->nwi_index_by_name, nwi->name, if_index);
 
+  nwi->ipfix_report_interval = ipfix_report_interval;
   nwi->observation_domain_id = observation_domain_id;
   nwi->observation_domain_name = vec_dup (observation_domain_name);
   nwi->observation_point_id = observation_point_id;
@@ -274,6 +276,7 @@ int
 vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 		      upf_ipfix_policy_t ipfix_policy,
 		      ip_address_t * ipfix_collector_ip,
+		      u32 ipfix_report_interval,
 		      u32 observation_domain_id,
 		      u8 * observation_domain_name,
 		      u64 observation_point_id, u8 add)
@@ -281,6 +284,7 @@ vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
   return (add) ?
     vnet_upf_create_nwi_if (name, ip4_table_id, ip6_table_id,
 			    ipfix_policy, ipfix_collector_ip,
+			    ipfix_report_interval,
 			    observation_domain_id,
 			    observation_domain_name,
 			    observation_point_id,

@@ -66,14 +66,16 @@ func (h *ipfixHandler) handleIPFIXMessage(msg *entities.Message) {
 			}
 		}
 	} else {
+		now := time.Now()
 		if h.firstReportTS.IsZero() {
-			h.firstReportTS = time.Now()
+			h.firstReportTS = now
 		}
 		fmt.Fprint(&buf, "DATA SET:\n")
 		for i, record := range set.GetRecords() {
 			fmt.Fprintf(&buf, "  DATA RECORD-%d:\n", i)
 			r := map[string]interface{}{
 				"observationDomainId": msg.GetObsDomainID(),
+				"ts":                  now,
 			}
 			for _, ie := range record.GetOrderedElementList() {
 				elem := ie.GetInfoElement()

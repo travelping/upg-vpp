@@ -82,13 +82,14 @@ type VPPNetworkNamespace struct {
 }
 
 type NWIConfig struct {
-	Name                  string
-	Table                 int
-	IPFIXPolicy           string
-	ObservationDomainId   int
-	ObservationDomainName string
-	ObservationPointId    int
-	GetIPFIXCollectorIP   func() net.IP
+	Name                   string
+	Table                  int
+	IPFIXPolicy            string
+	IPFIXReportingInterval int
+	ObservationDomainId    int
+	ObservationDomainName  string
+	ObservationPointId     int
+	GetIPFIXCollectorIP    func() net.IP
 }
 
 type IPFIXExporterConfig struct {
@@ -626,6 +627,7 @@ func (vi *VPPInstance) setupNWIs() error {
 			Nwi:                 util.EncodeFQDN(nwiCfg.Name),
 			IP4TableID:          uint32(nwiCfg.Table),
 			IP6TableID:          uint32(nwiCfg.Table),
+			IpfixReportInterval: uint32(nwiCfg.IPFIXReportingInterval),
 			ObservationDomainID: uint32(nwiCfg.ObservationDomainId),
 			ObservationPointID:  uint64(nwiCfg.ObservationPointId),
 			Add:                 1,
