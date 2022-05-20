@@ -8,6 +8,11 @@ jobs:
   release:
     runs-on: self-hosted
     steps:
+    - name: Clean the workspace
+      uses: docker://alpine
+      with:
+        args: /bin/sh -c "rm -rf /github/workspace/.* 2>/dev/null || rm -rf /github/workspace/*"
+
     - name: Checkout
       uses: actions/checkout@v2
 
