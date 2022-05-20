@@ -515,9 +515,8 @@ func describePDRReplacement(f *framework.Framework) {
 	})
 }
 
-// TODO:
-// Some of Binapi test cases belong will be removed by enabling different kind of VPP configuration
-var _ = ginkgo.Describe("Binapi", func() {
+// TODO: validate both binapi and CLI against each other
+var _ = ginkgo.Describe("UPG Binary API", func() {
 	ginkgo.Context("for policy based routing", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.It("adds, removes and lists the routing policies", func() {
@@ -565,6 +564,7 @@ var _ = ginkgo.Describe("Binapi", func() {
 			gomega.Expect(err).NotTo(gomega.BeNil())
 		})
 	})
+
 	ginkgo.Context("for NWIs", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.BeforeEach(func() {
@@ -577,12 +577,16 @@ var _ = ginkgo.Describe("Binapi", func() {
 		ginkgo.It("adds, removes and lists the NWIs", func() {
 			ip, _ := ip_types.ParseAddress("192.168.42.1")
 			req := &upf.UpfNwiAddDel{
-				Nwi:              util.EncodeFQDN("testing"),
-				IP4TableID:       42000,
-				IP6TableID:       42001,
-				IpfixPolicy:      []byte("default"),
-				IpfixCollectorIP: ip,
-				Add:              1,
+				Nwi:                   util.EncodeFQDN("testing"),
+				IP4TableID:            42000,
+				IP6TableID:            42001,
+				IpfixPolicy:           []byte("default"),
+				IpfixCollectorIP:      ip,
+				IpfixReportInterval:   uint32(7),
+				ObservationDomainID:   uint32(42),
+				ObservationDomainName: []byte("test"),
+				ObservationPointID:    uint64(4242),
+				Add:                   1,
 			}
 			reply := &upf.UpfNwiAddDelReply{}
 			err := f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
@@ -605,6 +609,11 @@ var _ = ginkgo.Describe("Binapi", func() {
 				ipfixPolicy := string(bytes.Trim(msg.IpfixPolicy, "\x00"))
 				gomega.Expect(ipfixPolicy).To(gomega.Equal("default"))
 				gomega.Expect(msg.IpfixCollectorIP.String()).To(gomega.Equal("192.168.42.1"))
+				gomega.Expect(msg.IpfixReportInterval).To(gomega.Equal(uint32(7)))
+				gomega.Expect(msg.ObservationDomainID).To(gomega.Equal(uint32(42)))
+				obsDomainName := string(bytes.Trim(msg.ObservationDomainName, "\x00"))
+				gomega.Expect(obsDomainName).To(gomega.Equal("test"))
+				gomega.Expect(msg.ObservationPointID).To(gomega.Equal(uint64(4242)))
 				found = true
 			}
 			gomega.Expect(found).To(gomega.BeTrue(), "upf_nwi_dump")

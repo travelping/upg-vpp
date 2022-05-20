@@ -573,7 +573,7 @@ send_upf_nwi_details (vl_api_registration_t * reg,
 {
   vl_api_upf_nwi_details_t *mp;
   upf_main_t *sm = &upf_main;
-  u32 name_len, ipfix_policy_len;
+  u32 name_len, ipfix_policy_len, observation_domain_name_len;
   u8 *ipfix_policy =
     format (0, "%U", format_upf_ipfix_policy, nwi->ipfix_policy);
 
@@ -594,6 +594,18 @@ send_upf_nwi_details (vl_api_registration_t * reg,
     clib_min (sizeof (mp->ipfix_policy) - 1, vec_len (ipfix_policy));
   memcpy (mp->ipfix_policy, ipfix_policy, ipfix_policy_len);
   mp->ipfix_policy[ipfix_policy_len] = 0;
+
+  mp->ipfix_report_interval =
+    clib_host_to_net_u32 (nwi->ipfix_report_interval);
+  mp->observation_domain_id =
+    clib_host_to_net_u32 (nwi->observation_domain_id);
+  observation_domain_name_len =
+    clib_min (sizeof (mp->observation_domain_name) - 1,
+	      vec_len (nwi->observation_domain_name));
+  memcpy (mp->observation_domain_name, nwi->observation_domain_name,
+	  observation_domain_name_len);
+  mp->observation_domain_name[observation_domain_name_len] = 0;
+  mp->observation_point_id = clib_host_to_net_u64 (nwi->observation_point_id);
 
   memcpy (mp->nwi, nwi->name, name_len);
   mp->nwi_len = name_len;
