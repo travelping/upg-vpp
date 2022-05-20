@@ -35,7 +35,7 @@ jobs:
 
     # It may take some time for the workflow to finish and the artifacts to appear
     # FIXME: https://github.com/dawidd6/action-download-artifact/issues/43
-    - name: Get debug image name 
+    - name: Get debug image name
       uses: dawidd6/action-download-artifact@v2
       continue-on-error: true
       id: download
@@ -82,7 +82,7 @@ jobs:
         # hack/retag-unexpire.sh quay.io travelping/upg source_tag dest_tag
         hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-debug.txt) "${GITHUB_REF##*/}_debug"
 
-    - name: Get release image name 
+    - name: Get release image name
       uses: dawidd6/action-download-artifact@v2
       with:
         workflow: main.yaml
@@ -97,6 +97,36 @@ jobs:
       run: |
         # hack/retag-unexpire.sh quay.io travelping/upg source_tag dest_tag
         hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-release.txt) "${GITHUB_REF##*/}_release"
+
+    - name: Get dev release image name
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: main.yaml
+        workflow_conclusion: success
+        commit: ${{github.sha}}
+        name: image-dev-release
+
+    - name: Promote (retag) the dev release image
+      env:
+        REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
+        REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }}
+      run: |
+        hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-dev-release.txt) "${GITHUB_REF##*/}_dev_release"
+
+    - name: Get dev debug image name
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: main.yaml
+        workflow_conclusion: success
+        commit: ${{github.sha}}
+        name: image-dev-debug
+
+    - name: Promote (retag) the dev debug image
+      env:
+        REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
+        REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }}
+      run: |
+        hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-dev-debug.txt) "${GITHUB_REF##*/}_dev_debug"
 
     - name: Build Changelog
       id: build_changelog
