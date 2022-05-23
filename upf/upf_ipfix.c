@@ -836,13 +836,6 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
   egress_nwi = pool_elt_at_index (gtm->nwis, far->forward.nwi_index);
 
   /*
-   * for the reverse flow direction, forwarding policy and IPFIX
-   * policy can be reused from the forward flow direction
-   */
-  if (direction == FT_REVERSE && flow_ipfix_info (f, FT_ORIGIN) != ~0)
-    other_info = pool_elt_at_index (fm->infos, flow_ipfix_info (f, FT_ORIGIN));
-
-  /*
    * IPFIX policy specified in the FAR itself, if any, takes
    * precedence over the policy specified in the egress NWI. Note that
    * it can be UPF_IPFIX_POLICY_NONE which is specified as an empty
@@ -850,22 +843,33 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
    */
   info_key.policy = far->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED ?
     far->ipfix_policy : egress_nwi->ipfix_policy;
-  if (info_key.policy == UPF_IPFIX_POLICY_NONE)
+
+  /*
+   * For the reverse direction, we reuse IPFIX settings specified for
+   * the forward direction, except for the policy if it's specified
+   * for the reverse direction, too
+   */
+  if (direction == FT_REVERSE)
     {
       /*
-       * If this is the reverse flow direction, check if there's a
-       * policy specified for the forward direction
+       * If this is the reverse flow direction, use IPFIX settings for the
+       * forward direction;
        */
-      if (other_info)
+      if (flow_ipfix_info (f, FT_ORIGIN) != ~0)
 	{
-	  info_key.policy = other_info->key.policy;
+	  other_info = pool_elt_at_index (fm->infos, flow_ipfix_info (f, FT_ORIGIN));
+	  if (info_key.policy == UPF_IPFIX_POLICY_NONE)
+	    info_key.policy = other_info->key.policy;
 	  info_key.info_nwi_index = other_info->key.info_nwi_index;
 	}
       else
 	return ~0;
     }
-  else
+  else {
+    if (info_key.policy == UPF_IPFIX_POLICY_NONE)
+      return ~0;
     info_key.info_nwi_index = far->forward.nwi_index;
+  }
 
   ingress_nwi = pool_elt_at_index (gtm->nwis, pdr->pdi.nwi_index);
 

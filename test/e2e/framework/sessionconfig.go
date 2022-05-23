@@ -103,6 +103,22 @@ func newVendorSpecificU8IE(itype uint16, eid uint16, val uint8) *ie.IE {
 	return ie.NewVendorSpecificIE(itype, eid, []byte{val})
 }
 
+func (cfg SessionConfig) ipfixTemplateIEs() []*ie.IE {
+	if cfg.IPFIXTemplate == "" {
+		return nil
+	}
+
+	template := cfg.IPFIXTemplate
+	if template == "none" {
+		// "none" template is specified as an empty string
+		template = ""
+	}
+	return []*ie.IE{
+		newVendorSpecificStringIE(
+			ETYPE_MASK|TP_IPFIX_TEMPLATE, TP_EID, cfg.IPFIXTemplate),
+	}
+}
+
 func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 	var fwParams []*ie.IE
 	switch cfg.Mode {
@@ -130,22 +146,11 @@ func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 		fwParams = append(fwParams, newVendorSpecificStringIE(ETYPE_MASK|BBF_TYPE_NAT_PORT_BLOCK, BBF_EID, cfg.NatPoolName))
 	}
 
-	ies := []*ie.IE{
+	ies := append([]*ie.IE{
 		ie.NewFARID(farID),
 		ie.NewApplyAction(pfcp.ApplyAction_FORW),
 		ie.NewForwardingParameters(fwParams...),
-	}
-
-	if cfg.IPFIXTemplate != "" {
-		template := cfg.IPFIXTemplate
-		if template == "none" {
-			// "none" template is specified as an empty string
-			template = ""
-		}
-		ies = append(ies, newVendorSpecificStringIE(
-			ETYPE_MASK|TP_IPFIX_TEMPLATE, TP_EID, cfg.IPFIXTemplate))
-	}
-
+	}, cfg.ipfixTemplateIEs()...)
 	return ie.NewCreateFAR(ies...)
 }
 
@@ -173,10 +178,12 @@ func (cfg SessionConfig) reverseFAR(farID uint32) *ie.IE {
 		panic("bad UPGMode")
 	}
 
-	return ie.NewCreateFAR(
+	ies := append([]*ie.IE{
 		ie.NewFARID(farID),
 		ie.NewApplyAction(pfcp.ApplyAction_FORW),
-		ie.NewForwardingParameters(fwParams...))
+		ie.NewForwardingParameters(fwParams...),
+	}, cfg.ipfixTemplateIEs()...)
+	return ie.NewCreateFAR(ies...)
 }
 
 func (cfg SessionConfig) ueIPAddress(flags uint8) *ie.IE {
