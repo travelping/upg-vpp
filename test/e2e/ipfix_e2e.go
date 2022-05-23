@@ -598,10 +598,13 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 	for _, r := range v.recs {
 		gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
 
+		srcAddressKey := "sourceIPv4Address"
 		dstAddressKey := "destinationIPv4Address"
 		if v.f.IPMode == framework.UPGIPModeV6 {
+			srcAddressKey = "sourceIPv6Address"
 			dstAddressKey = "destinationIPv6Address"
 		}
+		gomega.Expect(r).To(gomega.HaveKey(srcAddressKey))
 		gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
 		gomega.Expect(r).To(gomega.HaveKey("flowDirection"))
 		// For now, we're using octetDeltaCount
@@ -633,12 +636,12 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 		gomega.Expect(r).To(gomega.HaveKeyWithValue("observationDomainName", "test-domain"))
 		gomega.Expect(r).To(gomega.HaveKeyWithValue("observationPointId", uint64(4242)))
 
-		if !r[dstAddressKey].(net.IP).Equal(v.f.UEIP()) {
+		if r[srcAddressKey].(net.IP).Equal(v.f.UEIP()) {
 			// upload
 			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
 			v.ulEndTS = r["flowEndNanoseconds"].(time.Time)
-			serverIP := v.f.ServerIP()
 			expectedEgressVRFID := uint32(200)
+			serverIP := v.f.ServerIP()
 			if v.altServerIP != nil {
 				serverIP = v.altServerIP.IP
 				expectedEgressVRFID = 201
@@ -657,6 +660,12 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			// download
 			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
 			v.dlEndTS = r["flowEndNanoseconds"].(time.Time)
+			serverIP := v.f.ServerIP()
+			if v.altServerIP != nil {
+				serverIP = v.altServerIP.IP
+			}
+			gomega.Expect(r[srcAddressKey].(net.IP).Equal(serverIP)).To(gomega.BeTrue())
+			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.UEIP())).To(gomega.BeTrue())
 			gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(0))) // ingress flow
 			gomega.Expect(r["ingressVRFID"]).To(gomega.Equal(uint32(200)))
 			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(uint32(100)))
