@@ -906,6 +906,8 @@ func (pc *PFCPConnection) Start(ctx context.Context) error {
 	// broken in PFCPConnection code
 	tch := time.After(pc.cfg.RequestTimeout * (maxRequestAttempts + 3))
 	select {
+	case <-pc.t.Dead():
+		return pc.t.Wait()
 	case r := <-pc.startCh:
 		close(pc.startCh)
 		return r.err

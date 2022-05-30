@@ -28,8 +28,10 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -216,7 +218,8 @@ func (vi *VPPInstance) prepareCommand() (*exec.Cmd, error) {
 		return nil, errors.Wrap(err, "error writing startup file")
 	}
 
-	args := []string{"--net=" + vi.vppNS.Path()}
+	// -F argument for nsenter specifies that it shouldn't fork
+	args := []string{"-F", "--net=" + vi.vppNS.Path()}
 	if vi.startupCfg.UseGDB {
 		gdbCmdsFile, err := vi.writeVPPFile("gdbcmds",
 			"handle SIGPIPE nostop noprint ignore\nr\nbt full 30\n")
@@ -252,10 +255,16 @@ func (vi *VPPInstance) StartVPP() error {
 		return errors.Wrap(err, "StderrPipe")
 	}
 
-	sigchldCh := make(chan os.Signal, 1)
-	signal.Notify(sigchldCh, unix.SIGCHLD)
-	if err := vi.cmd.Start(); err != nil {
-		return errors.Wrapf(err, "error starting vpp (%q)", vi.startupCfg.BinaryPath)
+	// never leave any VPP processes alive when e2e test suite exits
+	vi.cmd.SysProcAttr = &syscall.SysProcAttr{
+		Pdeathsig: syscall.SIGTERM,
+	}
+
+	startErrCh := make(chan error)
+	vi.t.Go(func() error { return vi.run(startErrCh) })
+	if err := <-startErrCh; err != nil {
+		<-vi.t.Dead()
+		return err
 	}
 
 	pid := vi.cmd.Process.Pid
@@ -285,11 +294,29 @@ func (vi *VPPInstance) StartVPP() error {
 		case core.Connected:
 			break
 		case core.Disconnected:
-			return errors.New("socket disconnected")
+			err := errors.New("socket disconnected")
+			vi.t.Kill(err)
+			return err
 		case core.Failed:
-			return errors.Wrap(e.Error, "error connecting to VPP")
+			err := errors.New("error connecting to VPP")
+			vi.t.Kill(err)
+			return err
 		}
 	}
+
+	go func() {
+		for {
+			select {
+			case <-vi.t.Dead():
+				return
+			case e := <-conev:
+				if e.State == core.Failed {
+					vi.t.Kill(errors.New("VPP API connection failed"))
+					return
+				}
+			}
+		}
+	}()
 
 	vi.conn = conn
 	vi.ApiChannel, err = conn.NewAPIChannel()
@@ -301,18 +328,36 @@ func (vi *VPPInstance) StartVPP() error {
 	}
 	vi.ApiChannel.SetReplyTimeout(VPP_REPLY_TIMEOUT)
 
-	vi.t.Go(func() error { return vi.run(sigchldCh, conev) })
-
 	return nil
 }
 
 func (vi *VPPInstance) killVPP() {
-	vi.cmd.Process.Kill()
+	if vi.cmd.Process != nil {
+		vi.cmd.Process.Kill()
+	}
 	vi.pipeCopyWG.Wait()
 	vi.cmd.Wait()
 }
 
-func (vi *VPPInstance) run(sigchldCh chan os.Signal, conev chan core.ConnectionEvent) error {
+func (vi *VPPInstance) run(startErrCh chan error) error {
+	// Never leave any VPP processes alive when e2e test suite exits
+	// Note: https://github.com/golang/go/issues/27505
+	// Must start the process in this goroutine and run runtime.LockOSThread()
+	// so that the Go thread doesn't exit and thus doesn't take the VPP process with
+	// it
+	runtime.LockOSThread()
+	vi.cmd.SysProcAttr = &syscall.SysProcAttr{
+		Pdeathsig: syscall.SIGTERM,
+	}
+
+	sigchldCh := make(chan os.Signal, 1)
+	signal.Notify(sigchldCh, unix.SIGCHLD)
+	err := vi.cmd.Start()
+	startErrCh <- err
+	if err != nil {
+		return errors.Wrapf(err, "error starting vpp (%q)", vi.startupCfg.BinaryPath)
+	}
+
 	pid := vi.cmd.Process.Pid
 	defer signal.Stop(sigchldCh)
 	for {
@@ -334,10 +379,6 @@ func (vi *VPPInstance) run(sigchldCh chan os.Signal, conev chan core.ConnectionE
 				vi.log.Info("VPP process has exited")
 			}
 			return nil
-		case e := <-conev:
-			if e.State == core.Failed {
-				return errors.New("VPP API connection failed")
-			}
 		}
 	}
 }

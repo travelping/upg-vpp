@@ -262,21 +262,23 @@ func (f *Framework) ServerIP() net.IP {
 	return f.VPPCfg.GetNamespaceAddress(f.ServerNSName()).IP
 }
 
-func (f *Framework) addIP(nsName string, count *uint32) net.IP {
+func (f *Framework) addIP(nsName string, count *uint32, ip6startFromByte int) net.IP {
 	mainAddr := f.VPPCfg.GetNamespaceAddress(nsName)
 	ipNet := &net.IPNet{
 		Mask: mainAddr.Mask,
 	}
+	startFromByte := 3
 	if ip4 := mainAddr.IP.To4(); ip4 != nil {
 		ipNet.IP = make(net.IP, net.IPv4len)
 		copy(ipNet.IP, ip4)
 	} else {
 		ipNet.IP = make(net.IP, net.IPv6len)
 		copy(ipNet.IP, mainAddr.IP)
+		startFromByte = ip6startFromByte
 	}
 	*count++
 	n := *count
-	for p := len(ipNet.IP) - 1; p >= 0 && n > 0; p-- {
+	for p := startFromByte; p >= 0 && n > 0; p-- {
 		n += uint32(ipNet.IP[p])
 		ipNet.IP[p] = byte(n)
 		n >>= 8
@@ -297,15 +299,16 @@ func (f *Framework) addCustomIP(nsName string, ipNet *net.IPNet) {
 }
 
 func (f *Framework) AddCNodeIP() net.IP {
-	return f.addIP("cp", &f.numExtraCNodeIPs)
+	return f.addIP("cp", &f.numExtraCNodeIPs, 15)
 }
 
 func (f *Framework) AddUEIP() net.IP {
-	return f.addIP("ue", &f.numExtraUEIPs)
+	// UE IPs are /64
+	return f.addIP("ue", &f.numExtraUEIPs, 7)
 }
 
 func (f *Framework) AddServerIP() net.IP {
-	return f.addIP(f.ServerNSName(), &f.numExtraServerIPs)
+	return f.addIP(f.ServerNSName(), &f.numExtraServerIPs, 15)
 }
 
 func (f *Framework) AddCustomServerIP(ipNet *net.IPNet) {
