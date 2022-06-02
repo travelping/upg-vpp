@@ -72,10 +72,19 @@ flowtable_init_cpu (flowtable_main_t * fm, u32 cpu_index)
   clib_error_t *error = 0;
   dlist_elt_t *timer_slot;
   flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+  /*
+   * As advised in the thread below :
+   * https://lists.fd.io/pipermail/vpp-dev/2016-October/002787.html
+   * hashtable is configured to alloc (NUM_BUCKETS * CLIB_CACHE_LINE_BYTES) Bytes
+   * with (flow_count / (BIHASH_KVP_PER_PAGE / 2)) Buckets
+   */
+  u32 nbuckets = 1 << (fm->log2_size - (BIHASH_KVP_PER_PAGE / 2));
+  uword memory_size = nbuckets * CLIB_CACHE_LINE_BYTES * 6;
 
   /* init hashtable */
   clib_bihash_init_48_8 (&fmt->flows_ht, "flow hash table",
-			 FM_NUM_BUCKETS, FM_MEMORY_SIZE);
+			 nbuckets, memory_size);
+  upf_debug ("nbuckets %u memory_size %u", nbuckets, memory_size);
 
   /* init timer wheel */
   fmt->time_index = ~0;
@@ -123,7 +132,8 @@ flowtable_init (vlib_main_t * vm)
   fm->vlib_main = vm;
 
   /* init flow pool */
-  fm->flows_max = FM_POOL_COUNT;
+  fm->flows_max = 1 << fm->log2_size;
+  upf_debug ("flows_max %u", fm->flows_max);
   pool_alloc_aligned (fm->flows, fm->flows_max, CLIB_CACHE_LINE_BYTES);
   pthread_spin_init (&fm->flows_lock, PTHREAD_PROCESS_PRIVATE);
   fm->flows_cpt = 0;
@@ -148,6 +158,32 @@ flowtable_init (vlib_main_t * vm)
 
   return error;
 }
+
+static clib_error_t *
+flowtable_config_fn (vlib_main_t * vm, unformat_input_t * input)
+{
+  flowtable_main_t *fm = &flowtable_main;
+  fm->log2_size = FLOWTABLE_DEFAULT_LOG2_SIZE;
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      u32 log2_size;
+      if (unformat (input, "log2-size %u", &log2_size))
+	{
+	  if (log2_size < 5)
+	    return clib_error_return (0, "flowtable log2 size too small");
+	  else if (log2_size > 31)
+	    return clib_error_return (0, "flowtable log2 size too large");
+	  else
+	    fm->log2_size = log2_size;
+	}
+      else
+	return clib_error_return (0, "unknown input `%U'",
+				  format_unformat_error, input);
+    }
+  return 0;
+}
+
+VLIB_EARLY_CONFIG_FUNCTION (flowtable_config_fn, "flowtable");
 
 /*
  * fd.io coding-style-patch-verification: ON

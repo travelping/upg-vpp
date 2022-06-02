@@ -57,7 +57,7 @@ cpu {
 {{ end }}
 }
 
-heapsize 1900M
+heapsize 300M
 
 statseg {
   socket-name {{.StatsSock}}
@@ -72,6 +72,10 @@ plugins {
 
 buffers {
   default data-size 10000
+}
+
+flowtable {
+  log2-size 10
 }
 
 {{- if .InterruptMode }}
