@@ -46,6 +46,7 @@ type SessionConfig struct {
 	MonitoringTime     time.Time
 	VTime              time.Duration
 	MeasurementPeriod  time.Duration
+	VolumeQuota        uint32
 	ForwardingPolicyID string
 	NatPoolName        string
 	IMSI               string
@@ -335,12 +336,33 @@ func (cfg SessionConfig) CreateOrUpdateURR(id uint32, update bool) *ie.IE {
 	return urr
 }
 
+func (cfg SessionConfig) CreateVolumeURR(id uint32) *ie.IE {
+	triggers := uint16(0)
+	triggers |= pfcp.ReportingTriggers_VOLQU
+	urr := ie.NewCreateURR(ie.NewURRID(id),
+		ie.NewMeasurementMethod(0, 1, 1),
+		ie.NewVolumeQuota(0x01, 1024, 0, 0),
+		ie.NewReportingTriggers(triggers))
+	return urr
+}
+
+func (cfg SessionConfig) DeleteURR(id uint32) *ie.IE {
+	return ie.NewRemoveURR(ie.NewURRID(id))
+}
+
 func (cfg SessionConfig) CreateURRs() []*ie.IE {
+	if cfg.VolumeQuota != 0 {
+		return []*ie.IE{cfg.CreateVolumeURR(1), cfg.CreateVolumeURR(2)}
+	}
 	return []*ie.IE{cfg.CreateOrUpdateURR(1, false), cfg.CreateOrUpdateURR(2, false)}
 }
 
 func (cfg SessionConfig) UpdateURRs() []*ie.IE {
 	return []*ie.IE{cfg.CreateOrUpdateURR(1, true), cfg.CreateOrUpdateURR(2, true)}
+}
+
+func (cfg SessionConfig) DeleteURRs() []*ie.IE {
+	return []*ie.IE{cfg.DeleteURR(1), cfg.DeleteURR(2)}
 }
 
 func (cfg SessionConfig) SessionIEs() []*ie.IE {

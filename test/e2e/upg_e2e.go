@@ -1129,6 +1129,68 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 			verifyNoSession(f, seid)
 		})
 	})
+
+	ginkgo.Context("Quota", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("should not cause problems after adding a redirect after exhaustion [NAT]", func() {
+			ginkgo.By("Creating session with volume quota")
+			setupNAT(f)
+			sessionCfg := &framework.SessionConfig{
+				IdBase:      1,
+				UEIP:        f.UEIP(),
+				Mode:        f.Mode,
+				VolumeQuota: 1024,
+				// request a report _after_ the monitoring time
+			}
+			sessionCfg.NatPoolName = "testing"
+			reportCh := f.PFCP.AcquireReportCh()
+			seid, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			out, err := f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(string(out)).To(gomega.ContainSubstring("1024"))
+
+			ginkgo.By("Starting some traffic")
+			tg, clientNS, serverNS := newTrafficGen(f, &traffic.HTTPConfig{
+				ChunkCount: 380, // 18s
+				Retry:      true,
+				ChunkDelay: 100 * time.Millisecond,
+			}, &traffic.SimpleTrafficRec{})
+			tg.Start(f.Context, clientNS, serverNS)
+
+			ginkgo.By("Expecting report to be happen due to Volume Quota Exhausted")
+			var msg message.Message
+			gomega.Eventually(reportCh, 20*time.Second, 50*time.Millisecond).Should(gomega.Receive(&msg))
+			_, err = pfcp.GetMeasurement(msg)
+			framework.ExpectNoError(err, "GetMeasurement")
+
+			ginkgo.By("Updating session by removing FARs/PDRs/URRs for forwarding")
+			modifyIEs := sessionCfg.DeletePDRs()
+			modifyIEs = append(modifyIEs, sessionCfg.DeleteFARs()...)
+			modifyIEs = append(modifyIEs, sessionCfg.DeleteURRs()...)
+			_, err = f.PFCP.ModifySession(
+				f.VPP.Context(context.Background()), seid,
+				modifyIEs...)
+			framework.ExpectNoError(err, "ModifySession")
+			out, err = f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			sessionCfg.NoURRs = true
+			sessionCfg.Redirect = true
+			modifyIEs = sessionCfg.CreatePDRs()
+			modifyIEs = append(modifyIEs, sessionCfg.CreateFARs()...)
+			_, err = f.PFCP.ModifySession(f.VPP.Context(context.Background()), seid, modifyIEs...)
+			framework.ExpectNoError(err, "ModifySession")
+			time.Sleep(time.Second * 5)
+
+			ginkgo.By("Verifying redirects...")
+			runTrafficGen(f, &traffic.RedirectConfig{
+				RedirectLocationSubstr: "127.0.0.1/this-is-my-redirect",
+				RedirectResponseSubstr: "<title>Redirection</title>",
+			}, &traffic.PreciseTrafficRec{})
+		})
+	})
 })
 
 const leakTestNumSessions = 10000
