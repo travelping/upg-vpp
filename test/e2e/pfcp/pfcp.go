@@ -87,6 +87,7 @@ const (
 
 	ReportingTriggers_QUVTI = 0x0080 // Quota Validity Time
 	ReportingTriggers_PERIO = 0x0100 // Periodic Reporting
+	ReportingTriggers_VOLQU = 0x0001 // Volume Quota
 
 	maxRequestAttempts = 10
 
