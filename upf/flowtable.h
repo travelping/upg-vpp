@@ -209,20 +209,12 @@ typedef struct
   u32 *flow_cache;
 } flowtable_main_per_cpu_t;
 
-/*
- * As advised in the thread below :
- * https://lists.fd.io/pipermail/vpp-dev/2016-October/002787.html
- * hashtable is configured to alloc (NUM_BUCKETS * CLIB_CACHE_LINE_BYTES) Bytes
- * with (flow_count / (BIHASH_KVP_PER_PAGE / 2)) Buckets
- */
-#define FM_POOL_COUNT_LOG2 22
-#define FM_POOL_COUNT (1 << FM_POOL_COUNT_LOG2)
-#define FM_NUM_BUCKETS (1 << (FM_POOL_COUNT_LOG2 - (BIHASH_KVP_PER_PAGE / 2)))
-#define FM_MEMORY_SIZE (FM_NUM_BUCKETS * CLIB_CACHE_LINE_BYTES * 6)
+#define FLOWTABLE_DEFAULT_LOG2_SIZE 22
 
 typedef struct
 {
   /* flow entry pool */
+  u32 log2_size;
   u32 flows_max;
   flow_entry_t *flows;
   pthread_spinlock_t flows_lock;
