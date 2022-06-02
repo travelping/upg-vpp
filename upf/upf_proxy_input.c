@@ -398,6 +398,8 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 		     upf_buffer_opaque (b)->gtpu.is_reverse,
 		     flow->is_reverse);
 
+	  vnet_buffer (b)->ip.rx_sw_if_index = vnet_buffer (b)->sw_if_index[VLIB_RX];
+
 	  ftc = &flow_tc (flow, direction);
 
 	  if (flow->is_spliced)
