@@ -708,6 +708,6 @@ func verifyIntervals(times []time.Time, atLeastMs uint64) {
 	gomega.Expect(len(times)).To(gomega.BeNumerically(">", 3))
 	for n := 1; n < len(times); n++ {
 		deltaT := times[n].Sub(times[n-1]).Milliseconds()
-		gomega.Expect(deltaT).To(gomega.BeNumerically(">=", atLeastMs-200))
+		gomega.Expect(deltaT).To(gomega.BeNumerically(">=", atLeastMs-500))
 	}
 }
