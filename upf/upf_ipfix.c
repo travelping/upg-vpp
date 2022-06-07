@@ -548,8 +548,12 @@ upf_ref_ipfix_context (upf_ipfix_context_key_t *key)
 				 idx, &context->template_id,
 				 key->is_ip4, true);
   if (rv)
+    {
       clib_warning ("couldn't add IPFIX report, perhaps "
 		    "the exporter has been deleted?");
+      pool_put (fm->contexts, context);
+      return ~0;
+    }
 
   kv.value = idx;
   clib_bihash_add_del_24_8 (&fm->context_by_key, &kv, 1);
@@ -607,6 +611,7 @@ upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key)
   fib_protocol_t fproto;
   fib_table_t *ingress_table, *egress_table;
   upf_ipfix_context_key_t context_key;
+  upf_nwi_t *nwi = 0;
 
   clib_memcpy_fast (&kv.key, key, sizeof (kv.key));
 
@@ -645,7 +650,7 @@ upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key)
   /* FIXME: introduce refcounting for NWIs */
   if (!pool_is_free_index(gtm->nwis, key->info_nwi_index))
     {
-      upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, key->info_nwi_index);
+      nwi = pool_elt_at_index (gtm->nwis, key->info_nwi_index);
       info->report_interval = nwi->ipfix_report_interval;
       context_key.observation_domain_id = nwi->observation_domain_id;
       info->observation_point_id = nwi->observation_point_id;
@@ -661,6 +666,34 @@ upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key)
   context_key.policy = key->policy;
   context_key.is_ip4 = key->is_ip4;
   info->context_index = upf_ref_ipfix_context (&context_key);
+
+  if (info->context_index == ~0)
+    {
+      clib_warning ("failed to allocate IPFIX context");
+      pool_put(fm->infos, info);
+      goto done; /* will return ~0 */
+    }
+
+  if (nwi)
+    {
+      u32 *cur_index;
+      vec_foreach (cur_index, nwi->ipfix_context_indices)
+	{
+	  if (*cur_index == info->context_index)
+	    break;
+	}
+
+      if (cur_index == vec_end (nwi->ipfix_context_indices))
+	{
+	  /*
+	   * Reference the context from NWI to prevent it from being
+	   * deleted till the NWI is deleted. This way, we avoid
+	   * ever-increasing template IDs during intermittent traffic.
+	   */
+	  upf_ref_ipfix_context_by_index (info->context_index);
+	  vec_add1 (nwi->ipfix_context_indices, info->context_index);
+	}
+    }
 
   if (key->sw_if_index != ~0)
     info->interface_name = format(0, "%U", format_vnet_sw_if_index_name, vnm, key->sw_if_index);
@@ -917,7 +950,8 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t * f, flow_direction_t direction)
 					info_key.is_ip4);
 
   iidx = upf_ensure_ref_ipfix_info(&info_key);
-  flow_ipfix_info(f, direction) = iidx;
+  if (iidx != ~0)
+    flow_ipfix_info(f, direction) = iidx;
 
   return iidx;
 }

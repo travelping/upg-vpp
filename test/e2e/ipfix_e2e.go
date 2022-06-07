@@ -85,6 +85,25 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 					})
 					v.verifyIPFIXDefaultRecords()
 				})
+
+				ginkgo.It("doesn't recreate templates with different IDs unnecessarily", func() {
+					v.verifyIPFIX(ipfixVerifierCfg{
+						farTemplate:         "default",
+						trafficCfg:          smallVolumeHTTPConfig(nil),
+						protocol:            layers.IPProtocolTCP,
+						expectedTrafficPort: 80,
+					})
+					v.verifyIPFIXDefaultRecords()
+					ids := v.ipfixHandler.getTemplateIDs()
+					v.runSession(ipfixVerifierCfg{
+						farTemplate:         "default",
+						trafficCfg:          smallVolumeHTTPConfig(nil),
+						protocol:            layers.IPProtocolTCP,
+						expectedTrafficPort: 80,
+					})
+					framework.ExpectEqual(v.ipfixHandler.getTemplateIDs(), ids,
+						"registered template IDs")
+				})
 			})
 
 			ginkgo.Context("dest template", func() {
@@ -219,6 +238,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 		ginkgo.Context("[alt collector]", func() {
 			f := framework.NewDefaultFramework(mode, ipMode)
 			v := &ipfixVerifier{f: f}
+			v.withExtraExporter()
 			v.withAltCollector()
 			v.withIPFIXHandler()
 
@@ -232,6 +252,23 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 					expectedTrafficPort: 80,
 				})
 				v.verifyIPFIXDefaultRecords()
+			})
+		})
+
+		ginkgo.Context("bad IPFIX collector spec for NWI", func() {
+			f := framework.NewDefaultFramework(mode, ipMode)
+			v := &ipfixVerifier{f: f}
+			// no v.withExtraExporter() and thus
+			// NWI is pointing to an unregistered collector IP
+			v.withAltCollector()
+			v.withIPFIXHandler()
+
+			ginkgo.It("should be handled as no IPFIX exporter", func() {
+				v.verifyIPFIX(ipfixVerifierCfg{
+					trafficCfg: &traffic.UDPPingConfig{},
+					protocol:   layers.IPProtocolUDP,
+				})
+				v.verifyNoRecs()
 			})
 		})
 
@@ -388,7 +425,7 @@ func (v *ipfixVerifier) getCollectorIP() net.IP {
 	return v.collectorIP
 }
 
-func (v *ipfixVerifier) withAltCollector() {
+func (v *ipfixVerifier) withExtraExporter() {
 	v.f.VPPCfg.IPFIXExporters = append(v.f.VPPCfg.IPFIXExporters,
 		vpp.IPFIXExporterConfig{
 			GetCollectorIP: v.getCollectorIP,
@@ -398,14 +435,16 @@ func (v *ipfixVerifier) withAltCollector() {
 			Port: IPFIX_PORT,
 			VRF:  0,
 		})
+}
 
+func (v *ipfixVerifier) withAltCollector() {
 	v.modifySGi(func(nwiCfg *vpp.NWIConfig) {
 		nwiCfg.IPFIXPolicy = "default"
 		nwiCfg.GetIPFIXCollectorIP = v.getCollectorIP
 	})
 }
 
-func (v *ipfixVerifier) verifyIPFIX(cfg ipfixVerifierCfg) {
+func (v *ipfixVerifier) runSession(cfg ipfixVerifierCfg) {
 	v.cfg = cfg
 	appName := ""
 	if cfg.adf {
@@ -434,6 +473,11 @@ func (v *ipfixVerifier) verifyIPFIX(cfg ipfixVerifierCfg) {
 		ShouldNot(gomega.ContainSubstring("proto 0x"),
 			"the flow should be gone")
 	v.ms = deleteSession(v.f, v.seid, true)
+}
+
+func (v *ipfixVerifier) verifyIPFIX(cfg ipfixVerifierCfg) {
+	v.runSession(cfg)
+
 	var serverIP net.IP
 	if v.altServerIP != nil {
 		serverIP = v.altServerIP.IP

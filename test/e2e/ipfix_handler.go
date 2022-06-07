@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"sort"
 	"sync"
 	"time"
 
@@ -130,15 +131,21 @@ func (h *ipfixHandler) handleIPFIXMessage(msg *entities.Message) {
 	framework.Logf("IPFIX:\n%s", buf.String())
 }
 
-func (h *ipfixHandler) haveTemplateIDs(ids ...uint16) bool {
+func (h *ipfixHandler) getTemplateIDs() []int {
 	h.Lock()
 	defer h.Unlock()
-	for _, id := range ids {
-		if !h.ids[id] {
-			return false
-		}
+
+	if len(h.ids) == 0 {
+		return nil
 	}
-	return true
+
+	r := make([]int, 0, len(h.ids))
+	for id := range h.ids {
+		r = append(r, int(id))
+	}
+	sort.Ints(r)
+
+	return r
 }
 
 func (h *ipfixHandler) stop() {
