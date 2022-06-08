@@ -27,7 +27,6 @@ import (
 	"github.com/vmware/go-ipfix/pkg/collector"
 	"github.com/vmware/go-ipfix/pkg/entities"
 	"github.com/vmware/go-ipfix/pkg/registry"
-	gtputils "github.com/wmnsk/go-gtp/utils"
 
 	"github.com/travelping/upg-vpp/test/e2e/framework"
 )
@@ -111,12 +110,7 @@ func (h *ipfixHandler) handleIPFIXMessage(msg *entities.Message) {
 				case entities.Ipv4Address, entities.Ipv6Address:
 					v = ie.GetIPAddressValue()
 				case entities.String:
-					s := ie.GetStringValue()
-					if elem.Name == "mobileIMSI" && len(s) != 0 {
-						s = gtputils.SwappedBytesToStr([]byte(s),
-							s[len(s)-1]&0xf0 == 0xf0)
-					}
-					v = s
+					v = ie.GetStringValue()
 				default:
 					err := fmt.Errorf("API supports only valid information elements with datatypes given in RFC7011")
 					fmt.Fprintf(&buf, "    %s: %v \n", elem.Name, err)

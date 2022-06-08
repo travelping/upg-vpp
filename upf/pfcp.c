@@ -2503,27 +2503,47 @@ format_outer_header_creation (u8 * s, va_list * args)
   return s;
 }
 
+uword
+tbcd_len (u8 * in, uword n_bytes)
+{
+  uword l = n_bytes << 1;
+  if (n_bytes && (in[n_bytes - 1] & 0xf0) == 0xf0)
+    l--;
+  return l;
+}
+
+uword
+decode_tbcd (u8 * in, uword n_bytes, u8 * out, uword n_out)
+{
+  /* value 15 is an error, thus '?' */
+  static char *tbcd_chars = "0123456789*#abc?";
+  uword i;
+  u8 *cur = out, *end = out + n_out;
+
+  for (i = 0; i < n_bytes && cur != end; i++)
+    {
+      *cur++ = tbcd_chars[in[i] & 0xf];
+      if (cur != end && (i != n_bytes - 1 || (in[i] & 0xf0) != 0xf0))
+	*cur++ = tbcd_chars[in[i] >> 4];
+    }
+
+  return cur - out;
+}
+
 u8 *
 format_tbcd (u8 * s, va_list * args)
 {
   u8 *bytes = va_arg (*args, u8 *);
   int n_bytes = va_arg (*args, int);
-  uword i;
-  /* value 15 is an error, thus '?' */
-  static char *tbcd_chars = "0123456789*#abc?";
+  uword l, n;
 
-  for (i = 0; i < n_bytes; i++)
-    {
-      if (bytes[i] & 0xf0 == 0xf0 && i == n_bytes - 1)
-	{
-	  s = format (s, "%c", tbcd_chars[bytes[i] & 0xf]);
-	  break;
-	}
-      else
-	s =
-	  format (s, "%c%c", tbcd_chars[bytes[i] & 0xf],
-		  tbcd_chars[bytes[i] >> 4]);
-    }
+  if (!n_bytes)
+    return s;
+
+  l = vec_len (s);
+  n = tbcd_len (bytes, n_bytes);
+  vec_validate (s, l + n - 1);
+  decode_tbcd (bytes, n_bytes, s + l, n);
 
   return s;
 }

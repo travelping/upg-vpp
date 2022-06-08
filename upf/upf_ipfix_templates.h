@@ -98,9 +98,10 @@
 
 #define IPFIX_VALUE_MOBILE_IMSI(v, n, c)		\
   do {							\
-    to_b->data[offset++] = n;				\
-    clib_memcpy_fast (to_b->data + offset, v, n);	\
-    offset += n;					\
+    uword l = tbcd_len (v, n);				\
+    to_b->data[offset++] = l;				\
+    decode_tbcd (v, n, to_b->data + offset, l);		\
+    offset += l;					\
   } while (0)
 
 #define IPFIX_VALUE_STRING(v, n, c)			\
