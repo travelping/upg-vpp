@@ -37,6 +37,9 @@ The make commands accept following variables:
 * `E2E_PAUSE_ON_ERROR`: pause on error for interactive debugging
 * `E2E_MULTICORE`: run tests with a single worker core enabled
 * `E2E_KEEP_ALL_ARTIFACTS`: store artifacts even for successful tests
+* `E2E_GDBSERVER`: run VPP under gdbserver. After VPP is started, you need to copy-paste
+  the `gdb ...` command from test output into your console and type `cont` there (and press Enter)
+  to continue running the test
 
 An example with multiple flags:
 
