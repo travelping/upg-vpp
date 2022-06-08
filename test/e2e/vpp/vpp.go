@@ -55,10 +55,11 @@ const (
 	VPP_RECONNECT_INTERVAL   = time.Second
 	// the startup can get quite slow if too many tests are
 	// run in parallel without enough CPU cores available
-	VPP_STARTUP_TIMEOUT     = 30 * time.Second
-	VPP_REPLY_TIMEOUT       = 5 * time.Second
-	NSENTER_CMD             = "nsenter"
-	DISPATCH_TRACE_FILENAME = "dispatch-trace.pcap"
+	VPP_STARTUP_TIMEOUT           = 30 * time.Second
+	VPP_STARTUP_TIMEOUT_GDBSERVER = 600 * time.Second
+	VPP_REPLY_TIMEOUT             = 5 * time.Second
+	NSENTER_CMD                   = "nsenter"
+	DISPATCH_TRACE_FILENAME       = "dispatch-trace.pcap"
 )
 
 type RouteConfig struct {
@@ -217,7 +218,14 @@ func (vi *VPPInstance) prepareCommand() (*exec.Cmd, error) {
 	}
 
 	args := []string{"--net=" + vi.vppNS.Path()}
-	if vi.startupCfg.UseGDB {
+	if vi.startupCfg.UseGDBServer {
+		vi.log.Infof("started gdbserver, please attach with\n"+
+			"%s %s gdb -ex 'target remote localhost:%d'\n"+
+			"and type 'continue' to stat",
+			NSENTER_CMD, strings.Join(args, " "),
+			vi.startupCfg.GDBServerPort)
+		args = append(args, "gdbserver", fmt.Sprintf("localhost:%d", vi.startupCfg.GDBServerPort))
+	} else if vi.startupCfg.UseGDB {
 		gdbCmdsFile, err := vi.writeVPPFile("gdbcmds",
 			"handle SIGPIPE nostop noprint ignore\nr\nbt full 30\n")
 		if err != nil {
@@ -264,7 +272,11 @@ func (vi *VPPInstance) StartVPP() error {
 	vi.copyPipeToLog(stderr, "stdout")
 
 	// wait for the file to appear so we don't get warnings from govpp
-	if err := waitForFile(vi.startupCfg.APISock, 100*time.Millisecond, VPP_STARTUP_TIMEOUT); err != nil {
+	timeout := VPP_STARTUP_TIMEOUT
+	if vi.startupCfg.UseGDBServer {
+		timeout = VPP_STARTUP_TIMEOUT_GDBSERVER
+	}
+	if err := waitForFile(vi.startupCfg.APISock, 100*time.Millisecond, timeout); err != nil {
 		return errors.Wrap(err, "error waiting for VPP to start")
 	}
 
@@ -420,6 +432,20 @@ func (vi *VPPInstance) Ctl(format string, args ...interface{}) (string, error) {
 	return reply.Reply, nil
 }
 
+func (vi *VPPInstance) setupLoopback() error {
+	_, ipNet, _ := net.ParseCIDR("127.0.0.1/8")
+
+	if err := vi.vppNS.AddAddress("lo", ipNet); err != nil {
+		return errors.Wrap(err, "error adding address to lo")
+	}
+
+	if err := vi.vppNS.SetLinkUp("lo"); err != nil {
+		return errors.Wrap(err, "error briging up the loopback interface")
+	}
+
+	return nil
+}
+
 func (vi *VPPInstance) SetupNamespaces() error {
 	var err error
 
@@ -428,6 +454,14 @@ func (vi *VPPInstance) SetupNamespaces() error {
 		vi.closeNamespaces()
 		return errors.Wrap(err, "VppNS")
 	}
+
+	if vi.startupCfg.UseGDBServer {
+		// need localhost for gdbserver
+		if err := vi.setupLoopback(); err != nil {
+			return err
+		}
+	}
+
 	vi.log.WithField("nsPath", vi.vppNS.Path()).Info("VPP netns created")
 
 	for _, nsCfg := range vi.cfg.Namespaces {

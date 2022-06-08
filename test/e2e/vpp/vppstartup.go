@@ -19,6 +19,7 @@ package vpp
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"text/template"
@@ -116,6 +117,8 @@ type VPPStartupConfig struct {
 	MainCore      int
 	WorkerCore    int
 	UseGDB        bool
+	UseGDBServer  bool
+	GDBServerPort int
 	Trace         bool
 	DispatchTrace bool
 	Multicore     bool
@@ -133,6 +136,13 @@ func (cfg *VPPStartupConfig) SetFromEnv() {
 		cfg.PluginPath = pluginPath
 	}
 	cfg.UseGDB = os.Getenv("VPP_NO_GDB") == ""
+	cfg.UseGDBServer = cfg.UseGDB && os.Getenv("VPP_GDBSERVER") != ""
+	if os.Getenv("VPP_GDB_SERVER_PORT") != "" {
+		port, err := strconv.Atoi(os.Getenv("VPP_GDB_SERVER_PORT"))
+		if err == nil {
+			cfg.GDBServerPort = port
+		}
+	}
 	cfg.Trace = os.Getenv("VPP_TRACE") != ""
 	cfg.DispatchTrace = os.Getenv("VPP_DISPATCH_TRACE") != ""
 	cfg.Multicore = os.Getenv("VPP_MULTICORE") != ""
@@ -162,6 +172,9 @@ func (cfg *VPPStartupConfig) SetDefaults() {
 	}
 	if cfg.APIPrefix == "" {
 		cfg.APIPrefix = fmt.Sprintf("vpp%d", atomic.AddInt32(&vppIndex, 1))
+	}
+	if cfg.GDBServerPort == 0 {
+		cfg.GDBServerPort = 7777
 	}
 }
 

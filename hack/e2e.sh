@@ -25,6 +25,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_POLLING_MODE:=}"
 : "${E2E_VPP_NOT_INSTALLED:=}"
 : "${E2E_NO_GDB:=}"
+: "${E2E_GDBSERVER:=}"
 : "${BUILD_TYPE:=debug}"
 
 if [[ ! ${E2E_POLLING_MODE} ]]; then
@@ -33,6 +34,10 @@ fi
 
 if [[ ${E2E_NO_GDB} ]]; then
   export VPP_NO_GDB=1
+fi
+
+if [[ ${E2E_GDBSERVER} ]]; then
+  export VPP_GDBSERVER=1
 fi
 
 if grep -q '^gtp ' /proc/modules; then
