@@ -2813,6 +2813,8 @@ u8 *format_redirect_information (u8 * s, va_list * args);
 u8 *format_ue_ip_address (u8 * s, va_list * args);
 u8 *format_node_id (u8 * s, va_list * args);
 u8 *format_outer_header_creation (u8 * s, va_list * args);
+uword tbcd_len (u8 * in, uword n_bytes);
+uword decode_tbcd (u8 * in, uword n_bytes, u8 * out, uword n_out);
 u8 *format_tbcd (u8 * s, va_list * args);
 u8 *format_dmsg (u8 * s, va_list * args);
 u8 *format_user_id (u8 * s0, va_list * args);
