@@ -867,6 +867,8 @@ typedef struct
   u32 observation_domain_id;
   u64 observation_point_id;
   u8 *observation_domain_name;
+
+  u32 *ipfix_context_indices;
 } upf_nwi_t;
 
 typedef struct
