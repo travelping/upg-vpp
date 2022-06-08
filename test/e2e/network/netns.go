@@ -74,6 +74,21 @@ func (netns *NetNS) Close() error {
 	return netns.NetNS.Close()
 }
 
+func (netns *NetNS) SetLinkUp(linkName string) error {
+	return netns.Do(func() error {
+		l, err := netlink.LinkByName(linkName)
+		if err != nil {
+			return errors.Wrap(err, "locating client link in the client netns")
+		}
+
+		if err := netlink.LinkSetUp(l); err != nil {
+			return errors.Wrapf(err, "error bringing the link up: %s", linkName)
+		}
+
+		return nil
+	})
+}
+
 func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
 	// FIXME: use better check
 	if address.IP.To4() == nil {
