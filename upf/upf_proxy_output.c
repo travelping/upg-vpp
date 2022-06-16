@@ -315,12 +315,15 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    {
 	      upf_pdr_t *pdr;
 
-	      if (!pool_is_free_index (gtm->sessions, flow->session_index))
-		{
-		  sx = pool_elt_at_index (gtm->sessions, flow->session_index);
-		  if (sx->generation != flow->generation)
-		    sx = NULL;
-		}
+	      sx = pool_elt_at_index (gtm->sessions, flow->session_index);
+	      /*
+	       * Edge case: session modified after this buffer left
+	       * upf-ip[46]-flow-process node but before it entered
+	       * this node.
+	       * FIXME: this shouldn't actually happen.
+	       */
+	      if (sx->generation != flow->generation)
+		sx = NULL;
 
 	      ASSERT (flow_pdr_id (flow, direction) != ~0);
 	      active = sx ? pfcp_get_rules (sx, PFCP_ACTIVE) : NULL;

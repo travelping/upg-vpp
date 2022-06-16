@@ -796,6 +796,9 @@ typedef struct
 
   pfcp_user_id_t user_id;
 
+  /* per-session flow list linkage */
+  u32 first_flow_index;
+
   u16 generation;
 } upf_session_t;
 
@@ -960,7 +963,7 @@ typedef struct
   /* vector of encap tunnel instances */
   upf_session_t *sessions;
 
-  /* lookup tunnel by key */
+  /* lookup session by id */
   uword *session_by_id;		/* keyed session id */
 
   /* lookup tunnel by TEID */

@@ -35,16 +35,29 @@
 
 vlib_node_registration_t upf_flow_node;
 
-flow_expiration_hook_t flow_expiration_hook = 0;
-flow_update_hook_t flow_update_hook = 0;
-flow_removal_hook_t flow_removal_hook = 0;
+flow_event_handler_t flowtable_handlers[FLOW_NUM_EVENTS <<
+					FLOWTABLE_MAX_EVENT_HANDLERS_LOG2];
+
+void
+flowtable_add_event_handler (flowtable_main_t * fm, flow_event_t event,
+			     flow_event_handler_t handler)
+{
+  ASSERT (event >= 0 && event < FLOW_NUM_EVENTS);
+  u32 start = event << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2;
+  u32 end = start + FLOWTABLE_MAX_EVENT_HANDLERS - 1;
+  u32 index = start;
+  while (flowtable_handlers[index])
+    {
+      index++;
+      ALWAYS_ASSERT (index <= end);
+    }
+  flowtable_handlers[index] = handler;
+}
 
 always_inline void
 flow_entry_cache_fill (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
 {
-#if CLIB_DEBUG > 0
   u32 cpu_index = os_get_thread_index ();
-#endif
   int i;
   flow_entry_t *f;
 
@@ -59,9 +72,7 @@ flow_entry_cache_fill (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
       for (i = 0; i < FLOW_CACHE_SZ; i++)
 	{
 	  pool_get_aligned (fm->flows, f, CLIB_CACHE_LINE_BYTES);
-#if CLIB_DEBUG > 0
 	  f->cpu_index = cpu_index;
-#endif
 	  vec_add1 (fmt->flow_cache, f - fm->flows);
 	}
       fm->flows_cpt += FLOW_CACHE_SZ;
@@ -113,9 +124,7 @@ flow_entry_alloc (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
 
   f_index = vec_pop (fmt->flow_cache);
   f = pool_elt_at_index (fm->flows, f_index);
-#if CLIB_DEBUG > 0
   ASSERT (f->cpu_index == os_get_thread_index ());
-#endif
 
   return f;
 }
@@ -124,9 +133,7 @@ always_inline void
 flow_entry_free (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 		 flow_entry_t * f)
 {
-#if CLIB_DEBUG > 0
   ASSERT (f->cpu_index == os_get_thread_index ());
-#endif
 
   if (f->app_uri)
     vec_free (f->app_uri);
@@ -138,12 +145,27 @@ flow_entry_free (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 }
 
 always_inline void
-flowtable_entry_remove (flowtable_main_per_cpu_t * fmt, flow_entry_t * f)
+flowtable_entry_remove_internal (flowtable_main_t * fm,
+				 flowtable_main_per_cpu_t * fmt,
+				 flow_entry_t * f, u32 now)
 {
   clib_bihash_kv_48_8_t kv;
 
+  upf_debug ("Flow Remove %d", f - fm->flows);
+
+  flowtable_handle_event (fm, f, FLOW_EVENT_REMOVE, FT_ORIGIN, now);
+  flowtable_handle_event (fm, f, FLOW_EVENT_UNLINK, FT_ORIGIN, now);
+
+  /* timers unlink */
+  clib_dlist_remove (fmt->timers, f->timer_index);
+  pool_put_index (fmt->timers, f->timer_index);
+
+  /* hashtable unlink */
   clib_memcpy (kv.key, f->key.key, sizeof (kv.key));
   clib_bihash_add_del_48_8 (&fmt->flows_ht, &kv, 0 /* is_add */ );
+
+  /* free to flow cache && pool (last) */
+  flow_entry_free (fm, fmt, f);
 }
 
 always_inline bool
@@ -158,10 +180,12 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 	     f - fm->flows, f->active + f->lifetime,
 	     (f->active + f->lifetime) % fm->timer_max_lifetime,
 	     now, fmt->time_index);
-  if (!keep && flow_expiration_hook && flow_expiration_hook (f) != 0)
+  if (!keep && flowtable_handle_event (fm, f, FLOW_EVENT_EXPIRE, FT_ORIGIN,
+				       now) != 0)
     {
       /* flow still in use, wait for another lifetime */
-      upf_debug ("Flow %d: expiration blocked by the hook", f - fm->flows);
+      upf_debug ("Flow %d: expiration blocked by the event handler",
+		 f - fm->flows);
       f->active += f->lifetime;
       keep = true;
     }
@@ -189,35 +213,7 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
     }
   else
     {
-      upf_main_t *gtm = &upf_main;
-      upf_debug ("Flow Remove %d", f - fm->flows);
-      if (flow_removal_hook)
-	flow_removal_hook (f, now);
-
-      /* timers unlink */
-      clib_dlist_remove (fmt->timers, e - fmt->timers);
-
-      pool_put (fmt->timers, e);
-
-      /* hashtable unlink */
-      flowtable_entry_remove (fmt, f);
-
-      vlib_decrement_simple_counter (&gtm->upf_simple_counters
-				     [UPF_FLOW_COUNTER],
-				     vlib_get_thread_index (), 0, 1);
-
-      if (f->is_spliced)
-	vlib_decrement_simple_counter (&gtm->upf_simple_counters
-				       [UPF_FLOWS_STITCHED],
-				       vlib_get_thread_index (), 0, 1);
-      if (f->spliced_dirty)
-	vlib_decrement_simple_counter (&gtm->upf_simple_counters
-				       [UPF_FLOWS_STITCHED_DIRTY_FIFOS],
-				       vlib_get_thread_index (), 0, 1);
-
-
-      /* free to flow cache && pool (last) */
-      flow_entry_free (fm, fmt, f);
+      flowtable_entry_remove_internal (fm, fmt, f, now);
       return true;
     }
 }
@@ -354,13 +350,21 @@ recycle_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt, u32 now)
   clib_error ("recycle_flow did not find any flow to recycle !");
 }
 
+void
+flowtable_entry_remove (flowtable_main_t * fm, flow_entry_t * f, u32 now)
+{
+  flowtable_main_per_cpu_t *fmt = &fm->per_cpu[f->cpu_index];
+  flowtable_entry_remove_internal (fm, fmt, f, now);
+}
+
 /* TODO: replace with a more appropriate hashtable */
 u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
 			       clib_bihash_kv_48_8_t * kv,
 			       timestamp_nsec_t timestamp, u32 const now,
-			       u8 is_reverse, u16 generation, int *created)
+			       u8 is_reverse, u16 generation,
+			       u32 next_session_flow_index, int *created)
 {
   flow_entry_t *f;
   dlist_elt_t *timer_entry;
@@ -400,9 +404,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   f->application_id = ~0;
   flow_ipfix_info (f, FT_ORIGIN) = ~0;
   flow_ipfix_info (f, FT_REVERSE) = ~0;
-#if CLIB_DEBUG > 0
   f->cpu_index = os_get_thread_index ();
-#endif
   f->generation = generation;
   flow_pdr_id (f, FT_ORIGIN) = ~0;
   flow_pdr_id (f, FT_REVERSE) = ~0;
@@ -421,6 +423,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   flow_last_exported (f, FT_ORIGIN) = now;
   flow_last_exported (f, FT_REVERSE) = now;
   f->ps_index = ~0;
+  f->next_session_flow_index = next_session_flow_index;
 
   /* insert in timer list */
   pool_get (fmt->timers, timer_entry);
@@ -495,6 +498,7 @@ format_flow (u8 * s, va_list * args)
   s = format (s, ", dont_splice %d", flow->dont_splice);
 #endif
 #if CLIB_DEBUG > 1
+  /* TODO: when we have multicore support, always show CPU */
   s = format (s, ", cpu %u", flow->cpu_index);
 #endif
 

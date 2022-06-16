@@ -226,12 +226,29 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    flowtable_entry_lookup_create (fm, fmt, &kv0,
 					   timestamp, current_time,
 					   is_reverse0, sx0->generation,
-					   &created0);
+					   sx0->first_flow_index, &created0);
+	  if (created0)
+	    {
+	      ASSERT (flowtable_get_flow
+		      (fm,
+		       flow_idx0)->next_session_flow_index ==
+		      sx0->first_flow_index);
+	      sx0->first_flow_index = flow_idx0;
+	    }
+
 	  flow_idx1 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv1,
 					   timestamp, current_time,
-					   is_reverse1, sx0->generation,
-					   &created1);
+					   is_reverse1, sx1->generation,
+					   sx1->first_flow_index, &created1);
+	  if (created1)
+	    {
+	      ASSERT (flowtable_get_flow
+		      (fm,
+		       flow_idx1)->next_session_flow_index ==
+		      sx1->first_flow_index);
+	      sx1->first_flow_index = flow_idx1;
+	    }
 
 	  if (PREDICT_FALSE (~0 == flow_idx0 || ~0 == flow_idx1))
 	    {
@@ -364,7 +381,15 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    flowtable_entry_lookup_create (fm, fmt, &kv,
 					   timestamp, current_time,
 					   is_reverse, sx0->generation,
-					   &created);
+					   sx0->first_flow_index, &created);
+	  if (created)
+	    {
+	      ASSERT (flowtable_get_flow
+		      (fm,
+		       flow_idx)->next_session_flow_index ==
+		      sx0->first_flow_index);
+	      sx0->first_flow_index = flow_idx;
+	    }
 
 	  if (PREDICT_FALSE (~0 == flow_idx))
 	    {

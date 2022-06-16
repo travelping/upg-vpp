@@ -153,6 +153,7 @@ func describeMeasurement(f *framework.Framework) {
 	ginkgo.Describe("session measurement", func() {
 		var ms *pfcp.PFCPMeasurement
 		var seid pfcp.SEID
+		var flowStr string
 
 		sessionContext := func(desc string, cfg framework.SessionConfig, body func()) {
 			ginkgo.Context(desc, func() {
@@ -165,7 +166,10 @@ func describeMeasurement(f *framework.Framework) {
 		}
 
 		verify := func(cfg traffic.TrafficConfig) {
+			var err error
 			runTrafficGen(f, cfg, &traffic.PreciseTrafficRec{})
+			flowStr, err = f.VPP.Ctl("show upf flows")
+			framework.ExpectNoError(err, "show upf flows")
 			ms = deleteSession(f, seid, true)
 		}
 
@@ -291,8 +295,6 @@ func describeMeasurement(f *framework.Framework) {
 					}
 					verify(&bypassTrafficCfg)
 					// the flow should not be proxied
-					flowStr, err := f.VPP.Ctl("show upf flows")
-					framework.ExpectNoError(err)
 					gomega.Expect(flowStr).To(gomega.ContainSubstring("proxy 0"))
 					gomega.Expect(flowStr).NotTo(gomega.ContainSubstring("proxy 1"))
 				})
@@ -302,8 +304,6 @@ func describeMeasurement(f *framework.Framework) {
 					verifyNonAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 
 					// the flow should be proxied
-					flowStr, err := f.VPP.Ctl("show upf flows")
-					framework.ExpectNoError(err)
 					gomega.Expect(flowStr).NotTo(gomega.ContainSubstring("proxy 0"))
 					gomega.Expect(flowStr).To(gomega.ContainSubstring("proxy 1"))
 				})
@@ -315,8 +315,6 @@ func describeMeasurement(f *framework.Framework) {
 					verifyAppMeasurement(f, ms, layers.IPProtocolTCP, nil)
 
 					// the flow should be proxied
-					flowStr, err := f.VPP.Ctl("show upf flows")
-					framework.ExpectNoError(err)
 					gomega.Expect(flowStr).NotTo(gomega.ContainSubstring("proxy 0"))
 					gomega.Expect(flowStr).To(gomega.ContainSubstring("proxy 1"))
 				})

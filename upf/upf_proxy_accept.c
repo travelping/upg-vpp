@@ -240,13 +240,8 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
       upf_debug ("flow_id: 0x%08x", flow_id);
       flow = pool_elt_at_index (fm->flows, flow_id);
       ASSERT (flow);
-      if (pool_is_free (gtm->sessions, gtm->sessions + flow->session_index))
-	{
-	  clib_warning ("The flow has sidx %d that refers to a dead session",
-			flow->session_index);
-	  error = UPF_PROXY_ERROR_INVALID_FLOW;
-	  goto done;
-	}
+      ASSERT (!pool_is_free
+	      (gtm->sessions, gtm->sessions + flow->session_index));
 
       /* make sure connection_index is invalid */
       vnet_buffer (b)->tcp.connection_index = ~0;

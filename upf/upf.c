@@ -498,6 +498,29 @@ upf_format_buffer_opaque_helper (const vlib_buffer_t * b, u8 * s)
   return s;
 }
 
+static int
+flow_remove_counter_handler (flowtable_main_t * fm, flow_entry_t * flow,
+			     flow_direction_t direction, u32 now)
+{
+  upf_main_t *gtm = &upf_main;
+
+  vlib_decrement_simple_counter (&gtm->upf_simple_counters
+				 [UPF_FLOW_COUNTER],
+				 vlib_get_thread_index (), 0, 1);
+
+  if (flow->is_spliced)
+    vlib_decrement_simple_counter (&gtm->upf_simple_counters
+				   [UPF_FLOWS_STITCHED],
+				   vlib_get_thread_index (), 0, 1);
+
+  if (flow->spliced_dirty)
+    vlib_decrement_simple_counter (&gtm->upf_simple_counters
+				   [UPF_FLOWS_STITCHED_DIRTY_FIFOS],
+				   vlib_get_thread_index (), 0, 1);
+
+  return 0;
+}
+
 static clib_error_t *
 upf_config_fn (vlib_main_t * vm, unformat_input_t * input)
 {
@@ -523,6 +546,7 @@ static clib_error_t *
 upf_init (vlib_main_t * vm)
 {
   upf_main_t *sm = &upf_main;
+  flowtable_main_t *fm = &flowtable_main;
   clib_error_t *error;
 
   sm->vnet_main = vnet_get_main ();
@@ -614,6 +638,11 @@ upf_init (vlib_main_t * vm)
     error = pfcp_server_main_init (vm);
   if (!error)
     upf_pfcp_policer_config_init (sm);
+
+  flowtable_add_event_handler (fm, FLOW_EVENT_REMOVE,
+			       flow_remove_counter_handler);
+  flowtable_add_event_handler (fm, FLOW_EVENT_UNLINK,
+			       session_flow_unlink_handler);
 
   return error;
 }
