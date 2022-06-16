@@ -351,11 +351,11 @@ proxy_start_connect_fn (const u32 * session_index)
   ASSERT (ps);
   ASSERT (ps->active_open_establishing);
 
-  if (pool_is_free_index (fm->flows, ps->flow_index))
+  if (ps->flow_index == ~0)
     {
       /*
-       * Not going to connect, decrement the refcount
-       * that was incremented in proxy_start_connect()
+       * The flow has been removed, so not going to connect, decrement
+       * the refcount that was incremented in proxy_start_connect()
        */
       ps->refcnt--;
       ps->active_open_establishing = 0;
@@ -631,7 +631,7 @@ session_cleanup (session_t * s, session_cleanup_ntf_t ntf, int is_active_open)
 
   /* ps might be invalid after this point */
 
-  if (pool_is_free_index (fm->flows, flow_index))
+  if (flow_index == ~0)
     goto out_unlock;
   flow = pool_elt_at_index (fm->flows, flow_index);
 
@@ -858,6 +858,12 @@ proxy_rx_callback_static (session_t * s, upf_proxy_session_t * ps)
 
   upf_debug ("sidx %d psidx %d", s->session_index, proxy_session_index (ps));
 
+  if (ps->flow_index == ~0)
+    {
+      clib_warning ("BUG: proxy RX callback for a dead flow");
+      return -1;
+    }
+
   rv = proxy_rx_request (ps);
   if (rv)
     return rv;
@@ -1039,10 +1045,18 @@ active_open_connected_callback (u32 app_index, u32 opaque,
       ASSERT (ps->po_disconnected);
     }
 
+  /*
+   * When the flow is removed, the passive side should be disconnected
+   * immediatelly via upf_kill_connection_hard(), which causes session
+   * cleanup to be invoked for the passive side, which sets
+   * ps->po_disconnected to 1
+   */
+  ASSERT (ps->flow_index != ~0 || ps->po_disconnected);
+
   if (ps->po_disconnected)
     {
       upf_debug
-	("sidx %d psidx %d: passive open side disconnected, closing active open connection",
+	("sidx %d psidx %d: passive open side disconnected / flow removed, closing active open connection",
 	 s ? s->session_index : -1, opaque);
       ps->ao_disconnected = 1;
       proxy_server_sessions_writer_unlock ();
@@ -1079,22 +1093,19 @@ active_open_connected_callback (u32 app_index, u32 opaque,
   s->tx_fifo->refcnt++;
   s->rx_fifo->refcnt++;
 
-  if (!pool_is_free_index (fm->flows, ps->flow_index))
-    {
-      transport_connection_t *tc;
-      flow_entry_t *flow;
-      flow_tc_t *ftc;
+  transport_connection_t *tc;
+  flow_entry_t *flow;
+  flow_tc_t *ftc;
 
-      flow = pool_elt_at_index (fm->flows, ps->flow_index);
-      ASSERT (flow->ps_index == opaque);
-      tc = session_get_transport (s);
+  flow = pool_elt_at_index (fm->flows, ps->flow_index);
+  ASSERT (flow->ps_index == opaque);
+  tc = session_get_transport (s);
 
-      ASSERT (tc->thread_index == thread_index);
+  ASSERT (tc->thread_index == thread_index);
 
-      ftc = &flow_tc (flow, FT_REVERSE);
-      ftc->conn_index = tc->c_index;
-      ftc->thread_index = tc->thread_index;
-    }
+  ftc = &flow_tc (flow, FT_REVERSE);
+  ftc->conn_index = tc->c_index;
+  ftc->thread_index = tc->thread_index;
 
   proxy_server_sessions_writer_unlock ();
 
@@ -1354,6 +1365,7 @@ upf_proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
     vnet_session_enable_disable (vm, 1 /* turn on TCP, etc. */ );
 
   /* Set next nodes for non-connection-bound packets */
+  /* TODO: this is broken in VPP 22.02, these values are ignored */
   tm->ipl_next_node[0] =
     vlib_node_add_next (vm, session_queue_node.index,
 			upf_ip4_proxy_server_no_conn_output_node.index);
@@ -1367,12 +1379,18 @@ upf_proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
 }
 
 static int
-upf_proxy_flow_expiration_hook (flow_entry_t * flow)
+upf_proxy_flow_expire_event_handler (flowtable_main_t * fm,
+				     flow_entry_t * flow,
+				     flow_direction_t direction, u32 now)
 {
   upf_proxy_session_t *ps;
   if (flow->ps_index == ~0)
     return 0;
 
+  /*
+   * If there's an existing proxy connection for the flow, close it
+   * (relatively) gracefully before letting the flow expire
+   */
   proxy_server_sessions_writer_lock ();
   ps = proxy_session_get (flow->ps_index);
   ASSERT (ps);
@@ -1381,11 +1399,59 @@ upf_proxy_flow_expiration_hook (flow_entry_t * flow)
   return -1;
 }
 
+static int
+upf_proxy_flow_remove_handler (flowtable_main_t * fm, flow_entry_t * flow,
+			       flow_direction_t direction, u32 now)
+{
+  int is_active_open;
+  session_t *sess;
+  transport_connection_t *tc;
+  upf_proxy_session_t *ps;
+
+  if (flow->ps_index == ~0)
+    return 0;
+
+  ps = proxy_session_get (flow->ps_index);
+  ASSERT (ps);
+
+  for (is_active_open = 0; is_active_open <= 1; is_active_open++)
+    {
+      sess = session_from_proxy_session_get_if_valid (ps, is_active_open);
+      if (sess)
+	{
+	  tc = session_get_transport (sess);
+	  /*
+	   * Calling upf_kill_connection_hard() will cause session
+	   * cleanup callback to be called for the corresponding side
+	   * of the proxy connection. In case if both sides were open
+	   * at some point, this will cause the proxy connection to be
+	   * removed. If there's an active open connection in
+	   * half-open state (establishing), the proxy session will be
+	   * kept, but after this loop we unlink it from the flow so
+	   * that it will be freed upon active_open_connected_callback()
+	   */
+	  upf_kill_connection_hard ((tcp_connection_t *) tc);
+	}
+    }
+
+  /*
+   * Unlink the flow from the proxy session even if active open
+   * connection remains in half-open state (establishing).
+   * In this case, the proxy session will be freed once
+   * active_open_connected_callback() is invoked.
+   */
+  flow->ps_index = ~0;
+  ps->flow_index = ~0;
+
+  return 0;
+}
+
 clib_error_t *
 upf_proxy_main_init (vlib_main_t * vm)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   tcp_main_t *tm = vnet_get_tcp_main ();
+  flowtable_main_t *fm = &flowtable_main;
 
   pm->mss = 1350;
   pm->fifo_size = 64 << 10;
@@ -1425,7 +1491,10 @@ upf_proxy_main_init (vlib_main_t * vm)
     vlib_node_add_next (vm, tcp6_output_node.index,
 			upf_ip6_proxy_server_far_only_output_node.index);
 
-  flow_expiration_hook = upf_proxy_flow_expiration_hook;
+  flowtable_add_event_handler (fm, FLOW_EVENT_EXPIRE,
+			       upf_proxy_flow_expire_event_handler);
+  flowtable_add_event_handler (fm, FLOW_EVENT_REMOVE,
+			       upf_proxy_flow_remove_handler);
 
   return 0;
 }

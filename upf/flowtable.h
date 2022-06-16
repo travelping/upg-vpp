@@ -164,11 +164,12 @@ typedef struct flow_entry
   u32 last_exported[FT_ORDER_MAX];
   u32 ipfix_info_index[FT_ORDER_MAX];
 
+  /* Linkage to the next flow for the same session */
+  u32 next_session_flow_index;
+
   /* Generation ID that must match the session's if this flow is up to date */
   u16 generation;
-#if CLIB_DEBUG > 0
   u32 cpu_index;
-#endif
   u16 nat_sport;
 } flow_entry_t;
 
@@ -232,14 +233,70 @@ typedef struct
 } flowtable_main_t;
 
 extern flowtable_main_t flowtable_main;
-typedef int (*flow_expiration_hook_t) (flow_entry_t * flow);
-typedef void (*flow_update_hook_t) (flow_entry_t * flow,
-				    flow_direction_t direction, u32 now);
-typedef void (*flow_removal_hook_t) (flow_entry_t * flow, u32 now);
 
-extern flow_expiration_hook_t flow_expiration_hook;
-extern flow_update_hook_t flow_update_hook;
-extern flow_removal_hook_t flow_removal_hook;
+typedef enum
+{
+  /*
+   * FLOW_EVENT_EXPIRE happens when a flow is about to expire.
+   * If all of the handlers return 0, the flow expires and is removed
+   * after invoking the FLOW_EVENT_REMOVE and FLOW_EVENT_UNLINK event
+   * handlers. Otherwise, the flow is retained for the number of
+   * seconds stored in its 'lifetime' field, after which the
+   * expiration is re-attempted, starting from handling this event
+   * again. This is used to block flow removal while other UPG
+   * structures still reference it, for example, the ADF proxy.
+   */
+  FLOW_EVENT_EXPIRE,
+  /*
+   * FLOW_EVENT_STATS_UPDATE event happens when flow stats are updated.
+   * It is used for flow reporting
+   */
+  FLOW_EVENT_STATS_UPDATE,
+  /*
+   * FLOW_EVENT_REMOVE event happens when the flow is being removed, so
+   * additional tasks such as flow reporting can be done on it.
+   */
+  FLOW_EVENT_REMOVE,
+  /*
+   * FLOW_EVENT_UNLINK event happens when removing a flow, after all
+   * FLOW_EVENT_REMOVE event handlers are called.
+   */
+  FLOW_EVENT_UNLINK,
+  /* Number of possible flow events */
+  FLOW_NUM_EVENTS
+} flow_event_t;
+
+#define FLOWTABLE_MAX_EVENT_HANDLERS_LOG2 2
+#define FLOWTABLE_MAX_EVENT_HANDLERS (1 << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2)
+
+typedef int (*flow_event_handler_t) (flowtable_main_t * fm,
+				     flow_entry_t * flow,
+				     flow_direction_t direction, u32 now);
+extern flow_event_handler_t flowtable_handlers[FLOW_NUM_EVENTS <<
+					       FLOWTABLE_MAX_EVENT_HANDLERS_LOG2];
+
+void
+flowtable_add_event_handler (flowtable_main_t * fm, flow_event_t event,
+			     flow_event_handler_t handler);
+static_always_inline int
+flowtable_handle_event (flowtable_main_t * fm, flow_entry_t * flow,
+			flow_event_t event,
+			flow_direction_t direction, u32 now)
+{
+  int rv = 0;
+  u32 index, max_index;
+  ASSERT (event >= 0 && event < FLOW_NUM_EVENTS);
+  index = event << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2;
+  max_index = index + FLOWTABLE_MAX_EVENT_HANDLERS - 1;
+  for (; index <= max_index && flowtable_handlers[index]; index++)
+    {
+      int cur_rv = flowtable_handlers[index] (fm, flow, direction, now);
+      if (!rv && cur_rv)
+	rv = cur_rv;
+    }
+
+  return rv;
+}
 
 u8 *format_flow_key (u8 *, va_list *);
 u8 *format_flow (u8 *, va_list *);
@@ -265,12 +322,16 @@ flowtable_get_flow (flowtable_main_t * fm, u32 flow_index)
   return pool_elt_at_index (fm->flows, flow_index);
 }
 
+void
+flowtable_entry_remove (flowtable_main_t * fm, flow_entry_t * f, u32 now);
+
 u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
 			       clib_bihash_kv_48_8_t * kv,
 			       timestamp_nsec_t timestamp, u32 const now,
-			       u8 is_reverse, u16 generation, int *created);
+			       u8 is_reverse, u16 generation,
+			       u32 next_session_flow_index, int *created);
 
 void
 timer_wheel_index_update (flowtable_main_t * fm,
@@ -419,6 +480,7 @@ flow_update_stats (vlib_main_t * vm, vlib_buffer_t * b,
 		   flow_entry_t * f, u8 is_ip4,
 		   timestamp_nsec_t timestamp, u32 now)
 {
+  flowtable_main_t *fm = &flowtable_main;
   /*
    * Performance note:
    * vlib_buffer_length_in_chain() caches its result for the buffer
@@ -455,8 +517,7 @@ flow_update_stats (vlib_main_t * vm, vlib_buffer_t * b,
   f->stats[is_reverse].l4_bytes_unreported += l4_len;
   f->flow_end = timestamp;
 
-  if (flow_update_hook != 0)
-    flow_update_hook (f, direction, now);
+  flowtable_handle_event (fm, f, FLOW_EVENT_STATS_UPDATE, direction, now);
 }
 
 always_inline void

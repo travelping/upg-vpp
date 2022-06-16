@@ -154,6 +154,8 @@ proxy_session_lookup_by_index (u32 session_index, u32 thread_index)
   return 0;
 }
 
+void upf_kill_connection_hard (tcp_connection_t * tc);
+
 tcp_connection_t *upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b,
 					     u8 thread_index, u8 is_ip4,
 					     u8 is_reverse);

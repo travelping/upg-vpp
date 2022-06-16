@@ -112,12 +112,13 @@ tcp_flow_is_valid (tcp_connection_t * tc, flow_entry_t * f,
     (f->key.port[reverse] == tc->connection.lcl_port);
 }
 
-static void
-kill_connection_hard (tcp_connection_t * tc)
+void
+upf_kill_connection_hard (tcp_connection_t * tc)
 {
   session_lookup_del_connection (&tc->connection);
 
   tcp_connection_set_state (tc, TCP_STATE_CLOSED);
+  /* this calls session_cleanup_callback for the proxy connection */
   tcp_connection_del (tc);
 }
 
@@ -217,8 +218,9 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
     }
 
   /* kill the TCP connections, session and proxy session */
-  kill_connection_hard (tcpRx);
-  kill_connection_hard (tcpTx);
+  upf_kill_connection_hard (tcpRx);
+  upf_kill_connection_hard (tcpTx);
+  ASSERT (flow->ps_index == ~0);
 
   /* switch to direct spliceing */
   flow->is_spliced = 1;
@@ -398,7 +400,8 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 		     upf_buffer_opaque (b)->gtpu.is_reverse,
 		     flow->is_reverse);
 
-	  vnet_buffer (b)->ip.rx_sw_if_index = vnet_buffer (b)->sw_if_index[VLIB_RX];
+	  vnet_buffer (b)->ip.rx_sw_if_index =
+	    vnet_buffer (b)->sw_if_index[VLIB_RX];
 
 	  ftc = &flow_tc (flow, direction);
 

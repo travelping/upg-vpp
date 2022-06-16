@@ -41,8 +41,9 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 
 				ginkgo.It("doesn't send IPFIX reports", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						trafficCfg: &traffic.UDPPingConfig{},
-						protocol:   layers.IPProtocolUDP,
+						trafficCfg:  &traffic.UDPPingConfig{},
+						protocol:    layers.IPProtocolUDP,
+						noTemplates: true,
 					})
 					v.verifyNoRecs()
 				})
@@ -158,6 +159,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 						farTemplate: "none",
 						trafficCfg:  &traffic.UDPPingConfig{},
 						protocol:    layers.IPProtocolUDP,
+						noTemplates: true,
 					})
 					v.verifyNoRecs()
 				})
@@ -265,8 +267,9 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 
 			ginkgo.It("should be handled as no IPFIX exporter", func() {
 				v.verifyIPFIX(ipfixVerifierCfg{
-					trafficCfg: &traffic.UDPPingConfig{},
-					protocol:   layers.IPProtocolUDP,
+					trafficCfg:  &traffic.UDPPingConfig{},
+					protocol:    layers.IPProtocolUDP,
+					noTemplates: true,
 				})
 				v.verifyNoRecs()
 			})
@@ -326,6 +329,7 @@ type ipfixVerifierCfg struct {
 	forwardingPolicyID          string
 	expectedOriginVRFName       string
 	expectedReverseVRFName      string
+	noTemplates                 bool
 }
 
 type ipfixVerifier struct {
@@ -464,15 +468,16 @@ func (v *ipfixVerifier) runSession(cfg ipfixVerifierCfg) {
 		cfg.trafficCfg.AddServerIP(v.altServerIP.IP)
 	}
 	runTrafficGen(v.f, cfg.trafficCfg, &traffic.PreciseTrafficRec{})
-	ginkgo.By("waiting for the flow to expire")
-	gomega.Eventually(func() string {
-		flowStr, err := v.f.VPP.Ctl("show upf flows")
-		framework.ExpectNoError(err)
-		return flowStr
-	}, 80*time.Second, 5*time.Second).
-		ShouldNot(gomega.ContainSubstring("proto 0x"),
-			"the flow should be gone")
+	if !v.cfg.noTemplates {
+		gomega.Eventually(v.ipfixHandler.getTemplateIDs, 10*time.Second, time.Second).
+			ShouldNot(gomega.BeEmpty())
+	}
 	v.ms = deleteSession(v.f, v.seid, true)
+	// Wait a bit for all the reports to arrive
+	// FIXME: actually, we should check IPFIX report results
+	// via Eventually(), but that's a bit too much trouble for now,
+	// so let's just do time.Sleep()
+	time.Sleep(2 * time.Second)
 }
 
 func (v *ipfixVerifier) verifyIPFIX(cfg ipfixVerifierCfg) {
@@ -750,7 +755,8 @@ func (v *ipfixVerifier) verifyReportingInterval(expectedSeconds int) {
 
 func verifyIntervals(times []time.Time, atLeastMs uint64) {
 	gomega.Expect(len(times)).To(gomega.BeNumerically(">", 3))
-	for n := 1; n < len(times); n++ {
+	// the last interval may be shorter b/c the session is deleted
+	for n := 1; n < len(times)-1; n++ {
 		deltaT := times[n].Sub(times[n-1]).Milliseconds()
 		gomega.Expect(deltaT).To(gomega.BeNumerically(">=", atLeastMs-500))
 	}
