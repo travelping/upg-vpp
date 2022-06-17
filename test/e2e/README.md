@@ -40,6 +40,7 @@ The make commands accept following variables:
 * `E2E_GDBSERVER`: run VPP under gdbserver. After VPP is started, you need to copy-paste
   the `gdb ...` command from test output into your console and type `cont` there (and press Enter)
   to continue running the test
+* `E2E_FAIL_FAST`: stop running tests after the first failure
 
 An example with multiple flags:
 

@@ -26,6 +26,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_VPP_NOT_INSTALLED:=}"
 : "${E2E_NO_GDB:=}"
 : "${E2E_GDBSERVER:=}"
+: "${E2E_FAIL_FAST:=}"
 : "${BUILD_TYPE:=debug}"
 
 if [[ ! ${E2E_POLLING_MODE} ]]; then
@@ -103,6 +104,10 @@ fi
 
 if [[ ${E2E_FLAKE_ATTEMPTS} ]]; then
   ginkgo_args+=(--flakeAttempts ${E2E_FLAKE_ATTEMPTS})
+fi
+
+if [[ ${E2E_FAIL_FAST} ]]; then
+  ginkgo_args+=(--failFast)
 fi
 
 ginkgo_args+=(--)
