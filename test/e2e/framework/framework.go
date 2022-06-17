@@ -239,7 +239,7 @@ func (f *Framework) AfterEach() {
 			for _, filename := range matches {
 				os.Remove(filename)
 			}
-			logrus.WithField("testDir", targetDir).Info("test artifacts for the failed testcase")
+			logrus.WithField("testDir", targetDir).Info("test artifacts for the testcase")
 		} else if f.VPPCfg.BaseDir != "" {
 			ExpectNoError(os.RemoveAll(f.VPPCfg.BaseDir))
 		}
