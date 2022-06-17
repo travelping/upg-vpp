@@ -9,8 +9,6 @@ env:
   CUR_REGISTRY: "registry.cennso.com"
   REGISTRY: "quay.io"
   IMAGE_NAME: travelping/upg-vpp
-  # this points to buildkitd k8s service
-  BUILDKITD_ADDR: tcp://buildkitd:1234
   # Make 'git am' work
   GIT_AUTHOR_NAME: Dummy
   GIT_AUTHOR_EMAIL: dummy@example.com
@@ -34,7 +32,7 @@ env:
 
 jobs:
   build:
-    runs-on: ["self-hosted", "hugepages"]
+    runs-on: ["self-hosted"]
     strategy:
       matrix:
         build_type: [debug, release]
@@ -86,7 +84,7 @@ jobs:
         path: image-dev-${{ matrix.build_type }}.txt
 
   checkstyle:
-    runs-on: ["self-hosted", "hugepages"]
+    runs-on: ["self-hosted"]
     steps:
     - name: Clean the workspace
       uses: docker://alpine
@@ -197,7 +195,7 @@ jobs:
 
   # dummy job for release.yaml to wait on
   conclude:
-    runs-on: ["self-hosted", "hugepages"]
+    runs-on: ["self-hosted"]
     needs:
     - checkstyle
     - integration
@@ -210,7 +208,7 @@ jobs:
   slack:
     needs:
     - conclude
-    runs-on: ["self-hosted", "hugepages"]
+    runs-on: ["self-hosted"]
     if: always()
     steps:
     - name: Set status
