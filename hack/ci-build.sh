@@ -7,7 +7,6 @@ set -o errtrace
 : ${REGISTRY:=quay.io}
 : ${IMAGE_NAME:=travelping/upg-vpp}
 : ${DOCKERFILE:=}
-: ${BUILDKITD_ADDR:=tcp://buildkitd:1234}
 : ${IMAGE_VARIANT:=debug}
 : ${NO_PUSH:=}
 : ${IMAGE_EXPIRES_AFTER:=7d}
@@ -25,7 +24,7 @@ function do_build {
   # --export-cache type=inline \
   # --import-cache type=registry,ref="${IMAGE_BASE_NAME}" \
   set -x
-  buildctl --addr "${BUILDKITD_ADDR}" build \
+  buildctl build \
            --frontend dockerfile.v0 \
            --progress=plain \
            --local context=. \
