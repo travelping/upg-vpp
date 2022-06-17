@@ -14,6 +14,7 @@ require (
 	github.com/containernetworking/plugins v0.8.7
 	github.com/go-ping/ping v0.0.0-20201022122018-3977ed72668a
 	github.com/google/gopacket v1.1.18
+	github.com/mitchellh/go-ps v1.0.0
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
 	github.com/pkg/errors v0.9.1

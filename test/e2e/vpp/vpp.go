@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -39,6 +40,7 @@ import (
 	"git.fd.io/govpp.git/api"
 	"git.fd.io/govpp.git/binapi/vpe"
 	"git.fd.io/govpp.git/core"
+	ps "github.com/mitchellh/go-ps"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"gopkg.in/tomb.v2"
@@ -239,6 +241,32 @@ func (vi *VPPInstance) prepareCommand() (*exec.Cmd, error) {
 	return exec.Command(NSENTER_CMD, args...), nil
 }
 
+func (vi *VPPInstance) InterruptVPP() {
+	if vi.cmd == nil || vi.cmd.ProcessState != nil {
+		vi.log.Info("can't interrupt VPP as it is not running")
+		return
+	}
+
+	if !vi.startupCfg.UseGDB {
+		vi.cmd.Process.Signal(syscall.SIGINT)
+		return
+	}
+
+	pl, err := ps.Processes()
+	if err != nil {
+		vi.log.Error(err, "error listing processes")
+	}
+	for _, proc := range pl {
+		if proc.PPid() == vi.cmd.Process.Pid {
+			vi.log.Info("forcibly interrupting VPP process",
+				"pid", proc.Pid(), "executable", proc.Executable())
+			if err := syscall.Kill(proc.Pid(), syscall.SIGINT); err != nil {
+				vi.log.Error(err, "error interrupting VPP process")
+			}
+		}
+	}
+}
+
 func (vi *VPPInstance) StartVPP() error {
 	vi.log.WithFields(logrus.Fields{
 		"cliSocket": vi.startupCfg.CLISock,
@@ -347,7 +375,9 @@ func (vi *VPPInstance) run(sigchldCh chan os.Signal, conev chan core.ConnectionE
 			}
 			return nil
 		case e := <-conev:
-			if e.State == core.Failed {
+			if e.State == core.Failed || e.State == core.NotResponding {
+				vi.log.Errorf("VPP conn failed / VPP not responding, interrupting the VPP process")
+				vi.InterruptVPP()
 				return errors.New("VPP API connection failed")
 			}
 		}
