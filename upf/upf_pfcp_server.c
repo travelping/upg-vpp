@@ -41,6 +41,7 @@
 
 /* as defined in vnet/policer, PPS-based QOS fixed size */
 #define UPF_POLICER_FIXED_PKT_SIZE 256
+#define LATE_TIMER_WARNING_THRESHOLD 5
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -825,6 +826,12 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 #define urr_check(V, NOW)				\
     (((V).base != 0) && ((V).period != 0) &&		\
      ((V).expected != 0) && (V).expected < (NOW))
+#define urr_check_late(V, NOW)					\
+    do { 							\
+      if ((V).expected < (NOW) - LATE_TIMER_WARNING_THRESHOLD)	\
+	clib_warning("WARNING: timer late by %.4f seconds: "#V, \
+		     (NOW) - (V).expected);			\
+    } while (0)
 
 #define URR_COND_TIME(t, time)			\
     (t).period != 0 ? time : 0
@@ -864,6 +871,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 
     if (urr_check (urr->measurement_period, now))
       {
+	urr_check_late (urr->measurement_period, now);
 	if (urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING)
 	  {
 	    trigger |= USAGE_REPORT_TRIGGER_PERIODIC_REPORTING;
@@ -899,6 +907,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
       }
     if (urr_check (urr->time_threshold, now))
       {
+	urr_check_late (urr->time_threshold, now);
 	if (urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD)
 	  {
 	    trigger |= USAGE_REPORT_TRIGGER_TIME_THRESHOLD;
@@ -910,6 +919,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
       }
     if (urr_check (urr->time_quota, now))
       {
+	urr_check_late (urr->time_quota, now);
 	if (urr->triggers & REPORTING_TRIGGER_TIME_QUOTA)
 	  {
 	    trigger |= USAGE_REPORT_TRIGGER_TIME_QUOTA;
@@ -922,6 +932,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
       }
     if (urr_check (urr->quota_validity_time, now))
       {
+	urr_check_late (urr->quota_validity_time, now);
 	if (urr->triggers & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME)
 	  {
 	    trigger |= USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME;
@@ -938,6 +949,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
       {
 	upf_urr_traffic_t **expired = NULL;
 	upf_urr_traffic_t *tt = NULL;
+
+	urr_check_late (urr->traffic_timer, now);
 
 	pool_foreach (tt, urr->traffic)
 	{
@@ -1077,10 +1090,18 @@ void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg)
   vec_foreach (exp_id, psm->expired)
   {
     if (*exp_id == id_t1 || *exp_id == id_resp)
-      *exp_id = ~0;
+      {
+	msg->timer = ~0;
+	*exp_id = ~0;
+      }
   }
 
-  TW (tw_timer_stop) (&psm->timer, msg->timer);
+  /*
+   * Don't call tw_timer_stop() on expired timer handles as they're invalid
+   * Ref: https://www.mail-archive.com/vpp-dev@lists.fd.io/msg10495.html
+   */
+  if (msg->timer != ~0)
+    TW (tw_timer_stop) (&psm->timer, msg->timer);
   msg->timer = ~0;
 }
 
