@@ -22,7 +22,10 @@
 #include "pfcp.h"
 #include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
 
-#define PFCP_HB_INTERVAL 10
+#define PFCP_DEFAULT_REQUEST_INTERVAL 10
+#define PFCP_DEFAULT_REQUEST_RETRIES 3
+#define PFCP_MAX_HB_INTERVAL 120
+#define PFCP_MAX_HB_RETRIES 30
 #define PFCP_SERVER_HB_TIMER 0
 #define PFCP_SERVER_T1       1
 #define PFCP_SERVER_RESPONSE 2
@@ -35,6 +38,12 @@ typedef enum
   EVENT_TX,
   EVENT_URR,
 } pfcp_process_event_t;
+
+typedef struct
+{
+  u8 retries;
+  u8 timeout;
+} pfcp_hb_config_t;
 
 typedef struct
 {
@@ -98,6 +107,8 @@ typedef struct
   u32 *msg_pool_free;
   uword *request_q;
   mhash_t response_q;
+
+  pfcp_hb_config_t hb_cfg;
 
   vlib_frame_t *ip_lookup_tx_frames[2];
 

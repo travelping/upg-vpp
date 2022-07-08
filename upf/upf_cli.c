@@ -1646,6 +1646,66 @@ VLIB_CLI_COMMAND (upf_add_policy_command, static) =
 };
 /* *INDENT-ON* */
 
+static clib_error_t *
+upf_pfcp_heartbeat_config_command_fn (vlib_main_t * vm,
+				      unformat_input_t * main_input,
+				      vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  upf_main_t *gtm = &upf_main;
+  clib_error_t *error = NULL;
+  u32 timeout = ~0;
+  u32 retries = ~0;
+  int rv = 0;
+
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    return 0;
+
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "timeout %u", &timeout))
+	;
+      else if (unformat (line_input, "retries %u", &retries));
+      else
+	return (clib_error_return (0, "unknown input '%U'",
+				   format_unformat_error, line_input));
+    }
+
+  rv = vnet_upf_pfcp_heartbeat_config (timeout, retries);
+  if (rv)
+    error = clib_return_error ("Invalid parameters");
+  return error;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_pfcp_heartbeat_config_command, static) = {
+    .path = "upf pfcp heartbeat-config",
+    .short_help = "upf pfcp heartbeat-config timeout <sec> retries <count>",
+    .function = upf_pfcp_heartbeat_config_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_show_pfcp_heartbeat_config_command_fn (vlib_main_t * vm,
+					   unformat_input_t * main_input,
+					   vlib_cli_command_t * cmd)
+{
+  pfcp_server_main_t *psm = &pfcp_server_main;
+  vlib_cli_output (vm, "Timeout: %u Retries: %u", psm->hb_cfg.timeout,
+		   psm->hb_cfg.retries);
+  return NULL;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_show_pfcp_heartbeat_config_command, static) =
+{
+  .path = "show upf heartbeat-config",
+  .short_help =
+  "show upf heartbeat-config",
+  .function = upf_show_pfcp_heartbeat_config_command_fn,
+};
+/* *INDENT-ON* */
+
 /*
  * fd.io coding-style-patch-verification: ON
  *

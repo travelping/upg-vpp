@@ -266,6 +266,7 @@ static int
 handle_heartbeat_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 {
   upf_main_t *gtm = &upf_main;
+  pfcp_server_main_t *psm = &pfcp_server_main;
   upf_node_assoc_t *n;
   pfcp_recovery_time_stamp_t ts =
     dmsg->simple_response.response.recovery_time_stamp;
@@ -294,7 +295,7 @@ handle_heartbeat_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
     {
       upf_debug ("restarting HB timer\n");
       n->heartbeat_handle = upf_pfcp_server_start_timer
-	(PFCP_SERVER_HB_TIMER, n - gtm->nodes, PFCP_HB_INTERVAL);
+	(PFCP_SERVER_HB_TIMER, n - gtm->nodes, psm->hb_cfg.timeout);
     }
 
   return 0;
@@ -394,7 +395,7 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   if (r == 0)
     {
       n->heartbeat_handle = upf_pfcp_server_start_timer
-	(PFCP_SERVER_HB_TIMER, n - gtm->nodes, PFCP_HB_INTERVAL);
+	(PFCP_SERVER_HB_TIMER, n - gtm->nodes, psm->hb_cfg.timeout);
 
       resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
     }

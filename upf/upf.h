@@ -1082,6 +1082,8 @@ int vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto,
 
 int vnet_upf_node_id_set (const pfcp_node_id_t * node_id);
 
+int vnet_upf_pfcp_heartbeat_config (u32 timeout, u32 retires);
+
 void upf_session_dpo_add_or_lock (dpo_proto_t dproto, upf_session_t * sx,
 				  dpo_id_t * dpo);
 

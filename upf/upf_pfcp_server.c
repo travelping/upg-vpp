@@ -402,7 +402,14 @@ request_t1_expired (u32 seq_no)
 static void
 upf_pfcp_server_send_request (pfcp_msg_t * msg)
 {
-  enqueue_request (msg, 3, 10);
+  pfcp_server_main_t *psm = &pfcp_server_main;
+
+  if (pfcp_msg_type (msg->data) == PFCP_HEARTBEAT_REQUEST)
+    enqueue_request (msg, psm->hb_cfg.retries, psm->hb_cfg.timeout);
+  else
+    enqueue_request (msg, PFCP_DEFAULT_REQUEST_RETRIES,
+		     PFCP_DEFAULT_REQUEST_INTERVAL);
+
   upf_pfcp_send_data (msg);
 }
 
@@ -1421,6 +1428,10 @@ clib_error_t *pfcp_server_main_init (vlib_main_t * vm)
 
   upf_debug ("PFCP: start_time: %p, %d, %x.", psm, psm->start_time,
 	     psm->start_time);
+
+  psm->hb_cfg.retries = PFCP_DEFAULT_REQUEST_RETRIES;
+  psm->hb_cfg.timeout = PFCP_DEFAULT_REQUEST_INTERVAL;
+
   return 0;
 }
 

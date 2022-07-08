@@ -324,3 +324,22 @@ define upf_pfcp_policer_show_reply {
   u32 cir_pps;
   u32 cb_ms;
 };
+
+autoreply define upf_pfcp_heartbeats_set {
+  u32 client_index;
+  u32 context;
+  u32 timeout;
+  u32 retries;
+};
+
+define upf_pfcp_heartbeats_get {
+  u32 client_index;
+  u32 context;
+};
+
+define upf_pfcp_heartbeats_get_reply {
+  u32 client_index;
+  u32 context;
+  u32 timeout;
+  u32 retries;
+};

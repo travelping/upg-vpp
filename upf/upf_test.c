@@ -170,6 +170,12 @@ api_upf_pfcp_policer_set (vat_main_t * vam)
   return -1;
 }
 
+static int
+api_upf_pfcp_heartbeats_set (vat_main_t * vam)
+{
+  return -1;
+}
+
 #include <upf/upf.api_test.c>
 
 /*
