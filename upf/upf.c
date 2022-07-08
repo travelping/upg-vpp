@@ -380,6 +380,21 @@ vnet_upf_node_id_set (const pfcp_node_id_t * node_id)
   return VNET_API_ERROR_INVALID_ARGUMENT;
 }
 
+int
+vnet_upf_pfcp_heartbeat_config (u32 timeout, u32 retries)
+{
+  pfcp_server_main_t *psm = &pfcp_server_main;
+
+  if (!timeout || timeout > PFCP_MAX_HB_INTERVAL
+      || retries > PFCP_MAX_HB_RETRIES)
+    return -1;
+
+  psm->hb_cfg.timeout = timeout;
+  psm->hb_cfg.retries = retries;
+
+  return 0;
+}
+
 #if 0
 // TODO
 static int

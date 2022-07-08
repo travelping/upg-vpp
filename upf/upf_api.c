@@ -845,6 +845,54 @@ vl_api_upf_pfcp_policer_show_t_handler (vl_api_upf_pfcp_policer_show_t * mp)
   vl_api_send_msg (reg, (u8 *) rmp);
 }
 
+/* API message handler */
+static void
+vl_api_upf_pfcp_heartbeats_set_t_handler (vl_api_upf_pfcp_heartbeats_set_t *
+					  mp)
+{
+  vl_api_upf_pfcp_heartbeats_set_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  u32 timeout, retries;
+  int rv = 0;
+
+  retries = clib_net_to_host_u32 (mp->retries);
+  timeout = clib_net_to_host_u32 (mp->timeout);
+
+  rv = vnet_upf_pfcp_heartbeat_config (timeout, retries);
+
+  REPLY_MACRO (VL_API_UPF_PFCP_HEARTBEATS_SET_REPLY);
+}
+
+/* API message handler */
+static void
+vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t *
+					  mp)
+{
+  vl_api_upf_pfcp_heartbeats_get_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  pfcp_server_main_t *psm = &pfcp_server_main;
+  vl_api_registration_t *reg;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    {
+      return;
+    }
+
+  rmp = vl_msg_api_alloc (sizeof (*rmp));
+  clib_memset (rmp, 0, sizeof (*rmp));
+
+  rmp->_vl_msg_id =
+    htons (VL_API_UPF_PFCP_HEARTBEATS_GET_REPLY + sm->msg_id_base);
+  rmp->context = mp->context;
+
+  rmp->timeout = clib_host_to_net_u32 (psm->hb_cfg.timeout);
+  rmp->retries = clib_host_to_net_u32 (psm->hb_cfg.retries);
+
+  vl_api_send_msg (reg, (u8 *) rmp);
+}
+
+
 #include <upf/upf.api.c>
 
 static clib_error_t *
