@@ -1,6 +1,6 @@
 module github.com/travelping/upg-vpp/test/e2e
 
-go 1.13
+go 1.18
 
 // TODO: https://github.com/go-ping/ping/pull/116
 replace github.com/go-ping/ping => github.com/ivan4th/ping v0.0.0-20201105224649-bfa92e2c3093
@@ -29,4 +29,26 @@ require (
 	github.com/wmnsk/go-pfcp v0.0.15
 	golang.org/x/sys v0.0.0-20210225134936-a50acf3fe073
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
+)
+
+require (
+	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
+	github.com/containernetworking/cni v0.8.0 // indirect
+	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/go-logr/logr v0.4.0 // indirect
+	github.com/go-ole/go-ole v1.2.4 // indirect
+	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
+	github.com/lunixbochs/struc v0.0.0-20200521075829-a4cb8d33dbbe // indirect
+	github.com/nxadm/tail v1.4.4 // indirect
+	github.com/pion/dtls/v2 v2.0.3 // indirect
+	github.com/pion/logging v0.2.2 // indirect
+	github.com/pion/transport v0.10.1 // indirect
+	github.com/pion/udp v0.1.0 // indirect
+	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
+	golang.org/x/net v0.0.0-20210224082022-3d97a244fca7 // indirect
+	golang.org/x/text v0.3.4 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
+	k8s.io/klog/v2 v2.8.0 // indirect
 )
