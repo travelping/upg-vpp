@@ -5,7 +5,7 @@
 // Contents:
 //   2 enums
 //   1 struct
-//  40 messages
+//  44 messages
 //
 package upf
 
@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0x93ebcf8d
+	VersionCrc = 0xcdb93693
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -1107,6 +1107,140 @@ func (m *UpfPfcpFormatReply) Unmarshal(b []byte) error {
 	return nil
 }
 
+// UpfPfcpHeartbeatsGet defines message 'upf_pfcp_heartbeats_get'.
+type UpfPfcpHeartbeatsGet struct{}
+
+func (m *UpfPfcpHeartbeatsGet) Reset()               { *m = UpfPfcpHeartbeatsGet{} }
+func (*UpfPfcpHeartbeatsGet) GetMessageName() string { return "upf_pfcp_heartbeats_get" }
+func (*UpfPfcpHeartbeatsGet) GetCrcString() string   { return "51077d14" }
+func (*UpfPfcpHeartbeatsGet) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfPfcpHeartbeatsGet) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	return size
+}
+func (m *UpfPfcpHeartbeatsGet) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpHeartbeatsGet) Unmarshal(b []byte) error {
+	return nil
+}
+
+// UpfPfcpHeartbeatsGetReply defines message 'upf_pfcp_heartbeats_get_reply'.
+type UpfPfcpHeartbeatsGetReply struct {
+	Timeout uint32 `binapi:"u32,name=timeout" json:"timeout,omitempty"`
+	Retries uint32 `binapi:"u32,name=retries" json:"retries,omitempty"`
+}
+
+func (m *UpfPfcpHeartbeatsGetReply) Reset()               { *m = UpfPfcpHeartbeatsGetReply{} }
+func (*UpfPfcpHeartbeatsGetReply) GetMessageName() string { return "upf_pfcp_heartbeats_get_reply" }
+func (*UpfPfcpHeartbeatsGetReply) GetCrcString() string   { return "f5eafa3d" }
+func (*UpfPfcpHeartbeatsGetReply) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfPfcpHeartbeatsGetReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Timeout
+	size += 4 // m.Retries
+	return size
+}
+func (m *UpfPfcpHeartbeatsGetReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeUint32(m.Timeout)
+	buf.EncodeUint32(m.Retries)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpHeartbeatsGetReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Timeout = buf.DecodeUint32()
+	m.Retries = buf.DecodeUint32()
+	return nil
+}
+
+// UpfPfcpHeartbeatsSet defines message 'upf_pfcp_heartbeats_set'.
+type UpfPfcpHeartbeatsSet struct {
+	Timeout uint32 `binapi:"u32,name=timeout" json:"timeout,omitempty"`
+	Retries uint32 `binapi:"u32,name=retries" json:"retries,omitempty"`
+}
+
+func (m *UpfPfcpHeartbeatsSet) Reset()               { *m = UpfPfcpHeartbeatsSet{} }
+func (*UpfPfcpHeartbeatsSet) GetMessageName() string { return "upf_pfcp_heartbeats_set" }
+func (*UpfPfcpHeartbeatsSet) GetCrcString() string   { return "f5eafa3d" }
+func (*UpfPfcpHeartbeatsSet) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfPfcpHeartbeatsSet) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Timeout
+	size += 4 // m.Retries
+	return size
+}
+func (m *UpfPfcpHeartbeatsSet) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeUint32(m.Timeout)
+	buf.EncodeUint32(m.Retries)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpHeartbeatsSet) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Timeout = buf.DecodeUint32()
+	m.Retries = buf.DecodeUint32()
+	return nil
+}
+
+// UpfPfcpHeartbeatsSetReply defines message 'upf_pfcp_heartbeats_set_reply'.
+type UpfPfcpHeartbeatsSetReply struct {
+	Retval int32 `binapi:"i32,name=retval" json:"retval,omitempty"`
+}
+
+func (m *UpfPfcpHeartbeatsSetReply) Reset()               { *m = UpfPfcpHeartbeatsSetReply{} }
+func (*UpfPfcpHeartbeatsSetReply) GetMessageName() string { return "upf_pfcp_heartbeats_set_reply" }
+func (*UpfPfcpHeartbeatsSetReply) GetCrcString() string   { return "e8d4e804" }
+func (*UpfPfcpHeartbeatsSetReply) GetMessageType() api.MessageType {
+	return api.ReplyMessage
+}
+
+func (m *UpfPfcpHeartbeatsSetReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Retval
+	return size
+}
+func (m *UpfPfcpHeartbeatsSetReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeInt32(m.Retval)
+	return buf.Bytes(), nil
+}
+func (m *UpfPfcpHeartbeatsSetReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Retval = buf.DecodeInt32()
+	return nil
+}
+
 // UpfPfcpPolicerSet defines message 'upf_pfcp_policer_set'.
 type UpfPfcpPolicerSet struct {
 	CirPps uint32 `binapi:"u32,name=cir_pps" json:"cir_pps,omitempty"`
@@ -1873,6 +2007,10 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfPfcpEndpointDump)(nil), "upf_pfcp_endpoint_dump_51077d14")
 	api.RegisterMessage((*UpfPfcpFormat)(nil), "upf_pfcp_format_d522d6e1")
 	api.RegisterMessage((*UpfPfcpFormatReply)(nil), "upf_pfcp_format_reply_8706f872")
+	api.RegisterMessage((*UpfPfcpHeartbeatsGet)(nil), "upf_pfcp_heartbeats_get_51077d14")
+	api.RegisterMessage((*UpfPfcpHeartbeatsGetReply)(nil), "upf_pfcp_heartbeats_get_reply_f5eafa3d")
+	api.RegisterMessage((*UpfPfcpHeartbeatsSet)(nil), "upf_pfcp_heartbeats_set_f5eafa3d")
+	api.RegisterMessage((*UpfPfcpHeartbeatsSetReply)(nil), "upf_pfcp_heartbeats_set_reply_e8d4e804")
 	api.RegisterMessage((*UpfPfcpPolicerSet)(nil), "upf_pfcp_policer_set_8d0512f3")
 	api.RegisterMessage((*UpfPfcpPolicerSetReply)(nil), "upf_pfcp_policer_set_reply_e8d4e804")
 	api.RegisterMessage((*UpfPfcpPolicerShow)(nil), "upf_pfcp_policer_show_51077d14")
@@ -1918,6 +2056,10 @@ func AllMessages() []api.Message {
 		(*UpfPfcpEndpointDump)(nil),
 		(*UpfPfcpFormat)(nil),
 		(*UpfPfcpFormatReply)(nil),
+		(*UpfPfcpHeartbeatsGet)(nil),
+		(*UpfPfcpHeartbeatsGetReply)(nil),
+		(*UpfPfcpHeartbeatsSet)(nil),
+		(*UpfPfcpHeartbeatsSetReply)(nil),
 		(*UpfPfcpPolicerSet)(nil),
 		(*UpfPfcpPolicerSetReply)(nil),
 		(*UpfPfcpPolicerShow)(nil),

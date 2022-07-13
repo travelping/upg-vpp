@@ -730,6 +730,29 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			gomega.Expect(showReply.FifoSize).To(gomega.BeEquivalentTo(512)) // KB
 			gomega.Expect(showReply.PreallocFifos).To(gomega.BeEquivalentTo(0))
 		})
+		ginkgo.It("configures PFCP heartbeats", func() {
+			hbConfig := &upf.UpfPfcpHeartbeatsSet{
+				Retries: 5,
+				Timeout: 10,
+			}
+			reply := &upf.UpfPfcpHeartbeatsSetReply{}
+			err := f.VPP.ApiChannel.SendRequest(hbConfig).ReceiveReply(reply)
+			gomega.Expect(err).To(gomega.BeNil())
+
+			hbConfigStr, err := f.VPP.Ctl("show upf heartbeat-config")
+			gomega.Expect(err).To(gomega.BeNil())
+			gomega.Expect(hbConfigStr).To(gomega.ContainSubstring("Timeout: 10"))
+			gomega.Expect(hbConfigStr).To(gomega.ContainSubstring("Retries: 5"))
+
+			_, err = f.VPP.Ctl("upf pfcp heartbeat-config timeout 5 retries 15")
+			gomega.Expect(err).To(gomega.BeNil())
+			hbGetRequest := &upf.UpfPfcpHeartbeatsGet{}
+			hbGetReply := &upf.UpfPfcpHeartbeatsGetReply{}
+			err =  f.VPP.ApiChannel.SendRequest(hbGetRequest).ReceiveReply(hbGetReply)
+			gomega.Expect(err).To(gomega.BeNil())
+			gomega.Expect(hbGetReply.Timeout).To(gomega.Equal(uint32(5)))
+			gomega.Expect(hbGetReply.Retries).To(gomega.Equal(uint32(15)))
+		})
 	})
 })
 
