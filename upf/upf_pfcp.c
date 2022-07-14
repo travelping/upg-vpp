@@ -53,6 +53,8 @@
   do { } while (0)
 #endif
 
+#define upf_pfcp_associnfo(...) vlib_log_info
+
 upf_main_t upf_main;
 qos_pol_cfg_params_st pfcp_rate_cfg_main;
 
@@ -444,6 +446,10 @@ pfcp_new_association (session_handle_t session_handle,
   vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
 
+  upf_pfcp_associnfo
+    ("PFCP Association Established: Node %U, Local IP %U, Remote IP %U\n",
+     format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
+     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
   return n;
 }
 
@@ -453,6 +459,11 @@ pfcp_release_association (upf_node_assoc_t * n)
   upf_main_t *gtm = &upf_main;
   u32 node_id = n - gtm->nodes;
   u32 idx = n->sessions;
+
+  upf_pfcp_associnfo
+    ("PFCP Association Released: Node %U , Local IP %U, Remote IP %U\n",
+     format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
+     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
 
   switch (n->node_id.type)
     {
@@ -466,8 +477,6 @@ pfcp_release_association (upf_node_assoc_t * n)
       vec_free (n->node_id.fqdn);
       break;
     }
-
-  upf_debug ("pfcp_release_association idx: %u");
 
   while (idx != ~0)
     {
