@@ -306,8 +306,6 @@ clib_error_t *flowtable_lifetime_update (flowtable_timeout_type_t type,
 clib_error_t *flowtable_max_lifetime_update (u16 value);
 clib_error_t *flowtable_init (vlib_main_t * vm);
 
-void foreach_upf_flows (clib_bihash_kv_48_8_t * kvp, void *arg);
-
 static inline u16
 flowtable_lifetime_get (flowtable_timeout_type_t type)
 {
