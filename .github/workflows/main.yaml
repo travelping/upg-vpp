@@ -32,7 +32,7 @@ env:
 
 jobs:
   build:
-    runs-on: ["self-hosted"]
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         build_type: [debug, release]
@@ -40,11 +40,6 @@ jobs:
       # avoid conflicts between parallel jobs
       K8S_ID_SUFFIX: ${{ matrix.build_type }}
     steps:
-    # https://github.com/actions/runner/issues/434#issuecomment-992865457
-    - name: Clean the workspace
-      uses: docker://alpine
-      with:
-        args: /bin/sh -c "rm -rf /github/workspace/.* 2>/dev/null || rm -rf /github/workspace/*"
     - name: Login to the registry
       uses: docker/login-action@v1
       with:
@@ -84,12 +79,8 @@ jobs:
         path: image-dev-${{ matrix.build_type }}.txt
 
   checkstyle:
-    runs-on: ["self-hosted"]
+    runs-on: ubuntu-22.04
     steps:
-    - name: Clean the workspace
-      uses: docker://alpine
-      with:
-        args: /bin/sh -c "rm -rf /github/workspace/.* 2>/dev/null || rm -rf /github/workspace/*"
     - name: Login to the registry
       uses: docker/login-action@v1
       with:
@@ -105,7 +96,7 @@ jobs:
       run: make checkstyle
 
   integration:
-    runs-on: ["self-hosted", "hugepages"]
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -114,10 +105,6 @@ jobs:
       BUILD_TYPE: ${{ matrix.build_type }}
     needs: build
     steps:
-    - name: Clean the workspace
-      uses: docker://alpine
-      with:
-        args: /bin/sh -c "rm -rf /github/workspace/.* 2>/dev/null || rm -rf /github/workspace/*"
     - name: Login to the registry
       uses: docker/login-action@v1
       with:
@@ -139,7 +126,7 @@ jobs:
         make retest DEV_IMAGE="${dev_image}"
 
   e2e:
-    runs-on: ["self-hosted", "hugepages"]
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -148,10 +135,6 @@ jobs:
       BUILD_TYPE: ${{ matrix.build_type }}
     needs: build
     steps:
-    - name: Clean the workspace
-      uses: docker://alpine
-      with:
-        args: /bin/sh -c "rm -rf /github/workspace/.* 2>/dev/null || rm -rf /github/workspace/*"
     - name: Login to the registry
       uses: docker/login-action@v1
       with:
@@ -195,7 +178,7 @@ jobs:
 
   # dummy job for release.yaml to wait on
   conclude:
-    runs-on: ["self-hosted"]
+    runs-on: ubuntu-22.04
     needs:
     - checkstyle
     - integration
@@ -208,7 +191,7 @@ jobs:
   slack:
     needs:
     - conclude
-    runs-on: ["self-hosted"]
+    runs-on: ubuntu-22.04
     if: always()
     steps:
     - name: Set status
