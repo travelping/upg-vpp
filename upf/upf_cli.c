@@ -37,6 +37,9 @@
 #include <vnet/fib/fib_path_list.h>
 #include <vnet/fib/fib_walk.h>
 
+#define DEFAULT_MAX_SHOW_UPF_SESSIONS 100
+#define HARD_MAX_SHOW_UPF_SESSIONS    10000
+
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -1082,17 +1085,28 @@ VLIB_CLI_COMMAND (upf_show_gtpu_endpoint_command, static) =
 };
 /* *INDENT-ON* */
 
+typedef struct
+{
+  vlib_main_t *vm;
+  u64 seid;
+  bool filtered;
+  u32 limit;
+} flows_out_arg_t;
+
 static int
 upf_flows_out_cb (clib_bihash_kv_48_8_t * kvp, void *arg)
 {
   flowtable_main_t *fm = &flowtable_main;
-  vlib_main_t *vm = (vlib_main_t *) arg;
+  flows_out_arg_t *arg_value = (flows_out_arg_t *) arg;
+  flow_key_t *key = (flow_key_t *) & kvp->key;
   flow_entry_t *flow;
 
   flow = pool_elt_at_index (fm->flows, kvp->value);
-  vlib_cli_output (vm, "%U", format_flow, flow);
+  if (!arg_value->filtered || arg_value->seid == key->seid)
+    vlib_cli_output (arg_value->vm, "%U", format_flow, flow);
 
-  return (BIHASH_WALK_CONTINUE);
+  return arg_value->limit != ~0 && !--arg_value->limit ?
+    BIHASH_WALK_STOP : BIHASH_WALK_CONTINUE;
 }
 
 static clib_error_t *
@@ -1108,34 +1122,31 @@ upf_show_session_command_fn (vlib_main_t * vm,
   u8 has_cp_f_seid = 0, has_up_seid = 0;
   upf_session_t *sess = NULL;
   int debug = 0;
-#if FLOWTABLE_TODO
+  u32 limit = DEFAULT_MAX_SHOW_UPF_SESSIONS;
   u8 has_flows = 0;
-#endif
 
   if (unformat_user (main_input, unformat_line_input, line_input))
     {
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
 	{
-	  if (unformat (line_input, "cp %U seid %lu",
+	  if (unformat (line_input, "cp %U seid 0x%llx",
 			unformat_ip46_address, &cp_ip, IP46_TYPE_ANY,
 			&cp_seid))
 	    has_cp_f_seid = 1;
-	  else if (unformat (line_input, "cp %U seid 0x%lx",
+	  else if (unformat (line_input, "cp %U seid %llu",
 			     unformat_ip46_address, &cp_ip, IP46_TYPE_ANY,
 			     &cp_seid))
 	    has_cp_f_seid = 1;
-	  else if (unformat (line_input, "up seid %lu", &up_seid))
+	  else if (unformat (line_input, "up seid 0x%llx", &up_seid))
 	    has_up_seid = 1;
-	  else if (unformat (line_input, "up seid 0x%lx", &up_seid))
+	  else if (unformat (line_input, "up seid %lu", &up_seid))
 	    has_up_seid = 1;
 	  else if (unformat (line_input, "debug"))
 	    debug = 1;
-#if FLOWTABLE_TODO
-	  else if (unformat (line_input, "%lu flows", &up_seid))
+	  else if (unformat (line_input, "flows"))
 	    has_flows = 1;
-	  else if (unformat (line_input, "0x%lx flows", &up_seid))
-	    has_flows = 1;
-#endif
+	  else if (unformat (line_input, "limit %u", &limit))
+	    ;
 	  else
 	    {
 	      error = unformat_parse_error (line_input);
@@ -1147,28 +1158,51 @@ upf_show_session_command_fn (vlib_main_t * vm,
       unformat_free (line_input);
     }
 
-#if FLOWTABLE_TODO
+  if (limit > HARD_MAX_SHOW_UPF_SESSIONS)
+    limit = HARD_MAX_SHOW_UPF_SESSIONS;
+
+  if (has_flows && !has_up_seid)
+    {
+      error =
+	clib_error_return (0, "must specify UP F-SEID to show session flows");
+      goto done;
+    }
+
   if (has_flows)
     {
+      u32 cpu_index;
+      flowtable_main_t *fm = &flowtable_main;
+      vlib_thread_main_t *tm = vlib_get_thread_main ();
+      flows_out_arg_t arg = {
+	.vm = vm,
+	.seid = up_seid,
+	.filtered = true,
+	.limit = limit
+      };
+
       if (!(sess = pfcp_lookup (up_seid)))
 	{
 	  error = clib_error_return (0, "Sessions 0x%lx not found", up_seid);
 	  goto done;
 	}
 
-      clib_bihash_foreach_key_value_pair_48_8
-	(&sess->fmt.flows_ht, upf_flows_out_cb, vm);
+      for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)
+	{
+	  flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+	  clib_bihash_foreach_key_value_pair_48_8
+	    (&fmt->flows_ht, upf_flows_out_cb, &arg);
+	}
+
       goto done;
     }
-#endif
 
   if (has_cp_f_seid)
     {
-      error = clib_error_return (0, "CP F_SEID is not supported, yet");
+      error = clib_error_return (0, "CP F-SEID is not supported, yet");
       goto done;
     }
 
-  if (has_up_seid)
+  if (has_up_seid && !has_flows)
     {
       if (!(sess = pfcp_lookup (up_seid)))
 	{
@@ -1183,6 +1217,12 @@ upf_show_session_command_fn (vlib_main_t * vm,
     {
       pool_foreach (sess, gtm->sessions)
       {
+	if (limit != 0 && sess - gtm->sessions >= limit)
+	  {
+	    vlib_cli_output (vm, "Max number of sessions displayed: %u",
+			     limit);
+	    break;
+	  }
 	vlib_cli_output (vm, "%U", format_pfcp_session, sess, PFCP_ACTIVE,
 			 debug);
       }
@@ -1197,7 +1237,7 @@ VLIB_CLI_COMMAND (upf_show_session_command, static) =
 {
   .path = "show upf session",
   .short_help =
-  "show upf session",
+  "show upf session [up seid 0x... [flows]] [limit N]",
   .function = upf_show_session_command_fn,
 };
 /* *INDENT-ON* */
@@ -1302,19 +1342,45 @@ VLIB_CLI_COMMAND (upf_show_assoc_command, static) =
 
 static clib_error_t *
 upf_show_flows_command_fn (vlib_main_t * vm,
-			   unformat_input_t * input, vlib_cli_command_t * cmd)
+			   unformat_input_t * main_input,
+			   vlib_cli_command_t * cmd)
 {
+  unformat_input_t _line_input, *line_input = &_line_input;
+  clib_error_t *error = NULL;
   u32 cpu_index;
   flowtable_main_t *fm = &flowtable_main;
   vlib_thread_main_t *tm = vlib_get_thread_main ();
+  flows_out_arg_t arg = {
+    .vm = vm,
+    .filtered = false,
+    .limit = ~0
+  };
+
+  if (unformat_user (main_input, unformat_line_input, line_input))
+    {
+      while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+	{
+	  if (unformat (line_input, "limit %u", &arg.limit))
+	    ;
+	  else
+	    {
+	      error = unformat_parse_error (line_input);
+	      unformat_free (line_input);
+	      goto done;
+	    }
+	}
+
+      unformat_free (line_input);
+    }
 
   for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)
     {
       flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
       clib_bihash_foreach_key_value_pair_48_8
-	(&fmt->flows_ht, upf_flows_out_cb, vm);
+	(&fmt->flows_ht, upf_flows_out_cb, &arg);
     }
 
+done:
   return NULL;
 }
 
@@ -1322,7 +1388,7 @@ upf_show_flows_command_fn (vlib_main_t * vm,
 VLIB_CLI_COMMAND (upf_show_flows_command, static) =
 {
   .path = "show upf flows",
-  .short_help = "show upf flows",
+  .short_help = "show upf flows [limit N]",
   .function = upf_show_flows_command_fn,
 };
 /* *INDENT-ON* */

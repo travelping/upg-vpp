@@ -513,6 +513,95 @@ func describePDRReplacement(f *framework.Framework) {
 	})
 }
 
+var _ = ginkgo.Describe("CLI debug commands", func() {
+	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+	ginkgo.Context("show upf session", func() {
+		var ueIPs []net.IP
+		var seids []pfcp.SEID
+		var seidsHex []string
+
+		ginkgo.BeforeEach(func() {
+			var errs []error
+			var specs []pfcp.SessionOpSpec
+			ueIPs = []net.IP{f.UEIP(), f.AddUEIP()}
+			for _, ueIP := range ueIPs {
+				specs = append(specs, pfcp.SessionOpSpec{
+					IEs: framework.SessionConfig{
+						IdBase: 1,
+						UEIP:   ueIP,
+						Mode:   f.Mode,
+					}.SessionIEs(),
+				})
+			}
+			seids, errs = f.PFCP.EstablishSessions(f.Context, specs)
+			for _, err := range errs {
+				framework.ExpectNoError(err)
+			}
+			seidsHex = nil
+			for _, seid := range seids {
+				seidsHex = append(seidsHex, fmt.Sprintf("0x%016x", seid))
+			}
+		})
+
+		ginkgo.AfterEach(func() {
+			ginkgo.By("deleting the PFCP sessions")
+			deleteSessions(f, seids, false)
+		})
+
+		verifyShowUPFSession := func(haveSeid0 bool, haveSeid1 bool, cmd string, args ...interface{}) {
+			out, err := f.VPP.Ctl(cmd, args...)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf session")
+			if haveSeid0 {
+				gomega.Expect(out).To(gomega.ContainSubstring(seidsHex[0]))
+			} else {
+				gomega.Expect(out).NotTo(gomega.ContainSubstring(seidsHex[0]))
+			}
+			if haveSeid1 {
+				gomega.Expect(out).To(gomega.ContainSubstring(seidsHex[1]))
+			} else {
+				gomega.Expect(out).NotTo(gomega.ContainSubstring(seidsHex[1]))
+			}
+		}
+
+		verifyShowUPFSessionCount := func(expectedCount int, cmd string, args ...interface{}) {
+			out, err := f.VPP.Ctl(cmd, args...)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf session")
+			n := 0
+			for _, l := range strings.Split(out, "\n") {
+				if strings.Contains(l, "CP F-SEID:") {
+					n++
+				}
+			}
+			framework.ExpectEqual(n, expectedCount, "session count")
+		}
+
+		ginkgo.It("can be filtered by UP SEID", func() {
+			verifyShowUPFSession(true, true, "show upf session")
+			verifyShowUPFSession(true, false, "show upf session up seid %s", seidsHex[0])
+			verifyShowUPFSession(true, false, "show upf session up seid %d", seids[0])
+			verifyShowUPFSession(false, true, "show upf session up seid %s", seidsHex[1])
+			verifyShowUPFSession(false, true, "show upf session up seid %d", seids[1])
+		})
+
+		ginkgo.It("honors 'limit' value", func() {
+			verifyShowUPFSessionCount(1, "show upf session limit 1")
+			// "limit 0" stands for "unlimited"
+			verifyShowUPFSessionCount(2, "show upf session limit 0")
+		})
+
+		ginkgo.It("shows flows belonging to the session", func() {
+			runTrafficGen(f, &traffic.UDPPingConfig{}, &traffic.SimpleTrafficRec{})
+			out, err := f.VPP.Ctl("show upf session up seid %s flows", seidsHex[0])
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf session")
+			gomega.Expect(out).To(gomega.ContainSubstring(ueIPs[0].String()))
+			gomega.Expect(out).NotTo(gomega.ContainSubstring(ueIPs[1].String()))
+			out, err = f.VPP.Ctl("show upf session up seid %s flows", seidsHex[1])
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf session")
+			gomega.Expect(strings.TrimSpace(out)).To(gomega.BeEmpty())
+		})
+	})
+})
+
 // TODO: validate both binapi and CLI against each other
 var _ = ginkgo.Describe("UPG Binary API", func() {
 	ginkgo.Context("for policy based routing", func() {
