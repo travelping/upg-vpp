@@ -568,6 +568,7 @@ upf_init (vlib_main_t * vm)
   sm->vlib_main = vm;
   sm->pfcp_spec_version = 15;
   sm->rand_base = random_default_seed ();
+  sm->log_class = vlib_log_register_class ("upf", 0);
 
   if ((error = vlib_call_init_function (vm, upf_proxy_main_init)))
     return error;

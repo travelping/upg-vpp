@@ -79,6 +79,10 @@ flowtable {
   log2-size 10
 }
 
+logging {
+  class upf { level info syslog-level info }
+}
+
 {{- if .InterruptMode }}
 upf {
   pfcp-server-mode interrupt
