@@ -245,6 +245,9 @@ _pfcp_msg_pool_put (pfcp_server_main_t * psm, pfcp_msg_t * m)
   ASSERT (m->is_valid_pool_item);
 
   vec_free (m->data);
+#if CLIB_DEBUG > 0
+  clib_memset (m, 0xfa, sizeof (pfcp_msg_t));
+#endif
   m->is_valid_pool_item = 0;
   vec_add1 (psm->msg_pool_free, m - psm->msg_pool);
 }
