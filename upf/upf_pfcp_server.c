@@ -396,6 +396,7 @@ request_t1_expired (u32 seq_no)
   else
     {
       u8 type = pfcp_msg_type (msg->data);
+      u32 node = msg->node;
 
       upf_debug ("abort...\n");
       // TODO: handle communication breakdown....
@@ -404,9 +405,9 @@ request_t1_expired (u32 seq_no)
       pfcp_msg_pool_put (psm, msg);
 
       if (type == PFCP_HEARTBEAT_REQUEST
-	  && !pool_is_free_index (gtm->nodes, msg->node))
+	  && !pool_is_free_index (gtm->nodes, node))
 	{
-	  upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, msg->node);
+	  upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, node);
 
 	  upf_pfcp_associnfo
 	    (gtm,
