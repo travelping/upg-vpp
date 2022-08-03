@@ -19,6 +19,9 @@
 
 #define MAX_LEN 128
 
+#define upf_pfcp_associnfo(gtm, ...) \
+  vlib_log_info((gtm)->log_class, __VA_ARGS__)
+
 upf_node_assoc_t *pfcp_get_association (pfcp_node_id_t * node_id);
 upf_node_assoc_t *pfcp_new_association (session_handle_t session_handle,
 					ip46_address_t * lcl_addr,

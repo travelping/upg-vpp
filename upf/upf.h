@@ -41,6 +41,7 @@
 #include <vnet/policer/policer.h>
 #include <vnet/session/session_types.h>
 #include <vlib/vlib.h>
+#include <vlib/log.h>
 
 #include "pfcp.h"
 #include "flowtable.h"
@@ -1026,6 +1027,8 @@ typedef struct
   uword *ue_ip_pool_index_by_identity;
 
   policer_t *pfcp_policers;
+
+  vlib_log_class_t log_class;
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;

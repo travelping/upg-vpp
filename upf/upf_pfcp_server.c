@@ -56,8 +56,6 @@
   do { } while (0)
 #endif
 
-#define upf_pfcp_associnfo(...) vlib_log_info
-
 static void upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req);
 static void restart_response_timer (pfcp_msg_t * msg);
 
@@ -382,7 +380,8 @@ request_t1_expired (u32 seq_no)
 	{
 	  upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, msg->node);
 	  upf_pfcp_associnfo
-	    ("PFCP Association Suspicious: Node {%s}, Node IP {%U}, Local IP %U, Remote IP %U\n",
+	    (gtm,
+	     "PFCP Association unstable: node %U, local IP %U, remote IP %U\n",
 	     format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
 	     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
 	}
@@ -410,7 +409,8 @@ request_t1_expired (u32 seq_no)
 	  upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, msg->node);
 
 	  upf_pfcp_associnfo
-	    ("PFCP Association Lost: Node %U , Local IP %U, Remote IP %U\n",
+	    (gtm,
+	     "PFCP Association lost: node %U, local IP %U, remote IP %U\n",
 	     format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
 	     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
 
