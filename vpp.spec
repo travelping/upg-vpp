@@ -1,1 +1,1 @@
-VPP_IMAGE_BASE=registry.cennso.com/upg/vpp-base:22.02-rc1-b604c8406
+VPP_IMAGE_BASE=registry.cennso.com/upg/vpp-base:22.06.0-13-225f48dc1
