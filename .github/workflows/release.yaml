@@ -80,7 +80,7 @@ jobs:
         REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }}
       run: |
         # hack/retag-unexpire.sh quay.io travelping/upg source_tag dest_tag
-        hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-debug.txt) "${GITHUB_REF##*/}_debug"
+        bash -x hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-debug.txt) "${GITHUB_REF##*/}_debug"
 
     - name: Get release image name
       uses: dawidd6/action-download-artifact@v2
