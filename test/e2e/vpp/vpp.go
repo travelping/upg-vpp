@@ -614,10 +614,10 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 		mtu = vi.startupCfg.DefaultMTU()
 	}
 	if vi.startupCfg.XDP {
-		cmds = append(cmds, fmt.Sprintf("create interface af_xdp host-if %s name host-%s",
+		cmds = append(cmds, fmt.Sprintf("create interface af_xdp host-if %s name host-%s num-rx-queues all",
 			nsCfg.VPPLinkName, nsCfg.VPPLinkName))
 	} else {
-		cmds = append(cmds, fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName))
+		cmds = append(cmds, fmt.Sprintf("create host-interface name %s cksum-gso-disable", nsCfg.VPPLinkName))
 	}
 
 	if vi.startupCfg.Multicore {
@@ -635,13 +635,17 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 			fmt.Sprintf("set interface rx-mode host-%s interrupt", nsCfg.VPPLinkName))
 	}
 
+	if !(vi.startupCfg.XDP) {
+		cmds = append(cmds, fmt.Sprintf("set interface mtu %d host-%s", mtu, nsCfg.VPPLinkName))
+	}
+
 	return append(cmds,
 		fmt.Sprintf("set interface mac address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
 		fmt.Sprintf("set interface %s table host-%s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
 		fmt.Sprintf("set interface ip address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),
 		fmt.Sprintf("set interface state host-%s up", nsCfg.VPPLinkName),
 		// TODO: newer VPP should be able to pick up MTU value from the link
-		fmt.Sprintf("set interface mtu %d host-%s", mtu, nsCfg.VPPLinkName),
+
 	)
 }
 

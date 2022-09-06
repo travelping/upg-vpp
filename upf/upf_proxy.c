@@ -783,7 +783,7 @@ proxy_rx_request (upf_proxy_session_t * ps)
 				max_dequeue, 0, 1 /* peek */ );
   ASSERT (n_read == max_dequeue);
 
-  _vec_len (ps->rx_buf) = n_read;
+  vec_set_len (ps->rx_buf, n_read);
   return 0;
 }
 

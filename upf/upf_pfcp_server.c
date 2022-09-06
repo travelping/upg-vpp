@@ -1271,9 +1271,7 @@ static uword
 		upf_event_urr_data_t *uev =
 		  (upf_event_urr_data_t *) event_data[i];
 		upf_event_urr_hdr_t *ueh =
-		  (upf_event_urr_hdr_t *) vec_header (uev,
-						      sizeof
-						      (upf_event_urr_hdr_t));
+		  (upf_event_urr_hdr_t *) vec_header (uev);
 		upf_session_t *sx = 0;
 
 		/*
@@ -1313,7 +1311,7 @@ static uword
 		  }
 
 	      next_ev_urr:
-		vec_free_h (uev, sizeof (upf_event_urr_hdr_t));
+		vec_free (uev);
 	      }
 	    break;
 	  }

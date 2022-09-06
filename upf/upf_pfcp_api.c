@@ -1364,7 +1364,7 @@ ip_udp_gtpu_rewrite (upf_far_forward_t * ff, u32 fib_index, int is_ip4)
   ff->rewrite = r.rw;
 
   /* For now only support 8-byte gtpu header. TBD */
-  _vec_len (ff->rewrite) = len - 4;
+  vec_set_len (ff->rewrite, len - 4);
 
   return;
 }

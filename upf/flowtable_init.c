@@ -91,15 +91,15 @@ flowtable_init_cpu (flowtable_main_t * fm, u32 cpu_index)
   fmt->next_check = ~0;
 
   /* alloc TIMER_MAX_LIFETIME heads from the timers pool and fill them with defaults */
-  pool_validate_index (fmt->timers, TIMER_MAX_LIFETIME - 1);
+  for (i = 0; i < TIMER_MAX_LIFETIME; i++)
+    {
+      pool_get (fmt->timers, timer_slot);
+      memset (timer_slot, 0, sizeof (*timer_slot));
+      u32 timer_slot_head_index = timer_slot - fmt->timers;
+
+      clib_dlist_init (fmt->timers, timer_slot_head_index);
+    }
   upf_debug ("POOL SIZE %u", pool_elts (fmt->timers));
-
-  pool_foreach (timer_slot, fmt->timers)
-  {
-    u32 timer_slot_head_index = timer_slot - fmt->timers;
-
-    clib_dlist_init (fmt->timers, timer_slot_head_index);
-  }
 
   /* fill flow entry cache */
   if (pthread_spin_lock (&fm->flows_lock) == 0)

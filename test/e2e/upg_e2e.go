@@ -837,7 +837,7 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			gomega.Expect(err).To(gomega.BeNil())
 			hbGetRequest := &upf.UpfPfcpHeartbeatsGet{}
 			hbGetReply := &upf.UpfPfcpHeartbeatsGetReply{}
-			err =  f.VPP.ApiChannel.SendRequest(hbGetRequest).ReceiveReply(hbGetReply)
+			err = f.VPP.ApiChannel.SendRequest(hbGetRequest).ReceiveReply(hbGetReply)
 			gomega.Expect(err).To(gomega.BeNil())
 			gomega.Expect(hbGetReply.Timeout).To(gomega.Equal(uint32(5)))
 			gomega.Expect(hbGetReply.Retries).To(gomega.Equal(uint32(15)))
@@ -2092,7 +2092,7 @@ func verifyPSDBU(m message.Message, numUsageReports int) {
 }
 
 func setupNAT(f *framework.Framework) {
-	f.VPP.Ctl("nat44 enable sessions 1000")
+	f.VPP.Ctl("nat44 plugin enable sessions 1000")
 	f.VPP.Ctl("set interface nat44 out host-sgi0 output-feature")
 	f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing")
 	f.VPP.Ctl("nat44 controlled enable")

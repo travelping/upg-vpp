@@ -285,7 +285,7 @@ upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
       upf_ipfix_get_headersize ())
     return;
 
-  upf_debug ("export send, context %u", context - fm->contexts);
+  //upf_debug ("export send, context %u", context - fm->contexts);
 
   u32 i, index = vec_len (exp->streams);
   for (i = 0; i < index; i++)

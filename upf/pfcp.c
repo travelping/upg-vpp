@@ -235,7 +235,7 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
 #define put_u8(V,I)				\
   do {						\
     *((u8 *)&(V)[_vec_len((V))]) = (I);		\
-    _vec_len((V)) += sizeof(u8);		\
+    vec_inc_len ((V), sizeof(u8));		\
   } while (0)
 
 #define get_u8(V)				\
@@ -246,7 +246,7 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
 #define put_u16(V,I)				\
   do {						\
     *((u16 *)&(V)[_vec_len((V))]) = htons((I));	\
-    _vec_len((V)) += sizeof(u16);		\
+    vec_inc_len ((V), sizeof(u16));		\
   } while (0)
 
 #define get_u16(V)				\
@@ -257,7 +257,7 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
 #define put_u16_little(V,I)						\
   do {									\
     *((u16 *)&(V)[_vec_len((V))]) = clib_host_to_little_u16((I));	\
-    _vec_len((V)) += sizeof(u16);					\
+    vec_inc_len ((V), sizeof(u16));					\
   } while (0)
 
 #define get_u16_little(V)				\
@@ -270,7 +270,7 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
     (V)[_vec_len((V))] = (I) >> 16;			\
     (V)[_vec_len((V)) + 1] = ((I) >> 8) & 0xff;		\
     (V)[_vec_len((V)) + 2] = (I) & 0xff;		\
-    _vec_len((V)) += 3;					\
+    vec_inc_len ((V), 3);				\
   } while (0)
 
 #define get_u24(V)						\
@@ -281,7 +281,7 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
 #define put_u32(V,I)				\
   do {						\
     *((u32 *)&(V)[_vec_len((V))]) = htonl((I));	\
-    _vec_len((V)) += sizeof(u32);		\
+    vec_inc_len ((V), sizeof(u32));		\
   } while (0)
 
 #define get_u32(V)				\
@@ -296,7 +296,7 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
     (V)[_vec_len((V)) + 2] = ((I) >> 16) & 0xff;	\
     (V)[_vec_len((V)) + 3] = ((I) >> 8) & 0xff;		\
     (V)[_vec_len((V)) + 4] = (I) & 0xff;		\
-    _vec_len((V)) += 5;					\
+    vec_inc_len ((V), 5);				\
   } while (0)
 
 #define get_u8_to_u64(V, Idx) ({u64 _V = (u8)((V)[(Idx)]); _V; })
@@ -313,7 +313,7 @@ format_pfcp_msg_hdr (u8 * s, va_list * args)
 #define put_u64(V,I)					\
   do {							\
     *((u64 *)&(V)[_vec_len((V))]) = htobe64((I));	\
-    _vec_len((V)) += sizeof(u64);			\
+    vec_inc_len ((V), sizeof(u64));			\
   } while (0)
 
 #define get_u64(V)				\
@@ -352,7 +352,7 @@ typedef union
   do {						\
     u8 *_t = vec_end((V));			\
     *(u32 *)_t = (IP).as_u32;			\
-    _vec_len((V)) += 4;				\
+    vec_inc_len((V), 4);			\
   } while (0)
 
 #define get_ip6(IP,V)				\
@@ -367,7 +367,7 @@ typedef union
     u8 *_t = vec_end((V));			\
     ((u64 *)_t)[0] = (IP).as_u64[0];		\
     ((u64 *)_t)[1] = (IP).as_u64[1];		\
-    _vec_len((V)) += 16;			\
+    vec_inc_len((V), 16);			\
 } while (0)
 
 #define put_ip46_ip4(V,IP)			\
@@ -395,7 +395,7 @@ typedef union
 #define finalize_msg(V,P)			\
   do {						\
     set_msg_hdr_length(V,(P) - 4);		\
-    _vec_len((V)) = (P);			\
+    vec_set_len((V), P);			\
   } while (0)
 
 /* generic IEs */
@@ -946,7 +946,7 @@ format_sdf_filter (u8 * s, va_list * args)
     s = format (s, "FltId: %u,", v->sdf_filter_id);
 
   if (v->flags)
-    _vec_len (s)--;
+    vec_dec_len (s, 1);
   else
     s = format (s, "undef");
 
@@ -1935,7 +1935,7 @@ format_pfd_contents (u8 * s0, va_list * args)
     s = format (s, "DNP:%v,", v->dnp);
 
   if (s != s0)
-    _vec_len (s)--;
+    vec_dec_len (s, 1);
   else
     s = format (s, "undef");
 
@@ -2200,7 +2200,7 @@ format_fq_csid (u8 * s, va_list * args)
     s = format (s, "%u,", *csid);
   }
   if (vec_len (v->csid) != 0)
-    _vec_len (s)--;
+    vec_dec_len (s, 1);
   s = format (s, "]");
 
   return s;
@@ -3011,7 +3011,7 @@ format_dl_flow_level_marking (u8 * s, va_list * args)
     }
 
   if (v->flags)
-    _vec_len (s)--;
+    vec_dec_len (s, 1);
 
   return s;
 }
@@ -3621,7 +3621,7 @@ format_user_plane_ip_resource_information (u8 * s, va_list * args)
       format (s, "teid: 0x%02x000000/%u", v->teid_range,
 	      v->teid_range_indication);
   else
-    _vec_len (s) -= 2;
+    vec_dec_len (s, 2);
 
   return s;
 }
@@ -3838,7 +3838,7 @@ format_pfcp_mac_address (u8 * s, va_list * args)
     s = format (s, "UDST:%U,", format_mac_address_t, v->upper_dst_mac);
 
   if (v->flags)
-    _vec_len (s)--;
+    vec_dec_len (s, 1);
 
   return s;
 }
@@ -4061,7 +4061,7 @@ format_user_id (u8 * s0, va_list * args)
     s = format (s, "NAI:%v,", v->nai);
 
   if (s != s0)
-    _vec_len (s)--;
+    vec_dec_len (s, 1);
 
   return s;
 }
@@ -4241,7 +4241,7 @@ format_mac_addresses_vec (u8 * s, va_list * args)
     s = format (s, "%U,", format_mac_address_t, mac);
   }
   if (vec_len (*v) != 0)
-    _vec_len (s)--;
+    vec_dec_len (s, 1);
   s = format (s, "]");
 
   return s;
@@ -7945,12 +7945,13 @@ decode_vector_ie (const struct pfcp_ie_def *def, u8 * ie, u16 length, void *p,
    * black magic to expand a vector without having know the element type...
    */
   vl = vec_len (*v);
-  *v = _vec_resize (*v, 1, (vl + 1) * def->length, 0, 0);
+  vec_attr_t va = {.elt_sz = (vl + 1) * def->length };
+  *v = _vec_realloc_internal (*v, 1, &va);
   memset (*v + (vl * def->length), 0, def->length);
-  _vec_len (*v) = vl;
+  vec_set_len (*v, vl);
 
   if ((r = decode_ie (def, ie, length, *v + (vl * def->length), err)) == 0)
-    _vec_len (*v)++;
+    vec_inc_len (*v, 1);
 
   return r;
 }
@@ -8076,18 +8077,18 @@ encode_ie (const struct pfcp_group_ie_def *item,
    * which adjusts the capacity of the vector
    */
   vec_validate (*vec, hdr + MIN_SIMPLE_IE_SPACE);
-  _vec_len (*vec) = hdr;
+  vec_set_len (*vec, hdr);
 
   if (item->vendor == 0)
     {
       set_ie_hdr_type (*vec, item->type, hdr);
-      _vec_len (*vec) += sizeof (pfcp_ie_t);
+      vec_inc_len (*vec, sizeof (pfcp_ie_t));
     }
   else
     {
       set_ie_vendor_hdr_type (*vec, 0x8000 | item->type, item->vendor, hdr);
       set_ie_vendor_hdr_vendor (*vec, item->vendor, hdr);
-      _vec_len (*vec) += sizeof (pfcp_ie_vendor_t);
+      vec_inc_len (*vec, sizeof (pfcp_ie_vendor_t));
     }
 
   if (def->size != 0)
@@ -8101,16 +8102,7 @@ encode_ie (const struct pfcp_group_ie_def *item,
   if (r == 0)
     finalize_ie (*vec, hdr, _vec_len (*vec));
   else
-    _vec_len (*vec) = hdr;
-
-#if CLIB_DEBUG > 0
-  /*
-   * Make sure that we didn't have heap corruption
-   */
-  ASSERT (_vec_len (*vec) <=
-	  clib_mem_size ((void *) (*vec) - vec_header_bytes (0)) -
-	  vec_header_bytes (0));
-#endif
+    vec_set_len (*vec, hdr);
 
   return r;
 }
