@@ -837,7 +837,7 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			gomega.Expect(err).To(gomega.BeNil())
 			hbGetRequest := &upf.UpfPfcpHeartbeatsGet{}
 			hbGetReply := &upf.UpfPfcpHeartbeatsGetReply{}
-			err =  f.VPP.ApiChannel.SendRequest(hbGetRequest).ReceiveReply(hbGetReply)
+			err = f.VPP.ApiChannel.SendRequest(hbGetRequest).ReceiveReply(hbGetReply)
 			gomega.Expect(err).To(gomega.BeNil())
 			gomega.Expect(hbGetReply.Timeout).To(gomega.Equal(uint32(5)))
 			gomega.Expect(hbGetReply.Retries).To(gomega.Equal(uint32(15)))
@@ -1299,6 +1299,41 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 				RedirectLocationSubstr: "127.0.0.1/this-is-my-redirect",
 				RedirectResponseSubstr: "<title>Redirection</title>",
 			}, &traffic.PreciseTrafficRec{})
+		})
+	})
+})
+
+var _ = ginkgo.Describe("IP Spoofing", func() {
+	ginkgo.Context("UE IP", func() {
+		f := framework.NewDefaultFramework(framework.UPGModePGW, framework.UPGIPModeV4)
+		ginkgo.It("must not forward packets with wrong IP", func() {
+			fakeUEIP := net.ParseIP("144.0.0.2")
+			sessionCfg := &framework.SessionConfig{
+				IdBase:     1,
+				UEIP:       fakeUEIP,
+				Mode:       f.Mode,
+				TEIDPGWs5u: framework.TEIDPGWs5u,
+				TEIDSGWs5u: framework.TEIDSGWs5u,
+				PGWIP:      f.VPPCfg.GetVPPAddress("grx").IP,
+				SGWIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
+			}
+			_, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			ginkgo.By("Starting Ping from IP address")
+			ginkgo.By("Starting some traffic")
+			ns := f.VPP.GetNS("ue")
+			pingCfg := &traffic.ICMPPingConfig{
+				ServerIP:    f.ServerIP(),
+				PacketSize:  64,
+				PacketCount: 5,
+				Delay:       100 * time.Millisecond,
+			}
+			gomega.Expect(fakeUEIP).NotTo(gomega.BeEquivalentTo(f.UEIP()))
+			rec := &traffic.SimpleTrafficRec{}
+			tg := traffic.NewTrafficGen(pingCfg, rec)
+			framework.ExpectNoError(tg.Run(f.Context, ns, nil))
+			gomega.Expect(rec.Stats().ClientReceived).To(gomega.BeZero())
 		})
 	})
 })
