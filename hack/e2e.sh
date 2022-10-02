@@ -11,6 +11,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_PARALLEL_NODES:=10}"
 : "${E2E_FOCUS:=}"
 : "${E2E_SKIP:=}"
+: "${E2E_SKIP2:=}"
 : "${E2E_VERBOSE:=}"
 : "${E2E_ARTIFACTS_DIR:=}"
 : "${E2E_JUNIT_DIR:=}"
@@ -20,7 +21,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_DISPATCH_TRACE:=}"
 : "${E2E_PAUSE_ON_ERROR:=}"
 : "${E2E_MULTICORE:=}"
-: "${E2E_XDP:=}"
+: "${E2E_XDP:=y}"
 : "${E2E_KEEP_ALL_ARTIFACTS:=}"
 : "${E2E_POLLING_MODE:=}"
 : "${E2E_VPP_NOT_INSTALLED:=}"
@@ -100,6 +101,10 @@ fi
 
 if [[ ${E2E_SKIP} ]]; then
   ginkgo_args+=(-skip "${E2E_SKIP}")
+fi
+
+if [[ ${E2E_SKIP2} ]]; then
+  ginkgo_args+=(-skip "${E2E_SKIP2}")
 fi
 
 if [[ ${E2E_FLAKE_ATTEMPTS} ]]; then
