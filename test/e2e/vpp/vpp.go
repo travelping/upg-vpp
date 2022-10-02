@@ -613,7 +613,7 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 	if mtu == 0 {
 		mtu = vi.startupCfg.DefaultMTU()
 	}
-	if vi.startupCfg.XDP {
+	if vi.startupCfg.XDP && !strings.Contains(nsCfg.VPPLinkName, "cp0") {
 		cmds = append(cmds, fmt.Sprintf("create interface af_xdp host-if %s name host-%s num-rx-queues all",
 			nsCfg.VPPLinkName, nsCfg.VPPLinkName))
 	} else {
@@ -635,7 +635,7 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 			fmt.Sprintf("set interface rx-mode host-%s interrupt", nsCfg.VPPLinkName))
 	}
 
-	if !(vi.startupCfg.XDP) {
+	if !(vi.startupCfg.XDP) && !strings.Contains(nsCfg.VPPLinkName, "cp0") {
 		cmds = append(cmds, fmt.Sprintf("set interface mtu %d host-%s", mtu, nsCfg.VPPLinkName))
 	}
 
