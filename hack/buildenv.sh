@@ -8,7 +8,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 
 . vpp.spec
 
-: ${UPG_BUILDENV:=docker}
+: ${UPG_BUILDENV:=default}
 : ${K8S_ID:=${USER:-}}
 : ${K8S_NAMESPACE:=default}
 # FIXME: GRAB_ARTIFACTS is currently only supported in k8s mode

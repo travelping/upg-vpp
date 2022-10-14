@@ -1,1 +1,1 @@
-VPP_IMAGE_BASE=registry.cennso.com/upg/vpp-base:22.06.0-14-9d03be5f7
+VPP_IMAGE_BASE=quay.io/travelping/fpp-vpp:22.10-rc2-282d0a66d
