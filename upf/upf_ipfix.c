@@ -510,6 +510,8 @@ upf_ipfix_flow_remove_handler (flowtable_main_t * _fm, flow_entry_t * f,
       upf_ipfix_export_entry (vm, f, FT_REVERSE, now, true);
       upf_unref_ipfix_info (flow_ipfix_info(f, FT_REVERSE));
     }
+
+  return 0;
 }
 
 u32

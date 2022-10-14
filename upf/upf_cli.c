@@ -1718,7 +1718,6 @@ upf_pfcp_heartbeat_config_command_fn (vlib_main_t * vm,
 				      vlib_cli_command_t * cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
-  upf_main_t *gtm = &upf_main;
   clib_error_t *error = NULL;
   u32 timeout = ~0;
   u32 retries = ~0;

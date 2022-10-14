@@ -79,7 +79,6 @@ encode_error_indication (vlib_buffer_t * b, gtp_error_ind_t * error, int is_ip4)
 {
   u8 *p = vlib_buffer_get_current (b);
   u8 *start = vlib_buffer_get_current (b);
-  u16 ip_length, nlength;
 
   gtpu_tv_ie_t *tv_ie;
   gtpu_tlv_ie_t *tlv_ie;
