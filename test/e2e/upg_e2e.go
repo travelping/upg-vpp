@@ -837,7 +837,7 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			gomega.Expect(err).To(gomega.BeNil())
 			hbGetRequest := &upf.UpfPfcpHeartbeatsGet{}
 			hbGetReply := &upf.UpfPfcpHeartbeatsGetReply{}
-			err =  f.VPP.ApiChannel.SendRequest(hbGetRequest).ReceiveReply(hbGetReply)
+			err = f.VPP.ApiChannel.SendRequest(hbGetRequest).ReceiveReply(hbGetReply)
 			gomega.Expect(err).To(gomega.BeNil())
 			gomega.Expect(hbGetReply.Timeout).To(gomega.Equal(uint32(5)))
 			gomega.Expect(hbGetReply.Retries).To(gomega.Equal(uint32(15)))
@@ -1402,15 +1402,10 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				if err == nil {
 					unexpectedSuccess = true
 				} else {
-					var serverErr *pfcp.PFCPServerError
-					gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
-					framework.ExpectEqual(newSEID, serverErr.SEID)
-					framework.ExpectEqual(serverErr.Cause, ie.CauseRuleCreationModificationFailure)
-					framework.Logf("Server error (expected): %v", err)
-					// TODO: decode and verify TP error report
+					verifyPFCPError(err, ie.CauseRuleCreationModificationFailure, newSEID, 2,
+						"PDR ID 2, duplicate UE IP")
 					break
 				}
-
 			}
 			gomega.Expect(unexpectedSuccess).To(gomega.BeFalse(), "EstablishSession succeeded unexpectedly")
 			var m message.Message
@@ -1435,13 +1430,8 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			var newSEID pfcp.SEID
 			newSEID = f.PFCP.NewSEID()
 			_, err = f.PFCP.EstablishSession(f.Context, newSEID, sessionCfg.SessionIEs()...)
-			framework.ExpectError(err)
-
-			var serverErr *pfcp.PFCPServerError
-			gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
-			framework.ExpectEqual(newSEID, serverErr.SEID)
-			framework.ExpectEqual(serverErr.Cause, ie.CauseRuleCreationModificationFailure)
-			framework.Logf("Server error (expected): %v", err)
+			verifyPFCPError(err, ie.CauseRuleCreationModificationFailure, newSEID, 2,
+				"PDR ID 2, duplicate UE IP")
 
 			var m message.Message
 			gomega.Eventually(reportCh, 10*time.Second, 50*time.Millisecond).Should(gomega.Receive(&m))
@@ -1480,14 +1470,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			f.PFCP.ForgetSession(seid)
 			sessionCfg.UEIP = f.AddUEIP()
 			_, err = f.PFCP.EstablishSession(f.Context, seid, sessionCfg.SessionIEs()...)
-			framework.ExpectError(err)
-
-			var serverErr *pfcp.PFCPServerError
-			gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
-			gomega.Expect(serverErr.SEID).To(gomega.Equal(seid))
-			framework.ExpectEqual(serverErr.Cause, ie.CauseRequestRejected)
-			framework.Logf("Server error (expected): %v", err)
-			// TODO: decode and verify TP error report
+			verifyPFCPError(err, ie.CauseRequestRejected, seid, 0, "Duplicate SEID")
 		})
 	})
 
@@ -1518,15 +1501,65 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 				SGWIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
 			}
 			_, err = f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
-			var serverErr *pfcp.PFCPServerError
-			gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
-			framework.ExpectEqual(serverErr.Cause, ie.CauseRuleCreationModificationFailure)
+			verifyPFCPError(err, ie.CauseRuleCreationModificationFailure, 0, 1,
+				"PDR ID 1, can't handle F-TEID")
 
 			sessionCfg.TEIDPGWs5u += 10
 			seid1, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)
 			deleteSession(f, seid1, true)
 		})
+	})
+})
+
+var _ = ginkgo.Describe("Error handling", func() {
+	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+
+	ginkgo.It("should be done correctly with unknown Forwarding Policy when creating a session", func() {
+		sessionCfg := &framework.SessionConfig{
+			IdBase:             1,
+			UEIP:               f.UEIP(),
+			Mode:               f.Mode,
+			ForwardingPolicyID: "nosuchpolicy",
+		}
+		seid := f.PFCP.NewSEID()
+		_, err := f.PFCP.EstablishSession(f.Context, seid, sessionCfg.SessionIEs()...)
+		verifyPFCPError(err, ie.CauseInvalidForwardingPolicy, seid, 1,
+			"FAR ID 1, forwarding policy 'nosuchpolicy' not configured")
+	})
+
+	ginkgo.It("should be done correctly with unknown Forwarding Policy when modifying a session", func() {
+		sessionCfg := &framework.SessionConfig{
+			IdBase: 1,
+			UEIP:   f.UEIP(),
+			Mode:   f.Mode,
+		}
+		seid := f.PFCP.NewSEID()
+		_, err := f.PFCP.EstablishSession(f.Context, seid, sessionCfg.SessionIEs()...)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		modIE := ie.NewUpdateFAR(
+			ie.NewFARID(1),
+			ie.NewUpdateForwardingParameters(
+				ie.NewDestinationInterface(ie.DstInterfaceSGiLANN6LAN),
+				ie.NewNetworkInstance(framework.EncodeAPN("sgi")),
+				ie.NewForwardingPolicy("nosuchpolicy")))
+		_, err = f.PFCP.ModifySession(f.Context, seid, modIE)
+		verifyPFCPError(err, ie.CauseInvalidForwardingPolicy, seid, 1,
+			"FAR ID 1, forwarding policy 'nosuchpolicy' not configured")
+	})
+
+	ginkgo.It("should be done correctly for NAT", func() {
+		sessionCfg := &framework.SessionConfig{
+			IdBase:      1,
+			UEIP:        f.UEIP(),
+			Mode:        f.Mode,
+			NatPoolName: "nosuchpool",
+		}
+		seid := f.PFCP.NewSEID()
+		_, err := f.PFCP.EstablishSession(f.Context, seid, sessionCfg.SessionIEs()...)
+		verifyPFCPError(err, ie.CauseRuleCreationModificationFailure, seid, 1,
+			"FAR ID 1, Error creating NAT binding for pool 'nosuchpool'")
 	})
 })
 
@@ -2096,4 +2129,19 @@ func setupNAT(f *framework.Framework) {
 	f.VPP.Ctl("set interface nat44 out host-sgi0 output-feature")
 	f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing")
 	f.VPP.Ctl("nat44 controlled enable")
+}
+
+func verifyPFCPError(err error, cause uint8, seid pfcp.SEID, failedRuleID uint32, message string) {
+	framework.Logf("Server error (expected to occur): %v", err)
+	framework.ExpectError(err, "expected PFCP error")
+	var serverErr *pfcp.PFCPServerError
+	gomega.Expect(errors.As(err, &serverErr)).To(gomega.BeTrue())
+	if seid != 0 {
+		framework.ExpectEqual(seid, serverErr.SEID, "SEID")
+	}
+	framework.ExpectEqual(serverErr.Cause, cause, "Cause")
+	if failedRuleID != 0 {
+		framework.ExpectEqual(serverErr.FailedRuleID, failedRuleID, "FailedRuleID")
+	}
+	framework.ExpectEqual(serverErr.Message, message, "Message")
 }
