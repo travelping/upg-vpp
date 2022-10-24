@@ -1488,7 +1488,12 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	    rc = handle_nat_binding_creation (sx, pool_name, response);
 	    vec_free (pool_name);
 	    if (rc)
-	      goto out_error;
+	      {
+		far_error (response, far,
+			   "Error creating NAT binding for pool '%v'",
+			   far->forwarding_parameters.nat_port_block);
+		goto out_error;
+	      }
 	  }
 
 	if (ISSET_BIT (far->forwarding_parameters.grp.fields,
@@ -1548,9 +1553,10 @@ handle_create_far (upf_session_t * sx, pfcp_create_far_t * create_far,
 	      }
 	    else
 	      {
-		upf_debug
-		  ("###### Forwarding policy id %v is not preconfigured at UPF ######",
-		   far->forwarding_parameters.forwarding_policy.identifier);
+		far_error (response, far,
+			   "forwarding policy '%v' not configured",
+			   far->forwarding_parameters.
+			   forwarding_policy.identifier);
 		response->cause = PFCP_CAUSE_INVALID_FORWARDING_POLICY;
 		goto out_cause_set;
 	      }
@@ -1708,10 +1714,10 @@ handle_update_far (upf_session_t * sx, pfcp_update_far_t * update_far,
 	      }
 	    else
 	      {
-		upf_debug
-		  ("###### Forwarding policy id %v is not preconfigured at UPF ######",
-		   far->update_forwarding_parameters.
-		   forwarding_policy.identifier);
+		far_error (response, far,
+			   "forwarding policy '%v' not configured",
+			   far->update_forwarding_parameters.
+			   forwarding_policy.identifier);
 		response->cause = PFCP_CAUSE_INVALID_FORWARDING_POLICY;
 		goto out_cause_set;
 	      }

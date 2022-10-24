@@ -153,14 +153,20 @@ var (
 )
 
 type PFCPServerError struct {
-	Cause uint8
-	SEID  SEID
+	Cause        uint8
+	SEID         SEID
+	FailedRuleID uint32
+	Message      string
 }
 
 func (e *PFCPServerError) Error() string {
 	s, found := causes[e.Cause]
 	if !found {
 		return fmt.Sprintf("<bad cause value %d>", e.Cause)
+	}
+
+	if e.Message != "" {
+		return fmt.Sprintf("server error, cause: %s: %s", s, e.Message)
 	}
 
 	return fmt.Sprintf("server error, cause: %s", s)
@@ -1254,35 +1260,61 @@ func (s *pfcpSession) getMeasurement(m message.Message) (*PFCPMeasurement, error
 	return r, err
 }
 
-func getCauseIE(m message.Message) *ie.IE {
+func getCauseIE(m message.Message) (causeIE, failedRuleIDIE *ie.IE, otherIEs []*ie.IE) {
 	switch r := m.(type) {
 	case *message.AssociationSetupResponse:
-		return r.Cause
+		return r.Cause, nil, r.IEs
 	case *message.AssociationReleaseResponse:
-		return r.Cause
+		return r.Cause, nil, r.IEs
 	case *message.AssociationUpdateResponse:
-		return r.Cause
+		return r.Cause, nil, r.IEs
 	case *message.NodeReportResponse:
-		return r.Cause
+		return r.Cause, nil, r.IEs
 	case *message.PFDManagementResponse:
-		return r.Cause
+		return r.Cause, nil, r.IEs
 	case *message.SessionEstablishmentResponse:
-		return r.Cause
+		return r.Cause, r.FailedRuleID, r.IEs
 	case *message.SessionDeletionResponse:
-		return r.Cause
+		return r.Cause, nil, r.IEs
 	case *message.SessionModificationResponse:
-		return r.Cause
+		return r.Cause, r.FailedRuleID, r.IEs
 	case *message.SessionReportResponse:
-		return r.Cause
+		return r.Cause, nil, r.IEs
 	case *message.SessionSetDeletionResponse:
-		return r.Cause
+		return r.Cause, nil, r.IEs
 	default:
-		return nil
+		return nil, nil, nil
 	}
 }
 
+const (
+	TPErrorReportEnterpriseID = 0x48f9
+	TPErrorReportIEID         = 0x8006
+	TPErrorMessageIEID        = 0x8007
+)
+
+func parseTPErrorReport(ies []*ie.IE) (string, error) {
+	for _, cur := range ies {
+		if cur.EnterpriseID != TPErrorReportEnterpriseID || cur.Type != TPErrorReportIEID {
+			continue
+		}
+
+		for len(cur.Payload) != 0 {
+			var child ie.IE
+			if err := child.UnmarshalBinary(cur.Payload); err != nil {
+				return "", errors.Wrap(err, "error parsing child IE")
+			}
+			if child.EnterpriseID == TPErrorReportEnterpriseID || cur.Type == TPErrorMessageIEID {
+				return string(child.Payload), nil
+			}
+		}
+	}
+
+	return "", nil
+}
+
 func verifyCause(m message.Message, seid SEID) error {
-	causeIE := getCauseIE(m)
+	causeIE, failedRuleIDIE, otherIEs := getCauseIE(m)
 	if causeIE == nil {
 		return errors.New("no cause")
 	}
@@ -1299,7 +1331,20 @@ func verifyCause(m message.Message, seid SEID) error {
 	if m.SEID() != 0 {
 		seid = SEID(m.SEID())
 	}
-	return &PFCPServerError{Cause: cause, SEID: seid}
+
+	var failedRuleID uint32
+	if failedRuleIDIE != nil {
+		failedRuleID, err = failedRuleIDIE.FailedRuleID()
+		if err != nil {
+			return errors.Wrap(err, "bad Failed Rule ID IE")
+		}
+	}
+
+	msg, err := parseTPErrorReport(otherIEs)
+	if err != nil {
+		return errors.Wrap(err, "failed to find/parse error report")
+	}
+	return &PFCPServerError{Cause: cause, SEID: seid, FailedRuleID: failedRuleID, Message: msg}
 }
 
 func requestToEventType(m message.Message) (pfcpEventType, bool) {
