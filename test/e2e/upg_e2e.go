@@ -2127,7 +2127,7 @@ func verifyPSDBU(m message.Message, numUsageReports int) {
 func setupNAT(f *framework.Framework) {
 	f.VPP.Ctl("nat44 enable sessions 1000")
 	f.VPP.Ctl("set interface nat44 out host-sgi0 output-feature")
-	f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing")
+	f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing min_port 10128")
 	f.VPP.Ctl("nat44 controlled enable")
 }
 
