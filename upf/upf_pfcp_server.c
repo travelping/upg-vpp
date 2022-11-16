@@ -434,22 +434,49 @@ upf_pfcp_server_send_request (pfcp_msg_t * msg)
   upf_pfcp_send_data (msg);
 }
 
-static void
-upf_pfcp_server_send_session_request (upf_session_t * sx,
-				      pfcp_decoded_msg_t * dmsg)
+/* When TDF-U reports new UE IP session to TDF-C it creates Session Report
+ * with Usage Report and Start of Traffic as a reporting trigger. Instead
+ * of Usage Report triggered by application usage, there should be no
+ * application detection information in the report. Also UE IP Address
+ * should be reported in this case. To avoid TDF-C overload UPG can
+ * hold number of such Session Report requests.
+ */
+static bool
+upf_pfcp_police_message (upf_session_t * sx, pfcp_decoded_msg_t * dmsg)
 {
-  pfcp_msg_t *msg;
   upf_main_t *gtm = &upf_main;
   u64 time_in_policer_periods;
   upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, sx->assoc.node);
   policer_t *p = pool_elt_at_index (gtm->pfcp_policers, n->policer_idx);
 
+  if (dmsg->type != PFCP_SESSION_REPORT_REQUEST
+      || !dmsg->session_report_request.usage_report)
+    return true;
+
+  if (ISSET_BIT
+      (dmsg->session_report_request.usage_report->grp.fields,
+       USAGE_REPORT_APPLICATION_DETECTION_INFORMATION)
+      || !ISSET_BIT (dmsg->session_report_request.usage_report->grp.fields,
+		     USAGE_REPORT_UE_IP_ADDRESS)
+      || !(dmsg->session_report_request.usage_report->usage_report_trigger &
+	   USAGE_REPORT_TRIGGER_START_OF_TRAFFIC))
+    return true;
+
   time_in_policer_periods =
     clib_cpu_time_now () >> POLICER_TICKS_PER_PERIOD_SHIFT;
 
-  if (vnet_police_packet
-      (p, UPF_POLICER_FIXED_PKT_SIZE, POLICE_CONFORM,
-       time_in_policer_periods) != POLICE_CONFORM)
+  return vnet_police_packet
+    (p, UPF_POLICER_FIXED_PKT_SIZE, POLICE_CONFORM,
+     time_in_policer_periods) == POLICE_CONFORM;
+}
+
+static void
+upf_pfcp_server_send_session_request (upf_session_t * sx,
+				      pfcp_decoded_msg_t * dmsg)
+{
+  pfcp_msg_t *msg;
+
+  if (!upf_pfcp_police_message (sx, dmsg))
     return;
 
   if ((msg = build_pfcp_session_msg (sx, dmsg)))
