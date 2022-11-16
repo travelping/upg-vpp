@@ -808,6 +808,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
   upf_usage_report_t report;
   struct rules *active;
   u32 idx;
+  // TMP: rm this
+  f64 unow = unix_time_now ();
 
 #if CLIB_DEBUG > 1
   f64 vnow = vlib_time_now (gtm->vlib_main);
@@ -957,6 +959,12 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
 	urr->time_quota.period = 0;
 	urr->status |= URR_OVER_QUOTA;
+	clib_warning ("TMP: %U: SEID Session 0x%016" PRIx64
+		      "Over time quota; trigger: %s",
+		      format_time_float, NULL, unow,
+		      sx->cp_seid,
+		      urr->triggers & REPORTING_TRIGGER_TIME_QUOTA ? "true" :
+		      "false");
       }
     if (urr_check (urr->quota_validity_time, now))
       {
@@ -971,6 +979,12 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
 	urr->quota_validity_time.period = 0;
 	urr->status |= URR_OVER_QUOTA;
+	clib_warning ("TMP: %U: SEID Session 0x%016" PRIx64
+		      "Over quota validity time; trigger: %s",
+		      format_time_float, NULL, unow,
+		      sx->cp_seid,
+		      urr->triggers & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME ?
+		      "true" : "false");
       }
 
     if (urr_check (urr->traffic_timer, now))
