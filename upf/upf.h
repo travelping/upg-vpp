@@ -1144,8 +1144,8 @@ upf_ip46_get_resolving_interface (u32 fib_index, ip46_address_t * pa46,
 
 void upf_proxy_init (vlib_main_t * vm);
 
-#define UPF_NAT_MIN_PORT 10128
-#define UPF_NAT_MAX_PORT 64000
+#define UPF_NAT_MIN_PORT 1024
+#define UPF_NAT_MAX_PORT 65535
 
 upf_nat_pool_t *get_nat_pool_by_name (u8 * name);
 
