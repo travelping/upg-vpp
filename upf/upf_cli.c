@@ -363,7 +363,7 @@ VLIB_CLI_COMMAND (upf_nat_pool_add_del_command, static) =
 {
   .path = "upf nat pool",
   .short_help =
-  "upf nat pool nwi <nwi-name> start <ip4-addr> end <ip4-addr> min_port <min-port> max_port <max-port> block_size <port-block-size> name <name> [del]",
+  "upf nat pool nwi <nwi-name> <ip4-addr-start> - <ip4-addr-end> min_port <min-port> max_port <max-port> block_size <port-block-size> name <name> [del]",
   .function = upf_nat_pool_add_del_command_fn,
 };
 /* *INDENT-ON* */
