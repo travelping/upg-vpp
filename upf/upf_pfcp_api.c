@@ -2618,6 +2618,7 @@ handle_session_modification_request (pfcp_msg_t * msg,
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_usage_report_t report;
   pfcp_query_urr_t *qry;
+  pfcp_remove_urr_t *rurr;
   struct rules *active;
   upf_session_t *sess;
   f64 now = psm->now;
@@ -2644,6 +2645,32 @@ handle_session_modification_request (pfcp_msg_t * msg,
     }
 
   resp_dmsg.seid = sess->cp_seid;
+
+  active = pfcp_get_rules (sess, PFCP_ACTIVE);
+  upf_usage_report_init (&report, vec_len (active->urr));
+
+  if (ISSET_BIT (req->grp.fields, SESSION_MODIFICATION_REQUEST_REMOVE_URR) &&
+      vec_len (req->remove_urr) != 0)
+    {
+      SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
+
+      clib_warning ("SMATOV: Building report for removed URR");
+
+      vec_foreach (rurr, req->remove_urr)
+      {
+        upf_urr_t *urr;
+
+        if (!(urr = pfcp_get_urr_by_id (active, rurr->urr_id)))
+        {
+          clib_warning ("SMATOV: Can't find Active URR with id %u", rurr->urr_id);
+          continue;
+        }
+
+        upf_usage_report_trigger (&report, urr - active->urr,
+                                  USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
+                                  urr->liusa_bitmap, now);
+      }
+    }
 
   if (req->grp.fields &
       (BIT (SESSION_MODIFICATION_REQUEST_USER_PLANE_INACTIVITY_TIMER) |
@@ -2720,9 +2747,6 @@ handle_session_modification_request (pfcp_msg_t * msg,
       /* TODO: perhaps only increase it on PDR updates */
       sess->generation++;
     }
-
-  active = pfcp_get_rules (sess, PFCP_ACTIVE);
-  upf_usage_report_init (&report, vec_len (active->urr));
 
   if (ISSET_BIT (req->grp.fields, SESSION_MODIFICATION_REQUEST_QUERY_URR) &&
       vec_len (req->query_urr) != 0)
