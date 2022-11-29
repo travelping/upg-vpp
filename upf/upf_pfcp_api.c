@@ -2617,6 +2617,8 @@ handle_session_modification_request (pfcp_msg_t * msg,
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_usage_report_t report;
   pfcp_query_urr_t *qry;
+  pfcp_remove_urr_t *rurr;
+  bool have_report = false;
   struct rules *active;
   upf_session_t *sess;
   f64 now = psm->now;
@@ -2643,6 +2645,35 @@ handle_session_modification_request (pfcp_msg_t * msg,
     }
 
   resp_dmsg.seid = sess->cp_seid;
+
+  active = pfcp_get_rules (sess, PFCP_ACTIVE);
+
+  /* 3GPP TS 29.244 version 16.5.0 clause 5.2.2.3.1
+   * When being instructed to remove a URR or the last PDR associated to a URR,
+   * the UP function shall stop its ongoing measurements for the URR and include
+   * a Usage Report in the PFCP Session Modification Response or in an additional
+   * PFCP Session Report Request.
+   */
+
+  if (ISSET_BIT (req->grp.fields, SESSION_MODIFICATION_REQUEST_REMOVE_URR) &&
+      vec_len (req->remove_urr) != 0)
+    {
+      upf_usage_report_init (&report, vec_len (active->urr));
+      have_report = true;
+      SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
+
+      vec_foreach (rurr, req->remove_urr)
+      {
+	upf_urr_t *urr;
+
+	if (!(urr = pfcp_get_urr_by_id (active, rurr->urr_id)))
+	  continue;
+
+	upf_usage_report_trigger (&report, urr - active->urr,
+				  USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
+				  urr->liusa_bitmap, now);
+      }
+    }
 
   if (req->grp.fields &
       (BIT (SESSION_MODIFICATION_REQUEST_USER_PLANE_INACTIVITY_TIMER) |
@@ -2720,13 +2751,15 @@ handle_session_modification_request (pfcp_msg_t * msg,
       sess->generation++;
     }
 
-  active = pfcp_get_rules (sess, PFCP_ACTIVE);
-  upf_usage_report_init (&report, vec_len (active->urr));
-
   if (ISSET_BIT (req->grp.fields, SESSION_MODIFICATION_REQUEST_QUERY_URR) &&
       vec_len (req->query_urr) != 0)
     {
       SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
+      if (!have_report)
+	{
+	  have_report = true;
+	  upf_usage_report_init (&report, vec_len (active->urr));
+	}
 
       vec_foreach (qry, req->query_urr)
       {
@@ -2745,6 +2778,11 @@ handle_session_modification_request (pfcp_msg_t * msg,
 	(req->grp.fields, SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS)
 	&& req->pfcpsmreq_flags & PFCPSMREQ_QAURR)
     {
+      if (!have_report)
+	{
+	  have_report = true;
+	  upf_usage_report_init (&report, vec_len (active->urr));
+	}
       if (vec_len (active->urr) != 0)
 	{
 	  SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
@@ -2753,9 +2791,9 @@ handle_session_modification_request (pfcp_msg_t * msg,
 	}
     }
 
-  upf_usage_report_build (sess, NULL, active->urr, now, &report,
-			  &resp->usage_report);
-  upf_usage_report_free (&report);
+  if (have_report)
+    upf_usage_report_build (sess, NULL, active->urr, now, &report,
+			    &resp->usage_report);
 
 out_update_finish:
   pfcp_update_finish (sess);
@@ -2767,6 +2805,8 @@ out_send_resp:
     resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
   upf_pfcp_send_response (msg, &resp_dmsg);
+  if (have_report)
+    upf_usage_report_free (&report);
 
   return r;
 }
