@@ -992,6 +992,50 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 		})
 	})
 
+	ginkgo.Context("Remove URR", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("should generate usage report", func() {
+			ginkgo.By("Removing URRs from session should trigger Usage Report")
+			sessionCfg := &framework.SessionConfig{
+				IdBase:      1,
+				UEIP:        f.UEIP(),
+				Mode:        f.Mode,
+				VolumeQuota: 100000,
+				NoURRs:      false,
+			}
+			seid, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+			ginkgo.By("Starting some traffic")
+			tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+				PacketCount: 10, // 10s
+				Retry:       true,
+				Delay:       100 * time.Millisecond,
+			}, &traffic.SimpleTrafficRec{})
+			tg.Start(f.Context, clientNS, serverNS)
+
+			time.Sleep(time.Second * 5)
+
+			_, err = f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			ginkgo.By("Updating session by removing FARs/PDRs/URRs for forwarding")
+			modifyIEs := sessionCfg.DeletePDRs()
+			modifyIEs = append(modifyIEs, sessionCfg.DeleteFARs()...)
+			modifyIEs = append(modifyIEs, sessionCfg.DeleteURRs()...)
+			m, err := f.PFCP.ModifySession(
+				f.VPP.Context(context.Background()), seid,
+				modifyIEs...)
+			framework.ExpectNoError(err, "ModifySession")
+			// Two reports for each URRs
+			gomega.Expect(m.Reports).To(gomega.HaveLen(2))
+			gomega.Expect(m.Reports[1]).To(gomega.HaveLen(1))
+			gomega.Expect(m.Reports[2]).To(gomega.HaveLen(1))
+			gomega.Expect(m.Reports[1][0].TotalVolume).NotTo(gomega.BeNil())
+			gomega.Expect(*m.Reports[1][0].TotalVolume).NotTo(gomega.BeZero())
+
+		})
+	})
+
 	ginkgo.Context("Monitoring time", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.It("should generate split report", func() {

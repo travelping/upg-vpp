@@ -336,12 +336,12 @@ func (cfg SessionConfig) CreateOrUpdateURR(id uint32, update bool) *ie.IE {
 	return urr
 }
 
-func (cfg SessionConfig) CreateVolumeURR(id uint32) *ie.IE {
+func (cfg SessionConfig) CreateVolumeURR(id, tvol uint32) *ie.IE {
 	triggers := uint16(0)
 	triggers |= pfcp.ReportingTriggers_VOLQU
 	urr := ie.NewCreateURR(ie.NewURRID(id),
 		ie.NewMeasurementMethod(0, 1, 1),
-		ie.NewVolumeQuota(0x01, 1024, 0, 0),
+		ie.NewVolumeQuota(0x01, uint64(tvol), 0, 0),
 		ie.NewReportingTriggers(triggers))
 	return urr
 }
@@ -352,7 +352,7 @@ func (cfg SessionConfig) DeleteURR(id uint32) *ie.IE {
 
 func (cfg SessionConfig) CreateURRs() []*ie.IE {
 	if cfg.VolumeQuota != 0 {
-		return []*ie.IE{cfg.CreateVolumeURR(1), cfg.CreateVolumeURR(2)}
+		return []*ie.IE{cfg.CreateVolumeURR(1, cfg.VolumeQuota), cfg.CreateVolumeURR(2, cfg.VolumeQuota)}
 	}
 	return []*ie.IE{cfg.CreateOrUpdateURR(1, false), cfg.CreateOrUpdateURR(2, false)}
 }
