@@ -1686,6 +1686,9 @@ func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
 				ProxyCoreTEID:   framework.ProxyCoreTEID,
 				ProxyAccessIP:   f.VPPCfg.GetVPPAddress("access").IP,
 				ProxyCoreIP:     f.VPPCfg.GetVPPAddress("core").IP,
+				// Make sure PFCP_CLASSIFY is not set for the session.
+				// That's an important edge case
+				SkipSDFFilter: true,
 			}
 			var err error
 			seid, err = f.PFCP.EstablishSession(f.Context, 0, cfg.SessionIEs()...)
