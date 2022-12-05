@@ -51,6 +51,7 @@ type SessionConfig struct {
 	NatPoolName        string
 	IMSI               string
 	IPFIXTemplate      string
+	SkipSDFFilter      bool
 }
 
 const (
@@ -232,7 +233,7 @@ func (cfg SessionConfig) forwardPDR(pdrID uint16, farID, urrID, precedence uint3
 		panic("bad UPGMode")
 	}
 
-	if appID == "" {
+	if appID == "" && !cfg.SkipSDFFilter {
 		if sdfFilter == "" {
 			sdfFilter = "permit out ip from any to assigned"
 		}
@@ -274,7 +275,7 @@ func (cfg SessionConfig) reversePDR(pdrID uint16, farID, urrID, precedence uint3
 			ie.NewSourceInterface(ie.SrcInterfaceCore))
 	}
 
-	if appID == "" {
+	if appID == "" && !cfg.SkipSDFFilter {
 		if sdfFilter == "" {
 			sdfFilter = "permit out ip from any to assigned"
 		}
