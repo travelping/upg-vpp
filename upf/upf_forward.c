@@ -284,11 +284,21 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 				   IS_DL (pdr, far), IS_UL (pdr, far), next);
 	      next = process_urrs (vm, sess, node_name, active, pdr, b,
 				   IS_DL (pdr, far), IS_UL (pdr, far), next);
-	      flow =
-		pool_elt_at_index (fm->flows,
-				   upf_buffer_opaque (b)->gtpu.flow_id);
-	      flow_update_stats (vm, b, flow, is_ip4,
-				 timestamp, current_time);
+	      /*
+	       * Flow ID might be absent if active->flags doesn't have
+	       * PFCP_CLASSIFY bit set. In this case PDR index may be
+	       * set, by the upf-gtpu[46]-input node, but flow
+	       * index may be absent. This happens when the sessions'
+	       * PDRs don't have any ACL rules or an UE IP.
+	       */
+	      if (upf_buffer_opaque (b)->gtpu.flow_id != ~0)
+		{
+		  flow =
+		    pool_elt_at_index (fm->flows,
+				       upf_buffer_opaque (b)->gtpu.flow_id);
+		  flow_update_stats (vm, b, flow, is_ip4,
+				     timestamp, current_time);
+		}
 	    }
 
 #undef IS_DL
