@@ -1015,8 +1015,6 @@ typedef struct
   /* adf apps vector */
   upf_adf_app_t *upf_apps;
 
-  //TODO: Change to UPF flags?
-  u32 pfcp_spec_version;
   u32 rand_base;
 
   pfcp_node_id_t node_id;
