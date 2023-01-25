@@ -1162,7 +1162,7 @@ pfcp_free_session (upf_session_t * sx)
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)
     pfcp_free_rules (sx, i);
 
-  sparse_vec_free (sx->teid_by_chid);
+  sparse_vec_free (*sx->teid_by_chid);
 
   if (sx->nat_addr)
     upf_delete_nat_binding (sx);
