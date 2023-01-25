@@ -268,6 +268,7 @@ upf_ipfix_export_send (vlib_main_t * vm, vlib_buffer_t * b0,
 		       u32 now)
 {
   flow_report_main_t *frm = &flow_report_main;
+  upf_ipfix_main_t *fm = &upf_ipfix_main;
   ipfix_exporter_t *exp = upf_ipfix_get_exporter (context);
   vlib_frame_t *f;
   ip4_ipfix_template_packet_t *tp;
