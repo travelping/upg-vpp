@@ -4647,7 +4647,7 @@ decode_ue_ip_address_pool_identity (u8 * data, u16 length, void *p)
   if (length < id_len)
     return PFCP_CAUSE_INVALID_LENGTH;
 
-  get_vec (v, id_len, data);
+  get_vec (*v, id_len, data);
 
   return 0;
 }
@@ -4655,7 +4655,8 @@ decode_ue_ip_address_pool_identity (u8 * data, u16 length, void *p)
 static int
 encode_ue_ip_address_pool_identity (void *p, u8 ** vec)
 {
-  pfcp_ue_ip_address_pool_identity_t **v = p;
+  pfcp_ue_ip_address_pool_identity_t *v =
+    (pfcp_ue_ip_address_pool_identity_t *) p;
 
   put_u16 (*vec, vec_len (*v));
   vec_append (*vec, *v);

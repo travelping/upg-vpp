@@ -5,6 +5,7 @@ import os
 import os.path
 from unittest import skip
 from random import getrandbits
+from scapy.compat import hex_bytes
 from scapy.utils import hexdump
 from scapy.contrib.pfcp import CauseValues, IE_ApplyAction, IE_Cause, \
     IE_CreateFAR, IE_CreatePDR, IE_CreateURR, IE_DestinationInterface, \
@@ -1774,6 +1775,11 @@ class TestPFCPReencode(framework.VppTestCase):
         req = PFCP(version=1, seq=3, seid=5577006791947779410) / \
             PFCPSessionDeletionResponse(IE_list=[ IE_Cause(cause=1) ] + report_ies)
         self.verify_reencode("session_deletion_response", req)
+
+        # FIXME: scapy doesn't support "UE IP address Pool Information"
+        # and "BBF NAT Port Block" IEs in this request
+        req = hex_bytes("200600ce000e6300003c002202206c67772d726566312d7570672d766f6c766f2d6c616e652d612d7570672d6131001300010100600004e77e96bb002b0006100100040000800000060de90000004000e9002700b1000b0009706f6f6c2d746573740016000504746573748012000b0de9706f6f6c2d746573748002005448f9767070207632322e30322e302d31357e67633461323736333839206275696c7420627920726f6f74206f6e206275696c646b697473616e64626f7820617420323032322d31312d31385431343a30303a3130")
+        self.verify_reencode("association_setup_response_ue_ip_address_pool_identity", req)
 
 # TODO: send session report response
 # TODO: check for heartbeat requests from UPF
