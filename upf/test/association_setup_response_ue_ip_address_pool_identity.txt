@@ -1,0 +1,11 @@
+PFCP: seq 3683, Association Setup Response (6).
+Node ID: lgw-ref1-upg-volvo-lane-a-upg-a1
+Cause: 1
+Recovery Time Stamp: 2023/01/27 18:30:19:000
+UP Function Features: BUCP:0,DDND:0,DLBD:0,TRST:0,FTUP:1,PFDM:0,HEEU:0,TREU:0,EMPU:1,PDIU:0,UDBC:0,QUOAC:0,TRACE:0,FRRT:0,PFDE:0,EPFAR:0,DPDRA:0,ADPDP:0,UEIP:0,SSET:0,MNOP:0,MTE:0,BUNDL:0,GCOM:0,MPAS:0,RTTL:0,VTIME:1,NORP:0,IPTV:0,IP6PL:0,TSCU:0,MPTCP:0,ATSSS-LL:0,QFQM:0,GPQM:0
+UE IP Address Pool Information
+  UE IP address Pool Identity: pool-test
+  Network Instance: test
+  BBF NAT Port Block: pool-test
+TP: Build Identifier: vpp v22.02.0-15~gc4a276389 built by root on buildkitsandbox at 2022-11-18T14:00:10
+

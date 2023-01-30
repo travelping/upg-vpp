@@ -12,6 +12,6 @@ make -C /vpp-src/test VPP_BIN=/usr/bin/vpp \
      WS_ROOT=/vpp-src \
      BR=/vpp-src/build-root \
      TEST_DIR=/tmp \
-     TEST=test_upf V=2 \
+     TEST="${TEST:-test_upf}" V=2 \
      EXTERN_TESTS=/src/upf/test \
      RND_SEED=$(python3 -c 'import time; print(time.time())')
