@@ -845,6 +845,37 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 	})
 })
 
+var _ = ginkgo.Describe("Accessing SGi interface", func() {
+	ginkgo.Context("from UE", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		ginkgo.It("ping should be ignored", func() {
+			sessionCfg := &framework.SessionConfig{
+				IdBase: 1,
+				UEIP:   f.UEIP(),
+				Mode:   f.Mode,
+			}
+			anotherSessionCfg := &framework.SessionConfig{
+				IdBase: 2,
+				UEIP:   net.ParseIP("10.0.1.2"),
+				Mode:   f.Mode,
+			}
+			_, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+			_, err = f.PFCP.EstablishSession(f.Context, 0, anotherSessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+			tg, clientNS, serverNS := newTrafficGen(f, &traffic.ICMPPingConfig{
+				//ServerIP: sgiAddress,
+				ServerIP:    net.ParseIP("10.0.1.2"),
+				PacketCount: 10, // 10s
+				Retry:       true,
+				Delay:       100 * time.Millisecond,
+			}, &traffic.SimpleTrafficRec{})
+			tg.Start(f.Context, clientNS, serverNS)
+			// Expect no crash here
+		})
+	})
+})
+
 var _ = ginkgo.Describe("Clearing message queue", func() {
 	ginkgo.Context("during session deletion", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
