@@ -259,8 +259,9 @@ VLIB_INIT_FUNCTION (upf_session_dpo_module_init);
 #endif /* CLIB_MARCH_VARIANT */
 
 /* Statistics (not all errors) */
-#define foreach_upf_session_dpo_error    	\
-  _(SESSION_DPO, "good packets session_dpo")	\
+#define foreach_upf_session_dpo_error		  \
+  _(SESSION_DPO, "good packets session_dpo")  	  \
+  _(SUBGRAPH_ENTRY, "packet re-entered subgraph") \
   _(PROXY_LOOP, "proxy output loop detected")
 
 static char *upf_session_dpo_error_strings[] = {
@@ -423,6 +424,19 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 	      goto trace;
 	    }
 
+	  /* Traffic hits UPF Subgraph for second time. This might happen if
+	   * packet was originated from UE to another UE or local SGi interface
+	   * and hit DPO of SGi table. By security reasons this is not allowed.
+	   */
+	  if (UPF_CHECK_INNER_NODE (b))
+	    {
+	      upf_debug ("UPF Subgraph re-entered: %U", format_ip4_header,
+			 ip0, b->current_length);
+	      error0 = UPF_SESSION_DPO_ERROR_SUBGRAPH_ENTRY;
+	      next = UPF_SESSION_DPO_NEXT_DROP;
+	      goto trace;
+	    }
+
 	  UPF_ENTER_SUBGRAPH (b, sidx, 1);
 	  error0 = IP4_ERROR_NONE;
 	  next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
@@ -553,6 +567,19 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node) (vlib_main_t * vm,
 			 ip0, b->current_length);
 	      error0 = UPF_SESSION_DPO_ERROR_PROXY_LOOP;
 	      next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
+	      goto trace;
+	    }
+
+	  /* Traffic hits UPF Subgraph for second time. This might happen if
+	   * packet was originated from UE to another UE or local SGi interface
+	   * and hit DPO of SGi table. By security reasons this is not allowed.
+	   */
+	  if (UPF_CHECK_INNER_NODE (b))
+	    {
+	      upf_debug ("UPF Subgraph re-entered: %U", format_ip4_header,
+			 ip0, b->current_length);
+	      error0 = UPF_SESSION_DPO_ERROR_SUBGRAPH_ENTRY;
+	      next = UPF_SESSION_DPO_NEXT_DROP;
 	      goto trace;
 	    }
 

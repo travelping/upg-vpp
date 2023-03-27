@@ -78,38 +78,16 @@ STATIC_ASSERT (sizeof (upf_buffer_opaque_t) <=
   ((upf_buffer_opaque_t *)((u8 *)((b)->opaque2) +       \
 STRUCT_OFFSET_OF (vnet_buffer_opaque_t, unused)))
 
-#if CLIB_DEBUG > 0
-
-/*
- * For debug builds, we add a flag to each buffer when we initialize
- * GTPU metadata when the buffer is processed by one of the UPF
- * entry nodes (upf-gtpu[46]-input, upf-ip[46]-session-dpo,
- * upf-ip[46]-proxy-server-output)
- */
 #define UPF_BUFFER_F_GTPU_INITIALIZED VNET_BUFFER_F_AVAIL1
 #define UPF_ENTER_SUBGRAPH(b, sidx, is_ip4)				\
   do {									\
-    ASSERT (!((b)->flags & UPF_BUFFER_F_GTPU_INITIALIZED));		\
     clib_memset(upf_buffer_opaque (b), 0, sizeof(upf_buffer_opaque_t));	\
     b->flags |= UPF_BUFFER_F_GTPU_INITIALIZED;				\
     upf_buffer_opaque (b)->gtpu.session_index = sidx;			\
     upf_buffer_opaque (b)->gtpu.flags =					\
       is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;			\
   } while (0)
-#define UPF_CHECK_INNER_NODE(b) ASSERT (b->flags & UPF_BUFFER_F_GTPU_INITIALIZED)
-
-#else
-
-#define UPF_ENTER_SUBGRAPH(b, sidx, is_ip4)				\
-  do {									\
-    clib_memset(upf_buffer_opaque (b), 0, sizeof(upf_buffer_opaque_t)); \
-    upf_buffer_opaque (b)->gtpu.session_index = sidx;			\
-    upf_buffer_opaque (b)->gtpu.flags =					\
-      is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;			\
-  } while (0)
-#define UPF_CHECK_INNER_NODE(b)
-
-#endif
+#define UPF_CHECK_INNER_NODE(b) (b->flags & UPF_BUFFER_F_GTPU_INITIALIZED)
 
 #define BUFFER_FAR_ONLY     (1<<3)	/* don't include in QER/URR processing */
 #define BUFFER_HAS_GTP_HDR  (1<<4)
