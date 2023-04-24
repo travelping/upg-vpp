@@ -55,7 +55,8 @@ type pfcpEvent struct {
 	// seid is used in the requests that were not sent yet.  It's
 	// needed b/c SessionEstablishmentRequest doesn't have the
 	// session's SEID in it
-	seid SEID
+	seid    SEID
+	timerID timerID
 }
 
 func (e pfcpEvent) Sequence() uint32 {
@@ -67,7 +68,7 @@ func (e pfcpEvent) Sequence() uint32 {
 
 type sessionState string
 type sessionEventType string
-
+type timerID int
 type SEID uint64
 
 const (
@@ -126,6 +127,9 @@ const (
 	sessionEventDeleted     sessionEventType = "DELETED"
 	sessionEventActModify   sessionEventType = "MODIFY"
 	sessionEventActDelete   sessionEventType = "DELETE"
+
+	timerIDHeartbeatTimeout timerID = iota
+	timerIDRetransmit
 )
 
 var (
@@ -224,6 +228,7 @@ type pfcpTransitionKey struct {
 
 var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	{pfcpStateInitial, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		pc.receivedHBRequestTimes = append(pc.receivedHBRequestTimes, time.Now())
 		if pc.cfg.IgnoreHeartbeatRequests {
 			// ignore heartbeat requests, so UPG will drop
 			// this association eventually
@@ -238,6 +243,7 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	},
 
 	{pfcpStateAssociating, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		pc.receivedHBRequestTimes = append(pc.receivedHBRequestTimes, time.Now())
 		if pc.cfg.IgnoreHeartbeatRequests {
 			return nil
 		}
@@ -251,7 +257,7 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 			}
 			return err
 		} else if reqEv != nil {
-			pc.setTimeout(pc.cfg.HeartbeatTimeout)
+			pc.setTimeout(timerIDHeartbeatTimeout, pc.cfg.HeartbeatTimeout)
 			pc.setState(pfcpStateAssociated)
 			reqEv.resultCh <- eventResult{}
 		}
@@ -280,20 +286,27 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	},
 
 	{pfcpStateAssociating, pfcpEventTimeout}: func(pc *PFCPConnection, ev pfcpEvent) error {
-		return errHeartbeatTimeout
+		if ev.timerID == timerIDHeartbeatTimeout {
+			return errHeartbeatTimeout
+		}
+		return nil
 	},
 
 	{pfcpStateAssociated, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		pc.receivedHBRequestTimes = append(pc.receivedHBRequestTimes, time.Now())
 		if pc.cfg.IgnoreHeartbeatRequests {
 			return nil
 		}
-		pc.setTimeout(pc.cfg.HeartbeatTimeout)
+		pc.setTimeout(timerIDHeartbeatTimeout, pc.cfg.HeartbeatTimeout)
 		return pc.sendHeartbeatResponse(ev.msg.(*message.HeartbeatRequest))
 	},
 
 	{pfcpStateAssociated, pfcpEventTimeout}: func(pc *PFCPConnection, ev pfcpEvent) error {
-		pc.cleanAndDone()
-		return errors.New("heartbeat timeout")
+		if ev.timerID == timerIDHeartbeatTimeout {
+			pc.cleanAndDone()
+			return errors.New("heartbeat timeout")
+		}
+		return nil
 	},
 
 	{pfcpStateAssociated, pfcpEventActStop}: func(pc *PFCPConnection, ev pfcpEvent) error {
@@ -334,6 +347,7 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	{pfcpStateReleasingAssociation, pfcpEventActStop}: pfcpIgnore,
 
 	{pfcpStateReleasingAssociation, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
+		pc.receivedHBRequestTimes = append(pc.receivedHBRequestTimes, time.Now())
 		if pc.cfg.IgnoreHeartbeatRequests {
 			return nil
 		}
@@ -365,6 +379,7 @@ type PFCPConfig struct {
 	RequestTimeout   time.Duration
 	HeartbeatTimeout time.Duration
 	MaxInFlight      int
+	InitialSeq       uint32
 	// IgnoreHeartbeatRequests makes PFCPConnection ignore incoming
 	// PFCP Heartbeat Requests, thus simulating a faulty CP.
 	IgnoreHeartbeatRequests bool
@@ -384,22 +399,23 @@ func (cfg *PFCPConfig) setDefaults() {
 
 type PFCPConnection struct {
 	sync.Mutex
-	cfg         PFCPConfig
-	conn        *net.UDPConn
-	seq         uint32
-	state       pfcpState
-	timestamp   time.Time
-	timer       *time.Timer
-	rq          *requestQueue
-	listenErrCh chan error
-	done        bool
-	sessions    map[SEID]*pfcpSession
-	eventCh     chan pfcpEvent
-	startCh     chan eventResult
-	log         *logrus.Entry
-	t           *tomb.Tomb
-	skipMsgs    int
-	reportCh    chan message.Message
+	cfg                    PFCPConfig
+	conn                   *net.UDPConn
+	seq                    uint32
+	state                  pfcpState
+	timestamp              time.Time
+	timer                  MultiTimer
+	rq                     *requestQueue
+	listenErrCh            chan error
+	done                   bool
+	sessions               map[SEID]*pfcpSession
+	eventCh                chan pfcpEvent
+	startCh                chan eventResult
+	log                    *logrus.Entry
+	t                      *tomb.Tomb
+	skipMsgs               int
+	reportCh               chan message.Message
+	receivedHBRequestTimes []time.Time
 }
 
 type PFCPReport struct {
@@ -455,17 +471,20 @@ func NewPFCPConnection(cfg PFCPConfig) *PFCPConnection {
 	return pc
 }
 
+func (pc *PFCPConnection) ReceivedHBRequestTimes() []time.Time {
+	pc.Lock()
+	defer pc.Unlock()
+	r := make([]time.Time, len(pc.receivedHBRequestTimes))
+	copy(r, pc.receivedHBRequestTimes)
+	return r
+}
+
 func (pc *PFCPConnection) setState(newState pfcpState) {
 	pc.state = newState
 }
 
-func (pc *PFCPConnection) setTimeout(d time.Duration) {
-	if pc.timer != nil {
-		pc.timer.Stop()
-	}
-	// create a new timer so there's no need to drain its channel
-	// before Reset()
-	pc.timer = time.NewTimer(d)
+func (pc *PFCPConnection) setTimeout(id timerID, d time.Duration) {
+	pc.timer.StartTimer(int(id), d)
 }
 
 func (pc *PFCPConnection) simpleEvent(eventType pfcpEventType) error {
@@ -535,17 +554,10 @@ func (pc *PFCPConnection) run() error {
 		return err
 	}
 
-	var retransmitTimer *time.Timer
 	dying := pc.t.Dying()
 LOOP:
 	for !pc.done {
-		var timerCh <-chan time.Time
-		if pc.timer != nil {
-			timerCh = pc.timer.C
-		}
-
 		now := time.Now()
-		var retransmitCh <-chan time.Time
 		// do all of the retransmits that are already due
 	RETRANS_LOOP:
 		for {
@@ -578,12 +590,8 @@ LOOP:
 				ev.attemptsLeft--
 				pc.rq.reschedule(ev, now)
 				continue
-			case retransmitTimer != nil:
-				retransmitTimer.Stop()
-				fallthrough
 			default:
-				retransmitTimer = time.NewTimer(ts.Sub(now))
-				retransmitCh = retransmitTimer.C
+				pc.setTimeout(timerIDRetransmit, ts.Sub(now))
 			}
 			break
 		}
@@ -599,7 +607,21 @@ LOOP:
 				err = errors.Wrapf(err, "stop in state %s", pc.state)
 				break LOOP
 			}
-		case <-retransmitCh:
+		case id := <-pc.timer.Channel():
+			tid := timerID(id)
+			switch tid {
+			case timerIDRetransmit:
+				continue
+			default:
+				if err = pc.event(pfcpEvent{
+					eventType: pfcpEventTimeout,
+					timerID:   tid,
+				}); err != nil {
+					err = errors.Wrapf(err, "timeout in state %s", pc.state)
+					break LOOP
+				}
+
+			}
 			// proceed to next iteration to handle the retransmits
 		case ev := <-pc.eventCh:
 			seid := ev.seid
@@ -618,11 +640,6 @@ LOOP:
 					msgType = ev.msg.MessageTypeName()
 				}
 				err = errors.Wrapf(err, "error handling event %s / msg type %s in state %s", ev.eventType, msgType, pc.state)
-				break LOOP
-			}
-		case <-timerCh:
-			if err = pc.simpleEvent(pfcpEventTimeout); err != nil {
-				err = errors.Wrapf(err, "timeout in state %s", pc.state)
 				break LOOP
 			}
 		case err = <-pc.listenErrCh:
@@ -898,7 +915,10 @@ func (pc *PFCPConnection) Start(ctx context.Context) error {
 	pc.eventCh = make(chan pfcpEvent, 110000)
 	pc.listenErrCh = make(chan error, 1)
 	pc.timestamp = time.Now()
-	pc.seq = 1
+	pc.seq = pc.cfg.InitialSeq
+	if pc.seq == 0 {
+		pc.seq = 1
+	}
 	pc.rq = newRequestQueue(pc.cfg.RequestTimeout)
 
 	pc.done = false
@@ -1063,7 +1083,7 @@ func (pc *PFCPConnection) pipelineRequests(
 				"messageType": reqs[cur].MessageTypeName(),
 				"SEID":        fmt.Sprintf("%016x", specs[cur].SEID),
 				"seq":         reqs[cur].Sequence(),
-			}).Trace("enqeue")
+			}).Trace("enqueue")
 			if err := pc.enqueueRequest(specs[cur].SEID, reqs[cur], resultCh); err != nil {
 				errs[cur] = err
 			} else {

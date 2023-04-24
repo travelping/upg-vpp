@@ -800,7 +800,7 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 
 	ginkgo.Context("for PFCP Session Server", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-		ginkgo.It("Configures PFCP Server", func() {
+		ginkgo.It("configures PFCP server settings", func() {
 
 			sessionServerCfg := &upf.UpfPfcpServerSet{
 				FifoSize:    512, // KB
@@ -819,6 +819,7 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			gomega.Expect(showReply.FifoSize).To(gomega.BeEquivalentTo(512)) // KB
 			gomega.Expect(showReply.PreallocFifos).To(gomega.BeEquivalentTo(0))
 		})
+
 		ginkgo.It("configures PFCP heartbeats", func() {
 			hbConfig := &upf.UpfPfcpHeartbeatsSet{
 				Retries: 5,
@@ -842,6 +843,47 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			gomega.Expect(hbGetReply.Timeout).To(gomega.Equal(uint32(5)))
 			gomega.Expect(hbGetReply.Retries).To(gomega.Equal(uint32(15)))
 		})
+	})
+})
+
+var _ = ginkgo.Describe("Heartbeats", func() {
+	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+	f.PFCPCfg = nil
+
+	ginkgo.It("are sent at regular intervals after re-association", func() {
+		hbConfig := &upf.UpfPfcpHeartbeatsSet{
+			Retries: 3,
+			Timeout: 2,
+		}
+		reply := &upf.UpfPfcpHeartbeatsSetReply{}
+		err := f.VPP.ApiChannel.SendRequest(hbConfig).ReceiveReply(reply)
+		gomega.Expect(err).To(gomega.BeNil())
+
+		for i := 0; i < 5; i++ {
+			if i != 0 {
+				f.PFCP.HardStop()
+			}
+			pfcpCfg := framework.DefaultPFCPConfig(*f.VPPCfg)
+			// Use different initial seq numbers so as the new
+			// AssociationSetupRequests aren't considered to be
+			// retransmits
+			pfcpCfg.InitialSeq = uint32(i * 10000)
+			f.PFCPCfg = &pfcpCfg
+			f.PFCPCfg.Namespace = f.VPP.GetNS("cp")
+			f.PFCP = pfcp.NewPFCPConnection(*f.PFCPCfg)
+			framework.ExpectNoError(f.PFCP.Start(f.VPP.Context(context.Background())))
+		}
+
+		time.Sleep(7 * time.Second)
+		hbs := f.PFCP.ReceivedHBRequestTimes()
+		gomega.Expect(len(hbs)).To(gomega.BeNumerically(">=", 2), "number of heartbeats")
+		gomega.Expect(len(hbs)).To(gomega.BeNumerically("<=", 3), "number of heartbeats")
+		for n := 1; n < len(hbs); n++ {
+			gomega.Expect(hbs[n]).To(
+				gomega.BeTemporally("~", hbs[n-1].Add(2*time.Second),
+					500*time.Millisecond),
+				"heartbeat times")
+		}
 	})
 })
 
