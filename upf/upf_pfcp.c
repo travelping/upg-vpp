@@ -465,6 +465,8 @@ pfcp_release_association (upf_node_assoc_t * n)
      format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
      IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
 
+  upf_pfcp_server_stop_heartbeat_timer (n);
+
   switch (n->node_id.type)
     {
     case NID_IPv4:

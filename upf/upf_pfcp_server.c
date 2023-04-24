@@ -1160,6 +1160,14 @@ void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg)
   msg->timer = ~0;
 }
 
+void upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t * n)
+{
+  pfcp_server_main_t *psm = &pfcp_server_main;
+
+  if (n->heartbeat_handle != ~0)
+    TW (tw_timer_stop) (&psm->timer, n->heartbeat_handle);
+}
+
 u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
@@ -1178,7 +1186,7 @@ void upf_pfcp_server_deferred_free_msgs_by_node (u32 node)
   hash_set (psm->free_msgs_by_node, node, 1);
 }
 
-void upf_server_send_heartbeat (u32 node_idx)
+void upf_server_handle_hb_timer (u32 node_idx)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t dmsg = {
@@ -1189,6 +1197,12 @@ void upf_server_send_heartbeat (u32 node_idx)
   upf_node_assoc_t *n;
 
   n = pool_elt_at_index (gtm->nodes, node_idx);
+
+  /*
+   * The timer has expired, we shouldn't try to stop it when
+   * releasing the association
+   */
+  n->heartbeat_handle = ~0;
 
   memset (req, 0, sizeof (*req));
   SET_BIT (req->grp.fields, HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP);
@@ -1382,9 +1396,20 @@ static uword
 	      break;
 
 	    case 0x80 | PFCP_SERVER_HB_TIMER:
+	      /*
+	       * It is important that the heartbeat timer handler runs
+	       * before the T1 timer below, which is ensured by the
+	       * value of PFCP_SERVER_HB_TIMER and PFCP_SERVER_T1
+	       * constants, and also by sorting the expired timers
+	       * above. This way, if the association is released due
+	       * to a T1 timeout, no attempt is made to stop the
+	       * expired heartbeat timer.
+	       * upf_server_handle_hb_timer() clears the expired
+	       * heartbeat timer handle.
+	       */
 	      upf_debug ("PFCP Server Heartbeat Timeout: %u",
 			 psm->expired[i] & 0x00FFFFFF);
-	      upf_server_send_heartbeat (psm->expired[i] & 0x00FFFFFF);
+	      upf_server_handle_hb_timer (psm->expired[i] & 0x00FFFFFF);
 	      break;
 
 	    case 0x80 | PFCP_SERVER_T1:
