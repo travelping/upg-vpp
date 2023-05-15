@@ -621,7 +621,9 @@ upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key)
 
   clib_memcpy_fast (&kv.key, key, sizeof (kv.key));
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_lock (&fm->lock);
+#endif
 
   if (PREDICT_TRUE
       (!clib_bihash_search_24_8
@@ -709,7 +711,9 @@ upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key)
   clib_bihash_add_del_24_8 (&fm->info_by_key, &kv, 1);
 
  done:
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_unlock (&fm->lock);
+#endif
   return idx;
 }
 
@@ -720,10 +724,16 @@ upf_unref_ipfix_info (u32 iidx)
   clib_bihash_kv_24_8_t kv;
   upf_ipfix_info_t *info;
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_lock (&fm->lock);
+#endif
   info = pool_elt_at_index (fm->infos, iidx);
   if (clib_atomic_sub_fetch (&info->refcnt, 1))
+#ifdef UPF_FLOW_SESSION_SPINLOCK
     goto done;
+#else
+    return;
+#endif
 
   clib_memcpy_fast (&kv.key, &info->key, sizeof (kv.key));
   clib_bihash_add_del_24_8 (&fm->info_by_key, &kv, 0 /* is_add */ );
@@ -734,8 +744,10 @@ upf_unref_ipfix_info (u32 iidx)
   vec_free (info->observation_domain_name);
   vec_free (info->interface_name);
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
  done:
   clib_spinlock_unlock (&fm->lock);
+#endif
 }
 
 /**

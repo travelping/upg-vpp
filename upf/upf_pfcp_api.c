@@ -2240,7 +2240,9 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
 
   ASSERT (report);
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_lock (&sess->lock);
+#endif
 
   volume = urr->volume;
   memset (&urr->volume.measure.packets, 0,
@@ -2267,7 +2269,9 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
       urr->status |= URR_AFTER_MONITORING_TIME;
     }
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_unlock (&sess->lock);
+#endif
 
   if (urr->status & URR_AFTER_MONITORING_TIME)
     {
