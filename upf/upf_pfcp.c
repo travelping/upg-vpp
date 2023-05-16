@@ -897,7 +897,9 @@ pfcp_make_pending_urr (upf_session_t * sx)
 
   if (active->urr)
     {
+#ifdef UPF_FLOW_SESSION_SPINLOCK
       clib_spinlock_lock (&sx->lock);
+#endif
 
       pending->urr = vec_dup (active->urr);
       vec_foreach (urr, pending->urr)
@@ -910,7 +912,9 @@ pfcp_make_pending_urr (upf_session_t * sx)
 	memset (&urr->volume.measure, 0, sizeof (urr->volume.measure));
       }
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
       clib_spinlock_unlock (&sx->lock);
+#endif
     }
 
   return 0;
@@ -2128,7 +2132,9 @@ pfcp_update_apply (upf_session_t * sx)
     pending->far = NULL;
   if (pending_urr)
     {
+#ifdef UPF_FLOW_SESSION_SPINLOCK
       clib_spinlock_lock (&sx->lock);
+#endif
 
       /* copy rest traffic from old active (now pending) to current
        * new URR was initialized with zero, simply add the old values */
@@ -2180,7 +2186,9 @@ pfcp_update_apply (upf_session_t * sx)
 	  }
       }
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
       clib_spinlock_unlock (&sx->lock);
+#endif
     }
   else
     pending->urr = NULL;
@@ -2374,7 +2382,9 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 
   upf_debug ("DL: %d, UL: %d\n", is_dl, is_ul);
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_lock (&sess->lock);
+#endif
 
   if (is_ul)
     sess->last_ul_traffic = now;
@@ -2554,7 +2564,9 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
     status |= r;
   }
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_unlock (&sess->lock);
+#endif
 
   if (PREDICT_FALSE (status != URR_OK))
     {
