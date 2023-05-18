@@ -3,9 +3,9 @@
 // Package upf contains generated bindings for API file upf.api.
 //
 // Contents:
-//   2 enums
+//   3 enums
 //   1 struct
-//  44 messages
+//  48 messages
 //
 package upf
 
@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0xcdb93693
+	VersionCrc = 0x878c4e6
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -121,6 +121,36 @@ func (x UpfIpfixWhichFlags) String() string {
 		return str(uint8(x))
 	}
 	return s
+}
+
+// UpfNodeIDType defines enum 'upf_node_id_type'.
+type UpfNodeIDType uint8
+
+const (
+	UPF_NODE_TYPE_IPv4 UpfNodeIDType = 0
+	UPF_NODE_TYPE_IPv6 UpfNodeIDType = 1
+	UPF_NODE_TYPE_FQDN UpfNodeIDType = 2
+)
+
+var (
+	UpfNodeIDType_name = map[uint8]string{
+		0: "UPF_NODE_TYPE_IPv4",
+		1: "UPF_NODE_TYPE_IPv6",
+		2: "UPF_NODE_TYPE_FQDN",
+	}
+	UpfNodeIDType_value = map[string]uint8{
+		"UPF_NODE_TYPE_IPv4": 0,
+		"UPF_NODE_TYPE_IPv6": 1,
+		"UPF_NODE_TYPE_FQDN": 2,
+	}
+)
+
+func (x UpfNodeIDType) String() string {
+	s, ok := UpfNodeIDType_name[uint8(x)]
+	if ok {
+		return s
+	}
+	return "UpfNodeIDType(" + strconv.Itoa(int(x)) + ")"
 }
 
 // UpfL7Rule defines type 'upf_l7_rule'.
@@ -584,6 +614,86 @@ func (m *UpfApplicationsDump) Marshal(b []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 func (m *UpfApplicationsDump) Unmarshal(b []byte) error {
+	return nil
+}
+
+// UpfGetNodeID defines message 'upf_get_node_id'.
+type UpfGetNodeID struct{}
+
+func (m *UpfGetNodeID) Reset()               { *m = UpfGetNodeID{} }
+func (*UpfGetNodeID) GetMessageName() string { return "upf_get_node_id" }
+func (*UpfGetNodeID) GetCrcString() string   { return "51077d14" }
+func (*UpfGetNodeID) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfGetNodeID) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	return size
+}
+func (m *UpfGetNodeID) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	return buf.Bytes(), nil
+}
+func (m *UpfGetNodeID) Unmarshal(b []byte) error {
+	return nil
+}
+
+// UpfGetNodeIDReply defines message 'upf_get_node_id_reply'.
+type UpfGetNodeIDReply struct {
+	Retval  int32            `binapi:"i32,name=retval" json:"retval,omitempty"`
+	Type    uint8            `binapi:"u8,name=type" json:"type,omitempty"`
+	IP      ip_types.Address `binapi:"address,name=ip" json:"ip,omitempty"`
+	FqdnLen uint8            `binapi:"u8,name=fqdn_len" json:"-"`
+	Fqdn    []byte           `binapi:"u8[fqdn_len],name=fqdn" json:"fqdn,omitempty"`
+}
+
+func (m *UpfGetNodeIDReply) Reset()               { *m = UpfGetNodeIDReply{} }
+func (*UpfGetNodeIDReply) GetMessageName() string { return "upf_get_node_id_reply" }
+func (*UpfGetNodeIDReply) GetCrcString() string   { return "4f226741" }
+func (*UpfGetNodeIDReply) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfGetNodeIDReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4               // m.Retval
+	size += 1               // m.Type
+	size += 1               // m.IP.Af
+	size += 1 * 16          // m.IP.Un
+	size += 1               // m.FqdnLen
+	size += 1 * len(m.Fqdn) // m.Fqdn
+	return size
+}
+func (m *UpfGetNodeIDReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeInt32(m.Retval)
+	buf.EncodeUint8(m.Type)
+	buf.EncodeUint8(uint8(m.IP.Af))
+	buf.EncodeBytes(m.IP.Un.XXX_UnionData[:], 16)
+	buf.EncodeUint8(uint8(len(m.Fqdn)))
+	buf.EncodeBytes(m.Fqdn, 0)
+	return buf.Bytes(), nil
+}
+func (m *UpfGetNodeIDReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Retval = buf.DecodeInt32()
+	m.Type = buf.DecodeUint8()
+	m.IP.Af = ip_types.AddressFamily(buf.DecodeUint8())
+	copy(m.IP.Un.XXX_UnionData[:], buf.DecodeBytes(16))
+	m.FqdnLen = buf.DecodeUint8()
+	m.Fqdn = make([]byte, m.FqdnLen)
+	copy(m.Fqdn, buf.DecodeBytes(len(m.Fqdn)))
 	return nil
 }
 
@@ -1883,6 +1993,88 @@ func (m *UpfPolicyDump) Unmarshal(b []byte) error {
 	return nil
 }
 
+// UpfSetNodeID defines message 'upf_set_node_id'.
+type UpfSetNodeID struct {
+	Type    uint8            `binapi:"u8,name=type" json:"type,omitempty"`
+	IP      ip_types.Address `binapi:"address,name=ip" json:"ip,omitempty"`
+	FqdnLen uint8            `binapi:"u8,name=fqdn_len" json:"-"`
+	Fqdn    []byte           `binapi:"u8[fqdn_len],name=fqdn" json:"fqdn,omitempty"`
+}
+
+func (m *UpfSetNodeID) Reset()               { *m = UpfSetNodeID{} }
+func (*UpfSetNodeID) GetMessageName() string { return "upf_set_node_id" }
+func (*UpfSetNodeID) GetCrcString() string   { return "d2f43a0a" }
+func (*UpfSetNodeID) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfSetNodeID) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 1               // m.Type
+	size += 1               // m.IP.Af
+	size += 1 * 16          // m.IP.Un
+	size += 1               // m.FqdnLen
+	size += 1 * len(m.Fqdn) // m.Fqdn
+	return size
+}
+func (m *UpfSetNodeID) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeUint8(m.Type)
+	buf.EncodeUint8(uint8(m.IP.Af))
+	buf.EncodeBytes(m.IP.Un.XXX_UnionData[:], 16)
+	buf.EncodeUint8(uint8(len(m.Fqdn)))
+	buf.EncodeBytes(m.Fqdn, 0)
+	return buf.Bytes(), nil
+}
+func (m *UpfSetNodeID) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Type = buf.DecodeUint8()
+	m.IP.Af = ip_types.AddressFamily(buf.DecodeUint8())
+	copy(m.IP.Un.XXX_UnionData[:], buf.DecodeBytes(16))
+	m.FqdnLen = buf.DecodeUint8()
+	m.Fqdn = make([]byte, m.FqdnLen)
+	copy(m.Fqdn, buf.DecodeBytes(len(m.Fqdn)))
+	return nil
+}
+
+// UpfSetNodeIDReply defines message 'upf_set_node_id_reply'.
+type UpfSetNodeIDReply struct {
+	Retval int32 `binapi:"i32,name=retval" json:"retval,omitempty"`
+}
+
+func (m *UpfSetNodeIDReply) Reset()               { *m = UpfSetNodeIDReply{} }
+func (*UpfSetNodeIDReply) GetMessageName() string { return "upf_set_node_id_reply" }
+func (*UpfSetNodeIDReply) GetCrcString() string   { return "e8d4e804" }
+func (*UpfSetNodeIDReply) GetMessageType() api.MessageType {
+	return api.ReplyMessage
+}
+
+func (m *UpfSetNodeIDReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Retval
+	return size
+}
+func (m *UpfSetNodeIDReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeInt32(m.Retval)
+	return buf.Bytes(), nil
+}
+func (m *UpfSetNodeIDReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Retval = buf.DecodeInt32()
+	return nil
+}
+
 // UpfUpdateApp defines message 'upf_update_app'.
 type UpfUpdateApp struct {
 	App         []byte      `binapi:"u8[64],name=app" json:"app,omitempty"`
@@ -1995,6 +2187,8 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfApplicationL7RuleDump)(nil), "upf_application_l7_rule_dump_0b99fe11")
 	api.RegisterMessage((*UpfApplicationsDetails)(nil), "upf_applications_details_72cd4b5d")
 	api.RegisterMessage((*UpfApplicationsDump)(nil), "upf_applications_dump_51077d14")
+	api.RegisterMessage((*UpfGetNodeID)(nil), "upf_get_node_id_51077d14")
+	api.RegisterMessage((*UpfGetNodeIDReply)(nil), "upf_get_node_id_reply_4f226741")
 	api.RegisterMessage((*UpfNatPoolDetails)(nil), "upf_nat_pool_details_536a8c46")
 	api.RegisterMessage((*UpfNatPoolDump)(nil), "upf_nat_pool_dump_51077d14")
 	api.RegisterMessage((*UpfNwiAddDel)(nil), "upf_nwi_add_del_07485c64")
@@ -2025,6 +2219,8 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfPolicyAddDelReply)(nil), "upf_policy_add_del_reply_e8d4e804")
 	api.RegisterMessage((*UpfPolicyDetails)(nil), "upf_policy_details_8b4efe84")
 	api.RegisterMessage((*UpfPolicyDump)(nil), "upf_policy_dump_51077d14")
+	api.RegisterMessage((*UpfSetNodeID)(nil), "upf_set_node_id_d2f43a0a")
+	api.RegisterMessage((*UpfSetNodeIDReply)(nil), "upf_set_node_id_reply_e8d4e804")
 	api.RegisterMessage((*UpfUpdateApp)(nil), "upf_update_app_50f53737")
 	api.RegisterMessage((*UpfUpdateAppReply)(nil), "upf_update_app_reply_e8d4e804")
 }
@@ -2044,6 +2240,8 @@ func AllMessages() []api.Message {
 		(*UpfApplicationL7RuleDump)(nil),
 		(*UpfApplicationsDetails)(nil),
 		(*UpfApplicationsDump)(nil),
+		(*UpfGetNodeID)(nil),
+		(*UpfGetNodeIDReply)(nil),
 		(*UpfNatPoolDetails)(nil),
 		(*UpfNatPoolDump)(nil),
 		(*UpfNwiAddDel)(nil),
@@ -2074,6 +2272,8 @@ func AllMessages() []api.Message {
 		(*UpfPolicyAddDelReply)(nil),
 		(*UpfPolicyDetails)(nil),
 		(*UpfPolicyDump)(nil),
+		(*UpfSetNodeID)(nil),
+		(*UpfSetNodeIDReply)(nil),
 		(*UpfUpdateApp)(nil),
 		(*UpfUpdateAppReply)(nil),
 	}

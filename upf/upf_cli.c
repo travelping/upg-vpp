@@ -898,8 +898,6 @@ upf_show_node_id_command_fn (vlib_main_t * vm,
 			     vlib_cli_command_t * cmd)
 {
   upf_main_t *gtm = &upf_main;
-  u8 *type = 0;
-  vec_reset_length (type);
   vlib_cli_output (vm, "Node ID: %U", format_node_id, &gtm->node_id);
   return NULL;
 }

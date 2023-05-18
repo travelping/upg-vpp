@@ -343,3 +343,34 @@ define upf_pfcp_heartbeats_get_reply {
   u32 timeout;
   u32 retries;
 };
+
+enum upf_node_id_type : u8
+{
+  UPF_NODE_TYPE_IPv4 = 0,
+  UPF_NODE_TYPE_IPv6 = 1,
+  UPF_NODE_TYPE_FQDN = 2,
+};
+
+autoreply define upf_set_node_id {
+  u32 client_index;
+  u32 context;
+  u8 type;
+  vl_api_address_t ip;
+  u8 fqdn_len;
+  u8 fqdn[fqdn_len];
+};
+
+define upf_get_node_id {
+  u32 client_index;
+  u32 context;
+};
+
+define upf_get_node_id_reply {
+  u32 client_index;
+  u32 context;
+  i32 retval;
+  u8 type;
+  vl_api_address_t ip;
+  u8 fqdn_len;
+  u8 fqdn[fqdn_len];
+};

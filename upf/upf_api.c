@@ -568,8 +568,8 @@ out:
 }
 
 static void
-send_upf_nwi_details (vl_api_registration_t * reg,
-		      upf_nwi_t * nwi, u32 context)
+send_upf_nwi_details (vl_api_registration_t * reg, upf_nwi_t * nwi,
+		      u32 context)
 {
   vl_api_upf_nwi_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -847,8 +847,8 @@ vl_api_upf_pfcp_policer_show_t_handler (vl_api_upf_pfcp_policer_show_t * mp)
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_heartbeats_set_t_handler (vl_api_upf_pfcp_heartbeats_set_t *
-					  mp)
+vl_api_upf_pfcp_heartbeats_set_t_handler (vl_api_upf_pfcp_heartbeats_set_t
+					  * mp)
 {
   vl_api_upf_pfcp_heartbeats_set_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -865,8 +865,8 @@ vl_api_upf_pfcp_heartbeats_set_t_handler (vl_api_upf_pfcp_heartbeats_set_t *
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t *
-					  mp)
+vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t
+					  * mp)
 {
   vl_api_upf_pfcp_heartbeats_get_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -892,6 +892,90 @@ vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t *
   vl_api_send_msg (reg, (u8 *) rmp);
 }
 
+/* API message handler */
+static void
+vl_api_upf_set_node_id_t_handler (vl_api_upf_set_node_id_t * mp)
+{
+  int rv = 0;
+  upf_main_t *sm = &upf_main;
+  vl_api_upf_set_node_id_reply_t *rmp = NULL;
+
+  pfcp_node_id_t node_id = { 0 };
+  node_id.type = mp->type;
+
+  switch (mp->type)
+    {
+    case NID_IPv4:
+    case NID_IPv6:
+      ip_address_decode (&mp->ip, &node_id.ip);
+      break;
+
+    case NID_FQDN:
+      vec_validate (node_id.fqdn, mp->fqdn_len);
+      memcpy (node_id.fqdn, mp->fqdn, mp->fqdn_len);
+      break;
+
+    default:
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      break;
+    }
+
+  if (rv == 0)
+    vnet_upf_node_id_set (&node_id);
+
+  REPLY_MACRO (VL_API_UPF_SET_NODE_ID_REPLY);
+}
+
+/* API message handler */
+static void
+vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t * mp)
+{
+  int rv = 0;
+  vl_api_registration_t *reg;
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    return;
+
+  vl_api_upf_get_node_id_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  pfcp_node_id_t *node = &sm->node_id;
+
+  switch (node->type)
+    {
+    case NID_IPv4:
+    case NID_IPv6:
+      {
+	rmp = vl_msg_api_alloc (sizeof (*rmp));
+	clib_memset (rmp, 0, sizeof (*rmp));
+
+	ip_address_encode (&ip_addr_46 (node), IP46_TYPE_ANY, &rmp->ip);
+	break;
+      }
+    case NID_FQDN:
+      {
+	u8 len;
+	len = strlen (node->fqdn);
+
+	rmp = vl_msg_api_alloc (sizeof (*rmp) + len * sizeof (u8));
+	clib_memset (rmp, 0, sizeof (*rmp) + len * sizeof (u8));
+
+	rmp->fqdn_len = len;
+	memcpy (rmp->fqdn, node->fqdn, rmp->fqdn_len);
+	break;
+      }
+    default:
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      break;
+    }
+
+  rmp->type = node->type;
+
+  rmp->_vl_msg_id = htons (VL_API_UPF_GET_NODE_ID_REPLY + sm->msg_id_base);
+  rmp->context = mp->context;
+  rmp->retval = ntohl (rv);
+
+  vl_api_send_msg (reg, (u8 *) rmp);
+}
 
 #include <upf/upf.api.c>
 
