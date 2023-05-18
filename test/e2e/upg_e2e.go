@@ -604,6 +604,87 @@ var _ = ginkgo.Describe("CLI debug commands", func() {
 
 // TODO: validate both binapi and CLI against each other
 var _ = ginkgo.Describe("UPG Binary API", func() {
+	ginkgo.Context("for node-id", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+
+		CallSetNodeId := func(set_req *upf.UpfSetNodeID) (*upf.UpfSetNodeIDReply, error) {
+			set_reply := &upf.UpfSetNodeIDReply{}
+			set_err := f.VPP.ApiChannel.SendRequest(set_req).ReceiveReply(set_reply)
+			return set_reply, set_err
+		}
+
+		CallGetNodeId := func() (*upf.UpfGetNodeIDReply, error) {
+			get_req := &upf.UpfGetNodeID{}
+			get_reply := &upf.UpfGetNodeIDReply{}
+			get_err := f.VPP.ApiChannel.SendRequest(get_req).ReceiveReply(get_reply)
+			return get_reply, get_err
+		}
+
+		ginkgo.It("sets and retrieves the node-id", func() {
+			ipv4, _ := ip_types.ParseAddress("192.168.42.1")
+			ipv6, _ := ip_types.ParseAddress("2001:0db8:85a3:0000:0000:8a2e:0370:7334")
+
+			fqdn_str := "upg.example.com"
+			fqdn := util.EncodeFQDN(fqdn_str)
+			fqdn_len := uint8(len(fqdn))
+
+			{
+				set_req := &upf.UpfSetNodeID{
+					Type: uint8(upf.UPF_NODE_TYPE_IPv4),
+					IP:   ipv4,
+				}
+				_, set_err := CallSetNodeId(set_req)
+				gomega.Expect(set_err).To(gomega.BeNil(), "upf_set_node_id")
+
+				get_reply, get_err := CallGetNodeId()
+				gomega.Expect(get_err).To(gomega.BeNil(), "upf_get_node_id")
+				gomega.Expect(get_reply).To(gomega.Equal(
+					&upf.UpfGetNodeIDReply{
+						Type:    uint8(upf.UPF_NODE_TYPE_IPv4),
+						IP:      ipv4,
+						FqdnLen: 0,
+						Fqdn:    []byte{},
+					}), "upf_get_node_id")
+			}
+			{
+				set_req := &upf.UpfSetNodeID{
+					Type: uint8(upf.UPF_NODE_TYPE_IPv6),
+					IP:   ipv6,
+				}
+				_, set_err := CallSetNodeId(set_req)
+				gomega.Expect(set_err).To(gomega.BeNil(), "upf_set_node_id")
+
+				get_reply, get_err := CallGetNodeId()
+				gomega.Expect(get_err).To(gomega.BeNil(), "upf_get_node_id")
+				gomega.Expect(get_reply).To(gomega.Equal(
+					&upf.UpfGetNodeIDReply{
+						Type:    uint8(upf.UPF_NODE_TYPE_IPv6),
+						IP:      ipv6,
+						FqdnLen: 0,
+						Fqdn:    []byte{},
+					}), "upf_get_node_id")
+			}
+			{
+				set_req := &upf.UpfSetNodeID{
+					Type: uint8(upf.UPF_NODE_TYPE_FQDN),
+					Fqdn: fqdn,
+				}
+				_, set_err := CallSetNodeId(set_req)
+				gomega.Expect(set_err).To(gomega.BeNil(), "upf_set_node_id")
+
+				get_reply, get_err := CallGetNodeId()
+				gomega.Expect(get_err).To(gomega.BeNil(), "upf_get_node_id")
+				gomega.Expect(get_reply).To(gomega.Equal(
+					&upf.UpfGetNodeIDReply{
+						Type:    uint8(upf.UPF_NODE_TYPE_FQDN),
+						IP:      ip_types.Address{},
+						FqdnLen: fqdn_len,
+						Fqdn:    fqdn,
+					}), "upf_get_node_id")
+			}
+		})
+	})
+
 	ginkgo.Context("for policy based routing", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 		ginkgo.It("adds, removes and lists the routing policies", func() {

@@ -892,6 +892,89 @@ vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t *
   vl_api_send_msg (reg, (u8 *) rmp);
 }
 
+/* API message handler */
+static void
+vl_api_upf_set_node_id_t_handler (vl_api_upf_set_node_id_t * mp)
+{
+  upf_main_t *sm = &upf_main;
+  vl_api_upf_set_node_id_reply_t *rmp = NULL;
+
+  // if old was fqdn then free it
+
+  switch (mp->type)
+  {
+    case NID_IPv4:
+    case NID_IPv6:
+      sm->node_id.type = mp->type;
+      ip_address_decode (&mp->ip, &sm->node_id.ip);
+      break;
+
+    case NID_FQDN:
+      sm->node_id.type = NID_FQDN;
+      sm->node_id.fqdn = NULL;
+      vec_validate (sm->node_id.fqdn, 20);
+      memcpy (sm->node_id.fqdn, mp->fqdn, mp->fqdn_len);
+      break;
+
+    default:
+     //TODO: error
+     break;
+  }
+
+
+  int rv = 0;
+  REPLY_MACRO (VL_API_UPF_SET_NODE_ID_REPLY);
+}
+
+/* API message handler */
+static void
+vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t * mp)
+{
+  vl_api_registration_t *reg;
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    return;
+
+  vl_api_upf_get_node_id_reply_t *rmp = NULL;
+  upf_main_t *sm = &upf_main;
+  pfcp_node_id_t *node = &sm->node_id;
+
+
+
+  switch (node->type)
+  {
+    case NID_IPv4:
+    case NID_IPv6:
+      {
+        rmp = vl_msg_api_alloc (sizeof (*rmp));
+        clib_memset (rmp, 0, sizeof (*rmp));
+
+        ip_address_encode (&ip_addr_46 (node), IP46_TYPE_ANY, &rmp->ip);
+        break;
+      }
+    case NID_FQDN:
+      {
+        u8 len;
+        len = strlen (node->fqdn);
+
+        rmp = vl_msg_api_alloc (sizeof (*rmp) + len * sizeof (u8));
+        clib_memset (rmp, 0, sizeof (*rmp) + len * sizeof (u8));
+
+        rmp->fqdn_len = len;
+        memcpy (rmp->fqdn, node->fqdn, rmp->fqdn_len);
+        break;
+      }
+    default:
+      ASSERT (false);
+      // TODO: return error
+  }
+
+  rmp->type = node->type;
+  rmp->_vl_msg_id = htons (VL_API_UPF_GET_NODE_ID_REPLY + sm->msg_id_base);
+  rmp->context = mp->context;
+
+  vl_api_send_msg (reg, (u8 *) rmp);
+}
 
 #include <upf/upf.api.c>
 

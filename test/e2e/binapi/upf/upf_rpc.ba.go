@@ -19,6 +19,7 @@ type RPCService interface {
 	UpfAppL7RuleAddDel(ctx context.Context, in *UpfAppL7RuleAddDel) (*UpfAppL7RuleAddDelReply, error)
 	UpfApplicationL7RuleDump(ctx context.Context, in *UpfApplicationL7RuleDump) (RPCService_UpfApplicationL7RuleDumpClient, error)
 	UpfApplicationsDump(ctx context.Context, in *UpfApplicationsDump) (RPCService_UpfApplicationsDumpClient, error)
+	UpfGetNodeID(ctx context.Context, in *UpfGetNodeID) (*UpfGetNodeIDReply, error)
 	UpfNatPoolDump(ctx context.Context, in *UpfNatPoolDump) (RPCService_UpfNatPoolDumpClient, error)
 	UpfNwiAddDel(ctx context.Context, in *UpfNwiAddDel) (*UpfNwiAddDelReply, error)
 	UpfNwiDump(ctx context.Context, in *UpfNwiDump) (RPCService_UpfNwiDumpClient, error)
@@ -34,6 +35,7 @@ type RPCService interface {
 	UpfPfcpServerShow(ctx context.Context, in *UpfPfcpServerShow) (*UpfPfcpServerShowReply, error)
 	UpfPolicyAddDel(ctx context.Context, in *UpfPolicyAddDel) (*UpfPolicyAddDelReply, error)
 	UpfPolicyDump(ctx context.Context, in *UpfPolicyDump) (RPCService_UpfPolicyDumpClient, error)
+	UpfSetNodeID(ctx context.Context, in *UpfSetNodeID) (*UpfSetNodeIDReply, error)
 	UpfUpdateApp(ctx context.Context, in *UpfUpdateApp) (*UpfUpdateAppReply, error)
 }
 
@@ -165,6 +167,15 @@ func (c *serviceClient_UpfApplicationsDumpClient) Recv() (*UpfApplicationsDetail
 	default:
 		return nil, fmt.Errorf("unexpected message: %T %v", m, m)
 	}
+}
+
+func (c *serviceClient) UpfGetNodeID(ctx context.Context, in *UpfGetNodeID) (*UpfGetNodeIDReply, error) {
+	out := new(UpfGetNodeIDReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *serviceClient) UpfNatPoolDump(ctx context.Context, in *UpfNatPoolDump) (RPCService_UpfNatPoolDumpClient, error) {
@@ -436,6 +447,15 @@ func (c *serviceClient_UpfPolicyDumpClient) Recv() (*UpfPolicyDetails, error) {
 	default:
 		return nil, fmt.Errorf("unexpected message: %T %v", m, m)
 	}
+}
+
+func (c *serviceClient) UpfSetNodeID(ctx context.Context, in *UpfSetNodeID) (*UpfSetNodeIDReply, error) {
+	out := new(UpfSetNodeIDReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, api.RetvalToVPPApiError(out.Retval)
 }
 
 func (c *serviceClient) UpfUpdateApp(ctx context.Context, in *UpfUpdateApp) (*UpfUpdateAppReply, error) {
