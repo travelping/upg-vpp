@@ -607,81 +607,92 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 	ginkgo.Context("for node-id", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 
-		CallSetNodeId := func(set_req *upf.UpfSetNodeID) (*upf.UpfSetNodeIDReply, error) {
-			set_reply := &upf.UpfSetNodeIDReply{}
-			set_err := f.VPP.ApiChannel.SendRequest(set_req).ReceiveReply(set_reply)
-			return set_reply, set_err
+		callSetNodeID := func(req *upf.UpfSetNodeID) (*upf.UpfSetNodeIDReply, error) {
+			reply := &upf.UpfSetNodeIDReply{}
+			err := f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
+			return reply, err
 		}
 
-		CallGetNodeId := func() (*upf.UpfGetNodeIDReply, error) {
-			get_req := &upf.UpfGetNodeID{}
-			get_reply := &upf.UpfGetNodeIDReply{}
-			get_err := f.VPP.ApiChannel.SendRequest(get_req).ReceiveReply(get_reply)
-			return get_reply, get_err
+		callGetNodeID := func() (*upf.UpfGetNodeIDReply, error) {
+			req := &upf.UpfGetNodeID{}
+			reply := &upf.UpfGetNodeIDReply{}
+			err := f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
+			return reply, err
 		}
 
 		ginkgo.It("sets and retrieves the node-id", func() {
 			ipv4, _ := ip_types.ParseAddress("192.168.42.1")
 			ipv6, _ := ip_types.ParseAddress("2001:0db8:85a3:0000:0000:8a2e:0370:7334")
 
-			fqdn_str := "upg.example.com"
-			fqdn := util.EncodeFQDN(fqdn_str)
-			fqdn_len := uint8(len(fqdn))
+			fqdnStr := "upg.example.com"
+			fqdn := util.EncodeFQDN(fqdnStr)
+			fqdnLen := uint8(len(fqdn))
 
-			{
-				set_req := &upf.UpfSetNodeID{
-					Type: uint8(upf.UPF_NODE_TYPE_IPv4),
-					IP:   ipv4,
-				}
-				_, set_err := CallSetNodeId(set_req)
-				gomega.Expect(set_err).To(gomega.BeNil(), "upf_set_node_id")
-
-				get_reply, get_err := CallGetNodeId()
-				gomega.Expect(get_err).To(gomega.BeNil(), "upf_get_node_id")
-				gomega.Expect(get_reply).To(gomega.Equal(
-					&upf.UpfGetNodeIDReply{
-						Type:    uint8(upf.UPF_NODE_TYPE_IPv4),
-						IP:      ipv4,
-						FqdnLen: 0,
-						Fqdn:    []byte{},
-					}), "upf_get_node_id")
+			// pass 1: IPv4
+			setReq := &upf.UpfSetNodeID{
+				Type: uint8(upf.UPF_NODE_TYPE_IPv4),
+				IP:   ipv4,
 			}
-			{
-				set_req := &upf.UpfSetNodeID{
-					Type: uint8(upf.UPF_NODE_TYPE_IPv6),
-					IP:   ipv6,
-				}
-				_, set_err := CallSetNodeId(set_req)
-				gomega.Expect(set_err).To(gomega.BeNil(), "upf_set_node_id")
+			_, setErr := callSetNodeID(setReq)
+			gomega.Expect(setErr).To(gomega.BeNil(), "upf_set_node_id")
 
-				get_reply, get_err := CallGetNodeId()
-				gomega.Expect(get_err).To(gomega.BeNil(), "upf_get_node_id")
-				gomega.Expect(get_reply).To(gomega.Equal(
-					&upf.UpfGetNodeIDReply{
-						Type:    uint8(upf.UPF_NODE_TYPE_IPv6),
-						IP:      ipv6,
-						FqdnLen: 0,
-						Fqdn:    []byte{},
-					}), "upf_get_node_id")
-			}
-			{
-				set_req := &upf.UpfSetNodeID{
-					Type: uint8(upf.UPF_NODE_TYPE_FQDN),
-					Fqdn: fqdn,
-				}
-				_, set_err := CallSetNodeId(set_req)
-				gomega.Expect(set_err).To(gomega.BeNil(), "upf_set_node_id")
+			out, err := f.VPP.Ctl("show upf node-id")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf node-id")
+			gomega.Expect(out).To(gomega.ContainSubstring(ipv4.ToIP().String()), "expected node-id")
 
-				get_reply, get_err := CallGetNodeId()
-				gomega.Expect(get_err).To(gomega.BeNil(), "upf_get_node_id")
-				gomega.Expect(get_reply).To(gomega.Equal(
-					&upf.UpfGetNodeIDReply{
-						Type:    uint8(upf.UPF_NODE_TYPE_FQDN),
-						IP:      ip_types.Address{},
-						FqdnLen: fqdn_len,
-						Fqdn:    fqdn,
-					}), "upf_get_node_id")
+			getReply, getErr := callGetNodeID()
+			gomega.Expect(getErr).To(gomega.BeNil(), "upf_get_node_id")
+			gomega.Expect(getReply).To(gomega.Equal(
+				&upf.UpfGetNodeIDReply{
+					Type:    uint8(upf.UPF_NODE_TYPE_IPv4),
+					IP:      ipv4,
+					FqdnLen: 0,
+					Fqdn:    []byte{},
+				}), "upf_get_node_id")
+
+			// pass 2: IPv6
+			setReq = &upf.UpfSetNodeID{
+				Type: uint8(upf.UPF_NODE_TYPE_IPv6),
+				IP:   ipv6,
 			}
+			_, setErr = callSetNodeID(setReq)
+			gomega.Expect(setErr).To(gomega.BeNil(), "upf_set_node_id")
+
+			out, err = f.VPP.Ctl("show upf node-id")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf node-id")
+			gomega.Expect(out).To(gomega.ContainSubstring(ipv6.ToIP().String()), "expected node-id")
+
+			getReply, getErr = callGetNodeID()
+			gomega.Expect(getErr).To(gomega.BeNil(), "upf_get_node_id")
+			gomega.Expect(getReply).To(gomega.Equal(
+				&upf.UpfGetNodeIDReply{
+					Type:    uint8(upf.UPF_NODE_TYPE_IPv6),
+					IP:      ipv6,
+					FqdnLen: 0,
+					Fqdn:    []byte{},
+				}), "upf_get_node_id")
+
+			// pass 3: FQDN
+			setReq = &upf.UpfSetNodeID{
+				Type: uint8(upf.UPF_NODE_TYPE_FQDN),
+				Fqdn: fqdn,
+			}
+			_, setErr = callSetNodeID(setReq)
+			gomega.Expect(setErr).To(gomega.BeNil(), "upf_set_node_id")
+
+			out, err = f.VPP.Ctl("show upf node-id")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf node-id")
+			gomega.Expect(out).To(gomega.ContainSubstring(fqdnStr), "expected node-id")
+
+			getReply, getErr = callGetNodeID()
+			gomega.Expect(getErr).To(gomega.BeNil(), "upf_get_node_id")
+			gomega.Expect(getReply).To(gomega.Equal(
+				&upf.UpfGetNodeIDReply{
+					Type:    uint8(upf.UPF_NODE_TYPE_FQDN),
+					IP:      ip_types.Address{},
+					FqdnLen: fqdnLen,
+					Fqdn:    fqdn,
+				}), "upf_get_node_id")
 		})
 	})
 

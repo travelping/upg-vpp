@@ -52,7 +52,7 @@
 
 /* API message handler */
 static void
-vl_api_upf_app_add_del_t_handler (vl_api_upf_app_add_del_t *mp)
+vl_api_upf_app_add_del_t_handler (vl_api_upf_app_add_del_t * mp)
 {
   vl_api_upf_app_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -115,8 +115,8 @@ static void vl_api_upf_app_flow_timeout_set_t_handler
 }
 
 static void
-send_upf_applications_details (vl_api_registration_t *reg,
-			       u8 *app_name, u32 flags, u32 context)
+send_upf_applications_details (vl_api_registration_t * reg,
+			       u8 * app_name, u32 flags, u32 context)
 {
   vl_api_upf_applications_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -157,8 +157,8 @@ static void vl_api_upf_applications_dump_t_handler
 }
 
 static void
-send_upf_application_l7_rule_details (vl_api_registration_t *reg,
-				      u32 id, u8 *regex, u32 context)
+send_upf_application_l7_rule_details (vl_api_registration_t * reg,
+				      u32 id, u8 * regex, u32 context)
 {
   vl_api_upf_application_l7_rule_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -213,7 +213,7 @@ static void vl_api_upf_application_l7_rule_dump_t_handler
 
 /* API message handler */
 static void
-vl_api_upf_update_app_t_handler (vl_api_upf_update_app_t *mp)
+vl_api_upf_update_app_t_handler (vl_api_upf_update_app_t * mp)
 {
   vl_api_upf_update_app_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -246,7 +246,7 @@ vl_api_upf_update_app_t_handler (vl_api_upf_update_app_t *mp)
 }
 
 static void
-vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t *mp)
+vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t * mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_upf_pfcp_reencode_reply_t *rmp;
@@ -286,7 +286,7 @@ reply:
 }
 
 static void
-vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t *mp)
+vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t * mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_upf_pfcp_format_reply_t *rmp;
@@ -328,8 +328,8 @@ reply:
 }
 
 static void
-send_upf_nat_pool_details (vl_api_registration_t *reg,
-			   upf_nat_pool_t *np, u32 context)
+send_upf_nat_pool_details (vl_api_registration_t * reg,
+			   upf_nat_pool_t * np, u32 context)
 {
   vl_api_upf_nat_pool_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -387,7 +387,7 @@ static void vl_api_upf_nat_pool_dump_t_handler
 
 /* API message handler */
 static void
-vl_api_upf_policy_add_del_t_handler (vl_api_upf_policy_add_del_t *mp)
+vl_api_upf_policy_add_del_t_handler (vl_api_upf_policy_add_del_t * mp)
 {
   vl_api_upf_policy_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -428,8 +428,8 @@ out:
 }
 
 static void
-send_upf_policy_details (vl_api_registration_t *reg,
-			 upf_forwarding_policy_t *fp, u32 context)
+send_upf_policy_details (vl_api_registration_t * reg,
+			 upf_forwarding_policy_t * fp, u32 context)
 {
   vl_api_upf_policy_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -463,7 +463,7 @@ send_upf_policy_details (vl_api_registration_t *reg,
 
 /* API message handler */
 static void
-vl_api_upf_policy_dump_t_handler (vl_api_upf_policy_dump_t *mp)
+vl_api_upf_policy_dump_t_handler (vl_api_upf_policy_dump_t * mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -483,7 +483,7 @@ vl_api_upf_policy_dump_t_handler (vl_api_upf_policy_dump_t *mp)
 
 /* API message handler */
 static void
-vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t *mp)
+vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
 {
   vl_api_upf_nwi_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -568,7 +568,8 @@ out:
 }
 
 static void
-send_upf_nwi_details (vl_api_registration_t *reg, upf_nwi_t *nwi, u32 context)
+send_upf_nwi_details (vl_api_registration_t * reg, upf_nwi_t * nwi,
+		      u32 context)
 {
   vl_api_upf_nwi_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -617,7 +618,7 @@ send_upf_nwi_details (vl_api_registration_t *reg, upf_nwi_t *nwi, u32 context)
 
 /* API message handler */
 static void
-vl_api_upf_nwi_dump_t_handler (vl_api_upf_nwi_dump_t *mp)
+vl_api_upf_nwi_dump_t_handler (vl_api_upf_nwi_dump_t * mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -638,7 +639,7 @@ vl_api_upf_nwi_dump_t_handler (vl_api_upf_nwi_dump_t *mp)
 /* API message handler */
 static void
 vl_api_upf_pfcp_endpoint_add_del_t_handler (vl_api_upf_pfcp_endpoint_add_del_t
-					    *mp)
+					    * mp)
 {
   vl_api_upf_pfcp_endpoint_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -679,8 +680,8 @@ out:
 }
 
 static void
-send_upf_pfcp_endpoint_details (vl_api_registration_t *reg,
-				ip46_address_fib_t *key, u32 context)
+send_upf_pfcp_endpoint_details (vl_api_registration_t * reg,
+				ip46_address_fib_t * key, u32 context)
 {
   vl_api_upf_pfcp_endpoint_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -704,7 +705,7 @@ send_upf_pfcp_endpoint_details (vl_api_registration_t *reg,
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_endpoint_dump_t_handler (vl_api_upf_pfcp_endpoint_dump_t *mp)
+vl_api_upf_pfcp_endpoint_dump_t_handler (vl_api_upf_pfcp_endpoint_dump_t * mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -726,7 +727,7 @@ vl_api_upf_pfcp_endpoint_dump_t_handler (vl_api_upf_pfcp_endpoint_dump_t *mp)
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_server_set_t_handler (vl_api_upf_pfcp_server_set_t *mp)
+vl_api_upf_pfcp_server_set_t_handler (vl_api_upf_pfcp_server_set_t * mp)
 {
   vl_api_upf_pfcp_server_set_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -767,7 +768,7 @@ out:
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_server_show_t_handler (vl_api_upf_pfcp_server_show_t *mp)
+vl_api_upf_pfcp_server_show_t_handler (vl_api_upf_pfcp_server_show_t * mp)
 {
   vl_api_upf_pfcp_server_show_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -802,7 +803,7 @@ vl_api_upf_pfcp_server_show_t_handler (vl_api_upf_pfcp_server_show_t *mp)
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_policer_set_t_handler (vl_api_upf_pfcp_policer_set_t *mp)
+vl_api_upf_pfcp_policer_set_t_handler (vl_api_upf_pfcp_policer_set_t * mp)
 {
   vl_api_upf_pfcp_policer_set_reply_t *rmp = NULL;
   qos_pol_cfg_params_st *cfg = &pfcp_rate_cfg_main;
@@ -818,7 +819,7 @@ vl_api_upf_pfcp_policer_set_t_handler (vl_api_upf_pfcp_policer_set_t *mp)
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_policer_show_t_handler (vl_api_upf_pfcp_policer_show_t *mp)
+vl_api_upf_pfcp_policer_show_t_handler (vl_api_upf_pfcp_policer_show_t * mp)
 {
   vl_api_upf_pfcp_policer_show_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -847,7 +848,7 @@ vl_api_upf_pfcp_policer_show_t_handler (vl_api_upf_pfcp_policer_show_t *mp)
 /* API message handler */
 static void
 vl_api_upf_pfcp_heartbeats_set_t_handler (vl_api_upf_pfcp_heartbeats_set_t
-					  *mp)
+					  * mp)
 {
   vl_api_upf_pfcp_heartbeats_set_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -865,7 +866,7 @@ vl_api_upf_pfcp_heartbeats_set_t_handler (vl_api_upf_pfcp_heartbeats_set_t
 /* API message handler */
 static void
 vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t
-					  *mp)
+					  * mp)
 {
   vl_api_upf_pfcp_heartbeats_get_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -893,42 +894,43 @@ vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t
 
 /* API message handler */
 static void
-vl_api_upf_set_node_id_t_handler (vl_api_upf_set_node_id_t *mp)
+vl_api_upf_set_node_id_t_handler (vl_api_upf_set_node_id_t * mp)
 {
+  int rv = 0;
   upf_main_t *sm = &upf_main;
   vl_api_upf_set_node_id_reply_t *rmp = NULL;
 
-  // if old was fqdn then free it
+  pfcp_node_id_t node_id = { 0 };
+  node_id.type = mp->type;
 
   switch (mp->type)
     {
     case NID_IPv4:
     case NID_IPv6:
-      sm->node_id.type = mp->type;
-      ip_address_decode (&mp->ip, &sm->node_id.ip);
+      ip_address_decode (&mp->ip, &node_id.ip);
       break;
 
     case NID_FQDN:
-      sm->node_id.type = NID_FQDN;
-      sm->node_id.fqdn = NULL;
-      vec_validate (sm->node_id.fqdn, 20);
-      memcpy (sm->node_id.fqdn, mp->fqdn, mp->fqdn_len);
+      vec_validate (node_id.fqdn, mp->fqdn_len);
+      memcpy (node_id.fqdn, mp->fqdn, mp->fqdn_len);
       break;
 
     default:
-      //TODO: error
+      rv = VNET_API_ERROR_INVALID_VALUE;
       break;
     }
 
+  if (rv == 0)
+    vnet_upf_node_id_set (&node_id);
 
-  int rv = 0;
   REPLY_MACRO (VL_API_UPF_SET_NODE_ID_REPLY);
 }
 
 /* API message handler */
 static void
-vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t *mp)
+vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t * mp)
 {
+  int rv = 0;
   vl_api_registration_t *reg;
   reg = vl_api_client_index_to_registration (mp->client_index);
   if (!reg)
@@ -937,8 +939,6 @@ vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t *mp)
   vl_api_upf_get_node_id_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
   pfcp_node_id_t *node = &sm->node_id;
-
-
 
   switch (node->type)
     {
@@ -964,13 +964,15 @@ vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t *mp)
 	break;
       }
     default:
-      ASSERT (false);
-      // TODO: return error
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      break;
     }
 
   rmp->type = node->type;
+
   rmp->_vl_msg_id = htons (VL_API_UPF_GET_NODE_ID_REPLY + sm->msg_id_base);
   rmp->context = mp->context;
+  rmp->retval = ntohl (rv);
 
   vl_api_send_msg (reg, (u8 *) rmp);
 }
@@ -978,7 +980,7 @@ vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t *mp)
 #include <upf/upf.api.c>
 
 static clib_error_t *
-upf_api_hookup (vlib_main_t *vm)
+upf_api_hookup (vlib_main_t * vm)
 {
   upf_main_t *gtm = &upf_main;
 

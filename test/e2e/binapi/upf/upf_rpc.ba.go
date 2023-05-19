@@ -175,7 +175,7 @@ func (c *serviceClient) UpfGetNodeID(ctx context.Context, in *UpfGetNodeID) (*Up
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	return out, api.RetvalToVPPApiError(out.Retval)
 }
 
 func (c *serviceClient) UpfNatPoolDump(ctx context.Context, in *UpfNatPoolDump) (RPCService_UpfNatPoolDumpClient, error) {
