@@ -244,11 +244,13 @@ static void
 static int
 handle_heartbeat_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 {
+  upf_main_t *gtm = &upf_main;
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t resp_dmsg = {
     .type = PFCP_HEARTBEAT_RESPONSE
   };
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
+  u32 node = msg->node;
 
   memset (resp, 0, sizeof (*resp));
   SET_BIT (resp->grp.fields, PFCP_RESPONSE_RECOVERY_TIME_STAMP);
@@ -256,6 +258,14 @@ handle_heartbeat_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 
   upf_debug ("PFCP: start_time: %p, %d, %x.",
 	     &psm, psm->start_time, psm->start_time);
+  upf_pfcp_associnfo
+    (gtm,
+     "HBLOG: sending response for a PFCP Heartbeat Request, "
+     "local %U:%d, remote %U:%d\n",
+     format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+     clib_net_to_host_u16 (msg->lcl.port),
+     format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+     clib_net_to_host_u16 (msg->rmt.port));
 
   upf_pfcp_send_response (msg, &resp_dmsg);
 
@@ -272,12 +282,34 @@ handle_heartbeat_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
     dmsg->simple_response.response.recovery_time_stamp;
 
   if (msg->node == ~0 || pool_is_free_index (gtm->nodes, msg->node))
-    return -1;
+    {
+      upf_pfcp_associnfo
+	(gtm,
+	 "HBLOG: ignoring a PFCP Heartbeat Response with no "
+	 "association, local %U:%d, remote %U:%d\n",
+	 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->lcl.port),
+	 format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->rmt.port));
+      return -1;
+    }
 
   n = pool_elt_at_index (gtm->nodes, msg->node);
 
   if (ts > n->recovery_time_stamp)
-    pfcp_release_association (n);
+    {
+      upf_pfcp_associnfo
+	(gtm,
+	 "HBLOG: releasing association: ts %u > node recovery_time_stamp %u: "
+	 "node %U, local %U:%d, remote %U:%d\n",
+	 ts, n->recovery_time_stamp,
+	 format_node_id, &n->node_id,
+	 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->lcl.port),
+	 format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->rmt.port));
+      pfcp_release_association (n);
+    }
   else if (ts < n->recovery_time_stamp)
     {
       /* 3GPP TS 23.007, Sect. 19A:
@@ -289,11 +321,31 @@ handle_heartbeat_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
        * received new Recovery Time Stamp value shall be discarded and an error may
        * be logged.
        */
+      upf_pfcp_associnfo
+	(gtm,
+	 "HBLOG: bad PFCP heartbeat response: ts %u < node recovery_time_stamp %u: "
+	 "node %U, local %U:%d, remote %U:%d\n",
+	 ts, n->recovery_time_stamp,
+	 format_node_id, &n->node_id,
+	 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->lcl.port),
+	 format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->rmt.port));
       return -1;
     }
   else
     {
       upf_debug ("restarting HB timer\n");
+      upf_pfcp_associnfo
+	(gtm,
+	 "HBLOG: restarting HB timer, next heartbeat in %u seconds: "
+	 "node %U, local %U:%d, remote %U:%d\n",
+	 psm->hb_cfg.timeout,
+	 format_node_id, &n->node_id,
+	 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->lcl.port),
+	 format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->rmt.port));
       n->heartbeat_handle = upf_pfcp_server_start_timer
 	(PFCP_SERVER_HB_TIMER, n - gtm->nodes, psm->hb_cfg.timeout);
     }
@@ -360,6 +412,16 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
        * PFCP Association Setup Response message.
        *
        */
+      upf_pfcp_associnfo
+	(gtm,
+	 "HBLOG: releasing previous association due to the new one "
+	 "with the same node id: node %U, local %U:%d, remote %U:%d\n",
+	 format_node_id, &n->node_id,
+	 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->lcl.port),
+	 format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+	 clib_net_to_host_u16 (msg->rmt.port));
+
       pfcp_release_association (n);
     }
 
@@ -2278,6 +2340,7 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
       r->usage_information = USAGE_INFORMATION_BEFORE;
 
       start_time = trunc (urr->usage_before_monitoring_time.start_time);
+      ASSERT (trunc (urr->start_time) >= start_time);
       duration = trunc (urr->start_time) - start_time;
 
       if ((trigger & (USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
@@ -2496,6 +2559,10 @@ handle_session_establishment_request (pfcp_msg_t * msg,
   int r = 0;
   int is_ip4;
   u64 seid;
+  uword *v, w;
+  upf_main_t *gtm = &upf_main;
+  ip46_address_t *ip_key;
+  u8 *fqdn_key;
 
   memset (resp, 0, sizeof (*resp));
   SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
@@ -2510,6 +2577,24 @@ handle_session_establishment_request (pfcp_msg_t * msg,
   assoc = pfcp_get_association (&req->request.node_id);
   if (!assoc)
     {
+      clib_warning ("No established PFCP association: unknown node id <%U>",
+		    format_node_id, &req->request.node_id);
+
+      /* *INDENT-OFF* */
+      pool_foreach (assoc, gtm->nodes)
+	{
+	  clib_warning ("Active association %u: %U", assoc - gtm->nodes, format_pfcp_node_association, assoc, 1);
+	}
+      mhash_foreach(ip_key, v, &gtm->node_index_by_ip,
+      ({
+        clib_warning ("IP assoc map: [%U] -> %u\n", format_ip46_address, ip_key, *v);
+      }));
+      hash_foreach_mem(fqdn_key, w, gtm->node_index_by_fqdn,
+      ({
+        clib_warning ("FQDN assoc map: [%U] -> %u\n", format_dns_labels, fqdn_key, w);
+      }));
+      /* *INDENT-ON* */
+
       tp_session_error_report (resp, "no established PFCP association");
 
       resp->cause = PFCP_CAUSE_NO_ESTABLISHED_PFCP_ASSOCIATION;
