@@ -607,10 +607,9 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 	ginkgo.Context("for node-id", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 
-		callSetNodeID := func(req *upf.UpfSetNodeID) (*upf.UpfSetNodeIDReply, error) {
+		callSetNodeID := func(req *upf.UpfSetNodeID) error {
 			reply := &upf.UpfSetNodeIDReply{}
-			err := f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
-			return reply, err
+			return f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
 		}
 
 		callGetNodeID := func() (*upf.UpfGetNodeIDReply, error) {
@@ -633,15 +632,14 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 				Type: uint8(upf.UPF_NODE_TYPE_IPv4),
 				IP:   ipv4,
 			}
-			_, setErr := callSetNodeID(setReq)
-			gomega.Expect(setErr).To(gomega.BeNil(), "upf_set_node_id")
+			gomega.Expect(callSetNodeID(setReq)).To(gomega.Succeed(), "upf_set_node_id")
 
 			out, err := f.VPP.Ctl("show upf node-id")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf node-id")
 			gomega.Expect(out).To(gomega.ContainSubstring(ipv4.ToIP().String()), "expected node-id")
 
-			getReply, getErr := callGetNodeID()
-			gomega.Expect(getErr).To(gomega.BeNil(), "upf_get_node_id")
+			getReply, err := callGetNodeID()
+			gomega.Expect(err).To(gomega.BeNil(), "upf_get_node_id")
 			gomega.Expect(getReply).To(gomega.Equal(
 				&upf.UpfGetNodeIDReply{
 					Type:    uint8(upf.UPF_NODE_TYPE_IPv4),
@@ -655,15 +653,14 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 				Type: uint8(upf.UPF_NODE_TYPE_IPv6),
 				IP:   ipv6,
 			}
-			_, setErr = callSetNodeID(setReq)
-			gomega.Expect(setErr).To(gomega.BeNil(), "upf_set_node_id")
+			gomega.Expect(callSetNodeID(setReq)).To(gomega.Succeed(), "upf_set_node_id")
 
 			out, err = f.VPP.Ctl("show upf node-id")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf node-id")
 			gomega.Expect(out).To(gomega.ContainSubstring(ipv6.ToIP().String()), "expected node-id")
 
-			getReply, getErr = callGetNodeID()
-			gomega.Expect(getErr).To(gomega.BeNil(), "upf_get_node_id")
+			getReply, err = callGetNodeID()
+			gomega.Expect(err).To(gomega.BeNil(), "upf_get_node_id")
 			gomega.Expect(getReply).To(gomega.Equal(
 				&upf.UpfGetNodeIDReply{
 					Type:    uint8(upf.UPF_NODE_TYPE_IPv6),
@@ -677,15 +674,14 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 				Type: uint8(upf.UPF_NODE_TYPE_FQDN),
 				Fqdn: fqdn,
 			}
-			_, setErr = callSetNodeID(setReq)
-			gomega.Expect(setErr).To(gomega.BeNil(), "upf_set_node_id")
+			gomega.Expect(callSetNodeID(setReq)).To(gomega.Succeed(), "upf_set_node_id")
 
 			out, err = f.VPP.Ctl("show upf node-id")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "show upf node-id")
 			gomega.Expect(out).To(gomega.ContainSubstring(fqdnStr), "expected node-id")
 
-			getReply, getErr = callGetNodeID()
-			gomega.Expect(getErr).To(gomega.BeNil(), "upf_get_node_id")
+			getReply, err = callGetNodeID()
+			gomega.Expect(err).To(gomega.BeNil(), "upf_get_node_id")
 			gomega.Expect(getReply).To(gomega.Equal(
 				&upf.UpfGetNodeIDReply{
 					Type:    uint8(upf.UPF_NODE_TYPE_FQDN),
