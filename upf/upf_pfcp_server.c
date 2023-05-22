@@ -1207,6 +1207,8 @@ void upf_server_handle_hb_timer (u32 node_idx)
   memset (req, 0, sizeof (*req));
   SET_BIT (req->grp.fields, HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP);
   req->recovery_time_stamp = psm->start_time;
+  upf_pfcp_associnfo (gtm, "HBLOG: sending Heartbeat Request: node %U",
+		      format_node_id, &n->node_id);
 
   upf_pfcp_server_send_node_request (n, &dmsg);
 }
