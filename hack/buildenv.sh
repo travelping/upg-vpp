@@ -18,6 +18,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : ${DEV_IMAGE:=${VPP_IMAGE_BASE}_dev_${BUILD_TYPE}}
 : ${VPP_SRC:=}
 : ${UPG_BUILDENV_EXTRA_DIR:=}
+: ${DEVENV_BG:=}
 
 if [[ ${GITHUB_RUN_ID:-} ]]; then
   # avoid overlong pod names (must be <= 63 chars including the -0 suffix)
@@ -51,10 +52,25 @@ function docker_buildenv {
     opts+=(-v "${VPP_SRC}:/vpp-src")
   fi
 
-  docker run --rm --name vpp-build-${BUILD_TYPE} --shm-size 1024m \
-         ${priv} \
-         -v $PWD:/src:delegated -v $PWD/vpp-out:/vpp-out \
-         "${opts[@]}" -w /src "${DEV_IMAGE}" "$@"
+  # try to kill previous background devenv container
+  docker kill $(docker ps -aq --filter name=vpp-build-${BUILD_TYPE}) &>/dev/null || true
+  docker container wait $(docker ps -aq --filter name=vpp-build-${BUILD_TYPE}) &>/dev/null || true
+  # ugly workaround as docker sometimes ends before the container is removed
+  sleep 1
+
+  if [[ ${DEVENV_BG} ]]; then
+    docker run -d --rm --name vpp-build-${BUILD_TYPE} --shm-size 1024m \
+          ${priv} \
+          -v $PWD:/src:delegated -v $PWD/vpp-out:/vpp-out \
+          "${opts[@]}" -w /src "${DEV_IMAGE}"
+    # install additional go lsp
+    docker exec vpp-build-${BUILD_TYPE} /bin/bash -c "go install golang.org/x/tools/gopls@latest" &>/dev/null
+  else
+    docker run --rm --name vpp-build-${BUILD_TYPE} --shm-size 1024m \
+          ${priv} \
+          -v $PWD:/src:delegated -v $PWD/vpp-out:/vpp-out \
+          "${opts[@]}" -w /src "${DEV_IMAGE}" "$@"
+  fi
 }
 
 function k8s_statefulset_name {

@@ -1,0 +1,7 @@
+{
+        "recommendations": [
+                "ms-vscode.cpptools-extension-pack",
+                "golang.go",
+                "ms-azuretools.vscode-docker"
+        ]
+}
