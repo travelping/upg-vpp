@@ -52,14 +52,14 @@ function docker_buildenv {
     opts+=(-v "${VPP_SRC}:/vpp-src")
   fi
 
-  # try to kill previous background devenv container
-  docker kill $(docker ps -aq --filter name=vpp-build-${BUILD_TYPE}) &>/dev/null || true
-  docker container wait $(docker ps -aq --filter name=vpp-build-${BUILD_TYPE}) &>/dev/null || true
-  # ugly workaround as docker sometimes ends before the container is removed
-  sleep 1
-
   if [[ ${DEVENV_BG} ]]; then
-    docker run -d --rm --name vpp-build-${BUILD_TYPE} --shm-size 1024m \
+    # try to kill previous background devenv container
+    docker kill $(docker ps -aq --filter name=vpp-build-${BUILD_TYPE}-bg) &>/dev/null || true
+    docker container wait $(docker ps -aq --filter name=vpp-build-${BUILD_TYPE}-bg) &>/dev/null || true
+    # ugly workaround as docker sometimes ends before the container is removed
+    sleep 1
+
+    docker run -d --rm --name vpp-build-${BUILD_TYPE}-bg --shm-size 1024m \
           ${priv} \
           -v $PWD:/src:delegated -v $PWD/vpp-out:/vpp-out \
           "${opts[@]}" -w /src "${DEV_IMAGE}"

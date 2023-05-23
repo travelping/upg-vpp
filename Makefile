@@ -67,5 +67,5 @@ genbinapi:
 # Open VSCode attached to buildenv container
 code:
 	DEVENV_BG=1 hack/buildenv.sh
-	ENCNAME=`printf {\"containerName\":\"/vpp-build-$(BUILD_TYPE)\"} | od -A n -t x1 | tr -d '[\n\t ]'`; \
+	ENCNAME=`printf {\"containerName\":\"/vpp-build-$(BUILD_TYPE)-bg\"} | od -A n -t x1 | tr -d '[\n\t ]'`; \
 	code --folder-uri "vscode-remote://attached-container+$${ENCNAME}/src"
