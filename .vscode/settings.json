@@ -5,8 +5,8 @@
   "editor.insertSpaces": true,
   "[c]": {
     "editor.indentSize": 2,
-    "editor.insertSpaces": true,
     "editor.tabSize": 8,
+    "editor.insertSpaces": true,
     "editor.detectIndentation": false,
   },
   "customLocalFormatters.formatters": [
