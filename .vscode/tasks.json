@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build VPP",
+			"type": "shell",
+			"command": "./hack/build-internal.sh",
+		},
+		{
+			"label": "Run e2e tests",
+			"type": "shell",
+			"command": "make e2e E2E_QUICK=1 E2E_FOCUS=\"\" E2E_GDBSERVER=1",
+			"isBackground": true,
+		}
+	]
+}
