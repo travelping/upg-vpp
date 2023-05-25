@@ -63,8 +63,6 @@ function docker_buildenv {
           ${priv} \
           -v $PWD:/src:delegated -v $PWD/vpp-out:/vpp-out \
           "${opts[@]}" -w /src "${DEV_IMAGE}"
-    # install additional go lsp
-    docker exec vpp-build-${BUILD_TYPE}-bg /bin/bash -c "go install golang.org/x/tools/gopls@latest" &>/dev/null
   else
     docker run --rm --name vpp-build-${BUILD_TYPE} --shm-size 1024m \
           ${priv} \
