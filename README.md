@@ -170,7 +170,7 @@ To do that run `make code`.
 *Note:* this command leaves the buildenv running in the background.
 
 After attaching for the first time, some vscode plugins may not be enabled.
-To fix that open: `F1 -> "Dev Containers: Open Attached Container Configuration File"`
+To fix that open: `F1 -> "Dev Containers: Open Named Container Configuration File"`
 And specify what plugins you'd like loaded at start.
 
 Here are some nice plugins to work with this repo:
