@@ -18,6 +18,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : ${DEV_IMAGE:=${VPP_IMAGE_BASE}_dev_${BUILD_TYPE}}
 : ${VPP_SRC:=}
 : ${UPG_BUILDENV_EXTRA_DIR:=}
+: ${DEVENV_BG:=}
 
 if [[ ${GITHUB_RUN_ID:-} ]]; then
   # avoid overlong pod names (must be <= 63 chars including the -0 suffix)
@@ -51,7 +52,14 @@ function docker_buildenv {
     opts+=(-v "${VPP_SRC}:/vpp-src")
   fi
 
-  docker run --rm --name vpp-build-${BUILD_TYPE} --shm-size 1024m \
+  name="vpp-build-${BUILD_TYPE}"
+  if [[ ${DEVENV_BG} ]]; then
+    name="vpp-build-${BUILD_TYPE}-bg"
+    opts+=(-d)
+  fi
+
+  docker rm -f "${name}"
+  docker run --rm --name "${name}" --shm-size 1024m \
          ${priv} \
          -v $PWD:/src:delegated -v $PWD/vpp-out:/vpp-out \
          "${opts[@]}" -w /src "${DEV_IMAGE}" "$@"

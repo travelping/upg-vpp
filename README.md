@@ -159,3 +159,36 @@ pre-releases.
 [GHACTIONS]: https://github.com/features/actions
 
 <a name="footnote-1">1</a>: Historically, the project was named simply "UPF". There may be more UPF->UPG renames later
+
+VS Code
+---------------
+
+It is possible to attach to running buildenv container with VS Code to get full intellisense.
+
+To do that run `make code`.
+
+*Note:* this command leaves the buildenv running in the background.
+
+After attaching for the first time, some vscode plugins may not be enabled.
+To fix that open: `F1 -> "Dev Containers: Open Named Container Configuration File"`
+And specify what plugins you'd like loaded at start.
+
+Here are some nice plugins to work with this repo:
+```
+{
+	"workspaceFolder": "/src",
+	"extensions": [
+		"eamodio.gitlens",
+		"EditorConfig.EditorConfig",
+		"golang.go",
+		"jkillian.custom-local-formatters",
+		"ms-azuretools.vscode-docker",
+		"ms-vscode.cmake-tools",
+		"ms-vscode.cpptools",
+		"ms-vscode.cpptools-extension-pack",
+		"ms-vscode.cpptools-themes",
+		"ms-vscode.makefile-tools",
+		"twxs.cmake"
+	]
+}
+```
