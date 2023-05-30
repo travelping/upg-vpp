@@ -614,9 +614,10 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 				IsIPv6:    false,
 			}
 			reply := &upf.UpfTdfUlEnableDisableReply{}
-			err := f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
 
-			gomega.Expect(err).To(gomega.BeNil(), "upf_tdf_ul_enable_disable")
+			gomega.Expect(
+				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
+			).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
 		})
 		// TODO: tdf tests are non-exhaustive
 	})
