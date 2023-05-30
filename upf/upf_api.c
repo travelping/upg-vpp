@@ -977,6 +977,30 @@ vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t * mp)
   vl_api_send_msg (reg, (u8 *) rmp);
 }
 
+/* API message handler */
+static void
+vl_api_upf_tdf_ul_enable_disable_t_handler (vl_api_upf_tdf_ul_enable_disable_t
+					    * mp)
+{
+  int rv = 0;
+  upf_main_t *sm = &upf_main;
+  vl_api_upf_tdf_ul_enable_disable_reply_t *rmp = NULL;
+
+  fib_protocol_t fproto;
+  if (mp->is_ipv6)
+    fproto = FIB_PROTOCOL_IP6;
+  else
+    fproto = FIB_PROTOCOL_IP4;
+
+  if (mp->enable == false)
+    rv = VNET_API_ERROR_UNIMPLEMENTED;
+
+  if (rv == 0)
+    vnet_upf_tdf_ul_enable_disable (fproto, mp->interface, mp->enable);
+
+  REPLY_MACRO (VL_API_UPF_TDF_UL_ENABLE_DISABLE_REPLY);
+}
+
 #include <upf/upf.api.c>
 
 static clib_error_t *

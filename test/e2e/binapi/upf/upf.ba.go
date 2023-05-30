@@ -5,7 +5,7 @@
 // Contents:
 //   3 enums
 //   1 struct
-//  48 messages
+//  50 messages
 //
 package upf
 
@@ -15,7 +15,7 @@ import (
 	api "git.fd.io/govpp.git/api"
 	codec "git.fd.io/govpp.git/codec"
 	fib_types "github.com/travelping/upg-vpp/test/e2e/binapi/fib_types"
-	_ "github.com/travelping/upg-vpp/test/e2e/binapi/interface_types"
+	interface_types "github.com/travelping/upg-vpp/test/e2e/binapi/interface_types"
 	ip_types "github.com/travelping/upg-vpp/test/e2e/binapi/ip_types"
 )
 
@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0x878c4e6
+	VersionCrc = 0x366b0e2b
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -2075,6 +2075,80 @@ func (m *UpfSetNodeIDReply) Unmarshal(b []byte) error {
 	return nil
 }
 
+// UpfTdfUlEnableDisable defines message 'upf_tdf_ul_enable_disable'.
+type UpfTdfUlEnableDisable struct {
+	Enable    bool                           `binapi:"bool,name=enable" json:"enable,omitempty"`
+	Interface interface_types.InterfaceIndex `binapi:"interface_index,name=interface" json:"interface,omitempty"`
+	IsIPv6    bool                           `binapi:"bool,name=is_ipv6" json:"is_ipv6,omitempty"`
+}
+
+func (m *UpfTdfUlEnableDisable) Reset()               { *m = UpfTdfUlEnableDisable{} }
+func (*UpfTdfUlEnableDisable) GetMessageName() string { return "upf_tdf_ul_enable_disable" }
+func (*UpfTdfUlEnableDisable) GetCrcString() string   { return "53c1a78f" }
+func (*UpfTdfUlEnableDisable) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfTdfUlEnableDisable) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 1 // m.Enable
+	size += 4 // m.Interface
+	size += 1 // m.IsIPv6
+	return size
+}
+func (m *UpfTdfUlEnableDisable) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeBool(m.Enable)
+	buf.EncodeUint32(uint32(m.Interface))
+	buf.EncodeBool(m.IsIPv6)
+	return buf.Bytes(), nil
+}
+func (m *UpfTdfUlEnableDisable) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Enable = buf.DecodeBool()
+	m.Interface = interface_types.InterfaceIndex(buf.DecodeUint32())
+	m.IsIPv6 = buf.DecodeBool()
+	return nil
+}
+
+// UpfTdfUlEnableDisableReply defines message 'upf_tdf_ul_enable_disable_reply'.
+type UpfTdfUlEnableDisableReply struct {
+	Retval int32 `binapi:"i32,name=retval" json:"retval,omitempty"`
+}
+
+func (m *UpfTdfUlEnableDisableReply) Reset()               { *m = UpfTdfUlEnableDisableReply{} }
+func (*UpfTdfUlEnableDisableReply) GetMessageName() string { return "upf_tdf_ul_enable_disable_reply" }
+func (*UpfTdfUlEnableDisableReply) GetCrcString() string   { return "e8d4e804" }
+func (*UpfTdfUlEnableDisableReply) GetMessageType() api.MessageType {
+	return api.ReplyMessage
+}
+
+func (m *UpfTdfUlEnableDisableReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Retval
+	return size
+}
+func (m *UpfTdfUlEnableDisableReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeInt32(m.Retval)
+	return buf.Bytes(), nil
+}
+func (m *UpfTdfUlEnableDisableReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Retval = buf.DecodeInt32()
+	return nil
+}
+
 // UpfUpdateApp defines message 'upf_update_app'.
 type UpfUpdateApp struct {
 	App         []byte      `binapi:"u8[64],name=app" json:"app,omitempty"`
@@ -2221,6 +2295,8 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfPolicyDump)(nil), "upf_policy_dump_51077d14")
 	api.RegisterMessage((*UpfSetNodeID)(nil), "upf_set_node_id_d2f43a0a")
 	api.RegisterMessage((*UpfSetNodeIDReply)(nil), "upf_set_node_id_reply_e8d4e804")
+	api.RegisterMessage((*UpfTdfUlEnableDisable)(nil), "upf_tdf_ul_enable_disable_53c1a78f")
+	api.RegisterMessage((*UpfTdfUlEnableDisableReply)(nil), "upf_tdf_ul_enable_disable_reply_e8d4e804")
 	api.RegisterMessage((*UpfUpdateApp)(nil), "upf_update_app_50f53737")
 	api.RegisterMessage((*UpfUpdateAppReply)(nil), "upf_update_app_reply_e8d4e804")
 }
@@ -2274,6 +2350,8 @@ func AllMessages() []api.Message {
 		(*UpfPolicyDump)(nil),
 		(*UpfSetNodeID)(nil),
 		(*UpfSetNodeIDReply)(nil),
+		(*UpfTdfUlEnableDisable)(nil),
+		(*UpfTdfUlEnableDisableReply)(nil),
 		(*UpfUpdateApp)(nil),
 		(*UpfUpdateAppReply)(nil),
 	}
