@@ -769,7 +769,7 @@ upf_tdf_ul_enable_command_fn (vlib_main_t * vm,
 	break;
     }
 
-  if (0 == enable)
+  if (!enable)
     return clib_error_return (0, "not implemented");
 
   if (~0 == sw_if_index)

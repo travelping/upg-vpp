@@ -988,7 +988,7 @@ vl_api_upf_tdf_ul_enable_disable_t_handler (vl_api_upf_tdf_ul_enable_disable_t
 
   fib_protocol_t fproto = mp->is_ipv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4;
 
-  if (mp->enable == false)
+  if (!mp->enable)
     rv = VNET_API_ERROR_UNIMPLEMENTED;
 
   if (rv == 0)
