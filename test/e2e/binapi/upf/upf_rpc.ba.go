@@ -37,6 +37,8 @@ type RPCService interface {
 	UpfPolicyDump(ctx context.Context, in *UpfPolicyDump) (RPCService_UpfPolicyDumpClient, error)
 	UpfSetNodeID(ctx context.Context, in *UpfSetNodeID) (*UpfSetNodeIDReply, error)
 	UpfTdfUlEnableDisable(ctx context.Context, in *UpfTdfUlEnableDisable) (*UpfTdfUlEnableDisableReply, error)
+	UpfTdfUlTable(ctx context.Context, in *UpfTdfUlTable) (*UpfTdfUlTableReply, error)
+	UpfTdfUlTableAdd(ctx context.Context, in *UpfTdfUlTableAdd) (*UpfTdfUlTableAddReply, error)
 	UpfUpdateApp(ctx context.Context, in *UpfUpdateApp) (*UpfUpdateAppReply, error)
 }
 
@@ -461,6 +463,24 @@ func (c *serviceClient) UpfSetNodeID(ctx context.Context, in *UpfSetNodeID) (*Up
 
 func (c *serviceClient) UpfTdfUlEnableDisable(ctx context.Context, in *UpfTdfUlEnableDisable) (*UpfTdfUlEnableDisableReply, error) {
 	out := new(UpfTdfUlEnableDisableReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, api.RetvalToVPPApiError(out.Retval)
+}
+
+func (c *serviceClient) UpfTdfUlTable(ctx context.Context, in *UpfTdfUlTable) (*UpfTdfUlTableReply, error) {
+	out := new(UpfTdfUlTableReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *serviceClient) UpfTdfUlTableAdd(ctx context.Context, in *UpfTdfUlTableAdd) (*UpfTdfUlTableAddReply, error) {
+	out := new(UpfTdfUlTableAddReply)
 	err := c.conn.Invoke(ctx, in, out)
 	if err != nil {
 		return nil, err
