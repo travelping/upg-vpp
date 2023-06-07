@@ -604,6 +604,24 @@ var _ = ginkgo.Describe("CLI debug commands", func() {
 
 // TODO: validate both binapi and CLI against each other
 var _ = ginkgo.Describe("UPG Binary API", func() {
+	ginkgo.Context("for upf tdf ul enable", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+
+		ginkgo.It("enables the interface", func() {
+			req := &upf.UpfTdfUlEnableDisable{
+				Enable:    true,
+				Interface: 0,
+				IsIPv6:    false,
+			}
+			reply := &upf.UpfTdfUlEnableDisableReply{}
+
+			gomega.Expect(
+				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
+			).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
+		})
+		// TODO: tdf tests are non-exhaustive
+	})
+
 	ginkgo.Context("for node-id", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 
