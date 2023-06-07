@@ -1964,6 +1964,7 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
       {
 	update->update_flags |= PFCP_URR_UPDATE_TIME_THRESHOLD;
 	update->time_threshold.period = urr->time_threshold;
+	update->time_threshold.base = update->start_time;
       }
     if (ISSET_BIT (urr->grp.fields, UPDATE_URR_TIME_QUOTA))
       {
