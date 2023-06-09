@@ -1002,16 +1002,16 @@ vl_api_upf_tdf_ul_table_t_handler (vl_api_upf_tdf_ul_table_t * mp)
 {
   int rv = 0;
   vl_api_registration_t *reg;
-  reg = vl_api_client_index_to_registration (mp->client_index);
-  if (!reg)
-    return;
-
+  u8 size, len = 0, out_index = 0;
+  u32 ii;
   vl_api_upf_tdf_ul_table_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
   fib_protocol_t fproto = mp->is_ipv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4;
 
-  u8 len = 0;
-  u32 ii;
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    return;
+
   vec_foreach_index (ii, sm->tdf_ul_table[fproto])
   {
     if (~0 != vec_elt (sm->tdf_ul_table[fproto], ii))
@@ -1020,22 +1020,20 @@ vl_api_upf_tdf_ul_table_t_handler (vl_api_upf_tdf_ul_table_t * mp)
   // convert number of mappings to number of elements in the vector
   len *= 2;
 
-  u8 size = sizeof (u32) * len;
+  size = sizeof (u32) * len;
   rmp = vl_msg_api_alloc (sizeof (*rmp) + size);
   clib_memset (rmp, 0, sizeof (*rmp) + size);
   rmp->mappings_len = len;
 
-  u8 out_index = 0;
   vec_foreach_index (ii, sm->tdf_ul_table[fproto])
   {
     if (~0 != vec_elt (sm->tdf_ul_table[fproto], ii))
       {
-	rmp->mappings[out_index * 2] =
+	rmp->mappings[out_index++] =
 	  htonl (fib_table_get_table_id (ii, fproto));
-	rmp->mappings[out_index * 2 + 1] =
+	rmp->mappings[out_index++] =
 	  htonl (fib_table_get_table_id
 		 (vec_elt (sm->tdf_ul_table[fproto], ii), fproto));
-	out_index++;
       }
   }
 
