@@ -622,6 +622,62 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 		// TODO: tdf tests are non-exhaustive
 	})
 
+	ginkgo.Context("for upf tdf ul table", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+
+		addMapping := func(isIPv6 bool, src uint32, dst uint32) {
+			req := &upf.UpfTdfUlTableAdd{
+				IsAdd:            true,
+				IsIPv6:           isIPv6,
+				TableID:          src,
+				SrcLookupTableID: dst,
+			}
+			reply := &upf.UpfTdfUlTableAddReply{}
+			gomega.Expect(
+				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
+			).To(gomega.Succeed(), "upf_tdf_ul_table_add")
+		}
+
+		getMappings := func(isIPv6 bool) []uint32 {
+			req := &upf.UpfTdfUlTable{
+				IsIPv6: isIPv6,
+			}
+			reply := &upf.UpfTdfUlTableReply{}
+
+			gomega.Expect(
+				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
+			).To(gomega.Succeed(), "upf_tdf_ul_table: mappings_len")
+			gomega.Expect(
+				reply.MappingsLen,
+			).To(gomega.Equal(uint8(len(reply.Mappings))), "upf_tdf_ul_table: mappings_len")
+			gomega.Expect(
+				reply.MappingsLen%2,
+			).To(gomega.Equal(uint8(0)), "upf_tdf_ul_table: mappings_len")
+			return reply.Mappings
+		}
+
+		ginkgo.It("sets and retrieves table mappings", func() {
+			// there should be no ipv6 mappings initially
+			mappings := getMappings(true)
+			gomega.Expect(mappings).To(gomega.Equal([]uint32{}), "upf_tdf_ul_table")
+
+			addMapping(true, 0, 1001)
+			addMapping(true, 1001, 0)
+
+			mappings = getMappings(true)
+			gomega.Expect(mappings).To(gomega.Equal([]uint32{0, 1001, 1001, 0}), "upf_tdf_ul_table")
+
+			// there is a mapping for ipv4 initially so we expect it
+			mappings = getMappings(false)
+			gomega.Expect(mappings).To(gomega.Equal([]uint32{100, 1001}), "upf_tdf_ul_table")
+
+			addMapping(false, 1001, 0)
+
+			mappings = getMappings(false)
+			gomega.Expect(mappings).To(gomega.Equal([]uint32{100, 1001, 1001, 0}), "upf_tdf_ul_table")
+		})
+	})
+
 	ginkgo.Context("for node-id", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 

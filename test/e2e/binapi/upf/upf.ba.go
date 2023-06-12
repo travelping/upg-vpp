@@ -5,7 +5,7 @@
 // Contents:
 //   3 enums
 //   1 struct
-//  50 messages
+//  54 messages
 //
 package upf
 
@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0x366b0e2b
+	VersionCrc = 0x44035d50
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -2149,6 +2149,163 @@ func (m *UpfTdfUlEnableDisableReply) Unmarshal(b []byte) error {
 	return nil
 }
 
+// UpfTdfUlTable defines message 'upf_tdf_ul_table'.
+type UpfTdfUlTable struct {
+	IsIPv6 bool `binapi:"bool,name=is_ipv6" json:"is_ipv6,omitempty"`
+}
+
+func (m *UpfTdfUlTable) Reset()               { *m = UpfTdfUlTable{} }
+func (*UpfTdfUlTable) GetMessageName() string { return "upf_tdf_ul_table" }
+func (*UpfTdfUlTable) GetCrcString() string   { return "98d231ca" }
+func (*UpfTdfUlTable) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfTdfUlTable) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 1 // m.IsIPv6
+	return size
+}
+func (m *UpfTdfUlTable) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeBool(m.IsIPv6)
+	return buf.Bytes(), nil
+}
+func (m *UpfTdfUlTable) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.IsIPv6 = buf.DecodeBool()
+	return nil
+}
+
+// UpfTdfUlTableAdd defines message 'upf_tdf_ul_table_add'.
+type UpfTdfUlTableAdd struct {
+	IsAdd            bool   `binapi:"bool,name=is_add" json:"is_add,omitempty"`
+	IsIPv6           bool   `binapi:"bool,name=is_ipv6" json:"is_ipv6,omitempty"`
+	TableID          uint32 `binapi:"u32,name=table_id" json:"table_id,omitempty"`
+	SrcLookupTableID uint32 `binapi:"u32,name=src_lookup_table_id" json:"src_lookup_table_id,omitempty"`
+}
+
+func (m *UpfTdfUlTableAdd) Reset()               { *m = UpfTdfUlTableAdd{} }
+func (*UpfTdfUlTableAdd) GetMessageName() string { return "upf_tdf_ul_table_add" }
+func (*UpfTdfUlTableAdd) GetCrcString() string   { return "040a316b" }
+func (*UpfTdfUlTableAdd) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfTdfUlTableAdd) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 1 // m.IsAdd
+	size += 1 // m.IsIPv6
+	size += 4 // m.TableID
+	size += 4 // m.SrcLookupTableID
+	return size
+}
+func (m *UpfTdfUlTableAdd) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeBool(m.IsAdd)
+	buf.EncodeBool(m.IsIPv6)
+	buf.EncodeUint32(m.TableID)
+	buf.EncodeUint32(m.SrcLookupTableID)
+	return buf.Bytes(), nil
+}
+func (m *UpfTdfUlTableAdd) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.IsAdd = buf.DecodeBool()
+	m.IsIPv6 = buf.DecodeBool()
+	m.TableID = buf.DecodeUint32()
+	m.SrcLookupTableID = buf.DecodeUint32()
+	return nil
+}
+
+// UpfTdfUlTableAddReply defines message 'upf_tdf_ul_table_add_reply'.
+type UpfTdfUlTableAddReply struct {
+	Retval int32 `binapi:"i32,name=retval" json:"retval,omitempty"`
+}
+
+func (m *UpfTdfUlTableAddReply) Reset()               { *m = UpfTdfUlTableAddReply{} }
+func (*UpfTdfUlTableAddReply) GetMessageName() string { return "upf_tdf_ul_table_add_reply" }
+func (*UpfTdfUlTableAddReply) GetCrcString() string   { return "e8d4e804" }
+func (*UpfTdfUlTableAddReply) GetMessageType() api.MessageType {
+	return api.ReplyMessage
+}
+
+func (m *UpfTdfUlTableAddReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Retval
+	return size
+}
+func (m *UpfTdfUlTableAddReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeInt32(m.Retval)
+	return buf.Bytes(), nil
+}
+func (m *UpfTdfUlTableAddReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Retval = buf.DecodeInt32()
+	return nil
+}
+
+// UpfTdfUlTableReply defines message 'upf_tdf_ul_table_reply'.
+type UpfTdfUlTableReply struct {
+	MappingsLen uint8    `binapi:"u8,name=mappings_len" json:"-"`
+	Mappings    []uint32 `binapi:"u32[mappings_len],name=mappings" json:"mappings,omitempty"`
+}
+
+func (m *UpfTdfUlTableReply) Reset()               { *m = UpfTdfUlTableReply{} }
+func (*UpfTdfUlTableReply) GetMessageName() string { return "upf_tdf_ul_table_reply" }
+func (*UpfTdfUlTableReply) GetCrcString() string   { return "d1a9fc2e" }
+func (*UpfTdfUlTableReply) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfTdfUlTableReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 1                   // m.MappingsLen
+	size += 4 * len(m.Mappings) // m.Mappings
+	return size
+}
+func (m *UpfTdfUlTableReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeUint8(uint8(len(m.Mappings)))
+	for i := 0; i < len(m.Mappings); i++ {
+		var x uint32
+		if i < len(m.Mappings) {
+			x = uint32(m.Mappings[i])
+		}
+		buf.EncodeUint32(x)
+	}
+	return buf.Bytes(), nil
+}
+func (m *UpfTdfUlTableReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.MappingsLen = buf.DecodeUint8()
+	m.Mappings = make([]uint32, m.MappingsLen)
+	for i := 0; i < len(m.Mappings); i++ {
+		m.Mappings[i] = buf.DecodeUint32()
+	}
+	return nil
+}
+
 // UpfUpdateApp defines message 'upf_update_app'.
 type UpfUpdateApp struct {
 	App         []byte      `binapi:"u8[64],name=app" json:"app,omitempty"`
@@ -2297,6 +2454,10 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfSetNodeIDReply)(nil), "upf_set_node_id_reply_e8d4e804")
 	api.RegisterMessage((*UpfTdfUlEnableDisable)(nil), "upf_tdf_ul_enable_disable_53c1a78f")
 	api.RegisterMessage((*UpfTdfUlEnableDisableReply)(nil), "upf_tdf_ul_enable_disable_reply_e8d4e804")
+	api.RegisterMessage((*UpfTdfUlTable)(nil), "upf_tdf_ul_table_98d231ca")
+	api.RegisterMessage((*UpfTdfUlTableAdd)(nil), "upf_tdf_ul_table_add_040a316b")
+	api.RegisterMessage((*UpfTdfUlTableAddReply)(nil), "upf_tdf_ul_table_add_reply_e8d4e804")
+	api.RegisterMessage((*UpfTdfUlTableReply)(nil), "upf_tdf_ul_table_reply_d1a9fc2e")
 	api.RegisterMessage((*UpfUpdateApp)(nil), "upf_update_app_50f53737")
 	api.RegisterMessage((*UpfUpdateAppReply)(nil), "upf_update_app_reply_e8d4e804")
 }
@@ -2352,6 +2513,10 @@ func AllMessages() []api.Message {
 		(*UpfSetNodeIDReply)(nil),
 		(*UpfTdfUlEnableDisable)(nil),
 		(*UpfTdfUlEnableDisableReply)(nil),
+		(*UpfTdfUlTable)(nil),
+		(*UpfTdfUlTableAdd)(nil),
+		(*UpfTdfUlTableAddReply)(nil),
+		(*UpfTdfUlTableReply)(nil),
 		(*UpfUpdateApp)(nil),
 		(*UpfUpdateAppReply)(nil),
 	}
