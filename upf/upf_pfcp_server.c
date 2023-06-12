@@ -682,6 +682,7 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
 
 	if (urr->traffic_timer.handle == ~0)
 	  {
+	    urr->traffic_timer.base = now;
 	    upf_pfcp_session_start_stop_urr_time (si, &urr->traffic_timer, 1);
 	  }
       }
@@ -1021,7 +1022,10 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	vec_free (expired);
 
 	if (pool_elts (urr->traffic) != 0)
-	  upf_pfcp_session_start_stop_urr_time (si, &urr->traffic_timer, 1);
+	  {
+	    urr->traffic_timer.base = now;
+	    upf_pfcp_session_start_stop_urr_time (si, &urr->traffic_timer, 1);
+	  }
       }
 
 #undef urr_check
