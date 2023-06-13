@@ -409,3 +409,14 @@ autoreply define upf_tdf_ul_table_add {
   u32 table_id;
   u32 src_lookup_table_id;
 };
+
+autoreply define upf_ueip_pool_nwi_add {
+  u32 client_index;
+  u32 context;
+
+  bool is_add;
+  /* 2 null terminated strings concatenated together
+   * 1st - nwi-name, 2nd - identity */
+  u8 names_len;
+  u8 names[names_len];
+};

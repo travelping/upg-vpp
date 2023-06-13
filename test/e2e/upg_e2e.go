@@ -604,6 +604,34 @@ var _ = ginkgo.Describe("CLI debug commands", func() {
 
 // TODO: validate both binapi and CLI against each other
 var _ = ginkgo.Describe("UPG Binary API", func() {
+	ginkgo.Context("for upf ueip pool", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+
+		addPool := func(isAdd bool, nwi_s string, name string) {
+			// concatenate the cstrings into a single byte array
+			totalLen := len(nwi_s) + len(name) + 2
+			names := make([]byte, totalLen)
+			copy(names, nwi_s)
+			copy(names[len(nwi_s)+1:], name)
+
+			req := &upf.UpfUeipPoolNwiAdd{
+				IsAdd:    isAdd,
+				Names:    names,
+				NamesLen: uint8(totalLen),
+			}
+			reply := &upf.UpfUeipPoolNwiAddReply{}
+
+			gomega.Expect(
+				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
+			).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
+		}
+
+		ginkgo.It("adds a pool", func() {
+			addPool(true, "sgi", "mypool")
+		})
+		// TODO: tdf tests are non-exhaustive
+	})
+
 	ginkgo.Context("for upf tdf ul enable", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 

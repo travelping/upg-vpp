@@ -1061,6 +1061,31 @@ vl_api_upf_tdf_ul_table_add_t_handler (vl_api_upf_tdf_ul_table_add_t * mp)
   REPLY_MACRO (VL_API_UPF_TDF_UL_TABLE_ADD_REPLY);
 }
 
+/* API message handler */
+static void
+vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t * mp)
+{
+  int rv = 0;
+  upf_main_t *sm = &upf_main;
+  vl_api_upf_ueip_pool_nwi_add_reply_t *rmp = NULL;
+
+  u8 *nwi_s = mp->names;
+  u8 *nwi_s_vec = 0;
+  u8 *name = mp->names;
+  u8 *nwi_name;
+
+  // calculate start of second cstring
+  while (*name++);
+
+  vec_validate (nwi_s_vec, name - nwi_s - 1);
+  memcpy (nwi_s_vec, nwi_s, name - nwi_s - 1);
+
+  nwi_name = upf_name_to_labels (nwi_s_vec);
+  rv = vnet_upf_ue_ip_pool_add_del (name, nwi_name, mp->is_add);
+
+  REPLY_MACRO (VL_API_UPF_UEIP_POOL_NWI_ADD_REPLY);
+}
+
 #include <upf/upf.api.c>
 
 static clib_error_t *
