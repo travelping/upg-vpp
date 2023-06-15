@@ -73,7 +73,13 @@ upf_pfcp_send_data (pfcp_msg_t * msg)
 
   s = session_get_from_handle_if_valid (msg->session_handle);
   if (!s)
-    return;
+    {
+      clib_warning
+	("WARNING: no session handle for msg local IP %U, remote IP %U",
+	 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+	 format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY);
+      return;
+    }
 
   mq = session_main_get_vpp_event_queue (s->thread_index);
   at.is_ip4 = ip46_address_is_ip4 (&msg->lcl.address);
@@ -82,9 +88,15 @@ upf_pfcp_send_data (pfcp_msg_t * msg)
   at.lcl_port = msg->lcl.port;
   at.rmt_port = msg->rmt.port;
 
-  app_send_dgram_raw (s->tx_fifo, &at, mq, msg->data,
-		      _vec_len (msg->data), SESSION_IO_EVT_TX,
-		      1 /* do_evt */ , 0);
+  if (app_send_dgram_raw (s->tx_fifo, &at, mq, msg->data,
+			  _vec_len (msg->data), SESSION_IO_EVT_TX,
+			  1 /* do_evt */ , 0) <= 0)
+    {
+      clib_warning
+	("WARNING: couldn't send msg: app_send_dgram_raw() failed: local IP %U, remote IP %U",
+	 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+	 format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY);
+    }
   /*
    * This is needed in case if there are > 0 workers
    * as PFCP still runs on the main thread which can't
