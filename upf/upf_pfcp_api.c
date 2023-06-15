@@ -250,7 +250,6 @@ handle_heartbeat_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
     .type = PFCP_HEARTBEAT_RESPONSE
   };
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
-  u32 node = msg->node;
 
   memset (resp, 0, sizeof (*resp));
   SET_BIT (resp->grp.fields, PFCP_RESPONSE_RECOVERY_TIME_STAMP);
@@ -2567,6 +2566,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
   upf_main_t *gtm = &upf_main;
   ip46_address_t *ip_key;
   u8 *fqdn_key;
+  static f64 last_lost_assoc_ts = -1;
 
   memset (resp, 0, sizeof (*resp));
   SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
@@ -2584,20 +2584,26 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       clib_warning ("No established PFCP association: unknown node id <%U>",
 		    format_node_id, &req->request.node_id);
 
-      /* *INDENT-OFF* */
-      pool_foreach (assoc, gtm->nodes)
+      if (last_lost_assoc_ts < 0 || now - last_lost_assoc_ts > 10)
 	{
-	  clib_warning ("Active association %u: %U", assoc - gtm->nodes, format_pfcp_node_association, assoc, 1);
+	  last_lost_assoc_ts = now;
+
+          /* *INDENT-OFF* */
+          pool_foreach (assoc, gtm->nodes)
+	  {
+	    clib_warning ("Active association %u: %U", assoc - gtm->nodes,
+			  format_pfcp_node_association, assoc, 0);
+	  }
+          mhash_foreach(ip_key, v, &gtm->node_index_by_ip,
+          ({
+            clib_warning ("IP assoc map: [%U] -> %u\n", format_ip46_address, ip_key, *v);
+          }));
+          hash_foreach_mem(fqdn_key, w, gtm->node_index_by_fqdn,
+          ({
+            clib_warning ("FQDN assoc map: [%U] -> %u\n", format_dns_labels, fqdn_key, w);
+          }));
+          /* *INDENT-ON* */
 	}
-      mhash_foreach(ip_key, v, &gtm->node_index_by_ip,
-      ({
-        clib_warning ("IP assoc map: [%U] -> %u\n", format_ip46_address, ip_key, *v);
-      }));
-      hash_foreach_mem(fqdn_key, w, gtm->node_index_by_fqdn,
-      ({
-        clib_warning ("FQDN assoc map: [%U] -> %u\n", format_dns_labels, fqdn_key, w);
-      }));
-      /* *INDENT-ON* */
 
       tp_session_error_report (resp, "no established PFCP association");
 
