@@ -136,11 +136,11 @@ extern pfcp_server_main_t pfcp_server_main;
 
 #define UDP_DST_PORT_PFCP 8805
 
-void upf_pfcp_session_stop_up_inactivity_timer (urr_time_t * t);
+void upf_pfcp_session_stop_up_inactivity_timer (u32 si, urr_time_t * t);
 void upf_pfcp_session_start_up_inactivity_timer (u32 si, f64 last,
 						 urr_time_t * t);
 
-void upf_pfcp_session_stop_urr_time (urr_time_t * t, f64 now);
+void upf_pfcp_session_stop_urr_time (u32 si, urr_time_t * t, f64 now);
 void upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t,
 					   u8 start_it);
 

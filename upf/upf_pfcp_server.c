@@ -63,6 +63,45 @@ pfcp_server_main_t pfcp_server_main;
 
 #define MAX_HDRS_LEN    100	/* Max number of bytes for headers */
 
+
+bool
+upf_validate_timer (const char *tag, TWT (tw_timer_wheel) * tw, u32 handle,
+		    u32 user_handle)
+{
+  TWT (tw_timer) * t;
+
+  if (handle == ~0)
+    return false;
+
+  if (pool_is_free_index (tw->timers, handle))
+    {
+      clib_warning
+	("timer error: attempting stop %s timer twice, handle %u, user handle 0x%08x",
+	 tag, handle, user_handle);
+      return false;
+    }
+
+  t = pool_elt_at_index (tw->timers, handle);
+
+  if (t->user_handle != user_handle)
+    {
+      clib_warning
+	("timer error: attempting to stop invalid %s timer, handle %u, "
+	 "expected user handle 0x%08x, user handle 0x%08x", tag, handle,
+	 user_handle, t->user_handle);
+      return false;
+    }
+
+  return true;
+}
+
+bool
+upf_validate_timer_with_id (const char *tag, TWT (tw_timer_wheel) * tw,
+			    u32 handle, u8 type, u32 id)
+{
+  return upf_validate_timer (tag, tw, handle, ((0x80 | type) << 24) | id);
+}
+
 static void
 upf_pfcp_send_data (pfcp_msg_t * msg)
 {
@@ -731,12 +770,21 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
 }
 
 void
-upf_pfcp_session_stop_up_inactivity_timer (urr_time_t * t)
+upf_pfcp_session_stop_up_inactivity_timer (u32 si, urr_time_t * t)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
-  if (t->handle != ~0 && t->expected > vlib_time_now (psm->vlib_main))
-    TW (tw_timer_stop) (&psm->timer, t->handle);
+  if (upf_validate_timer ("inactivity timer", &psm->timer, t->handle, si))
+    {
+      if (vlib_time_now (psm->vlib_main) > t->expected)
+	{
+	  clib_warning
+	    ("timer error: stopping UP inactivity timer late by %.3f s\n",
+	     vlib_time_now (psm->vlib_main) - t->expected);
+	}
+      else
+	TW (tw_timer_stop) (&psm->timer, t->handle);
+    }
 
   t->handle = ~0;
   t->expected = 0;
@@ -770,21 +818,19 @@ upf_pfcp_session_start_up_inactivity_timer (u32 si, f64 last, urr_time_t * t)
 }
 
 void
-upf_pfcp_session_stop_urr_time (urr_time_t * t, const f64 now)
+upf_pfcp_session_stop_urr_time (u32 si, urr_time_t * t, const f64 now)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
-  if (t->handle != ~0 && t->expected > now)
+  if (upf_validate_timer ("urr timer", &psm->timer, t->handle, si))
     {
-      /* The timer wheel stop expired timers automatically. We don't map
-       * expired timers to their urr_time_t structure, therefore the handle
-       * might already be reused.
-       * Only stop the timer if we are sure that it can not possibly have
-       * expired yet.
-       * Failing to stop a timer is not a problem. The timer will fire, but
-       * the URR scan woun't find any expired URRs.
-       */
-      TW (tw_timer_stop) (&psm->timer, t->handle);
+      if (now > t->expected)
+	{
+	  clib_warning ("timer error: stopping URR late by %.3f s\n",
+			now - t->expected);
+	}
+      else
+	TW (tw_timer_stop) (&psm->timer, t->handle);
     }
 
   t->handle = ~0;
@@ -801,7 +847,7 @@ upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t, u8 start_it)
   const f64 now = psm->timer.last_run_time;
 
   if (t->handle != ~0)
-    upf_pfcp_session_stop_urr_time (t, now);
+    upf_pfcp_session_stop_urr_time (si, t, now);
 
   if (t->period != 0 && start_it)
     {
@@ -865,7 +911,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
       else
 	{
 	  upf_pfcp_session_stop_up_inactivity_timer
-	    (&active->inactivity_timer);
+	    (si, &active->inactivity_timer);
 	  upf_pfcp_session_start_up_inactivity_timer (si, sx->last_ul_traffic,
 						      &active->inactivity_timer);
 	}
@@ -883,9 +929,9 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
     (((V).base != 0) && ((V).period != 0) &&		\
      ((V).expected != 0) && (V).expected < (NOW))
 #define urr_check_late(V, NOW)					\
-    do { 							\
+    do {							\
       if ((V).expected < (NOW) - LATE_TIMER_WARNING_THRESHOLD)	\
-	clib_warning("WARNING: timer late by %.4f seconds: "#V, \
+	clib_warning("timer error: timer late by %.4f seconds: "#V, \
 		     (NOW) - (V).expected);			\
     } while (0)
 
@@ -971,7 +1017,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	      clib_min (trigger_now, urr->time_threshold.expected);
 	  }
 
-	upf_pfcp_session_stop_urr_time (&urr->time_threshold, now);
+	upf_pfcp_session_stop_urr_time (si, &urr->time_threshold, now);
       }
     if (urr_check (urr->time_quota, now))
       {
@@ -982,7 +1028,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	    trigger_now = clib_min (trigger_now, urr->time_quota.expected);
 	  }
 
-	upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
+	upf_pfcp_session_stop_urr_time (si, &urr->time_quota, now);
 	urr->time_quota.period = 0;
 	urr->status |= URR_OVER_QUOTA;
       }
@@ -996,7 +1042,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	      clib_min (trigger_now, urr->quota_validity_time.expected);
 	  }
 
-	upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
+	upf_pfcp_session_stop_urr_time (si, &urr->quota_validity_time, now);
 	urr->quota_validity_time.period = 0;
 	urr->status |= URR_OVER_QUOTA;
       }
@@ -1079,7 +1125,7 @@ upf_validate_session_timer (upf_session_t * sx)
 
     error++;
     clib_warning
-      ("WARNING: Pending URR %p with active timer handler, Session 0x%016"
+      ("timer error: Pending URR %p with active timer handler, Session 0x%016"
        PRIx64 ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE URR_DEUBG_LINE
        URR_DEUBG_LINE URR_DEUBG_ABS_LINE, urr, sx->cp_seid, urr->id,
        URR_DEBUG_VALUES ("Period", urr->measurement_period),
@@ -1102,14 +1148,14 @@ upf_validate_session_timer (upf_session_t * sx)
       continue;
 
     error++;
-    clib_warning ("WARNING: Active URR %p with expired timer, Session 0x%016"
-		  PRIx64 ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE
-		  URR_DEUBG_LINE URR_DEUBG_LINE URR_DEUBG_ABS_LINE, urr,
-		  sx->cp_seid, urr->id, URR_DEBUG_VALUES ("Period",
-							  urr->measurement_period),
-		  URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
-		  URR_DEBUG_VALUES ("Quota", urr->time_quota),
-		  URR_DEBUG_ABS_VALUES ("Monitoring", urr->monitoring_time));
+    clib_warning
+      ("timer error: Active URR %p with expired timer, Session 0x%016" PRIx64
+       ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE URR_DEUBG_LINE
+       URR_DEUBG_LINE URR_DEUBG_ABS_LINE, urr, sx->cp_seid, urr->id,
+       URR_DEBUG_VALUES ("Period", urr->measurement_period),
+       URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
+       URR_DEBUG_VALUES ("Quota", urr->time_quota),
+       URR_DEBUG_ABS_VALUES ("Monitoring", urr->monitoring_time));
   }
 #undef urr_check
 
@@ -1160,16 +1206,57 @@ void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg)
    * Ref: https://www.mail-archive.com/vpp-dev@lists.fd.io/msg10495.html
    */
   if (msg->timer != ~0)
-    TW (tw_timer_stop) (&psm->timer, msg->timer);
-  msg->timer = ~0;
+    {
+      bool valid = true;
+
+      if (pool_is_free_index (psm->timer.timers, msg->timer))
+	{
+	  clib_warning
+	    ("timer error: attempting to stop message timer twice, handle %u, "
+	     "seq_no %u (0x%08x), msg index %u (0x%08x)",
+	     msg->timer, msg->seq_no, msg->seq_no, pfcp_msg_get_index (psm,
+								       msg),
+	     pfcp_msg_get_index (psm, msg));
+	  valid = false;
+	}
+      else
+	{
+	  TWT (tw_timer) * t;
+
+	  t = pool_elt_at_index (psm->timer.timers, msg->timer);
+
+	  if (t->user_handle != id_t1 && t->user_handle != id_resp)
+	    {
+	      clib_warning
+		("timer error: attempting to stop invalid message timer, handle %u, "
+		 "msg seq_no %u (0x%08x), msg index %u (0x%08x), user handle 0x%08x",
+		 msg->timer, msg->seq_no, msg->seq_no,
+		 pfcp_msg_get_index (psm, msg), pfcp_msg_get_index (psm, msg),
+		 t->user_handle);
+	      valid = false;
+	    }
+	}
+
+      if (valid)
+	{
+	  TW (tw_timer_stop) (&psm->timer, msg->timer);
+	  msg->timer = ~0;
+	}
+    }
 }
 
 void upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t * n)
 {
+  upf_main_t *gtm = &upf_main;
   pfcp_server_main_t *psm = &pfcp_server_main;
 
-  if (n->heartbeat_handle != ~0)
-    TW (tw_timer_stop) (&psm->timer, n->heartbeat_handle);
+  if (upf_validate_timer_with_id
+      ("heartbeat", &psm->timer, n->heartbeat_handle, PFCP_SERVER_HB_TIMER,
+       n - gtm->nodes))
+    {
+      TW (tw_timer_stop) (&psm->timer, n->heartbeat_handle);
+      n->heartbeat_handle = ~0;
+    }
 }
 
 u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds)
@@ -1449,12 +1536,13 @@ static uword
 	     */
 	    if (psm->now > msg->expires_at + 1)
 	      clib_warning
-		("Deleting expired message from %U:%d to %U:%d, seq_no %d, expired %f seconds ago",
+		("timer error: deleting expired message from %U:%d to %U:%d, "
+		 "seq_no %d, handle 0x%08x, expired %.3f seconds ago",
 		 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
 		 clib_net_to_host_u16 (msg->lcl.port), format_ip46_address,
 		 &msg->rmt.address, IP46_TYPE_ANY,
 		 clib_net_to_host_u16 (msg->rmt.port), msg->seq_no,
-		 psm->now - msg->expires_at);
+		 msg->timer, psm->now - msg->expires_at);
 	    else
 	      continue;
 	  }

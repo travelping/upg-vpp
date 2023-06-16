@@ -1080,6 +1080,7 @@ pfcp_disable_session (upf_session_t * sx)
   pfcp_server_main_t *psm = &pfcp_server_main;
   const f64 now = psm->timer.last_run_time;
   upf_main_t *gtm = &upf_main;
+  u32 si = sx - gtm->sessions;
   ue_ip_t *ue_ip;
   gtpu4_endp_rule_t *v4_teid;
   gtpu6_endp_rule_t *v6_teid;
@@ -1112,13 +1113,13 @@ pfcp_disable_session (upf_session_t * sx)
   /* stop all timers */
   vec_foreach (urr, active->urr)
   {
-    upf_pfcp_session_stop_urr_time (&urr->measurement_period, now);
-    upf_pfcp_session_stop_urr_time (&urr->time_threshold, now);
-    upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
-    upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
-    upf_pfcp_session_stop_urr_time (&urr->traffic_timer, now);
+    upf_pfcp_session_stop_urr_time (si, &urr->measurement_period, now);
+    upf_pfcp_session_stop_urr_time (si, &urr->time_threshold, now);
+    upf_pfcp_session_stop_urr_time (si, &urr->time_quota, now);
+    upf_pfcp_session_stop_urr_time (si, &urr->quota_validity_time, now);
+    upf_pfcp_session_stop_urr_time (si, &urr->traffic_timer, now);
   }
-  upf_pfcp_session_stop_up_inactivity_timer (&active->inactivity_timer);
+  upf_pfcp_session_stop_up_inactivity_timer (si, &active->inactivity_timer);
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters
 				 [UPF_SESSIONS_COUNTER],
@@ -2045,7 +2046,8 @@ pfcp_update_apply (upf_session_t * sx)
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
   if (active->inactivity_timer.handle != pending->inactivity_timer.handle)
-    upf_pfcp_session_stop_up_inactivity_timer (&pending->inactivity_timer);
+    upf_pfcp_session_stop_up_inactivity_timer (si,
+					       &pending->inactivity_timer);
   upf_pfcp_session_start_up_inactivity_timer (si, sx->last_ul_traffic,
 					      &active->inactivity_timer);
 
@@ -2145,11 +2147,13 @@ pfcp_update_apply (upf_session_t * sx)
 	if (!new_urr)
 	  {
 	    /* stop all timers */
-	    upf_pfcp_session_stop_urr_time (&urr->measurement_period, now);
-	    upf_pfcp_session_stop_urr_time (&urr->time_threshold, now);
-	    upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
-	    upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
-	    upf_pfcp_session_stop_urr_time (&urr->traffic_timer, now);
+	    upf_pfcp_session_stop_urr_time (si, &urr->measurement_period,
+					    now);
+	    upf_pfcp_session_stop_urr_time (si, &urr->time_threshold, now);
+	    upf_pfcp_session_stop_urr_time (si, &urr->time_quota, now);
+	    upf_pfcp_session_stop_urr_time (si, &urr->quota_validity_time,
+					    now);
+	    upf_pfcp_session_stop_urr_time (si, &urr->traffic_timer, now);
 
 	    continue;
 	  }
