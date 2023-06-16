@@ -722,7 +722,8 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
 	if (urr->traffic_timer.handle == ~0)
 	  {
 	    urr->traffic_timer.base = now;
-	    upf_pfcp_session_start_stop_urr_time (si, &urr->traffic_timer, 1);
+	    upf_pfcp_session_start_stop_urr_time (si, URR_TRAFFIC_TIMER,
+						  &urr->traffic_timer, 1);
 	  }
       }
   }
@@ -817,12 +818,22 @@ upf_pfcp_session_start_up_inactivity_timer (u32 si, f64 last, urr_time_t * t)
      unix_time_now (), psm->timer.current_tick);
 }
 
+static const char *upf_timer_type[] = {
+  "MEASUREMENT_PERIOD",
+  "TIME_THRESHOLD",
+  "TIME_QUOTA",
+  "QUOTA_HOLDING",
+  "QUOTA_VALIDITY",
+  "TRAFFIC_TIMER"
+};
+
 void
-upf_pfcp_session_stop_urr_time (u32 si, urr_time_t * t, const f64 now)
+upf_pfcp_session_stop_urr_time (u32 si, upf_timer_t ut, urr_time_t * t,
+				const f64 now)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
-  if (upf_validate_timer ("urr timer", &psm->timer, t->handle, si))
+  if (upf_validate_timer (upf_timer_type[ut], &psm->timer, t->handle, si))
     {
       if (now > t->expected)
 	{
@@ -838,7 +849,8 @@ upf_pfcp_session_stop_urr_time (u32 si, urr_time_t * t, const f64 now)
 }
 
 void
-upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t, u8 start_it)
+upf_pfcp_session_start_stop_urr_time (u32 si, upf_timer_t ut, urr_time_t * t,
+				      u8 start_it)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
@@ -847,7 +859,7 @@ upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t, u8 start_it)
   const f64 now = psm->timer.last_run_time;
 
   if (t->handle != ~0)
-    upf_pfcp_session_stop_urr_time (si, t, now);
+    upf_pfcp_session_stop_urr_time (si, ut, t, now);
 
   if (t->period != 0 && start_it)
     {
@@ -1004,7 +1016,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 
 	/* rearm Measurement Period */
 	upf_pfcp_session_start_stop_urr_time
-	  (si, &urr->measurement_period, 1);
+	  (si, URR_MEASUREMENT_PERIOD_TIMER, &urr->measurement_period, 1);
 
       }
     if (urr_check (urr->time_threshold, now))
@@ -1017,7 +1029,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	      clib_min (trigger_now, urr->time_threshold.expected);
 	  }
 
-	upf_pfcp_session_stop_urr_time (si, &urr->time_threshold, now);
+	upf_pfcp_session_stop_urr_time (si, URR_TIME_THRESHOLD_TIMER,
+					&urr->time_threshold, now);
       }
     if (urr_check (urr->time_quota, now))
       {
@@ -1028,7 +1041,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	    trigger_now = clib_min (trigger_now, urr->time_quota.expected);
 	  }
 
-	upf_pfcp_session_stop_urr_time (si, &urr->time_quota, now);
+	upf_pfcp_session_stop_urr_time (si, URR_TIME_QUOTA_TIMER,
+					&urr->time_quota, now);
 	urr->time_quota.period = 0;
 	urr->status |= URR_OVER_QUOTA;
       }
@@ -1042,7 +1056,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	      clib_min (trigger_now, urr->quota_validity_time.expected);
 	  }
 
-	upf_pfcp_session_stop_urr_time (si, &urr->quota_validity_time, now);
+	upf_pfcp_session_stop_urr_time (si, URR_QUOTA_VALIDITY_TIME_TIMER,
+					&urr->quota_validity_time, now);
 	urr->quota_validity_time.period = 0;
 	urr->status |= URR_OVER_QUOTA;
       }
@@ -1070,7 +1085,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	if (pool_elts (urr->traffic) != 0)
 	  {
 	    urr->traffic_timer.base = now;
-	    upf_pfcp_session_start_stop_urr_time (si, &urr->traffic_timer, 1);
+	    upf_pfcp_session_start_stop_urr_time (si, URR_TRAFFIC_TIMER,
+						  &urr->traffic_timer, 1);
 	  }
       }
 

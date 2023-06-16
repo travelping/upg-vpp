@@ -640,6 +640,16 @@ typedef struct
   f64 first_seen;
 } upf_urr_traffic_t;
 
+typedef enum
+{
+  URR_MEASUREMENT_PERIOD_TIMER = 0,
+  URR_TIME_THRESHOLD_TIMER,
+  URR_TIME_QUOTA_TIMER,
+  URR_QUOTA_HOLDING_TIME_TIMER,
+  URR_QUOTA_VALIDITY_TIME_TIMER,
+  URR_TRAFFIC_TIMER,
+} upf_timer_t;
+
 /* Usage Reporting Rules */
 typedef struct
 {

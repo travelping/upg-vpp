@@ -140,9 +140,10 @@ void upf_pfcp_session_stop_up_inactivity_timer (u32 si, urr_time_t * t);
 void upf_pfcp_session_start_up_inactivity_timer (u32 si, f64 last,
 						 urr_time_t * t);
 
-void upf_pfcp_session_stop_urr_time (u32 si, urr_time_t * t, f64 now);
-void upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t,
-					   u8 start_it);
+void upf_pfcp_session_stop_urr_time (u32 si, upf_timer_t ut, urr_time_t * t,
+				     f64 now);
+void upf_pfcp_session_start_stop_urr_time (u32 si, upf_timer_t ut,
+					   urr_time_t * t, u8 start_it);
 
 u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds);
 void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg);
