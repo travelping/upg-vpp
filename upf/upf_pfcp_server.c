@@ -798,6 +798,7 @@ upf_pfcp_session_update_up_inactivity_timer (u32 si, f64 last, urr_time_t * t)
      unix_time_now (), psm->timer.current_tick);
 }
 
+#if CLIB_DEBUG > 1
 static const char *upf_timer_type[] = {
   "MEASUREMENT_PERIOD",
   "TIME_THRESHOLD",
@@ -806,6 +807,7 @@ static const char *upf_timer_type[] = {
   "QUOTA_VALIDITY",
   "TRAFFIC_TIMER"
 };
+#endif
 
 int
 upf_pfcp_session_urr_is_started (u32 si, upf_timer_t ut, urr_time_t * t)
