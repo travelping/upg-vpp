@@ -20,7 +20,7 @@
 #include <time.h>
 #include "upf.h"
 #include "pfcp.h"
-#include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
+#include "upf_tw_timer_1t_3w_1024sl_ov.h"
 
 #define PFCP_DEFAULT_REQUEST_INTERVAL 10
 #define PFCP_DEFAULT_REQUEST_RETRIES 3
