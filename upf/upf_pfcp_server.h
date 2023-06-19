@@ -136,17 +136,18 @@ extern pfcp_server_main_t pfcp_server_main;
 
 #define UDP_DST_PORT_PFCP 8805
 
-void upf_pfcp_session_stop_up_inactivity_timer (urr_time_t * t);
-void upf_pfcp_session_start_up_inactivity_timer (u32 si, f64 last,
-						 urr_time_t * t);
+void upf_pfcp_session_stop_and_free_up_inactivity_timer (urr_time_t * t);
+void upf_pfcp_session_update_up_inactivity_timer (u32 si, f64 last,
+						  urr_time_t * t);
 
-void upf_pfcp_session_stop_urr_time (urr_time_t * t, f64 now);
-void upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t,
-					   u8 start_it);
+int upf_pfcp_session_urr_is_started (urr_time_t * t);
+void upf_pfcp_session_stop_urr_time (urr_time_t * t);
+void upf_pfcp_session_stop_and_free_urr_time (urr_time_t * t);
+void upf_pfcp_session_update_urr_time (u32 si, urr_time_t * t, u8 start_it);
 
-u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds);
+void upf_pfcp_server_start_timer (u32 * handle, u8 type, u32 id, u32 seconds);
 void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg);
-void upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t * n);
+void upf_pfcp_server_stop_and_free_heartbeat_timer (upf_node_assoc_t * n);
 void upf_pfcp_server_deferred_free_msgs_by_node (u32 node);
 
 int upf_pfcp_send_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg);
@@ -167,6 +168,7 @@ init_pfcp_msg (pfcp_msg_t * m)
   memset (m, 0, sizeof (*m));
   m->is_valid_pool_item = is_valid_pool_item;
   m->node = ~0;
+  m->timer = ~0;
 }
 
 static inline void
@@ -206,13 +208,13 @@ pfcp_msg_pool_get (pfcp_server_main_t * psm)
       u32 index = vec_pop (psm->msg_pool_cache);
 
       m = pool_elt_at_index (psm->msg_pool, index);
-      init_pfcp_msg (m);
     }
   else
     {
       pool_get_aligned_zero (psm->msg_pool, m, CLIB_CACHE_LINE_BYTES);
     }
 
+  init_pfcp_msg (m);
   m->is_valid_pool_item = 1;
   return m;
 }
@@ -245,11 +247,18 @@ _pfcp_msg_pool_put (pfcp_server_main_t * psm, pfcp_msg_t * m)
 {
   ASSERT (m->is_valid_pool_item);
 
+  if (m->timer != ~0)
+    {
+      TW (tw_timer_stop) (&psm->timer, m->timer);
+      TW (tw_timer_free) (&psm->timer, m->timer);
+    }
+
   vec_free (m->data);
 #if CLIB_DEBUG > 0
   clib_memset (m, 0xfa, sizeof (pfcp_msg_t));
 #endif
   m->is_valid_pool_item = 0;
+  m->timer = ~0;
   vec_add1 (psm->msg_pool_free, m - psm->msg_pool);
 }
 
