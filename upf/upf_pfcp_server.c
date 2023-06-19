@@ -1494,7 +1494,7 @@ static uword
 	     */
 	    if (psm->now > msg->expires_at + 1)
 	      clib_warning
-		("Deleting expired message from %U:%d to %U:%d, seq_no %d, expired %f seconds ago",
+		("Deleting expired message from %U:%d to %U:%d, seq_no %d, expired %.3f seconds ago",
 		 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
 		 clib_net_to_host_u16 (msg->lcl.port), format_ip46_address,
 		 &msg->rmt.address, IP46_TYPE_ANY,
