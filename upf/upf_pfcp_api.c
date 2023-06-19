@@ -2567,6 +2567,10 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       struct rules *pending = pfcp_get_rules (sess, PFCP_PENDING);
 
       pending->inactivity_timer.period = req->user_plane_inactivity_timer;
+      upf_debug ("PFCP session creation: "
+		 "pending: period: %u secs, handle 0x%08x\n",
+		 pending->inactivity_timer.period,
+		 pending->inactivity_timer.handle);
     }
 
   if (ISSET_BIT (req->grp.fields, SESSION_ESTABLISHMENT_REQUEST_USER_ID))
@@ -2708,6 +2712,10 @@ handle_session_modification_request (pfcp_msg_t * msg,
 	  struct rules *pending = pfcp_get_rules (sess, PFCP_PENDING);
 
 	  pending->inactivity_timer.period = req->user_plane_inactivity_timer;
+	  upf_debug ("PFCP session modification: "
+		     "pending: period: %u secs, handle 0x%08x\n",
+		     pending->inactivity_timer.period,
+		     pending->inactivity_timer.handle);
 	}
 
       if ((r = handle_create_pdr (sess, req->create_pdr, resp)) != 0)

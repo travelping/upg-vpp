@@ -680,10 +680,12 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
 				  urr->liusa_bitmap, now);
 	send = 1;
 
-	if (!upf_pfcp_session_urr_is_started (&urr->traffic_timer))
+	if (!upf_pfcp_session_urr_is_started
+	    (si, URR_TRAFFIC_TIMER, &urr->traffic_timer))
 	  {
 	    urr->traffic_timer.base = now;
-	    upf_pfcp_session_update_urr_time (si, &urr->traffic_timer, 1);
+	    upf_pfcp_session_update_urr_time (si, URR_TRAFFIC_TIMER,
+					      &urr->traffic_timer, 1);
 	  }
       }
   }
@@ -731,9 +733,12 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
 }
 
 void
-upf_pfcp_session_stop_up_inactivity_timer (urr_time_t * t)
+upf_pfcp_session_stop_up_inactivity_timer (u32 si, urr_time_t * t)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
+
+  upf_debug ("stop UP inactivity timer on si %u, "
+	     "handle 0x%08x, period %u secs\n", si, t->handle, t->period);
 
   if (t->handle != ~0)
     TW (tw_timer_stop) (&psm->timer, t->handle);
@@ -742,9 +747,12 @@ upf_pfcp_session_stop_up_inactivity_timer (urr_time_t * t)
 }
 
 void
-upf_pfcp_session_stop_and_free_up_inactivity_timer (urr_time_t * t)
+upf_pfcp_session_stop_and_free_up_inactivity_timer (u32 si, urr_time_t * t)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
+
+  upf_debug ("stop and free UP inactivity timer on si %u, "
+	     "handle 0x%08x, period %u secs\n", si, t->handle, t->period);
 
   if (t->handle == ~0)
     return;
@@ -761,9 +769,12 @@ upf_pfcp_session_update_up_inactivity_timer (u32 si, f64 last, urr_time_t * t)
   i64 interval;
   f64 period;
 
+  upf_debug ("updating UP inactivity timer on si %u, "
+	     "handle 0x%08x, period %u secs\n", si, t->handle, t->period);
+
   if (t->period == 0)
     {
-      upf_pfcp_session_stop_up_inactivity_timer (t);
+      upf_pfcp_session_stop_up_inactivity_timer (si, t);
       return;
     }
 
@@ -780,26 +791,41 @@ upf_pfcp_session_update_up_inactivity_timer (u32 si, f64 last, urr_time_t * t)
   TW (tw_timer_update) (&psm->timer, t->handle, interval);
 
   upf_debug
-    ("starting UP inactivity timer on sidx %u, handle 0x%08x: "
+    ("updating UP inactivity timer on sidx %u, handle 0x%08x: "
      "now is %.4f, expire in %lu ticks "
      " clib_now %.4f, current tick: %u",
      si, t->handle, psm->timer.last_run_time, interval,
      unix_time_now (), psm->timer.current_tick);
 }
 
+static const char *upf_timer_type[] = {
+  "MEASUREMENT_PERIOD",
+  "TIME_THRESHOLD",
+  "TIME_QUOTA",
+  "QUOTA_HOLDING",
+  "QUOTA_VALIDITY",
+  "TRAFFIC_TIMER"
+};
+
 int
-upf_pfcp_session_urr_is_started (urr_time_t * t)
+upf_pfcp_session_urr_is_started (u32 si, upf_timer_t ut, urr_time_t * t)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
+
+  upf_debug ("URR ~s is_started, si %u, handle 0x%08x", upf_timer_type[ut],
+	     si, t->handle);
 
   return ((t->handle != ~0)
 	  && TW (tw_timer_handle_is_started) (&psm->timer, t->handle));
 }
 
 void
-upf_pfcp_session_stop_urr_time (urr_time_t * t)
+upf_pfcp_session_stop_urr_time (u32 si, upf_timer_t ut, urr_time_t * t)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
+
+  upf_debug ("URR ~s stop, si %u, handle 0x%08x", upf_timer_type[ut], si,
+	     t->handle);
 
   if (t->handle != ~0)
     TW (tw_timer_stop) (&psm->timer, t->handle);
@@ -808,9 +834,13 @@ upf_pfcp_session_stop_urr_time (urr_time_t * t)
 }
 
 void
-upf_pfcp_session_stop_and_free_urr_time (urr_time_t * t)
+upf_pfcp_session_stop_and_free_urr_time (u32 si, upf_timer_t ut,
+					 urr_time_t * t)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
+
+  upf_debug ("URR ~s stop and free, si %u, handle 0x%08x", upf_timer_type[ut],
+	     si, t->handle);
 
   if (t->handle == ~0)
     return;
@@ -821,7 +851,8 @@ upf_pfcp_session_stop_and_free_urr_time (urr_time_t * t)
 }
 
 void
-upf_pfcp_session_update_urr_time (u32 si, urr_time_t * t, u8 start_it)
+upf_pfcp_session_update_urr_time (u32 si, upf_timer_t ut, urr_time_t * t,
+				  u8 start_it)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
@@ -829,8 +860,11 @@ upf_pfcp_session_update_urr_time (u32 si, urr_time_t * t, u8 start_it)
    * we need to use the now timestamp of that current_tick */
   const f64 now = psm->timer.last_run_time;
 
+  upf_debug ("URR ~s update, si %u, handle 0x%08x, period %u secs",
+	     upf_timer_type[ut], si, t->handle, t->period);
+
   if (t->handle != ~0 && t->period == 0)
-    upf_pfcp_session_stop_urr_time (t);
+    upf_pfcp_session_stop_urr_time (si, ut, t);
 
   if (t->period != 0 && start_it)
     {
@@ -875,7 +909,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
-  upf_debug ("upf_pfcp_session_urr_timer (%p, 0x%016" PRIx64 " @ %u, %.4f)\n"
+  upf_debug ("upf_pfcp_session_urr_timer (%p, 0x%016" PRIx64
+	     " @ %u, %.4f)\n"
 	     "  UP Inactivity Timer: %u secs, inactive %12.4f secs (0x%08x)",
 	     sx, sx->cp_seid, sx - gtm->sessions, now,
 	     active->inactivity_timer.period,
@@ -988,7 +1023,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	  }
 
 	/* rearm Measurement Period */
-	upf_pfcp_session_update_urr_time (si, &urr->measurement_period, 1);
+	upf_pfcp_session_update_urr_time (si, URR_MEASUREMENT_PERIOD_TIMER,
+					  &urr->measurement_period, 1);
 
       }
     if (urr_check (urr->time_threshold, now))
@@ -1001,7 +1037,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	      clib_min (trigger_now, urr->time_threshold.expected);
 	  }
 
-	upf_pfcp_session_stop_urr_time (&urr->time_threshold);
+	upf_pfcp_session_stop_urr_time (si, URR_TIME_THRESHOLD_TIMER,
+					&urr->time_threshold);
       }
     if (urr_check (urr->time_quota, now))
       {
@@ -1012,7 +1049,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	    trigger_now = clib_min (trigger_now, urr->time_quota.expected);
 	  }
 
-	upf_pfcp_session_stop_urr_time (&urr->time_quota);
+	upf_pfcp_session_stop_urr_time (si, URR_TIME_QUOTA_TIMER,
+					&urr->time_quota);
 	urr->time_quota.period = 0;
 	urr->status |= URR_OVER_QUOTA;
       }
@@ -1026,7 +1064,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	      clib_min (trigger_now, urr->quota_validity_time.expected);
 	  }
 
-	upf_pfcp_session_stop_urr_time (&urr->quota_validity_time);
+	upf_pfcp_session_stop_urr_time (si, URR_QUOTA_VALIDITY_TIME_TIMER,
+					&urr->quota_validity_time);
 	urr->quota_validity_time.period = 0;
 	urr->status |= URR_OVER_QUOTA;
       }
@@ -1054,7 +1093,8 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	if (pool_elts (urr->traffic) != 0)
 	  {
 	    urr->traffic_timer.base = now;
-	    upf_pfcp_session_update_urr_time (si, &urr->traffic_timer, 1);
+	    upf_pfcp_session_update_urr_time (si, URR_TRAFFIC_TIMER,
+					      &urr->traffic_timer, 1);
 	  }
       }
 

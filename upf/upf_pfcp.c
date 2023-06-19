@@ -595,7 +595,11 @@ pfcp_create_session (upf_node_assoc_t * assoc,
 
   sx->last_ul_traffic = vlib_time_now (psm->vlib_main);
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)
-    sx->rules[i].inactivity_timer.handle = ~0;
+    {
+      sx->rules[i].inactivity_timer.handle = ~0;
+      upf_debug ("create rule %u, handle 0x%08x\n", i,
+		 sx->rules[i].inactivity_timer.handle);
+    }
 
   sx->unix_time_start = psm->now;
 
@@ -629,6 +633,13 @@ pfcp_update_session (upf_session_t * sx)
   // TODO: do we need some kind of update lock ?
 
   pending->inactivity_timer = active->inactivity_timer;
+  upf_debug ("update session: \n"
+	     "active: period: %u secs, handle 0x%08x\n",
+	     "pending: period: %u secs, handle 0x%08x\n",
+	     active->inactivity_timer.period,
+	     active->inactivity_timer.handle,
+	     pending->inactivity_timer.period,
+	     pending->inactivity_timer.handle);
 }
 
 static void
@@ -1083,6 +1094,7 @@ pfcp_disable_session (upf_session_t * sx)
   pfcp_server_main_t *psm = &pfcp_server_main;
   const f64 now = psm->timer.last_run_time;
   upf_main_t *gtm = &upf_main;
+  u32 si = sx - gtm->sessions;
   ue_ip_t *ue_ip;
   gtpu4_endp_rule_t *v4_teid;
   gtpu6_endp_rule_t *v6_teid;
@@ -1115,14 +1127,19 @@ pfcp_disable_session (upf_session_t * sx)
   /* stop all timers */
   vec_foreach (urr, active->urr)
   {
-    upf_pfcp_session_stop_urr_time (&urr->measurement_period);
-    upf_pfcp_session_stop_urr_time (&urr->time_threshold);
-    upf_pfcp_session_stop_urr_time (&urr->time_quota);
-    upf_pfcp_session_stop_urr_time (&urr->quota_validity_time);
-    upf_pfcp_session_stop_urr_time (&urr->traffic_timer);
+    upf_pfcp_session_stop_urr_time
+      (si, URR_MEASUREMENT_PERIOD_TIMER, &urr->measurement_period);
+    upf_pfcp_session_stop_urr_time
+      (si, URR_TIME_THRESHOLD_TIMER, &urr->time_threshold);
+    upf_pfcp_session_stop_urr_time
+      (si, URR_TIME_QUOTA_TIMER, &urr->time_quota);
+    upf_pfcp_session_stop_urr_time
+      (si, URR_QUOTA_VALIDITY_TIME_TIMER, &urr->quota_validity_time);
+    upf_pfcp_session_stop_urr_time
+      (si, URR_TRAFFIC_TIMER, &urr->traffic_timer);
   }
   upf_pfcp_session_stop_and_free_up_inactivity_timer
-    (&active->inactivity_timer);
+    (si, &active->inactivity_timer);
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters
 				 [UPF_SESSIONS_COUNTER],
@@ -2096,7 +2113,7 @@ pfcp_update_apply (upf_session_t * sx)
     if (urr->update_flags & PFCP_URR_UPDATE_MEASUREMENT_PERIOD)
       {
 	upf_pfcp_session_update_urr_time
-	  (si, &urr->measurement_period,
+	  (si, URR_MEASUREMENT_PERIOD_TIMER, &urr->measurement_period,
 	   !!(urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING));
       }
 
@@ -2105,7 +2122,7 @@ pfcp_update_apply (upf_session_t * sx)
 	if (urr->update_flags & PFCP_URR_UPDATE_TIME_THRESHOLD)
 	  {
 	    upf_pfcp_session_update_urr_time
-	      (si, &urr->time_threshold,
+	      (si, URR_TIME_THRESHOLD_TIMER, &urr->time_threshold,
 	       !!(urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD));
 	  }
 	if (urr->update_flags & PFCP_URR_UPDATE_TIME_QUOTA)
@@ -2113,7 +2130,8 @@ pfcp_update_apply (upf_session_t * sx)
 	    urr->time_quota.base =
 	      (urr->time_threshold.base !=
 	       0) ? urr->time_threshold.base : now;
-	    upf_pfcp_session_update_urr_time (si, &urr->time_quota,
+	    upf_pfcp_session_update_urr_time (si, URR_TIME_QUOTA_TIMER,
+					      &urr->time_quota,
 					      !!(urr->triggers &
 						 REPORTING_TRIGGER_TIME_QUOTA));
 	  }
@@ -2121,7 +2139,7 @@ pfcp_update_apply (upf_session_t * sx)
     if (urr->update_flags & PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME)
       {
 	urr->quota_validity_time.base = now;
-	upf_pfcp_session_update_urr_time (si,
+	upf_pfcp_session_update_urr_time (si, URR_QUOTA_VALIDITY_TIME_TIMER,
 					  &urr->quota_validity_time,
 					  !!(urr->triggers &
 					     REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
@@ -2147,13 +2165,16 @@ pfcp_update_apply (upf_session_t * sx)
 	if (!new_urr)
 	  {
 	    /* stop all timers */
-	    upf_pfcp_session_stop_and_free_urr_time
-	      (&urr->measurement_period);
-	    upf_pfcp_session_stop_and_free_urr_time (&urr->time_threshold);
-	    upf_pfcp_session_stop_and_free_urr_time (&urr->time_quota);
-	    upf_pfcp_session_stop_and_free_urr_time
-	      (&urr->quota_validity_time);
-	    upf_pfcp_session_stop_and_free_urr_time (&urr->traffic_timer);
+	    upf_pfcp_session_stop_urr_time
+	      (si, URR_MEASUREMENT_PERIOD_TIMER, &urr->measurement_period);
+	    upf_pfcp_session_stop_urr_time
+	      (si, URR_TIME_THRESHOLD_TIMER, &urr->time_threshold);
+	    upf_pfcp_session_stop_urr_time
+	      (si, URR_TIME_QUOTA_TIMER, &urr->time_quota);
+	    upf_pfcp_session_stop_urr_time
+	      (si, URR_QUOTA_VALIDITY_TIME_TIMER, &urr->quota_validity_time);
+	    upf_pfcp_session_stop_urr_time
+	      (si, URR_TRAFFIC_TIMER, &urr->traffic_timer);
 
 	    continue;
 	  }
