@@ -787,7 +787,7 @@ upf_pfcp_session_update_up_inactivity_timer (u32 si, f64 last, urr_time_t * t)
   interval = clib_max (interval, 1);	/* make sure interval is at least 1 */
 
   if (t->handle == ~0)
-    t->handle = TW (tw_timer_new) (&psm->timer, si, 0);
+    t->handle = TW (tw_timer_new) (&psm->timer, si, URR_INACTIVITY_TIMER);
   TW (tw_timer_update) (&psm->timer, t->handle, interval);
 
   upf_debug
@@ -877,7 +877,7 @@ upf_pfcp_session_update_urr_time (u32 si, upf_timer_t ut, urr_time_t * t,
       interval = clib_max (interval, 1);	/* make sure interval is at least 1 */
 
       if (t->handle == ~0)
-	t->handle = TW (tw_timer_new) (&psm->timer, si, 0);
+	t->handle = TW (tw_timer_new) (&psm->timer, si, ut);
       TW (tw_timer_update) (&psm->timer, t->handle, interval);
 
       upf_debug
@@ -1227,11 +1227,9 @@ void upf_pfcp_server_start_timer (u32 * handle, u8 type, u32 id, u32 seconds)
   i64 interval = seconds * psm->timer.ticks_per_second;
 
   ASSERT (handle);
-  ASSERT (type < 8);
-  ASSERT ((id & 0xff000000) == 0);
 
   if (*handle == ~0)
-    *handle = TW (tw_timer_new) (&psm->timer, ((0x80 | type) << 24) | id, 0);
+    *handle = TW (tw_timer_new) (&psm->timer, id, type);
   TW (tw_timer_update) (&psm->timer, *handle, interval);
 }
 
@@ -1262,8 +1260,8 @@ void upf_server_handle_hb_timer (u32 node_idx)
 
 static int timer_id_cmp (void *a1, void *a2)
 {
-  u32 *n1 = a1;
-  u32 *n2 = a2;
+  u64 *n1 = a1;
+  u64 *n2 = a2;
 
   if (*n1 < *n2)
       return -1;
@@ -1279,7 +1277,7 @@ static uword
   pfcp_server_main_t *psm = &pfcp_server_main;
   uword event_type, *event_data = 0;
   upf_main_t *gtm = &upf_main;
-  u32 last_expired;
+  u64 last_expired_sidx;
   pfcp_msg_t *msg;
 
   pfcp_msg_pool_init (psm);
@@ -1414,67 +1412,48 @@ static uword
 	}
 
       vec_sort_with_function (psm->expired, timer_id_cmp);
-      last_expired = ~0;
+      last_expired_sidx = ~0;
 
       for (int i = 0; i < vec_len (psm->expired); i++)
 	{
-	  /*
-	   * Check if the timer has been stopped while handling other
-	   * timers in this iteration of the upf_process() loop
-	   */
-	  if (psm->expired[i] == ~0)
-	    continue;
+	  const u32 type = psm->expired[i] >> 56;
+	  const u32 id = psm->expired[i] & ((1 < 32) - 1);
 
-	  switch (psm->expired[i] >> 24)
+	  switch (type)
 	    {
 	    case 0 ... 0x7f:
-	      if (last_expired == psm->expired[i])
-		continue;
-	      last_expired = psm->expired[i];
-
 	      {
-		const u32 si = psm->expired[i] & 0x7FFFFFFF;
 		upf_session_t *sx;
 
-		if (pool_is_free_index (gtm->sessions, si))
+		if (last_expired_sidx == id)
+		  continue;
+		last_expired_sidx = id;
+
+		if (pool_is_free_index (gtm->sessions, id))
 		  continue;
 
-		sx = pool_elt_at_index (gtm->sessions, si);
+		sx = pool_elt_at_index (gtm->sessions, id);
 		upf_pfcp_session_urr_timer (sx, psm->now);
 	      }
 	      break;
 
-	    case 0x80 | PFCP_SERVER_HB_TIMER:
-	      /*
-	       * It is important that the heartbeat timer handler runs
-	       * before the T1 timer below, which is ensured by the
-	       * value of PFCP_SERVER_HB_TIMER and PFCP_SERVER_T1
-	       * constants, and also by sorting the expired timers
-	       * above. This way, if the association is released due
-	       * to a T1 timeout, no attempt is made to stop the
-	       * expired heartbeat timer.
-	       * upf_server_handle_hb_timer() clears the expired
-	       * heartbeat timer handle.
-	       */
-	      upf_debug ("PFCP Server Heartbeat Timeout: %u",
-			 psm->expired[i] & 0x00FFFFFF);
-	      upf_server_handle_hb_timer (psm->expired[i] & 0x00FFFFFF);
+	    case PFCP_SERVER_HB_TIMER:
+	      upf_debug ("PFCP Server Heartbeat Timeout: %u", id);
+	      upf_server_handle_hb_timer (id);
 	      break;
 
-	    case 0x80 | PFCP_SERVER_T1:
-	      upf_debug ("PFCP Server T1 Timeout: %u",
-			 psm->expired[i] & 0x00FFFFFF);
-	      request_t1_expired (psm->expired[i] & 0x00FFFFFF);
+	    case PFCP_SERVER_T1:
+	      upf_debug ("PFCP Server T1 Timeout: %u", id);
+	      request_t1_expired (id);
 	      break;
 
-	    case 0x80 | PFCP_SERVER_RESPONSE:
-	      upf_debug ("PFCP Server Response Timeout: %u",
-			 psm->expired[i] & 0x00FFFFFF);
-	      response_expired (psm->expired[i] & 0x00FFFFFF);
+	    case PFCP_SERVER_RESPONSE:
+	      upf_debug ("PFCP Server Response Timeout: %u", id);
+	      response_expired (id);
 	      break;
 
 	    default:
-	      upf_debug ("timeout for unknown id: %u", psm->expired[i] >> 24);
+	      upf_debug ("timeout for unknown, type %0x02x, id %u", type, id);
 	      break;
 	    }
 	}

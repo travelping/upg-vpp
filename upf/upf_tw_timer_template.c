@@ -20,7 +20,7 @@
  */
 #if TW_START_STOP_TRACE_SIZE > 0
 
-void TW (tw_timer_trace) (TWT (tw_timer_wheel) * tw, u32 timer_id,
+void TW (tw_timer_trace) (TWT (tw_timer_wheel) * tw, u64 timer_id,
 			  u32 pool_index, u32 handle)
 {
   TWT (trace) * t = &tw->traces[tw->trace_index];
@@ -99,16 +99,16 @@ void TW (tw_search_trace) (TWT (tw_timer_wheel) * tw, u32 handle)
 }
 #endif /* TW_START_STOP_TRACE_SIZE > 0 */
 
-static inline u32
+static inline u64
 TW (make_internal_timer_handle) (u32 pool_index, u32 timer_id)
 {
-  u32 handle;
+  u64 handle;
 
   ASSERT (timer_id < TW_TIMERS_PER_OBJECT);
 #if LOG2_TW_TIMERS_PER_OBJECT > 0
-  ASSERT (pool_index < (1 << (32 - LOG2_TW_TIMERS_PER_OBJECT)));
+  ASSERT (pool_index < (1 << (64 - LOG2_TW_TIMERS_PER_OBJECT)));
 
-  handle = (timer_id << (32 - LOG2_TW_TIMERS_PER_OBJECT)) | (pool_index);
+  handle = (timer_id << (64 - LOG2_TW_TIMERS_PER_OBJECT)) | (pool_index);
 #else
   handle = pool_index;
 #endif
@@ -291,11 +291,11 @@ timer_add (TWT (tw_timer_wheel) * tw, TWT (tw_timer) * t, u64 interval)
  * @brief Initialize a new Tw Timer handle
  * @param tw_timer_wheel_t * tw timer wheel object pointer
  * @param u32 user_id user defined timer id, presumably for a tw session
- * @param u32 timer_id app-specific timer ID. 4 bits.
+ * @param u64 timer_id app-specific timer ID. 8 bytes.
  * @returns handle needed to manage the timer
  */
 __clib_export u32
-TW (tw_timer_new) (TWT (tw_timer_wheel) * tw, u32 user_id, u32 timer_id)
+TW (tw_timer_new) (TWT (tw_timer_wheel) * tw, u32 user_id, u64 timer_id)
 {
   TWT (tw_timer) * t;
 
@@ -527,14 +527,14 @@ __clib_export void TW (tw_timer_wheel_free) (TWT (tw_timer_wheel) * tw)
  * @returns u32 * vector of expired user handles
  */
 static inline
-  u32 * TW (tw_timer_expire_timers_internal) (TWT (tw_timer_wheel) * tw,
+  u64 * TW (tw_timer_expire_timers_internal) (TWT (tw_timer_wheel) * tw,
 					      f64 now,
-					      u32 * callback_vector_arg)
+					      u64 * callback_vector_arg)
 {
   u32 nticks, i;
   tw_timer_wheel_slot_t *ts;
   TWT (tw_timer) * t, *head;
-  u32 *callback_vector;
+  u64 *callback_vector;
   u32 fast_wheel_index;
   u32 next_index;
   u32 slow_wheel_index __attribute__((unused));
@@ -837,14 +837,14 @@ static inline
   return callback_vector;
 }
 
-__clib_export u32 *TW (tw_timer_expire_timers) (TWT (tw_timer_wheel) * tw,
+__clib_export u64 *TW (tw_timer_expire_timers) (TWT (tw_timer_wheel) * tw,
 						f64 now)
 {
   return TW (tw_timer_expire_timers_internal) (tw, now, 0 /* no vector */ );
 }
 
-__clib_export u32 *TW (tw_timer_expire_timers_vec) (TWT (tw_timer_wheel) * tw,
-						    f64 now, u32 * vec)
+__clib_export u64 *TW (tw_timer_expire_timers_vec) (TWT (tw_timer_wheel) * tw,
+						    f64 now, u64 * vec)
 {
   return TW (tw_timer_expire_timers_internal) (tw, now, vec);
 }

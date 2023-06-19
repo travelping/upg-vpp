@@ -145,7 +145,7 @@ typedef struct
   };
 
   /** user timer handle */
-  u32 user_handle;
+  u64 user_handle;
 } TWT (tw_timer);
 
 /*
@@ -174,7 +174,7 @@ typedef CLIB_PACKED (struct
 		     {
 		     u8 timer_id;
 		     u32 pool_index;
-		     u32 handle;
+		     u64 handle;
 		     }) TWT (trace);
 
 typedef struct
@@ -213,10 +213,10 @@ typedef struct
 #endif
 
   /** expired timer callback, receives a vector of handles */
-  void (*expired_timer_callback) (u32 * expired_timer_handles);
+  void (*expired_timer_callback) (u64 * expired_timer_handles);
 
   /** vectors of expired timers */
-  u32 *expired_timer_handles;
+  u64 *expired_timer_handles;
 
   /** maximum expirations */
   u32 max_expirations;
@@ -232,7 +232,7 @@ typedef struct
 } TWT (tw_timer_wheel);
 
 u32 TW (tw_timer_new) (TWT (tw_timer_wheel) * tw,
-		       u32 pool_index, u32 timer_id);
+		       u32 pool_index, u64 timer_id);
 void TW (tw_timer_free) (TWT (tw_timer_wheel) * tw, u32 handle);
 int TW (tw_timer_handle_is_free) (TWT (tw_timer_wheel) * tw, u32 handle);
 int TW (tw_timer_handle_is_started) (TWT (tw_timer_wheel) * tw, u32 handle);
@@ -248,16 +248,16 @@ void TW (tw_timer_wheel_init) (TWT (tw_timer_wheel) * tw,
 
 void TW (tw_timer_wheel_free) (TWT (tw_timer_wheel) * tw);
 
-u32 *TW (tw_timer_expire_timers) (TWT (tw_timer_wheel) * tw, f64 now);
-u32 *TW (tw_timer_expire_timers_vec) (TWT (tw_timer_wheel) * tw, f64 now,
-				      u32 * vec);
+u64 *TW (tw_timer_expire_timers) (TWT (tw_timer_wheel) * tw, f64 now);
+u64 *TW (tw_timer_expire_timers_vec) (TWT (tw_timer_wheel) * tw, f64 now,
+				      u64 * vec);
 #if TW_FAST_WHEEL_BITMAP
 u32 TW (tw_timer_first_expires_in_ticks) (TWT (tw_timer_wheel) * tw);
 #endif
 
 #if TW_START_STOP_TRACE_SIZE > 0
 void TW (tw_search_trace) (TWT (tw_timer_wheel) * tw, u32 handle);
-void TW (tw_timer_trace) (TWT (tw_timer_wheel) * tw, u32 timer_id,
+void TW (tw_timer_trace) (TWT (tw_timer_wheel) * tw, u64 timer_id,
 			  u32 pool_index, u32 handle);
 #endif
 

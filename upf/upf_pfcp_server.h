@@ -26,9 +26,10 @@
 #define PFCP_DEFAULT_REQUEST_RETRIES 3
 #define PFCP_MAX_HB_INTERVAL 120
 #define PFCP_MAX_HB_RETRIES 30
-#define PFCP_SERVER_HB_TIMER 0
-#define PFCP_SERVER_T1       1
-#define PFCP_SERVER_RESPONSE 2
+
+#define PFCP_SERVER_HB_TIMER 0x80
+#define PFCP_SERVER_T1       0x81
+#define PFCP_SERVER_RESPONSE 0x82
 
 extern vlib_node_registration_t pfcp_api_process_node;
 
@@ -115,7 +116,7 @@ typedef struct
   vlib_main_t *vlib_main;
 
   uword *free_msgs_by_node;
-  u32 *expired;
+  u64 *expired;
 } pfcp_server_main_t;
 
 typedef struct

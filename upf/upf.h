@@ -648,6 +648,7 @@ typedef enum
   URR_QUOTA_HOLDING_TIME_TIMER,
   URR_QUOTA_VALIDITY_TIME_TIMER,
   URR_TRAFFIC_TIMER,
+  URR_INACTIVITY_TIMER,
 } upf_timer_t;
 
 /* Usage Reporting Rules */
