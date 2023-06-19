@@ -96,14 +96,6 @@ typedef struct
 
 typedef struct
 {
-  u32 handle;
-  u32 user_handle;
-  u32 tw_handle;
-  u32 next_expired_timer;
-} upf_timer_t;
-
-typedef struct
-{
   u32 seq_no;
   time_t start_time;
   ip46_address_t address;
@@ -124,11 +116,6 @@ typedef struct
 
   uword *free_msgs_by_node;
   u32 *expired;
-
-  u32 next_timer_handle;
-  u32 next_expired_timer;
-  uword *timer_handle_map;
-  upf_timer_t *timers;
 } pfcp_server_main_t;
 
 typedef struct
