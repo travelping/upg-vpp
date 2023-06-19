@@ -125,6 +125,9 @@ timer_addhead (TWT (tw_timer) * pool, u32 head_index, u32 new_index)
 
   new = pool_elt_at_index (pool, new_index);
 
+  ASSERT (new->prev == ~0);
+  ASSERT (new->next == ~0);
+
   if (PREDICT_FALSE (head->next == head_index))
     {
       head->next = head->prev = new_index;
@@ -285,28 +288,44 @@ timer_add (TWT (tw_timer_wheel) * tw, TWT (tw_timer) * t, u64 interval)
 }
 
 /**
- * @brief Start a Tw Timer
+ * @brief Initialize a new Tw Timer handle
  * @param tw_timer_wheel_t * tw timer wheel object pointer
  * @param u32 user_id user defined timer id, presumably for a tw session
  * @param u32 timer_id app-specific timer ID. 4 bits.
- * @param u64 interval timer interval in ticks
- * @returns handle needed to cancel the timer
+ * @returns handle needed to manage the timer
  */
 __clib_export u32
-TW (tw_timer_start) (TWT (tw_timer_wheel) * tw, u32 user_id, u32 timer_id,
-		     u64 interval)
+TW (tw_timer_new) (TWT (tw_timer_wheel) * tw, u32 user_id, u32 timer_id)
 {
   TWT (tw_timer) * t;
-
-  ASSERT (interval);
 
   pool_get (tw->timers, t);
   clib_memset (t, 0xff, sizeof (*t));
 
   t->user_handle = TW (make_internal_timer_handle) (user_id, timer_id);
 
-  timer_add (tw, t, interval);
   return t - tw->timers;
+}
+
+/**
+ * @brief Remove a tw timer
+ * @param tw_timer_wheel_t * tw timer wheel object pointer
+ * @param u32 handle timer cancellation returned by tw_timer_start
+ */
+__clib_export void TW (tw_timer_free) (TWT (tw_timer_wheel) * tw, u32 handle)
+{
+  TWT (tw_timer) * t;
+
+  t = pool_elt_at_index (tw->timers, handle);
+
+  /* in case of idiotic handle (e.g. passing a listhead index) */
+  ASSERT (t->user_handle != ~0);
+
+  /* timer must be stopped */
+  ASSERT (t->prev == ~0);
+  ASSERT (t->next == ~0);
+
+  pool_put_index (tw->timers, handle);
 }
 
 #if TW_TIMER_SCAN_FOR_HANDLE > 0
@@ -353,27 +372,13 @@ __clib_export void TW (tw_timer_stop) (TWT (tw_timer_wheel) * tw, u32 handle)
 {
   TWT (tw_timer) * t;
 
-#if TW_TIMER_ALLOW_DUPLICATE_STOP
-  /*
-   * A vlib process may have its timer expire, and receive
-   * an event before the expiration is processed.
-   * That results in a duplicate tw_timer_stop.
-   */
-  if (pool_is_free_index (tw->timers, handle))
-    return;
-#endif
-#if TW_START_STOP_TRACE_SIZE > 0
-  TW (tw_timer_trace) (tw, ~0, ~0, handle);
-#endif
-
   t = pool_elt_at_index (tw->timers, handle);
 
   /* in case of idiotic handle (e.g. passing a listhead index) */
   ASSERT (t->user_handle != ~0);
 
-  timer_remove (tw->timers, t);
-
-  pool_put_index (tw->timers, handle);
+  if ((t->prev != ~0) && (t->next != ~0))
+    timer_remove (tw->timers, t);
 }
 
 __clib_export int
@@ -382,10 +387,23 @@ TW (tw_timer_handle_is_free) (TWT (tw_timer_wheel) * tw, u32 handle)
   return pool_is_free_index (tw->timers, handle);
 }
 
+__clib_export int
+TW (tw_timer_handle_is_started) (TWT (tw_timer_wheel) * tw, u32 handle)
+{
+  TWT (tw_timer) * t;
+
+  t = pool_elt_at_index (tw->timers, handle);
+
+  /* in case of idiotic handle (e.g. passing a listhead index) */
+  ASSERT (t->user_handle != ~0);
+
+  return ((t->prev != ~0) && (t->next != ~0));
+}
+
 /**
- * @brief Update a tw timer
+ * @brief Update or Start a tw timer
  * @param tw_timer_wheel_t * tw timer wheel object pointer
- * @param u32 handle timer returned by tw_timer_start
+ * @param u32 handle timer returned by tw_timer_new
  * @param u32 interval timer interval in ticks
  */
 __clib_export void
@@ -393,7 +411,15 @@ TW (tw_timer_update) (TWT (tw_timer_wheel) * tw, u32 handle, u64 interval)
 {
   TWT (tw_timer) * t;
   t = pool_elt_at_index (tw->timers, handle);
-  timer_remove (tw->timers, t);
+
+  ASSERT (t->user_handle != ~0);
+
+  if ((t->prev != ~0) && (t->next != ~0))
+    timer_remove (tw->timers, t);
+
+  ASSERT (t->prev == ~0);
+  ASSERT (t->next == ~0);
+
   timer_add (tw, t, interval);
 }
 
@@ -511,8 +537,8 @@ static inline
   u32 *callback_vector;
   u32 fast_wheel_index;
   u32 next_index;
-  u32 slow_wheel_index __attribute__ ((unused));
-  u32 glacier_wheel_index __attribute__ ((unused));
+  u32 slow_wheel_index __attribute__((unused));
+  u32 glacier_wheel_index __attribute__((unused));
 
   /* Called too soon to process new timer expirations? */
   if (PREDICT_FALSE (now < tw->next_run_time))
@@ -609,7 +635,6 @@ static inline
 		  TW (tw_timer_trace) (tw, 0xfe, t->user_handle,
 				       t - tw->timers);
 #endif
-		  pool_put (tw->timers, t);
 		}
 	      /* Timer moves to the glacier ring */
 	      else if (new_glacier_ring_offset)
@@ -673,7 +698,6 @@ static inline
 		  TW (tw_timer_trace) (tw, 0xfe, t->user_handle,
 				       t - tw->timers);
 #endif
-		  pool_put (tw->timers, t);
 		}
 	      /* Timer expires during slow-wheel tick 0 */
 	      else if (PREDICT_FALSE (t->slow_ring_offset == 0))
@@ -728,7 +752,6 @@ static inline
 		  TW (tw_timer_trace) (tw, 0xfe, t->user_handle,
 				       t - tw->timers);
 #endif
-		  pool_put (tw->timers, t);
 		}
 	      else		/* typical case */
 		{
@@ -760,11 +783,14 @@ static inline
 	{
 	  t = pool_elt_at_index (tw->timers, next_index);
 	  next_index = t->next;
+
+	  /* Mark as expired */
+	  t->next = t->prev = ~0;
+
 	  vec_add1 (callback_vector, t->user_handle);
 #if TW_START_STOP_TRACE_SIZE > 0
 	  TW (tw_timer_trace) (tw, 0xfe, t->user_handle, t - tw->timers);
 #endif
-	  pool_put (tw->timers, t);
 	}
 
       /* If any timers expired, tell the user */
