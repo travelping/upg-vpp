@@ -86,7 +86,7 @@ Expired timer callback:
     static void
     expired_timer_single_callback (u32 * expired_timers)
     {
-    	int i;
+        int i;
         u32 pool_index, timer_id;
         tw_timer_test_elt_t *e;
         tw_timer_test_main_t *tm = &tw_timer_test_main;
@@ -102,7 +102,7 @@ Expired timer callback:
 
             if (e->expected_to_expire != tm->single_wheel.current_tick)
               {
-              	fformat (stdout, "[%d] expired at %d not %d\n",
+                fformat (stdout, "[%d] expired at %d not %d\n",
                          e - tm->test_elts, tm->single_wheel.current_tick,
                          e->expected_to_expire);
               }
@@ -231,11 +231,14 @@ typedef struct
 
 } TWT (tw_timer_wheel);
 
-u32 TW (tw_timer_start) (TWT (tw_timer_wheel) * tw,
-			 u32 pool_index, u32 timer_id, u64 interval);
-
-void TW (tw_timer_stop) (TWT (tw_timer_wheel) * tw, u32 handle);
+u32 TW (tw_timer_new) (TWT (tw_timer_wheel) * tw,
+		       u32 pool_index, u32 timer_id);
+void TW (tw_timer_free) (TWT (tw_timer_wheel) * tw, u32 handle);
 int TW (tw_timer_handle_is_free) (TWT (tw_timer_wheel) * tw, u32 handle);
+int TW (tw_timer_handle_is_started) (TWT (tw_timer_wheel) * tw, u32 handle);
+
+u32 TW (tw_timer_start) (TWT (tw_timer_wheel) * tw, u32 handle, u64 interval);
+void TW (tw_timer_stop) (TWT (tw_timer_wheel) * tw, u32 handle);
 void TW (tw_timer_update) (TWT (tw_timer_wheel) * tw, u32 handle,
 			   u64 interval);
 
