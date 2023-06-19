@@ -5,7 +5,7 @@
 // Contents:
 //   3 enums
 //   1 struct
-//  58 messages
+//  60 messages
 //
 package upf
 
@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0xf2bab48f
+	VersionCrc = 0x37ca18c2
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -694,6 +694,110 @@ func (m *UpfGetNodeIDReply) Unmarshal(b []byte) error {
 	m.FqdnLen = buf.DecodeUint8()
 	m.Fqdn = make([]byte, m.FqdnLen)
 	copy(m.Fqdn, buf.DecodeBytes(len(m.Fqdn)))
+	return nil
+}
+
+// UpfNatPoolAdd defines message 'upf_nat_pool_add'.
+type UpfNatPoolAdd struct {
+	IsAdd     bool                `binapi:"bool,name=is_add" json:"is_add,omitempty"`
+	MinPort   uint16              `binapi:"u16,name=min_port" json:"min_port,omitempty"`
+	MaxPort   uint16              `binapi:"u16,name=max_port" json:"max_port,omitempty"`
+	BlockSize uint32              `binapi:"u32,name=block_size" json:"block_size,omitempty"`
+	Start     ip_types.IP4Address `binapi:"ip4_address,name=start" json:"start,omitempty"`
+	End       ip_types.IP4Address `binapi:"ip4_address,name=end" json:"end,omitempty"`
+	NameLen   uint8               `binapi:"u8,name=name_len" json:"name_len,omitempty"`
+	Name      []byte              `binapi:"u8[64],name=name" json:"name,omitempty"`
+	NwiLen    uint8               `binapi:"u8,name=nwi_len" json:"-"`
+	Nwi       []byte              `binapi:"u8[nwi_len],name=nwi" json:"nwi,omitempty"`
+}
+
+func (m *UpfNatPoolAdd) Reset()               { *m = UpfNatPoolAdd{} }
+func (*UpfNatPoolAdd) GetMessageName() string { return "upf_nat_pool_add" }
+func (*UpfNatPoolAdd) GetCrcString() string   { return "53c81402" }
+func (*UpfNatPoolAdd) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfNatPoolAdd) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 1              // m.IsAdd
+	size += 2              // m.MinPort
+	size += 2              // m.MaxPort
+	size += 4              // m.BlockSize
+	size += 1 * 4          // m.Start
+	size += 1 * 4          // m.End
+	size += 1              // m.NameLen
+	size += 1 * 64         // m.Name
+	size += 1              // m.NwiLen
+	size += 1 * len(m.Nwi) // m.Nwi
+	return size
+}
+func (m *UpfNatPoolAdd) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeBool(m.IsAdd)
+	buf.EncodeUint16(m.MinPort)
+	buf.EncodeUint16(m.MaxPort)
+	buf.EncodeUint32(m.BlockSize)
+	buf.EncodeBytes(m.Start[:], 4)
+	buf.EncodeBytes(m.End[:], 4)
+	buf.EncodeUint8(m.NameLen)
+	buf.EncodeBytes(m.Name, 64)
+	buf.EncodeUint8(uint8(len(m.Nwi)))
+	buf.EncodeBytes(m.Nwi, 0)
+	return buf.Bytes(), nil
+}
+func (m *UpfNatPoolAdd) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.IsAdd = buf.DecodeBool()
+	m.MinPort = buf.DecodeUint16()
+	m.MaxPort = buf.DecodeUint16()
+	m.BlockSize = buf.DecodeUint32()
+	copy(m.Start[:], buf.DecodeBytes(4))
+	copy(m.End[:], buf.DecodeBytes(4))
+	m.NameLen = buf.DecodeUint8()
+	m.Name = make([]byte, 64)
+	copy(m.Name, buf.DecodeBytes(len(m.Name)))
+	m.NwiLen = buf.DecodeUint8()
+	m.Nwi = make([]byte, m.NwiLen)
+	copy(m.Nwi, buf.DecodeBytes(len(m.Nwi)))
+	return nil
+}
+
+// UpfNatPoolAddReply defines message 'upf_nat_pool_add_reply'.
+type UpfNatPoolAddReply struct {
+	Retval int32 `binapi:"i32,name=retval" json:"retval,omitempty"`
+}
+
+func (m *UpfNatPoolAddReply) Reset()               { *m = UpfNatPoolAddReply{} }
+func (*UpfNatPoolAddReply) GetMessageName() string { return "upf_nat_pool_add_reply" }
+func (*UpfNatPoolAddReply) GetCrcString() string   { return "e8d4e804" }
+func (*UpfNatPoolAddReply) GetMessageType() api.MessageType {
+	return api.ReplyMessage
+}
+
+func (m *UpfNatPoolAddReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 4 // m.Retval
+	return size
+}
+func (m *UpfNatPoolAddReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeInt32(m.Retval)
+	return buf.Bytes(), nil
+}
+func (m *UpfNatPoolAddReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Retval = buf.DecodeInt32()
 	return nil
 }
 
@@ -2578,6 +2682,8 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfApplicationsDump)(nil), "upf_applications_dump_51077d14")
 	api.RegisterMessage((*UpfGetNodeID)(nil), "upf_get_node_id_51077d14")
 	api.RegisterMessage((*UpfGetNodeIDReply)(nil), "upf_get_node_id_reply_4f226741")
+	api.RegisterMessage((*UpfNatPoolAdd)(nil), "upf_nat_pool_add_53c81402")
+	api.RegisterMessage((*UpfNatPoolAddReply)(nil), "upf_nat_pool_add_reply_e8d4e804")
 	api.RegisterMessage((*UpfNatPoolDetails)(nil), "upf_nat_pool_details_536a8c46")
 	api.RegisterMessage((*UpfNatPoolDump)(nil), "upf_nat_pool_dump_51077d14")
 	api.RegisterMessage((*UpfNwiAddDel)(nil), "upf_nwi_add_del_07485c64")
@@ -2641,6 +2747,8 @@ func AllMessages() []api.Message {
 		(*UpfApplicationsDump)(nil),
 		(*UpfGetNodeID)(nil),
 		(*UpfGetNodeIDReply)(nil),
+		(*UpfNatPoolAdd)(nil),
+		(*UpfNatPoolAddReply)(nil),
 		(*UpfNatPoolDetails)(nil),
 		(*UpfNatPoolDump)(nil),
 		(*UpfNwiAddDel)(nil),

@@ -605,6 +605,108 @@ var _ = ginkgo.Describe("CLI debug commands", func() {
 
 // TODO: validate both binapi and CLI against each other
 var _ = ginkgo.Describe("UPG Binary API", func() {
+	ginkgo.Context("for upf nat pool", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+
+		addPool := func(start string, end string, nwi string, name string, isAdd bool, check bool) error {
+			startIp, _ := ip_types.ParseIP4Address(start)
+			endIp, _ := ip_types.ParseIP4Address(end)
+
+			nameBytes := []byte(name)
+
+			req := &upf.UpfNatPoolAdd{
+				IsAdd: isAdd,
+
+				MinPort:   2000,
+				MaxPort:   3000,
+				BlockSize: 1,
+				Start:     startIp,
+				End:       endIp,
+
+				NameLen: uint8(len(nameBytes)),
+				Name:    nameBytes,
+				Nwi:     util.EncodeFQDN(nwi),
+			}
+			reply := &upf.UpfNatPoolAddReply{}
+			err := f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
+
+			if check {
+				gomega.Expect(err).To(gomega.Succeed(), "upf_nat_pool_add")
+			}
+			return err
+		}
+
+		type poolPairing struct {
+			nwi          string
+			name         string
+			blockSize    uint16
+			maxUsers     uint32
+			currentUsers uint32
+		}
+
+		dumpPools := func() []poolPairing {
+			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfNatPoolDump{})
+			var ret []poolPairing
+			for {
+				msg := &upf.UpfNatPoolDetails{}
+				stop, err := reqCtx.ReceiveReply(msg)
+				gomega.Expect(err).To(gomega.BeNil())
+				if stop {
+					break
+				}
+
+				nwi := strings.TrimRight(string(msg.Nwi), "\x00")
+				name := strings.TrimRight(string(msg.Name), "\x00")
+
+				ret = append(ret, poolPairing{
+					nwi:          util.DecodeFQDN([]byte(nwi)),
+					name:         name,
+					blockSize:    msg.BlockSize,
+					maxUsers:     msg.MaxUsers,
+					currentUsers: msg.CurrentUsers,
+				})
+			}
+
+			return ret
+		}
+
+		ginkgo.It("adds a nat pool", func() {
+			gomega.Expect(dumpPools()).To(gomega.BeEmpty())
+			addPool("10.0.0.2", "10.0.0.3", "sgi", "mypool", true, true)
+			gomega.Expect(dumpPools()).To(gomega.ConsistOf(
+				poolPairing{"sgi", "mypool", 1, 2000, 0},
+			))
+			addPool("10.0.0.4", "10.0.0.5", "sgi", "mypool2", true, true)
+			gomega.Expect(dumpPools()).To(gomega.ConsistOf(
+				poolPairing{"sgi", "mypool", 1, 2000, 0},
+				poolPairing{"sgi", "mypool2", 1, 2000, 0},
+			))
+		})
+
+		ginkgo.It("removes a nat pool", func() {
+			addPool("10.0.0.2", "10.0.0.3", "sgi", "mypool", true, true)
+			gomega.Expect(dumpPools()).To(gomega.ConsistOf(
+				poolPairing{"sgi", "mypool", 1, 2000, 0},
+			))
+			addPool("10.0.0.2", "10.0.0.3", "sgi", "mypool", false, true)
+			gomega.Expect(dumpPools()).To(gomega.BeEmpty())
+		})
+
+		ginkgo.It("tries to add a nat pool with too long name", func() {
+			addPool("10.0.0.2", "10.0.0.3", "sgi", strings.Repeat("a", 64), true, true)
+
+			err := addPool("10.0.0.2", "10.0.0.3", "sgi", strings.Repeat("a", 65), true, false)
+			gomega.Expect(err).To(gomega.Equal(api.VPPApiError(api.INVALID_VALUE)))
+
+			// 63 + leading label should pass
+			addPool("10.0.0.2", "10.0.0.3", strings.Repeat("a", 63), "sgi", true, true)
+
+			// should fail
+			err = addPool("10.0.0.2", "10.0.0.3", strings.Repeat("a", 64), "sgi", true, false)
+			gomega.Expect(err).To(gomega.Equal(api.VPPApiError(api.INVALID_VALUE)))
+		})
+	})
+
 	ginkgo.Context("for upf ueip pool", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 

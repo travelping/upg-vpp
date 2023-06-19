@@ -312,7 +312,7 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
   u8 *name = 0;
-  u8 *nwi_name;
+  u8 *nwi_name = 0;
   u8 *nwi_s = 0;
   ip4_address_t start, end;
   u32 min_port = UPF_NAT_MIN_PORT;
@@ -368,9 +368,12 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
 	error = clib_error_return (0, "Unable to create NAT Pool");
     }
 
-  vec_free (nwi_s);
-
 done:
+  vec_free (nwi_name);
+  vec_free (name);
+  vec_free (nwi_s);
+  unformat_free (line_input);
+
   return error;
 }
 

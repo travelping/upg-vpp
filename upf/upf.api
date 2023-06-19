@@ -434,3 +434,21 @@ define upf_ueip_pool_dump {
   u32 client_index;
   u32 context;
 };
+
+autoreply define upf_nat_pool_add {
+  u32 client_index;
+  u32 context;
+
+  bool is_add;
+
+  u16 min_port;
+  u16 max_port;
+  u32 block_size;
+  vl_api_ip4_address_t start;
+  vl_api_ip4_address_t end;
+
+  u8 name_len;
+  u8 name[64];
+  u8 nwi_len;
+  u8 nwi[nwi_len];
+};
