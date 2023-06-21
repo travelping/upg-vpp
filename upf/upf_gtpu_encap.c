@@ -57,6 +57,7 @@ typedef enum
   UPF_ENCAP_N_NEXT,
 } upf_encap_next_t;
 
+#ifndef CLIB_MARCH_VARIANT
 static u16
 encode_ext_header_udp_port (vlib_buffer_t * b, u16 udp_port)
 {
@@ -324,7 +325,6 @@ upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4)
     }
 }
 
-#ifndef CLIB_MARCH_VARIANT
 u32
 upf_gtpu_end_marker (u32 fib_index, u32 dpoi_index, u8 * rewrite, int is_ip4)
 {

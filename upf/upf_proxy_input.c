@@ -112,6 +112,7 @@ tcp_flow_is_valid (tcp_connection_t * tc, flow_entry_t * f,
     (f->key.port[reverse] == tc->connection.lcl_port);
 }
 
+#ifndef CLIB_MARCH_VARIANT
 void
 upf_kill_connection_hard (tcp_connection_t * tc)
 {
@@ -121,6 +122,7 @@ upf_kill_connection_hard (tcp_connection_t * tc)
   /* this calls session_cleanup_callback for the proxy connection */
   tcp_connection_del (tc);
 }
+#endif
 
 static_always_inline u32
 splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,

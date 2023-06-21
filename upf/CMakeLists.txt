@@ -64,7 +64,7 @@ add_vpp_plugin(upf
   flowtable.c
   unittest.c
 
-  # MULTIARCH_SOURCES
+  MULTIARCH_SOURCES
   upf_gtpu_encap.c
   upf_gtpu_decap.c
   upf_flow_node.c
