@@ -639,24 +639,15 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 					break
 				}
 
-				for i, v := range msg.Identity {
-					if v == 0 {
-						msg.Identity = msg.Identity[:i]
-						break
-					}
-				}
-				for i, v := range msg.NwiName {
-					if v == 0 {
-						msg.NwiName = msg.NwiName[:i]
-						break
-					}
-				}
+				identity := strings.TrimRight(string(msg.Identity), "\x00")
+				nwiName := strings.TrimRight(string(msg.NwiName), "\x00")
 
 				ret = append(ret, poolPairing{
-					nwi:  util.DecodeFQDN(msg.Identity),
-					name: util.DecodeFQDN(msg.NwiName),
+					nwi:  util.DecodeFQDN([]byte(identity)),
+					name: util.DecodeFQDN([]byte(nwiName)),
 				})
 			}
+
 			return ret
 		}
 
