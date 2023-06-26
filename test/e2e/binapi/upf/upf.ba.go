@@ -5,7 +5,7 @@
 // Contents:
 //   3 enums
 //   1 struct
-//  56 messages
+//  58 messages
 //
 package upf
 
@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0xad3fffcf
+	VersionCrc = 0xc772dc02
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -2306,16 +2306,87 @@ func (m *UpfTdfUlTableReply) Unmarshal(b []byte) error {
 	return nil
 }
 
+// UpfUeipPoolDetails defines message 'upf_ueip_pool_details'.
+type UpfUeipPoolDetails struct {
+	Identity   []byte `binapi:"u8[64],name=identity" json:"identity,omitempty"`
+	NwiNameLen uint8  `binapi:"u8,name=nwi_name_len" json:"-"`
+	NwiName    []byte `binapi:"u8[nwi_name_len],name=nwi_name" json:"nwi_name,omitempty"`
+}
+
+func (m *UpfUeipPoolDetails) Reset()               { *m = UpfUeipPoolDetails{} }
+func (*UpfUeipPoolDetails) GetMessageName() string { return "upf_ueip_pool_details" }
+func (*UpfUeipPoolDetails) GetCrcString() string   { return "aab03619" }
+func (*UpfUeipPoolDetails) GetMessageType() api.MessageType {
+	return api.ReplyMessage
+}
+
+func (m *UpfUeipPoolDetails) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 1 * 64             // m.Identity
+	size += 1                  // m.NwiNameLen
+	size += 1 * len(m.NwiName) // m.NwiName
+	return size
+}
+func (m *UpfUeipPoolDetails) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeBytes(m.Identity, 64)
+	buf.EncodeUint8(uint8(len(m.NwiName)))
+	buf.EncodeBytes(m.NwiName, 0)
+	return buf.Bytes(), nil
+}
+func (m *UpfUeipPoolDetails) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Identity = make([]byte, 64)
+	copy(m.Identity, buf.DecodeBytes(len(m.Identity)))
+	m.NwiNameLen = buf.DecodeUint8()
+	m.NwiName = make([]byte, m.NwiNameLen)
+	copy(m.NwiName, buf.DecodeBytes(len(m.NwiName)))
+	return nil
+}
+
+// UpfUeipPoolDump defines message 'upf_ueip_pool_dump'.
+type UpfUeipPoolDump struct{}
+
+func (m *UpfUeipPoolDump) Reset()               { *m = UpfUeipPoolDump{} }
+func (*UpfUeipPoolDump) GetMessageName() string { return "upf_ueip_pool_dump" }
+func (*UpfUeipPoolDump) GetCrcString() string   { return "51077d14" }
+func (*UpfUeipPoolDump) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfUeipPoolDump) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	return size
+}
+func (m *UpfUeipPoolDump) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	return buf.Bytes(), nil
+}
+func (m *UpfUeipPoolDump) Unmarshal(b []byte) error {
+	return nil
+}
+
 // UpfUeipPoolNwiAdd defines message 'upf_ueip_pool_nwi_add'.
 type UpfUeipPoolNwiAdd struct {
-	IsAdd    bool   `binapi:"bool,name=is_add" json:"is_add,omitempty"`
-	NamesLen uint8  `binapi:"u8,name=names_len" json:"-"`
-	Names    []byte `binapi:"u8[names_len],name=names" json:"names,omitempty"`
+	IsAdd      bool   `binapi:"bool,name=is_add" json:"is_add,omitempty"`
+	Identity   []byte `binapi:"u8[64],name=identity" json:"identity,omitempty"`
+	NwiNameLen uint8  `binapi:"u8,name=nwi_name_len" json:"-"`
+	NwiName    []byte `binapi:"u8[nwi_name_len],name=nwi_name" json:"nwi_name,omitempty"`
 }
 
 func (m *UpfUeipPoolNwiAdd) Reset()               { *m = UpfUeipPoolNwiAdd{} }
 func (*UpfUeipPoolNwiAdd) GetMessageName() string { return "upf_ueip_pool_nwi_add" }
-func (*UpfUeipPoolNwiAdd) GetCrcString() string   { return "88c300ee" }
+func (*UpfUeipPoolNwiAdd) GetCrcString() string   { return "b842bca2" }
 func (*UpfUeipPoolNwiAdd) GetMessageType() api.MessageType {
 	return api.RequestMessage
 }
@@ -2324,9 +2395,10 @@ func (m *UpfUeipPoolNwiAdd) Size() (size int) {
 	if m == nil {
 		return 0
 	}
-	size += 1                // m.IsAdd
-	size += 1                // m.NamesLen
-	size += 1 * len(m.Names) // m.Names
+	size += 1                  // m.IsAdd
+	size += 1 * 64             // m.Identity
+	size += 1                  // m.NwiNameLen
+	size += 1 * len(m.NwiName) // m.NwiName
 	return size
 }
 func (m *UpfUeipPoolNwiAdd) Marshal(b []byte) ([]byte, error) {
@@ -2335,16 +2407,19 @@ func (m *UpfUeipPoolNwiAdd) Marshal(b []byte) ([]byte, error) {
 	}
 	buf := codec.NewBuffer(b)
 	buf.EncodeBool(m.IsAdd)
-	buf.EncodeUint8(uint8(len(m.Names)))
-	buf.EncodeBytes(m.Names, 0)
+	buf.EncodeBytes(m.Identity, 64)
+	buf.EncodeUint8(uint8(len(m.NwiName)))
+	buf.EncodeBytes(m.NwiName, 0)
 	return buf.Bytes(), nil
 }
 func (m *UpfUeipPoolNwiAdd) Unmarshal(b []byte) error {
 	buf := codec.NewBuffer(b)
 	m.IsAdd = buf.DecodeBool()
-	m.NamesLen = buf.DecodeUint8()
-	m.Names = make([]byte, m.NamesLen)
-	copy(m.Names, buf.DecodeBytes(len(m.Names)))
+	m.Identity = make([]byte, 64)
+	copy(m.Identity, buf.DecodeBytes(len(m.Identity)))
+	m.NwiNameLen = buf.DecodeUint8()
+	m.NwiName = make([]byte, m.NwiNameLen)
+	copy(m.NwiName, buf.DecodeBytes(len(m.NwiName)))
 	return nil
 }
 
@@ -2533,7 +2608,9 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfTdfUlTableAdd)(nil), "upf_tdf_ul_table_add_040a316b")
 	api.RegisterMessage((*UpfTdfUlTableAddReply)(nil), "upf_tdf_ul_table_add_reply_e8d4e804")
 	api.RegisterMessage((*UpfTdfUlTableReply)(nil), "upf_tdf_ul_table_reply_d1a9fc2e")
-	api.RegisterMessage((*UpfUeipPoolNwiAdd)(nil), "upf_ueip_pool_nwi_add_88c300ee")
+	api.RegisterMessage((*UpfUeipPoolDetails)(nil), "upf_ueip_pool_details_aab03619")
+	api.RegisterMessage((*UpfUeipPoolDump)(nil), "upf_ueip_pool_dump_51077d14")
+	api.RegisterMessage((*UpfUeipPoolNwiAdd)(nil), "upf_ueip_pool_nwi_add_b842bca2")
 	api.RegisterMessage((*UpfUeipPoolNwiAddReply)(nil), "upf_ueip_pool_nwi_add_reply_e8d4e804")
 	api.RegisterMessage((*UpfUpdateApp)(nil), "upf_update_app_50f53737")
 	api.RegisterMessage((*UpfUpdateAppReply)(nil), "upf_update_app_reply_e8d4e804")
@@ -2594,6 +2671,8 @@ func AllMessages() []api.Message {
 		(*UpfTdfUlTableAdd)(nil),
 		(*UpfTdfUlTableAddReply)(nil),
 		(*UpfTdfUlTableReply)(nil),
+		(*UpfUeipPoolDetails)(nil),
+		(*UpfUeipPoolDump)(nil),
 		(*UpfUeipPoolNwiAdd)(nil),
 		(*UpfUeipPoolNwiAddReply)(nil),
 		(*UpfUpdateApp)(nil),

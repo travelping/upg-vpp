@@ -39,6 +39,7 @@ type RPCService interface {
 	UpfTdfUlEnableDisable(ctx context.Context, in *UpfTdfUlEnableDisable) (*UpfTdfUlEnableDisableReply, error)
 	UpfTdfUlTable(ctx context.Context, in *UpfTdfUlTable) (*UpfTdfUlTableReply, error)
 	UpfTdfUlTableAdd(ctx context.Context, in *UpfTdfUlTableAdd) (*UpfTdfUlTableAddReply, error)
+	UpfUeipPoolDump(ctx context.Context, in *UpfUeipPoolDump) (RPCService_UpfUeipPoolDumpClient, error)
 	UpfUeipPoolNwiAdd(ctx context.Context, in *UpfUeipPoolNwiAdd) (*UpfUeipPoolNwiAddReply, error)
 	UpfUpdateApp(ctx context.Context, in *UpfUpdateApp) (*UpfUpdateAppReply, error)
 }
@@ -487,6 +488,49 @@ func (c *serviceClient) UpfTdfUlTableAdd(ctx context.Context, in *UpfTdfUlTableA
 		return nil, err
 	}
 	return out, api.RetvalToVPPApiError(out.Retval)
+}
+
+func (c *serviceClient) UpfUeipPoolDump(ctx context.Context, in *UpfUeipPoolDump) (RPCService_UpfUeipPoolDumpClient, error) {
+	stream, err := c.conn.NewStream(ctx)
+	if err != nil {
+		return nil, err
+	}
+	x := &serviceClient_UpfUeipPoolDumpClient{stream}
+	if err := x.Stream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err = x.Stream.SendMsg(&memclnt.ControlPing{}); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RPCService_UpfUeipPoolDumpClient interface {
+	Recv() (*UpfUeipPoolDetails, error)
+	api.Stream
+}
+
+type serviceClient_UpfUeipPoolDumpClient struct {
+	api.Stream
+}
+
+func (c *serviceClient_UpfUeipPoolDumpClient) Recv() (*UpfUeipPoolDetails, error) {
+	msg, err := c.Stream.RecvMsg()
+	if err != nil {
+		return nil, err
+	}
+	switch m := msg.(type) {
+	case *UpfUeipPoolDetails:
+		return m, nil
+	case *memclnt.ControlPingReply:
+		err = c.Stream.Close()
+		if err != nil {
+			return nil, err
+		}
+		return nil, io.EOF
+	default:
+		return nil, fmt.Errorf("unexpected message: %T %v", m, m)
+	}
 }
 
 func (c *serviceClient) UpfUeipPoolNwiAdd(ctx context.Context, in *UpfUeipPoolNwiAdd) (*UpfUeipPoolNwiAddReply, error) {

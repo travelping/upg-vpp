@@ -1069,22 +1069,64 @@ vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t * mp)
   upf_main_t *sm = &upf_main;
   vl_api_upf_ueip_pool_nwi_add_reply_t *rmp = NULL;
 
-  u8 *nwi_s = mp->names;
-  u8 *nwi_s_vec = 0;
-  u8 *name = mp->names;
-  u8 *nwi_name;
+  u8 *nwi_name = mp->nwi_name;
+  u8 *nwi_name_vec = 0;
+  u8 *identity = mp->identity;
+  u8 *identity_vec = 0;
+  u8 identity_len = strlen (identity);
 
-  // calculate start of second cstring
-  while (*name++);
+  vec_validate (nwi_name_vec, mp->nwi_name_len);
+  memcpy (nwi_name_vec, nwi_name, mp->nwi_name_len);
 
-  vec_validate (nwi_s_vec, name - nwi_s - 1);
-  memcpy (nwi_s_vec, nwi_s, name - nwi_s - 1);
+  vec_validate (identity_vec, identity_len);
+  memcpy (identity_vec, identity, identity_len);
 
-  nwi_name = upf_name_to_labels (nwi_s_vec);
-  rv = vnet_upf_ue_ip_pool_add_del (name, nwi_name, mp->is_add);
+  rv = vnet_upf_ue_ip_pool_add_del (identity_vec, nwi_name_vec, mp->is_add);
 
   REPLY_MACRO (VL_API_UPF_UEIP_POOL_NWI_ADD_REPLY);
 }
+
+/* API message handler */
+static void
+vl_api_upf_ueip_pool_dump_t_handler (vl_api_upf_ueip_pool_dump_t * mp)
+{
+  upf_main_t *sm = &upf_main;
+  vl_api_registration_t *reg;
+  vl_api_upf_ueip_pool_details_t *rmp = NULL;
+  uword *p;
+  upf_ue_ip_pool_info_t *pool = NULL;
+  u8 *identity;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    return;
+
+  /* *INDENT-OFF* */
+  hash_foreach (identity, p, sm->ue_ip_pool_index_by_identity,
+    {
+      u8 nwi_name_len;
+      u8 identity_len;
+
+      p = hash_get_mem (sm->ue_ip_pool_index_by_identity, identity);
+      pool = pool_elt_at_index (sm->ueip_pools, p[0]);
+
+      nwi_name_len = strlen (pool->nwi_name);
+      identity_len = strlen (pool->identity);
+
+      rmp = vl_msg_api_alloc (sizeof (*rmp) + nwi_name_len);
+      clib_memset (rmp, 0, sizeof (*rmp) + nwi_name_len);
+      rmp->_vl_msg_id = htons (VL_API_UPF_UEIP_POOL_DETAILS + sm->msg_id_base);
+      rmp->context = mp->context;
+
+      rmp->nwi_name_len = nwi_name_len;
+      memcpy (rmp->nwi_name, pool->nwi_name, nwi_name_len);
+      memcpy (rmp->identity, pool->identity, identity_len);
+      vl_api_send_msg (reg, (u8 *) rmp);
+    }
+  );
+  /* *INDENT-ON* */
+}
+
 
 #include <upf/upf.api.c>
 
@@ -1092,13 +1134,11 @@ static clib_error_t *
 upf_api_hookup (vlib_main_t * vm)
 {
   upf_main_t *gtm = &upf_main;
-
   gtm->msg_id_base = setup_message_id_table ();
   return 0;
 }
 
 VLIB_API_INIT_FUNCTION (upf_api_hookup);
-
 /*
  * fd.io coding-style-patch-verification: ON
  *

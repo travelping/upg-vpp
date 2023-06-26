@@ -607,17 +607,14 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 	ginkgo.Context("for upf ueip pool", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 
-		addPool := func(isAdd bool, nwi_s string, name string) {
-			// concatenate the cstrings into a single byte array
-			totalLen := len(nwi_s) + len(name) + 2
-			names := make([]byte, totalLen)
-			copy(names, nwi_s)
-			copy(names[len(nwi_s)+1:], name)
-
+		addPool := func(isAdd bool, nwi string, name string) {
+			nwiConverted := append(util.EncodeFQDN(nwi), 0)
+			nameConverted := append(util.EncodeFQDN(name), 0)
 			req := &upf.UpfUeipPoolNwiAdd{
-				IsAdd:    isAdd,
-				Names:    names,
-				NamesLen: uint8(totalLen),
+				IsAdd:      isAdd,
+				Identity:   nwiConverted,
+				NwiName:    nameConverted,
+				NwiNameLen: uint8(len(nameConverted) - 1),
 			}
 			reply := &upf.UpfUeipPoolNwiAddReply{}
 
@@ -626,10 +623,56 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
 		}
 
-		ginkgo.It("adds a pool", func() {
+		type poolPairing struct {
+			nwi  string
+			name string
+		}
+
+		dumpPools := func() []poolPairing {
+			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfUeipPoolDump{})
+			var ret []poolPairing
+			for {
+				msg := &upf.UpfUeipPoolDetails{}
+				stop, err := reqCtx.ReceiveReply(msg)
+				gomega.Expect(err).To(gomega.BeNil())
+				if stop {
+					break
+				}
+
+				for i, v := range msg.Identity {
+					if v == 0 {
+						msg.Identity = msg.Identity[:i]
+						break
+					}
+				}
+				for i, v := range msg.NwiName {
+					if v == 0 {
+						msg.NwiName = msg.NwiName[:i]
+						break
+					}
+				}
+
+				ret = append(ret, poolPairing{
+					nwi:  util.DecodeFQDN(msg.Identity),
+					name: util.DecodeFQDN(msg.NwiName),
+				})
+			}
+			return ret
+		}
+
+		ginkgo.It("adds and removes a pool", func() {
 			addPool(true, "sgi", "mypool")
+			addPool(true, "test", "mypool")
+
+			pools := dumpPools()
+			gomega.Expect(pools).To(gomega.ContainElements(poolPairing{"sgi", "mypool"}, poolPairing{"test", "mypool"}))
+			gomega.Expect(len(pools)).To(gomega.Equal(2))
+
+			addPool(false, "test", "mypool")
+
+			pools = dumpPools()
+			gomega.Expect(pools).To(gomega.Equal([]poolPairing{{"sgi", "mypool"}}))
 		})
-		// TODO: tdf tests are non-exhaustive
 	})
 
 	ginkgo.Context("for upf tdf ul enable", func() {
