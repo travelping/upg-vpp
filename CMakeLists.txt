@@ -95,8 +95,6 @@ set(UPF_PLUGIN_SOURCES
   upf/upf_app_dpo.c
   upf/upf_ipfix.c
   upf/upf_ipfix_templates.c
-  upf/upf_tw_timer_1t_3w_1024sl_ov.c
-  upf/upf_tw_timer_2t_1w_2048sl.c
   upf/flowtable_init.c
   upf/flowtable.c
   upf/unittest.c
@@ -129,9 +127,6 @@ set(UPF_PLUGIN_HEADER_FILES
   upf/flowtable_tcp.h
   upf/upf_ipfix.h
   upf/upf_ipfix_templates.h
-  upf/upf_tw_timer_1t_3w_1024sl_ov.h
-  upf/upf_tw_timer_2t_1w_2048sl.h
-  upf/upf_tw_timer_template.h
   upf/upf_gtpu_error.def
   upf/version.h
 )

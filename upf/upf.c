@@ -50,7 +50,7 @@
 #include <upf/upf_app_db.h>
 #include <upf/upf_ipfix.h>
 
-#include <upf/upf_tw_timer_1t_3w_1024sl_ov.h>
+#include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
 
 /**
  * FIB node type the attachment is registered
