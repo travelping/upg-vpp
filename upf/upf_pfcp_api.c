@@ -294,9 +294,8 @@ handle_heartbeat_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   else
     {
       upf_debug ("restarting HB timer\n");
-      upf_pfcp_server_start_timer
-	(&n->heartbeat_handle, PFCP_SERVER_HB_TIMER, n - gtm->nodes,
-	 psm->hb_cfg.timeout);
+      n->heartbeat_handle = upf_pfcp_server_start_timer
+	(PFCP_SERVER_HB_TIMER, n - gtm->nodes, psm->hb_cfg.timeout);
     }
 
   return 0;
@@ -395,9 +394,8 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
     }
   if (r == 0)
     {
-      upf_pfcp_server_start_timer
-	(&n->heartbeat_handle, PFCP_SERVER_HB_TIMER, n - gtm->nodes,
-	 psm->hb_cfg.timeout);
+      n->heartbeat_handle = upf_pfcp_server_start_timer
+	(PFCP_SERVER_HB_TIMER, n - gtm->nodes, psm->hb_cfg.timeout);
 
       resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
     }
@@ -1966,7 +1964,6 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
       {
 	update->update_flags |= PFCP_URR_UPDATE_TIME_THRESHOLD;
 	update->time_threshold.period = urr->time_threshold;
-	update->time_threshold.base = update->start_time;
       }
     if (ISSET_BIT (urr->grp.fields, UPDATE_URR_TIME_QUOTA))
       {
@@ -2567,6 +2564,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       struct rules *pending = pfcp_get_rules (sess, PFCP_PENDING);
 
       pending->inactivity_timer.period = req->user_plane_inactivity_timer;
+      pending->inactivity_timer.handle = ~0;
     }
 
   if (ISSET_BIT (req->grp.fields, SESSION_ESTABLISHMENT_REQUEST_USER_ID))
@@ -2708,6 +2706,7 @@ handle_session_modification_request (pfcp_msg_t * msg,
 	  struct rules *pending = pfcp_get_rules (sess, PFCP_PENDING);
 
 	  pending->inactivity_timer.period = req->user_plane_inactivity_timer;
+	  pending->inactivity_timer.handle = ~0;
 	}
 
       if ((r = handle_create_pdr (sess, req->create_pdr, resp)) != 0)
