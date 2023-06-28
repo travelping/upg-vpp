@@ -383,6 +383,7 @@ type PFCPConfig struct {
 	// IgnoreHeartbeatRequests makes PFCPConnection ignore incoming
 	// PFCP Heartbeat Requests, thus simulating a faulty CP.
 	IgnoreHeartbeatRequests bool
+	RecoveryTimestamp       time.Time
 }
 
 func (cfg *PFCPConfig) setDefaults() {
@@ -528,6 +529,7 @@ func (pc *PFCPConnection) event(event pfcpEvent) error {
 	}
 
 	if err != nil {
+		pc.log.WithError(err).Error("entering FAILED state")
 		pc.state = pfcpStateFailed
 		pc.cleanAndDone()
 		if event.resultCh != nil {
@@ -605,6 +607,7 @@ LOOP:
 			}
 			if err = pc.simpleEvent(pfcpEventActStop); err != nil {
 				err = errors.Wrapf(err, "stop in state %s", pc.state)
+				pc.log.WithError(err).Error("terminating the event loop")
 				break LOOP
 			}
 		case id := <-pc.timer.Channel():
@@ -618,6 +621,7 @@ LOOP:
 					timerID:   tid,
 				}); err != nil {
 					err = errors.Wrapf(err, "timeout in state %s", pc.state)
+					pc.log.WithError(err).Error("terminating the event loop")
 					break LOOP
 				}
 
@@ -640,6 +644,7 @@ LOOP:
 					msgType = ev.msg.MessageTypeName()
 				}
 				err = errors.Wrapf(err, "error handling event %s / msg type %s in state %s", ev.eventType, msgType, pc.state)
+				pc.log.WithError(err).Error("terminating the event loop")
 				break LOOP
 			}
 		case err = <-pc.listenErrCh:
@@ -914,7 +919,11 @@ func (pc *PFCPConnection) Start(ctx context.Context) error {
 	pc.conn = nil
 	pc.eventCh = make(chan pfcpEvent, 110000)
 	pc.listenErrCh = make(chan error, 1)
-	pc.timestamp = time.Now()
+	if pc.cfg.RecoveryTimestamp.IsZero() {
+		pc.timestamp = time.Now()
+	} else {
+		pc.timestamp = pc.cfg.RecoveryTimestamp
+	}
 	pc.seq = pc.cfg.InitialSeq
 	if pc.seq == 0 {
 		pc.seq = 1
@@ -937,7 +946,7 @@ func (pc *PFCPConnection) Start(ctx context.Context) error {
 		close(pc.startCh)
 		return r.err
 	case <-tch:
-		panic("Association Setup Request over timeout")
+		return errors.New("Association Setup Request over timeout")
 	}
 }
 
@@ -1147,7 +1156,7 @@ func (pc *PFCPConnection) sessionEstablishmentRequest(spec SessionOpSpec) messag
 
 func (pc *PFCPConnection) enqueueRequest(seid SEID, msg message.Message, resultCh chan eventResult) error {
 	if !pc.t.Alive() {
-		return errors.New("PFCPConnection not active")
+		return errors.Errorf("PFCPConnection not active: %s", pc.cfg.NodeID)
 	}
 
 	eventType, ok := requestToEventType(msg)
