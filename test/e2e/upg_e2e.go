@@ -1158,6 +1158,59 @@ var _ = ginkgo.Describe("Clearing message queue", func() {
 	})
 })
 
+const numPFCPPeers = 10
+const sessionsPerPeer = 1
+
+var _ = ginkgo.Describe("Multiple PFCP peers", func() {
+	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+	ginkgo.It("should work correctly", func() {
+		var conns [numPFCPPeers]*pfcp.PFCPConnection
+		hbConfig := &upf.UpfPfcpHeartbeatsSet{
+			Retries: 5,
+			Timeout: 1,
+		}
+		reply := &upf.UpfPfcpHeartbeatsSetReply{}
+		err := f.VPP.ApiChannel.SendRequest(hbConfig).ReceiveReply(reply)
+		gomega.Expect(err).To(gomega.BeNil())
+
+		for i := 0; i < numPFCPPeers; i++ {
+			pfcpCfg := framework.DefaultPFCPConfig(*f.VPPCfg)
+			pfcpCfg.Namespace = f.VPP.GetNS("cp")
+			pfcpCfg.NodeID = fmt.Sprintf("node%d", i)
+			pfcpCfg.CNodeIP = f.AddCNodeIP()
+			pfcpCfg.RecoveryTimestamp = time.Now().Local().Add(time.Duration(-i) * 24 * time.Hour)
+			pc := pfcp.NewPFCPConnection(pfcpCfg)
+			framework.ExpectNoError(pc.Start(f.Context))
+			conns[i] = pc
+
+		}
+		// time.Sleep(40 * time.Second)
+		time.Sleep(10 * time.Second)
+
+		for _, pc := range conns {
+			specs := make([]pfcp.SessionOpSpec, sessionsPerPeer)
+			for i := 0; i < sessionsPerPeer; i++ {
+				scfg := framework.SessionConfig{
+					IdBase: 1,
+					UEIP:   f.AddUEIP(),
+					Mode:   framework.UPGModeTDF,
+					VTime:  2 * time.Hour,
+				}
+				specs[i].IEs = scfg.SessionIEs()
+
+			}
+			_, errs := pc.EstablishSessions(context.Background(), specs[:sessionsPerPeer])
+			for _, err := range errs {
+				framework.ExpectNoError(err)
+			}
+		}
+
+		for _, pc := range conns {
+			pc.Stop()
+		}
+	})
+})
+
 var _ = ginkgo.Describe("[Reporting]", func() {
 	ginkgo.Context("Quota Validity Time", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
