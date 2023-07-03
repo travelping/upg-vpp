@@ -1074,6 +1074,7 @@ vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t * mp)
   u8 *identity = mp->identity;
   u8 *identity_vec = 0;
   u8 identity_len = strlen (identity);
+  ASSERT (identity_len < 64);
 
   vec_validate (nwi_name_vec, mp->nwi_name_len);
   memcpy (nwi_name_vec, nwi_name, mp->nwi_name_len);
@@ -1093,38 +1094,32 @@ vl_api_upf_ueip_pool_dump_t_handler (vl_api_upf_ueip_pool_dump_t * mp)
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
   vl_api_upf_ueip_pool_details_t *rmp = NULL;
-  uword *p;
   upf_ue_ip_pool_info_t *pool = NULL;
-  u8 *identity;
 
   reg = vl_api_client_index_to_registration (mp->client_index);
   if (!reg)
     return;
 
-  /* *INDENT-OFF* */
-  hash_foreach (identity, p, sm->ue_ip_pool_index_by_identity,
-    {
-      u8 nwi_name_len;
-      u8 identity_len;
+  pool_foreach (pool, sm->ueip_pools)
+  {
+    u8 nwi_name_len;
+    u8 identity_len;
 
-      p = hash_get_mem (sm->ue_ip_pool_index_by_identity, identity);
-      pool = pool_elt_at_index (sm->ueip_pools, p[0]);
+    nwi_name_len = strlen (pool->nwi_name);
+    ASSERT (nwi_name_len < 64);
+    identity_len = strlen (pool->identity);
+    ASSERT (identity_len < 64);
 
-      nwi_name_len = strlen (pool->nwi_name);
-      identity_len = strlen (pool->identity);
+    rmp = vl_msg_api_alloc (sizeof (*rmp) + nwi_name_len);
+    clib_memset (rmp, 0, sizeof (*rmp) + nwi_name_len);
+    rmp->_vl_msg_id = htons (VL_API_UPF_UEIP_POOL_DETAILS + sm->msg_id_base);
+    rmp->context = mp->context;
 
-      rmp = vl_msg_api_alloc (sizeof (*rmp) + nwi_name_len);
-      clib_memset (rmp, 0, sizeof (*rmp) + nwi_name_len);
-      rmp->_vl_msg_id = htons (VL_API_UPF_UEIP_POOL_DETAILS + sm->msg_id_base);
-      rmp->context = mp->context;
-
-      rmp->nwi_name_len = nwi_name_len;
-      memcpy (rmp->nwi_name, pool->nwi_name, nwi_name_len);
-      memcpy (rmp->identity, pool->identity, identity_len);
-      vl_api_send_msg (reg, (u8 *) rmp);
-    }
-  );
-  /* *INDENT-ON* */
+    rmp->nwi_name_len = nwi_name_len;
+    memcpy (rmp->nwi_name, pool->nwi_name, nwi_name_len);
+    memcpy (rmp->identity, pool->identity, identity_len);
+    vl_api_send_msg (reg, (u8 *) rmp);
+  }
 }
 
 

@@ -254,6 +254,12 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
   nwi_name = upf_name_to_labels (nwi_s);
   vec_free (nwi_s);
 
+  if (strlen (nwi_name) > 64)
+    {
+      return clib_error_return (0,
+				"NWI name(encoded) has to be shorter than 64 bytes");
+    }
+
   rv = vnet_upf_ue_ip_pool_add_del (name, nwi_name, is_add);
 
   switch (rv)
