@@ -1129,11 +1129,13 @@ static clib_error_t *
 upf_api_hookup (vlib_main_t * vm)
 {
   upf_main_t *gtm = &upf_main;
+
   gtm->msg_id_base = setup_message_id_table ();
   return 0;
 }
 
 VLIB_API_INIT_FUNCTION (upf_api_hookup);
+
 /*
  * fd.io coding-style-patch-verification: ON
  *
