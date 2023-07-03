@@ -255,10 +255,12 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
   vec_free (nwi_s);
 
   if (strlen (nwi_name) > 64)
-    {
-      return clib_error_return (0,
-				"NWI name(encoded) has to be shorter than 64 bytes");
-    }
+    return clib_error_return (0,
+			      "NWI name(encoded) has to be shorter than 64 bytes");
+
+  if (strlen (name) > 64)
+    return clib_error_return (0,
+			      "UE IP pool name has to be shorter than 64 bytes");
 
   rv = vnet_upf_ue_ip_pool_add_del (name, nwi_name, is_add);
 
