@@ -655,14 +655,15 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			addPool(true, "sgi", "mypool")
 			addPool(true, "test", "mypool")
 
-			pools := dumpPools()
-			gomega.Expect(pools).To(gomega.ContainElements(poolPairing{"sgi", "mypool"}, poolPairing{"test", "mypool"}))
-			gomega.Expect(len(pools)).To(gomega.Equal(2))
+			gomega.Expect(dumpPools()).To(gomega.ConsistOf(
+				poolPairing{"sgi", "mypool"}, poolPairing{"test", "mypool"},
+			))
 
 			addPool(false, "test", "mypool")
 
-			pools = dumpPools()
-			gomega.Expect(pools).To(gomega.Equal([]poolPairing{{"sgi", "mypool"}}))
+			gomega.Expect(dumpPools()).To(gomega.ConsistOf(
+				poolPairing{"sgi", "mypool"},
+			))
 		})
 	})
 
