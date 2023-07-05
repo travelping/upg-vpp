@@ -1,1 +1,1 @@
-VPP_IMAGE_BASE=quay.io/travelping/fpp-vpp:22.02.0-18-bb837ec44
+VPP_IMAGE_BASE=quay.io/travelping/fpp-vpp:v22.02.7
