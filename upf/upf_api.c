@@ -1061,6 +1061,30 @@ vl_api_upf_tdf_ul_table_add_t_handler (vl_api_upf_tdf_ul_table_add_t * mp)
   REPLY_MACRO (VL_API_UPF_TDF_UL_TABLE_ADD_REPLY);
 }
 
+static void
+vl_api_upf_get_thread_stats_t_handler (vl_api_upf_get_thread_stats_t * mp)
+{
+  vl_api_registration_t *reg;
+  upf_main_t *sm = &upf_main;
+  vl_api_upf_get_thread_stats_reply_t *rmp = NULL;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    return;
+
+  rmp = vl_msg_api_alloc (sizeof (*rmp));
+  clib_memset (rmp, 0, sizeof (*rmp));
+
+  rmp->_vl_msg_id =
+    htons (VL_API_UPF_GET_THREAD_STATS_REPLY + sm->msg_id_base);
+  rmp->context = mp->context;
+
+  rmp->loops_per_sec = 21.37;
+
+
+  vl_api_send_msg (reg, (u8 *) rmp);
+}
+
 #include <upf/upf.api.c>
 
 static clib_error_t *

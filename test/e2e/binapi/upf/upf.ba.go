@@ -5,7 +5,7 @@
 // Contents:
 //   3 enums
 //   1 struct
-//  54 messages
+//  56 messages
 //
 package upf
 
@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0x44035d50
+	VersionCrc = 0x9d06ef6d
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -694,6 +694,78 @@ func (m *UpfGetNodeIDReply) Unmarshal(b []byte) error {
 	m.FqdnLen = buf.DecodeUint8()
 	m.Fqdn = make([]byte, m.FqdnLen)
 	copy(m.Fqdn, buf.DecodeBytes(len(m.Fqdn)))
+	return nil
+}
+
+// UpfGetThreadStats defines message 'upf_get_thread_stats'.
+type UpfGetThreadStats struct{}
+
+func (m *UpfGetThreadStats) Reset()               { *m = UpfGetThreadStats{} }
+func (*UpfGetThreadStats) GetMessageName() string { return "upf_get_thread_stats" }
+func (*UpfGetThreadStats) GetCrcString() string   { return "51077d14" }
+func (*UpfGetThreadStats) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfGetThreadStats) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	return size
+}
+func (m *UpfGetThreadStats) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	return buf.Bytes(), nil
+}
+func (m *UpfGetThreadStats) Unmarshal(b []byte) error {
+	return nil
+}
+
+// UpfGetThreadStatsReply defines message 'upf_get_thread_stats_reply'.
+type UpfGetThreadStatsReply struct {
+	Time           float64 `binapi:"f64,name=time" json:"time,omitempty"`
+	Interval       float64 `binapi:"f64,name=interval" json:"interval,omitempty"`
+	NodeVectorRate float64 `binapi:"f64,name=node_vector_rate" json:"node_vector_rate,omitempty"`
+	LoopsPerSec    float64 `binapi:"f64,name=loops_per_sec" json:"loops_per_sec,omitempty"`
+}
+
+func (m *UpfGetThreadStatsReply) Reset()               { *m = UpfGetThreadStatsReply{} }
+func (*UpfGetThreadStatsReply) GetMessageName() string { return "upf_get_thread_stats_reply" }
+func (*UpfGetThreadStatsReply) GetCrcString() string   { return "5d1f31b5" }
+func (*UpfGetThreadStatsReply) GetMessageType() api.MessageType {
+	return api.RequestMessage
+}
+
+func (m *UpfGetThreadStatsReply) Size() (size int) {
+	if m == nil {
+		return 0
+	}
+	size += 8 // m.Time
+	size += 8 // m.Interval
+	size += 8 // m.NodeVectorRate
+	size += 8 // m.LoopsPerSec
+	return size
+}
+func (m *UpfGetThreadStatsReply) Marshal(b []byte) ([]byte, error) {
+	if b == nil {
+		b = make([]byte, m.Size())
+	}
+	buf := codec.NewBuffer(b)
+	buf.EncodeFloat64(m.Time)
+	buf.EncodeFloat64(m.Interval)
+	buf.EncodeFloat64(m.NodeVectorRate)
+	buf.EncodeFloat64(m.LoopsPerSec)
+	return buf.Bytes(), nil
+}
+func (m *UpfGetThreadStatsReply) Unmarshal(b []byte) error {
+	buf := codec.NewBuffer(b)
+	m.Time = buf.DecodeFloat64()
+	m.Interval = buf.DecodeFloat64()
+	m.NodeVectorRate = buf.DecodeFloat64()
+	m.LoopsPerSec = buf.DecodeFloat64()
 	return nil
 }
 
@@ -2420,6 +2492,8 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfApplicationsDump)(nil), "upf_applications_dump_51077d14")
 	api.RegisterMessage((*UpfGetNodeID)(nil), "upf_get_node_id_51077d14")
 	api.RegisterMessage((*UpfGetNodeIDReply)(nil), "upf_get_node_id_reply_4f226741")
+	api.RegisterMessage((*UpfGetThreadStats)(nil), "upf_get_thread_stats_51077d14")
+	api.RegisterMessage((*UpfGetThreadStatsReply)(nil), "upf_get_thread_stats_reply_5d1f31b5")
 	api.RegisterMessage((*UpfNatPoolDetails)(nil), "upf_nat_pool_details_536a8c46")
 	api.RegisterMessage((*UpfNatPoolDump)(nil), "upf_nat_pool_dump_51077d14")
 	api.RegisterMessage((*UpfNwiAddDel)(nil), "upf_nwi_add_del_07485c64")
@@ -2479,6 +2553,8 @@ func AllMessages() []api.Message {
 		(*UpfApplicationsDump)(nil),
 		(*UpfGetNodeID)(nil),
 		(*UpfGetNodeIDReply)(nil),
+		(*UpfGetThreadStats)(nil),
+		(*UpfGetThreadStatsReply)(nil),
 		(*UpfNatPoolDetails)(nil),
 		(*UpfNatPoolDump)(nil),
 		(*UpfNwiAddDel)(nil),

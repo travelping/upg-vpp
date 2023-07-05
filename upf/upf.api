@@ -409,3 +409,18 @@ autoreply define upf_tdf_ul_table_add {
   u32 table_id;
   u32 src_lookup_table_id;
 };
+
+define upf_get_thread_stats {
+  u32 client_index;
+  u32 context;
+};
+
+define upf_get_thread_stats_reply {
+  u32 client_index;
+  u32 context;
+
+  f64 time;
+  f64 interval;
+  f64 node_vector_rate;
+  f64 loops_per_sec;
+};

@@ -604,6 +604,21 @@ var _ = ginkgo.Describe("CLI debug commands", func() {
 
 // TODO: validate both binapi and CLI against each other
 var _ = ginkgo.Describe("UPG Binary API", func() {
+	ginkgo.Context("for show thread stats", func() {
+		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+
+		ginkgo.It("shows thread stats", func() {
+			req := &upf.UpfGetThreadStats{}
+			reply := &upf.UpfGetThreadStatsReply{}
+
+			gomega.Expect(
+				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
+			).To(gomega.Succeed(), "upf_show_thread_stats")
+
+			fmt.Println("ZZZZZZZZZZZZ", reply)
+		})
+	})
+
 	ginkgo.Context("for upf tdf ul enable", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 

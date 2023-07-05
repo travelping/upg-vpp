@@ -20,6 +20,7 @@ type RPCService interface {
 	UpfApplicationL7RuleDump(ctx context.Context, in *UpfApplicationL7RuleDump) (RPCService_UpfApplicationL7RuleDumpClient, error)
 	UpfApplicationsDump(ctx context.Context, in *UpfApplicationsDump) (RPCService_UpfApplicationsDumpClient, error)
 	UpfGetNodeID(ctx context.Context, in *UpfGetNodeID) (*UpfGetNodeIDReply, error)
+	UpfGetThreadStats(ctx context.Context, in *UpfGetThreadStats) (*UpfGetThreadStatsReply, error)
 	UpfNatPoolDump(ctx context.Context, in *UpfNatPoolDump) (RPCService_UpfNatPoolDumpClient, error)
 	UpfNwiAddDel(ctx context.Context, in *UpfNwiAddDel) (*UpfNwiAddDelReply, error)
 	UpfNwiDump(ctx context.Context, in *UpfNwiDump) (RPCService_UpfNwiDumpClient, error)
@@ -179,6 +180,15 @@ func (c *serviceClient) UpfGetNodeID(ctx context.Context, in *UpfGetNodeID) (*Up
 		return nil, err
 	}
 	return out, api.RetvalToVPPApiError(out.Retval)
+}
+
+func (c *serviceClient) UpfGetThreadStats(ctx context.Context, in *UpfGetThreadStats) (*UpfGetThreadStatsReply, error) {
+	out := new(UpfGetThreadStatsReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *serviceClient) UpfNatPoolDump(ctx context.Context, in *UpfNatPoolDump) (RPCService_UpfNatPoolDumpClient, error) {
