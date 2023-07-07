@@ -1116,9 +1116,9 @@ vl_api_upf_ueip_pool_dump_t_handler (vl_api_upf_ueip_pool_dump_t * mp)
     u8 identity_len;
 
     nwi_name_len = vec_len (pool->nwi_name);
-    ASSERT (nwi_name_len < 64);
+    ASSERT (nwi_name_len <= 64);
     identity_len = vec_len (pool->identity);
-    ASSERT (identity_len < 64);
+    ASSERT (identity_len <= 64);
 
     rmp = vl_msg_api_alloc (sizeof (*rmp) + nwi_name_len);
     clib_memset (rmp, 0, sizeof (*rmp) + nwi_name_len);
