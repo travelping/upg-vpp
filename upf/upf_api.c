@@ -1073,16 +1073,33 @@ vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t * mp)
   u8 *nwi_name_vec = 0;
   u8 *identity = mp->identity;
   u8 *identity_vec = 0;
-  u8 identity_len = strlen (identity);
-  ASSERT (identity_len < 64);
 
-  vec_validate (nwi_name_vec, mp->nwi_name_len);
-  memcpy (nwi_name_vec, nwi_name, mp->nwi_name_len);
+  do
+    {
+      // we expect a valid c-string that fits in 64 bytes.
+      u8 identity_len = strnlen (identity, 63);
+      if (identity_len >= 63 && identity[63] != 0)
+	{
+	  rv = VNET_API_ERROR_INVALID_VALUE;
+	  break;
+	}
+      if (mp->nwi_name_len > 64 || mp->nwi_name[mp->nwi_name_len] != 0)
+	{
+	  rv = VNET_API_ERROR_INVALID_VALUE;
+	  break;
+	}
 
-  vec_validate (identity_vec, identity_len);
-  memcpy (identity_vec, identity, identity_len);
+      vec_validate (nwi_name_vec, mp->nwi_name_len);
+      memcpy (nwi_name_vec, nwi_name, mp->nwi_name_len);
 
-  rv = vnet_upf_ue_ip_pool_add_del (identity_vec, nwi_name_vec, mp->is_add);
+      vec_validate (identity_vec, identity_len);
+      memcpy (identity_vec, identity, identity_len);
+
+      rv =
+	vnet_upf_ue_ip_pool_add_del (identity_vec, nwi_name_vec, mp->is_add);
+
+    }
+  while (false);
 
   REPLY_MACRO (VL_API_UPF_UEIP_POOL_NWI_ADD_REPLY);
 }

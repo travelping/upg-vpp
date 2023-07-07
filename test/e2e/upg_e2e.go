@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"git.fd.io/govpp.git/api"
 	"github.com/google/gopacket/layers"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -607,25 +608,26 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 	ginkgo.Context("for upf ueip pool", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 
-		addPool := func(isAdd bool, nwi string, name string) {
-			nwiConverted := append(util.EncodeFQDN(nwi), 0)
-			nameConverted := append(util.EncodeFQDN(name), 0)
+		addPool := func(isAdd bool, identity string, nwi_name string, check bool) error {
+			identityConverted := append([]byte(identity), 0)
+			nwiConverted := append(util.EncodeFQDN(nwi_name), 0)
 			req := &upf.UpfUeipPoolNwiAdd{
-				IsAdd:      isAdd,
-				Identity:   nwiConverted,
-				NwiName:    nameConverted,
-				NwiNameLen: uint8(len(nameConverted) - 1),
+				IsAdd:    isAdd,
+				Identity: identityConverted,
+				NwiName:  nwiConverted,
 			}
 			reply := &upf.UpfUeipPoolNwiAddReply{}
 
-			gomega.Expect(
-				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
-			).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
+			err := f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
+			if check {
+				gomega.Expect(err).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
+			}
+			return err
 		}
 
 		type poolPairing struct {
-			nwi  string
-			name string
+			identity string
+			nwi      string
 		}
 
 		dumpPools := func() []poolPairing {
@@ -643,8 +645,8 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 				nwiName := strings.TrimRight(string(msg.NwiName), "\x00")
 
 				ret = append(ret, poolPairing{
-					nwi:  util.DecodeFQDN([]byte(identity)),
-					name: util.DecodeFQDN([]byte(nwiName)),
+					identity: identity,
+					nwi:      util.DecodeFQDN([]byte(nwiName)),
 				})
 			}
 
@@ -652,18 +654,34 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 		}
 
 		ginkgo.It("adds and removes a pool", func() {
-			addPool(true, "sgi", "mypool")
-			addPool(true, "test", "mypool")
+			addPool(true, "sgi", "mypool", true)
+			addPool(true, "test", "mypool", true)
 
 			gomega.Expect(dumpPools()).To(gomega.ConsistOf(
 				poolPairing{"sgi", "mypool"}, poolPairing{"test", "mypool"},
 			))
 
-			addPool(false, "test", "mypool")
+			addPool(false, "test", "mypool", true)
 
 			gomega.Expect(dumpPools()).To(gomega.ConsistOf(
 				poolPairing{"sgi", "mypool"},
 			))
+		})
+
+		ginkgo.It("tries to add a pool with too long name", func() {
+			// // should pass
+			addPool(true, strings.Repeat("a", 63), "sgi", true)
+
+			// // should fail
+			err := addPool(true, strings.Repeat("a", 64), "sgi", false)
+			gomega.Expect(err).To(gomega.Equal(api.VPPApiError(api.INVALID_VALUE)))
+
+			// should pass (adds terminating zero and leading label)
+			addPool(true, "sgi", strings.Repeat("a", 62), true)
+
+			// should fail
+			err = addPool(true, "sgi", strings.Repeat("a", 63), false)
+			gomega.Expect(err).To(gomega.Equal(api.VPPApiError(api.INVALID_VALUE)))
 		})
 	})
 
