@@ -1089,8 +1089,9 @@ vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t * mp)
 	  break;
 	}
 
-      vec_validate (nwi_name_vec, mp->nwi_name_len);
-      memcpy (nwi_name_vec, nwi_name, mp->nwi_name_len);
+      // skip the trailing 0
+      vec_validate (nwi_name_vec, mp->nwi_name_len - 1);
+      memcpy (nwi_name_vec, nwi_name, mp->nwi_name_len - 1);
 
       vec_validate (identity_vec, identity_len);
       memcpy (identity_vec, identity, identity_len);
