@@ -669,14 +669,14 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 		})
 
 		ginkgo.It("tries to add a pool with too long name", func() {
-			// // should pass
+			// 63 chars + terminating zero
 			addPool(true, strings.Repeat("a", 63), "sgi", true)
 
-			// // should fail
+			// 64 + zero -> should fail
 			err := addPool(true, strings.Repeat("a", 64), "sgi", false)
 			gomega.Expect(err).To(gomega.Equal(api.VPPApiError(api.INVALID_VALUE)))
 
-			// should pass (adds terminating zero and leading label)
+			// 62 + leading label + zero -> should pass
 			addPool(true, "sgi", strings.Repeat("a", 62), true)
 
 			// should fail
