@@ -609,12 +609,13 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 
 		addPool := func(isAdd bool, identity string, nwi_name string, check bool) error {
-			identityConverted := append([]byte(identity), 0)
-			nwiConverted := append(util.EncodeFQDN(nwi_name), 0)
+			identityConverted := []byte(identity)
+			nwiConverted := util.EncodeFQDN(nwi_name)
 			req := &upf.UpfUeipPoolNwiAdd{
-				IsAdd:    isAdd,
-				Identity: identityConverted,
-				NwiName:  nwiConverted,
+				IsAdd:       isAdd,
+				Identity:    identityConverted,
+				IdentityLen: uint8(len(identityConverted)),
+				NwiName:     nwiConverted,
 			}
 			reply := &upf.UpfUeipPoolNwiAddReply{}
 
@@ -669,18 +670,16 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 		})
 
 		ginkgo.It("tries to add a pool with too long name", func() {
-			// 63 chars + terminating zero
-			addPool(true, strings.Repeat("a", 63), "sgi", true)
+			addPool(true, strings.Repeat("a", 64), "sgi", true)
 
-			// 64 + zero -> should fail
-			err := addPool(true, strings.Repeat("a", 64), "sgi", false)
+			err := addPool(true, strings.Repeat("a", 65), "sgi", false)
 			gomega.Expect(err).To(gomega.Equal(api.VPPApiError(api.INVALID_VALUE)))
 
-			// 62 + leading label + zero -> should pass
-			addPool(true, "sgi", strings.Repeat("a", 62), true)
+			// 63 + leading label should pass
+			addPool(true, "sgi", strings.Repeat("a", 63), true)
 
 			// should fail
-			err = addPool(true, "sgi", strings.Repeat("a", 63), false)
+			err = addPool(true, "sgi", strings.Repeat("a", 64), false)
 			gomega.Expect(err).To(gomega.Equal(api.VPPApiError(api.INVALID_VALUE)))
 		})
 	})

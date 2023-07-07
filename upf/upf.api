@@ -415,6 +415,7 @@ autoreply define upf_ueip_pool_nwi_add {
   u32 context;
 
   bool is_add;
+  u8 identity_len;
   u8 identity[64];
   u8 nwi_name_len;
   u8 nwi_name[nwi_name_len];
@@ -423,6 +424,7 @@ autoreply define upf_ueip_pool_nwi_add {
 define upf_ueip_pool_details {
   u32 context;
 
+  u8 identity_len;
   u8 identity[64];
   u8 nwi_name_len;
   u8 nwi_name[nwi_name_len];
