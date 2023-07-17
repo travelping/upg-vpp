@@ -1074,26 +1074,21 @@ vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t * mp)
   u8 *identity = mp->identity;
   u8 *identity_vec = 0;
 
-  do
+  if (mp->identity_len > 64 || mp->nwi_name_len > 64)
     {
-      if (mp->identity_len > 64 || mp->nwi_name_len > 64)
-	{
-	  rv = VNET_API_ERROR_INVALID_VALUE;
-	  break;
-	}
-
-      vec_validate (nwi_name_vec, mp->nwi_name_len);
-      memcpy (nwi_name_vec, nwi_name, mp->nwi_name_len);
-
-      vec_validate (identity_vec, mp->identity_len);
-      memcpy (identity_vec, identity, mp->identity_len);
-
-      rv =
-	vnet_upf_ue_ip_pool_add_del (identity_vec, nwi_name_vec, mp->is_add);
-
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      goto reply;
     }
-  while (0);
 
+  nwi_name_vec = vec_new (u8, mp->nwi_name_len);
+  memcpy (nwi_name_vec, nwi_name, mp->nwi_name_len);
+
+  identity_vec = vec_new (u8, mp->identity_len);
+  memcpy (identity_vec, identity, mp->identity_len);
+
+  rv = vnet_upf_ue_ip_pool_add_del (identity_vec, nwi_name_vec, mp->is_add);
+
+reply:
   REPLY_MACRO (VL_API_UPF_UEIP_POOL_NWI_ADD_REPLY);
 }
 
