@@ -87,6 +87,7 @@ vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
       hash_set_mem (gtm->ue_ip_pool_index_by_identity, identity,
 		    ueip_pool - gtm->ueip_pools);
 
+      vec_free (identity);
     }
   else
     {
