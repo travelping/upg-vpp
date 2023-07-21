@@ -1088,6 +1088,9 @@ vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t * mp)
 
   rv = vnet_upf_ue_ip_pool_add_del (identity_vec, nwi_name_vec, mp->is_add);
 
+  vec_free (identity_vec);
+  vec_free (nwi_name_vec);
+
 reply:
   REPLY_MACRO (VL_API_UPF_UEIP_POOL_NWI_ADD_REPLY);
 }

@@ -73,6 +73,8 @@ vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
   upf_ue_ip_pool_info_t *ueip_pool = NULL;
   uword *p;
 
+  identity = vec_dup (identity);
+
   p = hash_get_mem (gtm->ue_ip_pool_index_by_identity, identity);
 
   if (is_add)
@@ -86,8 +88,6 @@ vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
 
       hash_set_mem (gtm->ue_ip_pool_index_by_identity, identity,
 		    ueip_pool - gtm->ueip_pools);
-
-      vec_free (identity);
     }
   else
     {
@@ -98,7 +98,6 @@ vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
       hash_unset_mem (gtm->ue_ip_pool_index_by_identity, identity);
       vec_free (ueip_pool->identity);
       vec_free (ueip_pool->nwi_name);
-      vec_free (identity);
       pool_put (gtm->ueip_pools, ueip_pool);
     }
   return 0;

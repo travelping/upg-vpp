@@ -261,6 +261,9 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
 
   rv = vnet_upf_ue_ip_pool_add_del (identity, nwi_name, is_add);
 
+  vec_free (identity);
+  vec_free (nwi_name);
+
   switch (rv)
     {
     case 0:
