@@ -83,7 +83,7 @@ vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
 	return VNET_API_ERROR_VALUE_EXIST;
 
       pool_get (gtm->ueip_pools, ueip_pool);
-      ueip_pool->identity = vec_dup (identity);
+      ueip_pool->identity = identity;
       ueip_pool->nwi_name = vec_dup (nwi_name);
 
       hash_set_mem (gtm->ue_ip_pool_index_by_identity, identity,
