@@ -252,17 +252,20 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
     }
 
   nwi_name = upf_name_to_labels (nwi_s);
-  vec_free (nwi_s);
 
   if (vec_len (nwi_name) > 64)
-    return clib_error_return (0, "NWI name(encoded) has to fit in 64 bytes");
+    {
+      error = clib_error_return (0,
+				 "NWI name(encoded) has to fit in 64 bytes");
+      goto done;
+    }
   if (vec_len (identity) > 64)
-    return clib_error_return (0, "UE IP pool name has to fit in 64 bytes");
+    {
+      error = clib_error_return (0, "UE IP pool name has to fit in 64 bytes");
+      goto done;
+    }
 
   rv = vnet_upf_ue_ip_pool_add_del (identity, nwi_name, is_add);
-
-  vec_free (identity);
-  vec_free (nwi_name);
 
   switch (rv)
     {
@@ -283,6 +286,10 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
     }
 
 done:
+  vec_free (identity);
+  vec_free (nwi_name);
+  vec_free (nwi_s);
+
   return error;
 }
 
