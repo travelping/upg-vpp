@@ -1997,6 +1997,21 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 
 var _ = ginkgo.Describe("Error handling", func() {
 	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+	var seid pfcp.SEID
+
+	ginkgo.BeforeEach(func() {
+		seid = startMeasurementSession(f, &framework.SessionConfig{AppName: framework.HTTPAppName})
+	})
+
+	ginkgo.It("error tests", func() {
+		verifyConnFlood(f, false)
+		f.VPP.Ctl("sh upf association")
+		deleteSession(f, seid, true)
+	})
+})
+
+var _ = ginkgo.Describe("Error handling", func() {
+	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 
 	ginkgo.It("should be done correctly with unknown Forwarding Policy when creating a session", func() {
 		sessionCfg := &framework.SessionConfig{
