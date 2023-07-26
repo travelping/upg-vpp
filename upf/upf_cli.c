@@ -292,6 +292,7 @@ done:
   vec_free (identity);
   vec_free (nwi_name);
   vec_free (nwi_s);
+  unformat_free (line_input);
 
   return error;
 }
