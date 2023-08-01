@@ -229,7 +229,7 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
   clib_error_t *error = NULL;
   u8 *identity = 0;
   u8 *nwi_s = 0;
-  u8 *nwi_name;
+  u8 *nwi_name = 0;
   int rv = 0;
   int is_add = 1;
 
