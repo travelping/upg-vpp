@@ -234,9 +234,7 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
   int is_add = 1;
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
-    {
-      return 0;
-    }
+    return 0;
 
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
