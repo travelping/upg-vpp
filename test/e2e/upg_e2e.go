@@ -1996,17 +1996,49 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 })
 
 var _ = ginkgo.Describe("Error handling", func() {
+	// f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+	// var seid pfcp.SEID
+
+	// ginkgo.BeforeEach(func() {
+	// 	seid = startMeasurementSession(f, &framework.SessionConfig{AppName: framework.HTTPAppName})
+	// })
+
+	// ginkgo.It("error tests", func() {
+	// 	verifyConnFlood(f, false)
+	// 	f.VPP.Ctl("sh upf association")
+	// 	deleteSession(f, seid, true)
+	// })
 	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-	var seid pfcp.SEID
+	ginkgo.It("mzyla test", func() {
+		ginkgo.By("Configuring session")
+		sessionCfg := &framework.SessionConfig{
+			IdBase:      1,
+			UEIP:        f.UEIP(),
+			Mode:        f.Mode,
+			VolumeQuota: 100000,
+			NoURRs:      true,
+		}
+		ies := sessionCfg.CreatePDRs()
+		ies = append(ies, sessionCfg.CreateFARs()...)
 
-	ginkgo.BeforeEach(func() {
-		seid = startMeasurementSession(f, &framework.SessionConfig{AppName: framework.HTTPAppName})
-	})
+		_, err := f.PFCP.EstablishSession(f.Context, 0, ies...)
+		framework.ExpectNoError(err)
+		ginkgo.By("Starting some traffic")
+		tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+			PacketCount: 1, // 10s
+			Retry:       false,
+			Delay:       100 * time.Millisecond,
+		}, &traffic.SimpleTrafficRec{})
+		tg.Start(f.Context, clientNS, serverNS)
 
-	ginkgo.It("error tests", func() {
-		verifyConnFlood(f, false)
-		f.VPP.Ctl("sh upf association")
-		deleteSession(f, seid, true)
+		time.Sleep(time.Second * 5)
+
+		_, err = f.VPP.Ctl("show upf session")
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		_, err = f.VPP.Ctl("show error")
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 	})
 })
 
