@@ -45,11 +45,12 @@
   _(FORWARD, "good packets forward")				\
   _(OPTIONS, "Could not parse options")				\
   _(CREATE_SESSION_FAIL, "Sessions couldn't be allocated")      \
-  _(BUFFER_NOT_YET, "Buffer action not supported")              \
   _(PDR_MISSING, "PDR missing")                                 \
   _(FAR_MISSING, "FAR missing")                                 \
+  _(BUFFER_NOT_YET, "Buffer action not supported")              \
   _(OUTER_HEADER_NOT_YET, "Outer header not supported")         \
-  _(FAR_ACTION_NOT_YET, "FAR action not supported")
+  _(FAR_NOT_YET, "FAR not supported")                           \
+  _(FAR_DROP, "FAR action drop")
 
 static char *upf_forward_error_strings[] = {
 #define _(sym,string) string,
@@ -202,20 +203,6 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 		    {
 		      next = UPF_FORWARD_NEXT_GTP_IP6_ENCAP;
 		    }
-		  else if (far->forward.outer_header_creation.description
-			   & OUTER_HEADER_CREATION_UDP_IP4)
-		    {
-		      error = UPF_FORWARD_ERROR_OUTER_HEADER_NOT_YET;
-		      next = UPF_FORWARD_NEXT_DROP;
-		      goto trace;
-		    }
-		  else if (far->forward.outer_header_creation.description
-			   & OUTER_HEADER_CREATION_UDP_IP6)
-		    {
-		      error = UPF_FORWARD_ERROR_OUTER_HEADER_NOT_YET;
-		      next = UPF_FORWARD_NEXT_DROP;
-		      goto trace;
-		    }
 		  else
 		    {
 		      error = UPF_FORWARD_ERROR_OUTER_HEADER_NOT_YET;
@@ -288,10 +275,14 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      error = UPF_FORWARD_ERROR_BUFFER_NOT_YET;
 	      next = UPF_FORWARD_NEXT_DROP;
 	    }
+	  else if (far->apply_action & FAR_DROP)
+	    {
+	      error = UPF_FORWARD_ERROR_FAR_DROP;
+	      next = UPF_FORWARD_NEXT_DROP;
+	    }
 	  else
 	    {
-	      // Other actions not yet implemented (or missing?)
-	      error = UPF_FORWARD_ERROR_FAR_ACTION_NOT_YET;
+	      error = UPF_FORWARD_ERROR_FAR_NOT_YET;
 	      next = UPF_FORWARD_NEXT_DROP;
 	    }
 
