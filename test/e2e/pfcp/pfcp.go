@@ -75,6 +75,7 @@ const (
 	PFCP_BUF_SIZE = 100000
 	PFCP_PORT     = 8805
 
+	ApplyAction_DROP = 1
 	ApplyAction_FORW = 2
 	UEIPAddress_SD   = 4
 	UEIPAddress_V4   = 2

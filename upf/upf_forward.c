@@ -269,15 +269,15 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 		    }
 		}
 	    }
+	  else if (far->apply_action & FAR_DROP)
+	    {
+	      error = UPF_FORWARD_ERROR_FAR_DROP;
+	      next = UPF_FORWARD_NEXT_DROP;
+	    }
 	  else if (far->apply_action & FAR_BUFFER)
 	    {
 	      // Not yet implemented
 	      error = UPF_FORWARD_ERROR_BUFFER_NOT_YET;
-	      next = UPF_FORWARD_NEXT_DROP;
-	    }
-	  else if (far->apply_action & FAR_DROP)
-	    {
-	      error = UPF_FORWARD_ERROR_FAR_DROP;
 	      next = UPF_FORWARD_NEXT_DROP;
 	    }
 	  else
