@@ -2365,12 +2365,16 @@ display_packet_for_urr (vlib_main_t * vm, vlib_buffer_t * b,
 
 #endif
 
-u32
+/**
+ * @brief Function to process URRs.
+ *
+ * @return true if the packet should be dropped, false otherwise
+*/
+bool
 process_urrs (vlib_main_t * vm, upf_session_t * sess,
 	      const char *node_name,
 	      struct rules *active,
-	      upf_pdr_t * pdr, vlib_buffer_t * b,
-	      u8 is_dl, u8 is_ul, u32 next)
+	      upf_pdr_t * pdr, vlib_buffer_t * b, u8 is_dl, u8 is_ul)
 {
   upf_urr_traffic_t tt = {.ip = ip46_address_initializer };
   upf_event_urr_data_t *uev = NULL;
@@ -2379,6 +2383,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
   upf_event_urr_hdr_t *ueh;
   u8 status = URR_OK;
   u16 *urr_id;
+  bool ret = false;
 
   upf_debug ("DL: %d, UL: %d\n", is_dl, is_ul);
 
@@ -2559,7 +2564,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
       }
 
     if (PREDICT_FALSE (urr->status & URR_OVER_QUOTA))
-      next = UPF_FORWARD_NEXT_DROP;
+      ret = true;
 
     status |= r;
   }
@@ -2583,26 +2588,31 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
       upf_pfcp_server_session_usage_report (uev);
     }
 
-  return next;
+  return ret;
 }
 
-u32
+/**
+ * @brief Function to process QERs.
+ *
+ * @return true if the packet should be dropped, false otherwise
+*/
+bool
 process_qers (vlib_main_t * vm, upf_session_t * sess,
 	      struct rules *r,
-	      upf_pdr_t * pdr, vlib_buffer_t * b,
-	      u8 is_dl, u8 is_ul, u32 next)
+	      upf_pdr_t * pdr, vlib_buffer_t * b, u8 is_dl, u8 is_ul)
 {
   u8 direction = is_dl ? UPF_DL : UPF_UL;
   upf_main_t *gtm = &upf_main;
   u64 time_in_policer_periods;
   u32 *qer_id;
   u32 len;
+  bool ret = false;
 
   upf_debug ("DL: %d, UL: %d\n", is_dl, is_ul);
 
   /* must be UL or DL, not both and not none */
   if ((is_ul + is_dl) != 1)
-    return next;
+    return ret;
 
   time_in_policer_periods =
     clib_cpu_time_now () >> POLICER_TICKS_PER_PERIOD_SHIFT;
@@ -2623,7 +2633,7 @@ process_qers (vlib_main_t * vm, upf_session_t * sess,
 
     if (qer->gate_status[direction])
       {
-	next = UPF_FORWARD_NEXT_DROP;
+	ret = true;
 	break;
       }
 
@@ -2634,7 +2644,7 @@ process_qers (vlib_main_t * vm, upf_session_t * sess,
     upf_debug ("QER color: %d\n", col);
   }
 
-  return next;
+  return ret;
 }
 
 

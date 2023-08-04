@@ -75,15 +75,13 @@ pfcp_get_rules (upf_session_t * sx, int rules)
 
 void vlib_free_combined_counter (vlib_combined_counter_main_t * cm);
 
-u32 process_urrs (vlib_main_t * vm, upf_session_t * sess,
-		  const char *node_name,
-		  struct rules *active,
-		  upf_pdr_t * pdr, vlib_buffer_t * b,
-		  u8 is_dl, u8 is_ul, u32 next);
-u32 process_qers (vlib_main_t * vm, upf_session_t * sess,
-		  struct rules *r,
-		  upf_pdr_t * pdr, vlib_buffer_t * b,
-		  u8 is_dl, u8 is_ul, u32 next);
+bool process_urrs (vlib_main_t * vm, upf_session_t * sess,
+		   const char *node_name,
+		   struct rules *active,
+		   upf_pdr_t * pdr, vlib_buffer_t * b, u8 is_dl, u8 is_ul);
+bool process_qers (vlib_main_t * vm, upf_session_t * sess,
+		   struct rules *r,
+		   upf_pdr_t * pdr, vlib_buffer_t * b, u8 is_dl, u8 is_ul);
 
 void upf_pfcp_error_report (upf_session_t * sx, gtp_error_ind_t * error);
 void upf_ref_forwarding_policies (upf_far_t * far, u8 is_del);

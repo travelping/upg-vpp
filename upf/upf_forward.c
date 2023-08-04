@@ -50,7 +50,9 @@
   _(BUFFER_NOT_YET, "Buffer action not supported")              \
   _(OUTER_HEADER_NOT_YET, "Outer header not supported")         \
   _(FAR_NOT_YET, "FAR not supported")                           \
-  _(FAR_DROP, "FAR action drop")
+  _(FAR_DROP, "FAR action drop")                                \
+  _(QER_DROP, "dropped because of QER")                            \
+  _(URR_DROP, "dropped because of URR")
 
 static char *upf_forward_error_strings[] = {
 #define _(sym,string) string,
@@ -294,10 +296,19 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  if (!(upf_buffer_opaque (b)->gtpu.flags & BUFFER_FAR_ONLY))
 	    {
 	      upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
-	      next = process_qers (vm, sess, active, pdr, b,
-				   IS_DL (pdr, far), IS_UL (pdr, far), next);
-	      next = process_urrs (vm, sess, node_name, active, pdr, b,
-				   IS_DL (pdr, far), IS_UL (pdr, far), next);
+	      if (process_qers (vm, sess, active, pdr, b,
+				IS_DL (pdr, far), IS_UL (pdr, far)))
+		{
+		  error = UPF_FORWARD_ERROR_QER_DROP;
+		  next = UPF_FORWARD_NEXT_DROP;
+		}
+	      if (process_urrs (vm, sess, node_name, active, pdr, b,
+				IS_DL (pdr, far), IS_UL (pdr, far)))
+		{
+		  error = UPF_FORWARD_ERROR_URR_DROP;
+		  next = UPF_FORWARD_NEXT_DROP;
+		}
+
 	      /*
 	       * Flow ID might be absent if active->flags doesn't have
 	       * PFCP_CLASSIFY bit set. In this case PDR index may be
