@@ -1061,6 +1061,76 @@ vl_api_upf_tdf_ul_table_add_t_handler (vl_api_upf_tdf_ul_table_add_t * mp)
   REPLY_MACRO (VL_API_UPF_TDF_UL_TABLE_ADD_REPLY);
 }
 
+/* API message handler */
+static void
+vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t * mp)
+{
+  int rv = 0;
+  upf_main_t *sm = &upf_main;
+  vl_api_upf_ueip_pool_nwi_add_reply_t *rmp = NULL;
+
+  u8 *nwi_name = mp->nwi_name;
+  u8 *nwi_name_vec = 0;
+  u8 *identity = mp->identity;
+  u8 *identity_vec = 0;
+
+  if (mp->identity_len > 64 || mp->nwi_name_len > 64)
+    {
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      goto reply;
+    }
+
+  nwi_name_vec = vec_new (u8, mp->nwi_name_len);
+  memcpy (nwi_name_vec, nwi_name, mp->nwi_name_len);
+
+  identity_vec = vec_new (u8, mp->identity_len);
+  memcpy (identity_vec, identity, mp->identity_len);
+
+  rv = vnet_upf_ue_ip_pool_add_del (identity_vec, nwi_name_vec, mp->is_add);
+
+  vec_free (identity_vec);
+  vec_free (nwi_name_vec);
+
+reply:
+  REPLY_MACRO (VL_API_UPF_UEIP_POOL_NWI_ADD_REPLY);
+}
+
+/* API message handler */
+static void
+vl_api_upf_ueip_pool_dump_t_handler (vl_api_upf_ueip_pool_dump_t * mp)
+{
+  upf_main_t *sm = &upf_main;
+  vl_api_registration_t *reg;
+  vl_api_upf_ueip_pool_details_t *rmp = NULL;
+  upf_ue_ip_pool_info_t *pool = NULL;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    return;
+
+  pool_foreach (pool, sm->ueip_pools)
+  {
+    u8 nwi_name_len;
+    u8 identity_len;
+
+    nwi_name_len = vec_len (pool->nwi_name);
+    ASSERT (nwi_name_len <= 64);
+    identity_len = vec_len (pool->identity);
+    ASSERT (identity_len <= 64);
+
+    rmp = vl_msg_api_alloc (sizeof (*rmp) + nwi_name_len);
+    clib_memset (rmp, 0, sizeof (*rmp) + nwi_name_len);
+    rmp->_vl_msg_id = htons (VL_API_UPF_UEIP_POOL_DETAILS + sm->msg_id_base);
+    rmp->context = mp->context;
+
+    rmp->nwi_name_len = nwi_name_len;
+    memcpy (rmp->nwi_name, pool->nwi_name, nwi_name_len);
+    memcpy (rmp->identity, pool->identity, identity_len);
+    vl_api_send_msg (reg, (u8 *) rmp);
+  }
+}
+
+
 #include <upf/upf.api.c>
 
 static clib_error_t *
