@@ -51,7 +51,7 @@
   _(OUTER_HEADER_NOT_YET, "Outer header not supported")         \
   _(FAR_NOT_YET, "FAR not supported")                           \
   _(FAR_DROP, "FAR action drop")                                \
-  _(QER_DROP, "dropped because of QER")                            \
+  _(QER_DROP, "dropped because of QER")                         \
   _(URR_DROP, "dropped because of URR")
 
 static char *upf_forward_error_strings[] = {
