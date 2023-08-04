@@ -1130,9 +1130,50 @@ vl_api_upf_ueip_pool_dump_t_handler (vl_api_upf_ueip_pool_dump_t * mp)
   }
 }
 
+/* API message handler */
+static void
+vl_api_upf_nat_pool_add_t_handler (vl_api_upf_nat_pool_add_t * mp)
+{
+  int rv = 0;
+  upf_main_t *sm = &upf_main;
+  vl_api_upf_nat_pool_add_reply_t *rmp = NULL;
+
+  u8 *name_vec = 0;
+  u8 *nwi_vec = 0;
+  u32 name_vec_len = 0;
+  ip4_address_t start, end;
+
+  mp->min_port = ntohs (mp->min_port);
+  mp->max_port = ntohs (mp->max_port);
+  mp->block_size = ntohl (mp->block_size);
+
+  if (mp->nwi_len > 64 || mp->name_len > 64)
+    {
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      goto reply;
+    }
+
+  nwi_vec = vec_new (u8, mp->nwi_len);
+  memcpy (nwi_vec, mp->nwi, mp->nwi_len);
+
+  name_vec = vec_new (u8, mp->name_len);
+  memcpy (name_vec, mp->name, mp->name_len);
+
+  ip4_address_decode (mp->start, &start);
+  ip4_address_decode (mp->end, &end);
+
+  rv =
+    vnet_upf_nat_pool_add_del (nwi_vec, start, end, name_vec, mp->block_size,
+			       mp->min_port, mp->max_port, mp->is_add);
+
+  vec_free (nwi_vec);
+  vec_free (name_vec);
+
+reply:
+  REPLY_MACRO (VL_API_UPF_NAT_POOL_ADD_REPLY);
+}
 
 #include <upf/upf.api.c>
-
 static clib_error_t *
 upf_api_hookup (vlib_main_t * vm)
 {

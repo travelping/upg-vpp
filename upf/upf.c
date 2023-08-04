@@ -158,6 +158,8 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
   upf_nat_pool_t *nat_pool = NULL;
   uword *p;
 
+  name = vec_dup (name);
+
   p = hash_get_mem (gtm->nat_pool_index_by_name, name);
 
   if (is_add)
@@ -182,7 +184,7 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
 	  return -1;
 	}
 
-      nat_pool->name = vec_dup (name);
+      nat_pool->name = name;
       nat_pool->network_instance = vec_dup (nwi_name);
       nat_pool->port_block_size = port_block_size;
       nat_pool->min_port = min_port;
@@ -192,7 +194,6 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
 
       hash_set_mem (gtm->nat_pool_index_by_name, name,
 		    nat_pool - gtm->nat_pools);
-
     }
   else
     {

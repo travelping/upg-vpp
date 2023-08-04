@@ -20,6 +20,7 @@ type RPCService interface {
 	UpfApplicationL7RuleDump(ctx context.Context, in *UpfApplicationL7RuleDump) (RPCService_UpfApplicationL7RuleDumpClient, error)
 	UpfApplicationsDump(ctx context.Context, in *UpfApplicationsDump) (RPCService_UpfApplicationsDumpClient, error)
 	UpfGetNodeID(ctx context.Context, in *UpfGetNodeID) (*UpfGetNodeIDReply, error)
+	UpfNatPoolAdd(ctx context.Context, in *UpfNatPoolAdd) (*UpfNatPoolAddReply, error)
 	UpfNatPoolDump(ctx context.Context, in *UpfNatPoolDump) (RPCService_UpfNatPoolDumpClient, error)
 	UpfNwiAddDel(ctx context.Context, in *UpfNwiAddDel) (*UpfNwiAddDelReply, error)
 	UpfNwiDump(ctx context.Context, in *UpfNwiDump) (RPCService_UpfNwiDumpClient, error)
@@ -176,6 +177,15 @@ func (c *serviceClient_UpfApplicationsDumpClient) Recv() (*UpfApplicationsDetail
 
 func (c *serviceClient) UpfGetNodeID(ctx context.Context, in *UpfGetNodeID) (*UpfGetNodeIDReply, error) {
 	out := new(UpfGetNodeIDReply)
+	err := c.conn.Invoke(ctx, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, api.RetvalToVPPApiError(out.Retval)
+}
+
+func (c *serviceClient) UpfNatPoolAdd(ctx context.Context, in *UpfNatPoolAdd) (*UpfNatPoolAddReply, error) {
+	out := new(UpfNatPoolAddReply)
 	err := c.conn.Invoke(ctx, in, out)
 	if err != nil {
 		return nil, err
