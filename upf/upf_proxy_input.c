@@ -472,10 +472,13 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
               ((_pdr)->pdi.src_intf == SRC_INTF_ACCESS || (_far)->forward.dst_intf == DST_INTF_CORE)
 
 	      upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
-	      next = process_qers (vm, sess, active, pdr, b,
-				   IS_DL (pdr, far), IS_UL (pdr, far), next);
-	      next = process_urrs (vm, sess, node_name, active, pdr, b,
-				   IS_DL (pdr, far), IS_UL (pdr, far), next);
+	      if (!process_qers (vm, sess, active, pdr, b,
+				 IS_DL (pdr, far), IS_UL (pdr, far)))
+		next = UPF_FORWARD_NEXT_DROP;
+	      if (!process_urrs (vm, sess, node_name, active, pdr, b,
+				 IS_DL (pdr, far), IS_UL (pdr, far)))
+		next = UPF_FORWARD_NEXT_DROP;
+
 	      flow_update_stats (vm, b, flow, is_ip4,
 				 timestamp, current_time);
 

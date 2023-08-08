@@ -121,7 +121,7 @@ func (cfg SessionConfig) ipfixTemplateIEs() []*ie.IE {
 	}
 }
 
-func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
+func (cfg SessionConfig) forwardFAR(farID uint32, flag uint8) *ie.IE {
 	var fwParams []*ie.IE
 	switch cfg.Mode {
 	case UPGModeTDF, UPGModePGW:
@@ -150,13 +150,13 @@ func (cfg SessionConfig) forwardFAR(farID uint32) *ie.IE {
 
 	ies := append([]*ie.IE{
 		ie.NewFARID(farID),
-		ie.NewApplyAction(pfcp.ApplyAction_FORW),
+		ie.NewApplyAction(flag),
 		ie.NewForwardingParameters(fwParams...),
 	}, cfg.ipfixTemplateIEs()...)
 	return ie.NewCreateFAR(ies...)
 }
 
-func (cfg SessionConfig) reverseFAR(farID uint32) *ie.IE {
+func (cfg SessionConfig) reverseFAR(farID uint32, flag uint8) *ie.IE {
 	var fwParams []*ie.IE
 	switch cfg.Mode {
 	case UPGModeTDF:
@@ -182,7 +182,7 @@ func (cfg SessionConfig) reverseFAR(farID uint32) *ie.IE {
 
 	ies := append([]*ie.IE{
 		ie.NewFARID(farID),
-		ie.NewApplyAction(pfcp.ApplyAction_FORW),
+		ie.NewApplyAction(flag),
 		ie.NewForwardingParameters(fwParams...),
 	}, cfg.ipfixTemplateIEs()...)
 	return ie.NewCreateFAR(ies...)
@@ -290,10 +290,10 @@ func (cfg SessionConfig) reversePDR(pdrID uint16, farID, urrID, precedence uint3
 	return ie.NewCreatePDR(ies...)
 }
 
-func (cfg SessionConfig) CreateFARs() []*ie.IE {
+func (cfg SessionConfig) CreateFARs(flag uint8) []*ie.IE {
 	return []*ie.IE{
-		cfg.forwardFAR(1),
-		cfg.reverseFAR(2),
+		cfg.forwardFAR(1, flag),
+		cfg.reverseFAR(2, flag),
 	}
 }
 
@@ -367,7 +367,7 @@ func (cfg SessionConfig) DeleteURRs() []*ie.IE {
 }
 
 func (cfg SessionConfig) SessionIEs() []*ie.IE {
-	ies := cfg.CreateFARs()
+	ies := cfg.CreateFARs(pfcp.ApplyAction_FORW)
 	if !cfg.NoURRs {
 		ies = append(ies, cfg.CreateURRs()...)
 	}

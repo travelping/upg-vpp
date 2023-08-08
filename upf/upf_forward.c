@@ -44,7 +44,15 @@
   _(NO_LISTENER, "no redirect server available")		\
   _(FORWARD, "good packets forward")				\
   _(OPTIONS, "Could not parse options")				\
-  _(CREATE_SESSION_FAIL, "Sessions couldn't be allocated")
+  _(CREATE_SESSION_FAIL, "Sessions couldn't be allocated")      \
+  _(PDR_MISSING, "PDR missing")                                 \
+  _(FAR_MISSING, "FAR missing")                                 \
+  _(BUFFER_NOT_YET, "Buffer action not supported")              \
+  _(OUTER_HEADER_NOT_YET, "Outer header not supported")         \
+  _(FAR_NOT_YET, "FAR not supported")                           \
+  _(FAR_DROP, "FAR action drop")                                \
+  _(QER_DROP, "dropped because of QER")                         \
+  _(URR_DROP, "dropped because of URR")
 
 static char *upf_forward_error_strings[] = {
 #define _(sym,string) string,
@@ -168,8 +176,17 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 			 vlib_buffer_get_current (b), b->current_length);
 	    }
 
-	  if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
-	    goto stats;
+	  if (PREDICT_FALSE (!pdr))
+	    {
+	      error = UPF_FORWARD_ERROR_PDR_MISSING;
+	      goto stats;
+	    }
+
+	  if (PREDICT_FALSE (!far))
+	    {
+	      error = UPF_FORWARD_ERROR_FAR_MISSING;
+	      goto stats;
+	    }
 
 	  upf_debug ("PDR: %u, FAR: %u", pdr->id, far->id);
 
@@ -188,18 +205,10 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 		    {
 		      next = UPF_FORWARD_NEXT_GTP_IP6_ENCAP;
 		    }
-		  else if (far->forward.outer_header_creation.description
-			   & OUTER_HEADER_CREATION_UDP_IP4)
+		  else
 		    {
+		      error = UPF_FORWARD_ERROR_OUTER_HEADER_NOT_YET;
 		      next = UPF_FORWARD_NEXT_DROP;
-		      // error = UPF_FORWARD_ERROR_NOT_YET;
-		      goto trace;
-		    }
-		  else if (far->forward.outer_header_creation.description
-			   & OUTER_HEADER_CREATION_UDP_IP6)
-		    {
-		      next = UPF_FORWARD_NEXT_DROP;
-		      // error = UPF_FORWARD_ERROR_NOT_YET;
 		      goto trace;
 		    }
 		}
@@ -242,7 +251,7 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 		      /*
 		       * the Forwarding Policy might not contain an entry
 		       * for the IP version of the buffer. In that case, the
-		       * loop will just not alter already resent normal FAR
+		       * loop will just not alter already present normal FAR
 		       * settings.
 		       */
 		      vec_foreach (rpath, fp_entry->rpaths)
@@ -262,13 +271,20 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 		    }
 		}
 	    }
+	  else if (far->apply_action & FAR_DROP)
+	    {
+	      error = UPF_FORWARD_ERROR_FAR_DROP;
+	      next = UPF_FORWARD_NEXT_DROP;
+	    }
 	  else if (far->apply_action & FAR_BUFFER)
 	    {
+	      // Not yet implemented
+	      error = UPF_FORWARD_ERROR_BUFFER_NOT_YET;
 	      next = UPF_FORWARD_NEXT_DROP;
-	      // error = UPF_FORWARD_ERROR_NOT_YET;
 	    }
 	  else
 	    {
+	      error = UPF_FORWARD_ERROR_FAR_NOT_YET;
 	      next = UPF_FORWARD_NEXT_DROP;
 	    }
 
@@ -280,10 +296,19 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  if (!(upf_buffer_opaque (b)->gtpu.flags & BUFFER_FAR_ONLY))
 	    {
 	      upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
-	      next = process_qers (vm, sess, active, pdr, b,
-				   IS_DL (pdr, far), IS_UL (pdr, far), next);
-	      next = process_urrs (vm, sess, node_name, active, pdr, b,
-				   IS_DL (pdr, far), IS_UL (pdr, far), next);
+	      if (!process_qers (vm, sess, active, pdr, b,
+				 IS_DL (pdr, far), IS_UL (pdr, far)))
+		{
+		  error = UPF_FORWARD_ERROR_QER_DROP;
+		  next = UPF_FORWARD_NEXT_DROP;
+		}
+	      if (!process_urrs (vm, sess, node_name, active, pdr, b,
+				 IS_DL (pdr, far), IS_UL (pdr, far)))
+		{
+		  error = UPF_FORWARD_ERROR_URR_DROP;
+		  next = UPF_FORWARD_NEXT_DROP;
+		}
+
 	      /*
 	       * Flow ID might be absent if active->flags doesn't have
 	       * PFCP_CLASSIFY bit set. In this case PDR index may be

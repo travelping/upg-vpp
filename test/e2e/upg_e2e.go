@@ -1772,7 +1772,7 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 			sessionCfg.NoURRs = true
 			sessionCfg.Redirect = true
 			modifyIEs = sessionCfg.CreatePDRs()
-			modifyIEs = append(modifyIEs, sessionCfg.CreateFARs()...)
+			modifyIEs = append(modifyIEs, sessionCfg.CreateFARs(pfcp.ApplyAction_FORW)...)
 			_, err = f.PFCP.ModifySession(f.VPP.Context(context.Background()), seid, modifyIEs...)
 			framework.ExpectNoError(err, "ModifySession")
 			time.Sleep(time.Second * 5)
@@ -1829,7 +1829,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 					specs[j].SEID = seids[j]
 					specs[j].IEs = append(
 						sessionCfgs[j].DeleteFARs(),
-						sessionCfgs[j].CreateFARs()...)
+						sessionCfgs[j].CreateFARs(pfcp.ApplyAction_FORW)...)
 				}
 				_, errs = f.PFCP.ModifySessions(f.Context, specs)
 				for _, err := range errs {
@@ -1842,7 +1842,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 					specs[j].SEID = seids[j]
 					specs[j].IEs = append(
 						sessionCfgs[j].DeleteFARs(),
-						sessionCfgs[j].CreateFARs()...)
+						sessionCfgs[j].CreateFARs(pfcp.ApplyAction_FORW)...)
 				}
 				_, errs = f.PFCP.ModifySessions(f.Context, specs)
 				for _, err := range errs {
@@ -1992,6 +1992,46 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			framework.ExpectNoError(err)
 			deleteSession(f, seid1, true)
 		})
+	})
+})
+
+var _ = ginkgo.Describe("Error handling", func() {
+	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+	ginkgo.It("FAR drops a packet", func() {
+		ginkgo.By("Configuring session")
+		sessionCfg := &framework.SessionConfig{
+			IdBase:      1,
+			UEIP:        f.UEIP(),
+			Mode:        f.Mode,
+			VolumeQuota: 100000,
+			NoURRs:      true,
+		}
+		ies := sessionCfg.CreatePDRs()
+		ies = append(ies, sessionCfg.CreateFARs(pfcp.ApplyAction_DROP)...)
+
+		_, err := f.PFCP.EstablishSession(f.Context, 0, ies...)
+		framework.ExpectNoError(err)
+		ginkgo.By("Starting some traffic")
+		tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+			PacketCount: 1,
+			Retry:       false,
+			Delay:       100 * time.Millisecond,
+		}, &traffic.SimpleTrafficRec{})
+		tg.Start(f.Context, clientNS, serverNS)
+
+		time.Sleep(time.Second * 1)
+
+		output, err := f.VPP.Ctl("show error")
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		// remove extra spaces from between output lines
+		var errors []string
+		for _, line := range strings.Split(output, "\n") {
+			errors = append(errors, strings.Join(strings.Fields(line), " "))
+		}
+
+		// since we push 1 packet, there should be one dropped
+		gomega.Expect(errors).To(gomega.ContainElement("1 upf-ip4-forward FAR action drop error"))
 	})
 })
 
