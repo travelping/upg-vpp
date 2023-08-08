@@ -296,14 +296,14 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  if (!(upf_buffer_opaque (b)->gtpu.flags & BUFFER_FAR_ONLY))
 	    {
 	      upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
-	      if (process_qers (vm, sess, active, pdr, b,
-				IS_DL (pdr, far), IS_UL (pdr, far)))
+	      if (!process_qers (vm, sess, active, pdr, b,
+				 IS_DL (pdr, far), IS_UL (pdr, far)))
 		{
 		  error = UPF_FORWARD_ERROR_QER_DROP;
 		  next = UPF_FORWARD_NEXT_DROP;
 		}
-	      if (process_urrs (vm, sess, node_name, active, pdr, b,
-				IS_DL (pdr, far), IS_UL (pdr, far)))
+	      if (!process_urrs (vm, sess, node_name, active, pdr, b,
+				 IS_DL (pdr, far), IS_UL (pdr, far)))
 		{
 		  error = UPF_FORWARD_ERROR_URR_DROP;
 		  next = UPF_FORWARD_NEXT_DROP;

@@ -2383,7 +2383,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
   upf_event_urr_hdr_t *ueh;
   u8 status = URR_OK;
   u16 *urr_id;
-  bool ret = false;
+  bool ret = true;
 
   upf_debug ("DL: %d, UL: %d\n", is_dl, is_ul);
 
@@ -2564,7 +2564,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
       }
 
     if (PREDICT_FALSE (urr->status & URR_OVER_QUOTA))
-      ret = true;
+      ret = false;
 
     status |= r;
   }
@@ -2606,7 +2606,7 @@ process_qers (vlib_main_t * vm, upf_session_t * sess,
   u64 time_in_policer_periods;
   u32 *qer_id;
   u32 len;
-  bool ret = false;
+  bool ret = true;
 
   upf_debug ("DL: %d, UL: %d\n", is_dl, is_ul);
 
@@ -2633,7 +2633,7 @@ process_qers (vlib_main_t * vm, upf_session_t * sess,
 
     if (qer->gate_status[direction])
       {
-	ret = true;
+	ret = false;
 	break;
       }
 
