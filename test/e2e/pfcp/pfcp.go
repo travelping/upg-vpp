@@ -31,6 +31,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/travelping/upg-vpp/test/e2e/network"
+	"github.com/travelping/upg-vpp/test/e2e/util"
 )
 
 type SessionOpSpec struct {
@@ -341,7 +342,12 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 		} else {
 			pc.log.Warn("ignoring SessionReportRequest (no report channel)")
 		}
-		return nil
+
+		if pc.FITHook.IsFaultInjected(util.FaultSessionForgot) {
+			return pc.sendSessionReportResponseFIT(ev.msg.(*message.SessionReportRequest))
+		} else {
+			return pc.sendSessionReportResponse(ev.msg.(*message.SessionReportRequest))
+		}
 	},
 
 	/* TODO: do association release (not handled by UPG ATM)
@@ -385,6 +391,7 @@ type PFCPConfig struct {
 	// PFCP Heartbeat Requests, thus simulating a faulty CP.
 	IgnoreHeartbeatRequests bool
 	RecoveryTimestamp       time.Time
+	FITHook                 *util.FITHook
 }
 
 func (cfg *PFCPConfig) setDefaults() {
@@ -418,6 +425,7 @@ type PFCPConnection struct {
 	skipMsgs               int
 	reportCh               chan message.Message
 	receivedHBRequestTimes []time.Time
+	FITHook                *util.FITHook
 }
 
 type PFCPReport struct {
@@ -467,8 +475,9 @@ type PFCPMeasurement struct {
 func NewPFCPConnection(cfg PFCPConfig) *PFCPConnection {
 	cfg.setDefaults()
 	pc := &PFCPConnection{
-		cfg: cfg,
-		log: logrus.WithField("NodeID", cfg.NodeID),
+		cfg:     cfg,
+		log:     logrus.WithField("NodeID", cfg.NodeID),
+		FITHook: cfg.FITHook,
 	}
 	return pc
 }
@@ -864,6 +873,22 @@ func (pc *PFCPConnection) sendAssociationReleaseRequest() error {
 
 func (pc *PFCPConnection) sendHeartbeatResponse(hr *message.HeartbeatRequest) error {
 	return pc.send(message.NewHeartbeatResponse(hr.SequenceNumber, ie.NewRecoveryTimeStamp(pc.timestamp)))
+}
+
+func (pc *PFCPConnection) sendSessionReportResponse(req *message.SessionReportRequest) error {
+	return pc.send(message.NewSessionReportResponse(0, 0, req.SEID(), req.SequenceNumber, 0, ie.NewRecoveryTimeStamp(pc.timestamp)))
+}
+
+func (pc *PFCPConnection) sendSessionReportResponseFIT(req *message.SessionReportRequest) error {
+	return pc.send(message.NewSessionReportResponse(
+		0,
+		0,
+		0,
+		req.SequenceNumber,
+		0,
+		ie.NewRecoveryTimeStamp(pc.timestamp),
+		ie.NewCause(ie.CauseSessionContextNotFound),
+	))
 }
 
 func (pc *PFCPConnection) createSession(seid SEID) error {
