@@ -216,6 +216,7 @@ encode_pfcp_session_msg (upf_session_t * sx,
   msg->seq_no = clib_atomic_add_fetch (&psm->seq_no, 1) % 0x1000000;
   msg->node = sx->assoc.node;
   msg->session_index = sx - gtm->sessions;
+  msg->seid = sx->cp_seid;
 
   dmsg->seq_no = msg->seq_no;
   dmsg->seid = sx->cp_seid;
@@ -368,6 +369,8 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
 	upf_pfcp_server_stop_msg_timer (req);
 
 	msg->node = req->node;
+	msg->session_index = req->session_index;
+	msg->seid = req->seid;
 
 	pfcp_msg_pool_put (psm, req);
 

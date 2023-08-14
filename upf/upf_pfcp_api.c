@@ -2892,9 +2892,42 @@ handle_session_report_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   return -1;
 }
 
+/**
+ * @brief Handle a PFCP Session Report Response
+ *
+ * @note dmsg has to contain valid SEID
+*/
 static int
 handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 {
+  if (dmsg->session_report_response.response.cause ==
+      PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND)
+    {
+      /* control plane does not know about the session. drop it */
+      upf_main_t *gtm = &upf_main;
+      upf_session_t *sess;
+
+      if (pool_is_free_index (gtm->sessions, msg->session_index))
+	{
+	  upf_debug ("PFCP Session not found.\n");
+	  return -1;
+	}
+
+      sess = pool_elt_at_index (gtm->sessions, msg->session_index);
+
+      /* since this is a response, and some time passed since the request
+         make sure that session index still matches the original session */
+      if (sess->cp_seid != msg->seid)
+	{
+	  upf_debug ("PFCP Session seid not matching (deleted already?).\n");
+	  return -1;
+	}
+
+      /* TODO: count those drops */
+      pfcp_disable_session (sess);
+      pfcp_free_session (sess);
+    }
+
   return -1;
 }
 
@@ -2961,6 +2994,13 @@ static msg_handler_t msg_handlers[] = {
   [PFCP_SESSION_REPORT_RESPONSE] = handle_session_report_response,
 };
 
+/**
+ * @brief Handle a PFCP message
+ *
+ * @param msg PFCP message
+ *
+ * @note if msg is a response, it needs to contain a valid session_index from request
+*/
 int
 upf_pfcp_handle_msg (pfcp_msg_t * msg)
 {

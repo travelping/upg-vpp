@@ -1393,6 +1393,56 @@ var _ = ginkgo.Describe("Multiple PFCP peers", func() {
 	})
 })
 
+var _ = ginkgo.Describe("FIT Tests", func() {
+	var fitHook util.FITHook
+	f := framework.NewDefaultFrameworkFIT(framework.UPGModeTDF, framework.UPGIPModeV4, &fitHook)
+
+	ginkgo.Context("Handling Session Report errors", func() {
+		ginkgo.It("should drop a session upon a Session Report Response with Session context not found error", func() {
+			ginkgo.By("Creating session with an URR that has Monitoring time")
+			sessionCfg := &framework.SessionConfig{
+				IdBase:            1,
+				UEIP:              f.UEIP(),
+				Mode:              f.Mode,
+				MeasurementPeriod: 3 * time.Second,
+			}
+			reportCh := f.PFCP.AcquireReportCh()
+			_, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			out, err := f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(string(out)).NotTo(gomega.BeEmpty())
+
+			ginkgo.By("Starting some traffic")
+			tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+				PacketCount: 50, // 5s
+				Retry:       true,
+				Delay:       100 * time.Millisecond,
+			}, &traffic.SimpleTrafficRec{})
+			errCh := tg.Start(f.Context, clientNS, serverNS)
+
+			// injecting fault
+			fitHook.EnableFault(util.FaultSessionForgot)
+
+			ginkgo.By("Waiting for the report")
+			var msg message.Message
+			gomega.Eventually(reportCh, 5*time.Second, 50*time.Millisecond).Should(gomega.Receive(&msg))
+			_, err = pfcp.GetMeasurement(msg)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			ginkgo.By("Checking if session got deleted")
+			out, err = f.VPP.Ctl("show upf session")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(string(out)).To(gomega.BeEmpty(), "Session should be deleted after receiving 'context not found' error")
+
+			ginkgo.By("Waiting for trafficgen to finish...")
+			gomega.Eventually(errCh, 10*time.Second, 50*time.Millisecond).Should(gomega.Receive(&err))
+			framework.ExpectNoError(err, "trafficgen error")
+		})
+	})
+})
+
 var _ = ginkgo.Describe("[Reporting]", func() {
 	ginkgo.Context("Quota Validity Time", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)

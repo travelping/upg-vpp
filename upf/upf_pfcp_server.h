@@ -74,6 +74,7 @@ typedef struct
 
   u32 node;
   u32 session_index;
+  u64 seid;
 
   f64 expires_at;		/* message timestamp */
   u32 timer;

@@ -32,6 +32,7 @@ import (
 	"github.com/travelping/upg-vpp/test/e2e/pfcp"
 	"github.com/travelping/upg-vpp/test/e2e/sgw"
 	"github.com/travelping/upg-vpp/test/e2e/traffic"
+	"github.com/travelping/upg-vpp/test/e2e/util"
 	"github.com/travelping/upg-vpp/test/e2e/vpp"
 )
 
@@ -63,6 +64,7 @@ type Framework struct {
 	numExtraCNodeIPs  uint32
 	numExtraUEIPs     uint32
 	numExtraServerIPs uint32
+	FITHook           *util.FITHook
 }
 
 func NewDefaultFramework(mode UPGMode, ipMode UPGIPMode) *Framework {
@@ -71,12 +73,32 @@ func NewDefaultFramework(mode UPGMode, ipMode UPGIPMode) *Framework {
 	return NewFramework(mode, ipMode, &vppCfg, &pfcpCfg)
 }
 
+func NewDefaultFrameworkFIT(mode UPGMode, ipMode UPGIPMode, fitHook *util.FITHook) *Framework {
+	vppCfg := vppConfig(mode, ipMode)
+	pfcpCfg := DefaultPFCPConfig(vppCfg)
+	return NewFrameworkFIT(mode, ipMode, &vppCfg, &pfcpCfg, fitHook)
+}
+
 func NewFramework(mode UPGMode, ipMode UPGIPMode, vppCfg *vpp.VPPConfig, pfcpCfg *pfcp.PFCPConfig) *Framework {
 	f := &Framework{
 		Mode:    mode,
 		IPMode:  ipMode,
 		VPPCfg:  vppCfg,
 		PFCPCfg: pfcpCfg,
+	}
+	ginkgo.BeforeEach(f.BeforeEach)
+	ginkgo.AfterEach(f.AfterEach)
+	return f
+}
+
+func NewFrameworkFIT(mode UPGMode, ipMode UPGIPMode, vppCfg *vpp.VPPConfig, pfcpCfg *pfcp.PFCPConfig, fitHook *util.FITHook) *Framework {
+	pfcpCfg.FITHook = fitHook
+	f := &Framework{
+		Mode:    mode,
+		IPMode:  ipMode,
+		VPPCfg:  vppCfg,
+		PFCPCfg: pfcpCfg,
+		FITHook: fitHook,
 	}
 	ginkgo.BeforeEach(f.BeforeEach)
 	ginkgo.AfterEach(f.AfterEach)
