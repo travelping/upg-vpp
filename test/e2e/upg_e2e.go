@@ -1254,8 +1254,9 @@ var _ = ginkgo.Describe("Clearing message queue", func() {
 	})
 
 	ginkgo.Context("during PFCP Association Release upon timeout", func() {
-		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
-		f.PFCPCfg.IgnoreHeartbeatRequests = true
+		var fitHook util.FITHook
+		f := framework.NewDefaultFrameworkFIT(framework.UPGModeTDF, framework.UPGIPModeV4, &fitHook)
+		fitHook.EnableFault(util.FaultIgnoreHeartbeat)
 		ginkgo.It("should work correcty", func() {
 			seids := []pfcp.SEID{
 				startMeasurementSession(f, &framework.SessionConfig{}),
@@ -1263,12 +1264,15 @@ var _ = ginkgo.Describe("Clearing message queue", func() {
 			var wg sync.WaitGroup
 			for i := 1; i <= 2; i++ {
 				time.Sleep(50 * time.Millisecond)
+
+				var fitHookInner util.FITHook
 				pfcpCfg := framework.DefaultPFCPConfig(*f.VPPCfg)
 				pfcpCfg.Namespace = f.VPP.GetNS("cp")
 				pfcpCfg.NodeID = fmt.Sprintf("node%d", i)
 				pfcpCfg.CNodeIP = f.AddCNodeIP()
+				pfcpCfg.FITHook = &fitHookInner
 				// make UPG drop this association eventually
-				pfcpCfg.IgnoreHeartbeatRequests = true
+				fitHookInner.EnableFault(util.FaultIgnoreHeartbeat)
 				pc := pfcp.NewPFCPConnection(pfcpCfg)
 				framework.ExpectNoError(pc.Start(f.Context))
 
