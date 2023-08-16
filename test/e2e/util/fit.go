@@ -16,22 +16,30 @@
 
 package util
 
+type FaultType = string
+
 type FITHook struct {
-	faultEnabled map[string]bool
+	faultEnabled map[FaultType]bool
 }
 
 const (
-	// Faults
-	FaultSessionForgot = "session_forgot"
+	FaultSessionForgot FaultType = "session_forgot"
+
+	// IgnoreHeartbeatRequests makes PFCPConnection ignore incoming
+	// PFCP Heartbeat Requests, thus simulating a faulty CP.
+	FaultIgnoreHeartbeat FaultType = "ignore_heartbeat"
 )
 
-func (h *FITHook) IsFaultInjected(name string) bool {
+func (h *FITHook) IsFaultInjected(name FaultType) bool {
+	if h == nil {
+		return false
+	}
 	return h.faultEnabled[name]
 }
 
-func (h *FITHook) EnableFault(name string) {
+func (h *FITHook) EnableFault(name FaultType) {
 	if h.faultEnabled == nil {
-		h.faultEnabled = make(map[string]bool)
+		h.faultEnabled = make(map[FaultType]bool)
 	}
 	h.faultEnabled[name] = true
 }

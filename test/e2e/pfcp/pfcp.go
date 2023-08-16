@@ -231,7 +231,7 @@ type pfcpTransitionKey struct {
 var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	{pfcpStateInitial, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		pc.receivedHBRequestTimes = append(pc.receivedHBRequestTimes, time.Now())
-		if pc.cfg.IgnoreHeartbeatRequests {
+		if pc.FITHook.IsFaultInjected(util.FaultIgnoreHeartbeat) {
 			// ignore heartbeat requests, so UPG will drop
 			// this association eventually
 			return nil
@@ -246,7 +246,7 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 
 	{pfcpStateAssociating, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		pc.receivedHBRequestTimes = append(pc.receivedHBRequestTimes, time.Now())
-		if pc.cfg.IgnoreHeartbeatRequests {
+		if pc.FITHook.IsFaultInjected(util.FaultIgnoreHeartbeat) {
 			return nil
 		}
 		return pc.sendHeartbeatResponse(ev.msg.(*message.HeartbeatRequest))
@@ -296,7 +296,7 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 
 	{pfcpStateAssociated, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		pc.receivedHBRequestTimes = append(pc.receivedHBRequestTimes, time.Now())
-		if pc.cfg.IgnoreHeartbeatRequests {
+		if pc.FITHook.IsFaultInjected(util.FaultIgnoreHeartbeat) {
 			return nil
 		}
 		pc.setTimeout(timerIDHeartbeatTimeout, pc.cfg.HeartbeatTimeout)
@@ -355,7 +355,7 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 
 	{pfcpStateReleasingAssociation, pfcpEventHeartbeatRequest}: func(pc *PFCPConnection, ev pfcpEvent) error {
 		pc.receivedHBRequestTimes = append(pc.receivedHBRequestTimes, time.Now())
-		if pc.cfg.IgnoreHeartbeatRequests {
+		if pc.FITHook.IsFaultInjected(util.FaultIgnoreHeartbeat) {
 			return nil
 		}
 		return pc.sendHeartbeatResponse(m.(*message.HeartbeatRequest))
@@ -379,19 +379,16 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 }
 
 type PFCPConfig struct {
-	Namespace        *network.NetNS
-	CNodeIP          net.IP
-	UNodeIP          net.IP
-	NodeID           string
-	RequestTimeout   time.Duration
-	HeartbeatTimeout time.Duration
-	MaxInFlight      int
-	InitialSeq       uint32
-	// IgnoreHeartbeatRequests makes PFCPConnection ignore incoming
-	// PFCP Heartbeat Requests, thus simulating a faulty CP.
-	IgnoreHeartbeatRequests bool
-	RecoveryTimestamp       time.Time
-	FITHook                 *util.FITHook
+	Namespace         *network.NetNS
+	CNodeIP           net.IP
+	UNodeIP           net.IP
+	NodeID            string
+	RequestTimeout    time.Duration
+	HeartbeatTimeout  time.Duration
+	MaxInFlight       int
+	InitialSeq        uint32
+	RecoveryTimestamp time.Time
+	FITHook           *util.FITHook
 }
 
 func (cfg *PFCPConfig) setDefaults() {
