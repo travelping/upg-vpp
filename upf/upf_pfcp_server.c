@@ -36,8 +36,9 @@
 
 #define RESPONSE_TIMEOUT 30
 
-#define TW_SECS_PER_CLOCK 10e-3	/* 10ms */
-#define TW_CLOCKS_PER_SECOND (1 / TW_SECS_PER_CLOCK)
+/* use pow2 to avoid rounding error accumulation in timerwheel implementation */
+#define TW_CLOCKS_PER_SECOND (128.0)
+#define TW_SECS_PER_CLOCK (1.0 / TW_CLOCKS_PER_SECOND)
 
 /* as defined in vnet/policer, PPS-based QOS fixed size */
 #define UPF_POLICER_FIXED_PKT_SIZE 256
@@ -1346,7 +1347,8 @@ static uword
   pfcp_msg_t *msg;
 
   pfcp_msg_pool_init (psm);
-  psm->timer.last_run_time = psm->now = unix_time_now ();
+  psm->now = unix_time_now ();
+  psm->timer.last_run_time = floor (psm->now);
 
   while (1)
     {
