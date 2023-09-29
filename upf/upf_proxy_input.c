@@ -296,7 +296,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
   vnet_main_t *vnm = gtm->vnet_main;
   vnet_interface_main_t *im = &vnm->interface_main;
   flowtable_main_t *fm = &flowtable_main;
-  timestamp_nsec_t timestamp;
+  u64 timestamp_ns;
   u32 current_time = (u32) vlib_time_now (vm);
 
   from = vlib_frame_vector_args (from_frame);
@@ -311,7 +311,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
   next_index = node->cached_next_index;
   stats_sw_if_index = node->runtime_data[0];
   stats_n_packets = stats_n_bytes = 0;
-  unix_time_now_nsec_fraction (&timestamp.sec, &timestamp.nsec);
+  timestamp_ns = unix_time_now_nsec ();
 
   while (n_left_from > 0)
     {
@@ -480,7 +480,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 		next = UPF_FORWARD_NEXT_DROP;
 
 	      flow_update_stats (vm, b, flow, is_ip4,
-				 timestamp, current_time);
+				 timestamp_ns, current_time);
 
 #undef IS_DL
 #undef IS_UL

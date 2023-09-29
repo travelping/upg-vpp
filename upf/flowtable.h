@@ -112,12 +112,6 @@ typedef struct flow_tc
   u32 thread_index;
 } flow_tc_t;
 
-typedef struct
-{
-  u32 sec;
-  u32 nsec;
-} timestamp_nsec_t;
-
 typedef struct flow_entry
 {
   /* Required for pool_get_aligned  */
@@ -158,8 +152,8 @@ typedef struct flow_entry
 
   u8 *app_uri;
 
-  timestamp_nsec_t flow_start;
-  timestamp_nsec_t flow_end;
+  u64 flow_start_time;		/* unix nanoseconds */
+  u64 flow_end_time;		/* unix nanoseconds */
 
   u32 last_exported[FT_ORDER_MAX];
   u32 ipfix_info_index[FT_ORDER_MAX];
@@ -327,7 +321,7 @@ u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
 			       clib_bihash_kv_48_8_t * kv,
-			       timestamp_nsec_t timestamp, u32 const now,
+			       u64 timestamp_ns, u32 const now,
 			       u8 is_reverse, u16 generation,
 			       u32 next_session_flow_index, int *created);
 
@@ -475,8 +469,7 @@ flow_update (vlib_main_t * vm, flow_entry_t * f,
 
 always_inline void
 flow_update_stats (vlib_main_t * vm, vlib_buffer_t * b,
-		   flow_entry_t * f, u8 is_ip4,
-		   timestamp_nsec_t timestamp, u32 now)
+		   flow_entry_t * f, u8 is_ip4, u64 timestamp_ns, u32 now)
 {
   flowtable_main_t *fm = &flowtable_main;
   /*
@@ -513,7 +506,7 @@ flow_update_stats (vlib_main_t * vm, vlib_buffer_t * b,
   f->stats[is_reverse].bytes_unreported += len;
   f->stats[is_reverse].l4_bytes += l4_len;
   f->stats[is_reverse].l4_bytes_unreported += l4_len;
-  f->flow_end = timestamp;
+  f->flow_end_time = timestamp_ns;
 
   flowtable_handle_event (fm, f, FLOW_EVENT_STATS_UPDATE, direction, now);
 }

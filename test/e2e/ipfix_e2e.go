@@ -526,8 +526,8 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 		// The record looks like:
 		// mobileIMSI: 313460000000001
 		// packetTotalCount: 80
-		// flowStartNanoseconds: 2022-02-22 02:30:32.097219204 +0000 UTC
-		// flowEndNanoseconds: 2022-02-22 02:30:47.152832735 +0000 UTC
+		// flowStartMilliseconds: 2022-02-22 02:30:32.097 +0000 UTC
+		// flowEndMilliseconds: 2022-02-22 02:30:47.152 +0000 UTC
 		// sourceIPv4Address: 10.1.0.3
 		// destinationIPv4Address: 10.0.1.3
 		// protocolIdentifier: 6
@@ -536,11 +536,11 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 		// destinationTransportPort: 80
 		gomega.Expect(r).To(gomega.HaveKeyWithValue("mobileIMSI", "313460000000001"))
 		// gomega.Expect(r).To(gomega.HaveKey("packetTotalCount"))
-		gomega.Expect(r).To(gomega.HaveKey("flowStartNanoseconds"))
-		gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
-		gomega.Expect(r["flowEndNanoseconds"]).
-			To(gomega.BeTemporally(">=", r["flowStartNanoseconds"].(time.Time)),
-				"flowEndNanoseconds >= flowStartNanoseconds")
+		gomega.Expect(r).To(gomega.HaveKey("flowStartMilliseconds"))
+		gomega.Expect(r).To(gomega.HaveKey("flowEndMilliseconds"))
+		gomega.Expect(r["flowEndMilliseconds"]).
+			To(gomega.BeTemporally(">=", r["flowStartMilliseconds"].(time.Time)),
+				"flowEndMilliseconds >= flowStartMilliseconds")
 		gomega.Expect(r).To(gomega.HaveKeyWithValue("protocolIdentifier", uint8(v.cfg.protocol)))
 
 		srcAddressKey := "sourceIPv4Address"
@@ -572,14 +572,14 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 		if r[srcAddressKey].(net.IP).Equal(v.f.UEIP()) {
 			// upload
 			if v.ulStartTS.IsZero() {
-				v.ulStartTS = r["flowStartNanoseconds"].(time.Time)
+				v.ulStartTS = r["flowStartMilliseconds"].(time.Time)
 				// FIXME: should be working (wrong time on the VPP side?)
 				// gomega.Expect(ulStartTS).To(gomega.BeTemporally(">=", beginTS))
 			} else {
-				gomega.Expect(r["flowStartNanoseconds"]).To(gomega.Equal(v.ulStartTS))
+				gomega.Expect(r["flowStartMilliseconds"]).To(gomega.Equal(v.ulStartTS))
 			}
-			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
-			v.ulEndTS = r["flowEndNanoseconds"].(time.Time)
+			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
+			v.ulEndTS = r["flowEndMilliseconds"].(time.Time)
 			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
 			// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", ulPacketCount))
 			ulPacketCount += r["packetDeltaCount"].(uint64)
@@ -603,14 +603,14 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 		} else {
 			// download
 			if v.dlStartTS.IsZero() {
-				v.dlStartTS = r["flowStartNanoseconds"].(time.Time)
+				v.dlStartTS = r["flowStartMilliseconds"].(time.Time)
 				// FIXME: should be working (wrong time on the VPP side?)
 				// gomega.Expect(dlStartTS).To(gomega.BeTemporally(">=", beginTS))
 			} else {
-				gomega.Expect(r["flowStartNanoseconds"]).To(gomega.Equal(v.dlStartTS))
+				gomega.Expect(r["flowStartMilliseconds"]).To(gomega.Equal(v.dlStartTS))
 			}
-			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
-			v.dlEndTS = r["flowEndNanoseconds"].(time.Time)
+			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
+			v.dlEndTS = r["flowEndMilliseconds"].(time.Time)
 			gomega.Expect(r[srcAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
 			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.UEIP())).To(gomega.BeTrue())
 			// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", dlPacketCount))
@@ -645,7 +645,7 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 	var ulOctets, dlOctets uint64
 	// var initiatorOctets, responderOctets uint64
 	for _, r := range v.recs {
-		gomega.Expect(r).To(gomega.HaveKey("flowEndNanoseconds"))
+		gomega.Expect(r).To(gomega.HaveKey("flowEndMilliseconds"))
 
 		srcAddressKey := "sourceIPv4Address"
 		dstAddressKey := "destinationIPv4Address"
@@ -687,8 +687,8 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 
 		if r[srcAddressKey].(net.IP).Equal(v.f.UEIP()) {
 			// upload
-			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
-			v.ulEndTS = r["flowEndNanoseconds"].(time.Time)
+			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
+			v.ulEndTS = r["flowEndMilliseconds"].(time.Time)
 			expectedEgressVRFID := uint32(200)
 			serverIP := v.f.ServerIP()
 			if v.altServerIP != nil {
@@ -707,8 +707,8 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			ulOctets += r["octetDeltaCount"].(uint64)
 		} else {
 			// download
-			gomega.Expect(r["flowEndNanoseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
-			v.dlEndTS = r["flowEndNanoseconds"].(time.Time)
+			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
+			v.dlEndTS = r["flowEndMilliseconds"].(time.Time)
 			serverIP := v.f.ServerIP()
 			if v.altServerIP != nil {
 				serverIP = v.altServerIP.IP

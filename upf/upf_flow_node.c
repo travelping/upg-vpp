@@ -110,7 +110,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
   flowtable_main_t *fm = &flowtable_main;
   u32 cpu_index = os_get_thread_index ();
   flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
-  timestamp_nsec_t timestamp;
+  u64 timestamp_ns;
 
 #define _(sym, str) u32 CPT_ ## sym = 0;
   foreach_flowtable_error
@@ -121,7 +121,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 
   u32 current_time = (u32) vlib_time_now (vm);
   timer_wheel_index_update (fm, fmt, current_time);
-  unix_time_now_nsec_fraction (&timestamp.sec, &timestamp.nsec);
+  timestamp_ns = unix_time_now_nsec ();
 
   while (n_left_from > 0)
     {
@@ -224,7 +224,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  /* lookup/create flow */
 	  flow_idx0 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv0,
-					   timestamp, current_time,
+					   timestamp_ns, current_time,
 					   is_reverse0, sx0->generation,
 					   sx0->first_flow_index, &created0);
 	  if (created0)
@@ -238,7 +238,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  flow_idx1 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv1,
-					   timestamp, current_time,
+					   timestamp_ns, current_time,
 					   is_reverse1, sx1->generation,
 					   sx1->first_flow_index, &created1);
 	  if (created1)
@@ -379,7 +379,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow_mk_key (sx0->cp_seid, p, is_ip4, &is_reverse, &kv);
 	  flow_idx =
 	    flowtable_entry_lookup_create (fm, fmt, &kv,
-					   timestamp, current_time,
+					   timestamp_ns, current_time,
 					   is_reverse, sx0->generation,
 					   sx0->first_flow_index, &created);
 	  if (created)
