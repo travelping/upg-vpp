@@ -362,7 +362,7 @@ u32
 flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       flowtable_main_per_cpu_t * fmt,
 			       clib_bihash_kv_48_8_t * kv,
-			       timestamp_nsec_t timestamp, u32 const now,
+			       u64 timestamp_ns, u32 const now,
 			       u8 is_reverse, u16 generation,
 			       u32 next_session_flow_index, int *created)
 {
@@ -399,8 +399,8 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   f->is_reverse = is_reverse;
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
-  f->flow_start = timestamp;
-  f->flow_end = timestamp;
+  f->flow_start_time = timestamp_ns;
+  f->flow_end_time = timestamp_ns;
   f->application_id = ~0;
   flow_ipfix_info (f, FT_ORIGIN) = ~0;
   flow_ipfix_info (f, FT_REVERSE) = ~0;

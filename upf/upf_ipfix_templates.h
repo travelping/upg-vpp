@@ -86,14 +86,11 @@
     v = 0;							\
   } while (0)
 
-#define IPFIX_VALUE_NSEC(v, n, c)				\
+#define IPFIX_VALUE_DATETIME_MILLISECONDS(v, n, c)		\
   do {								\
-    u32 tmp = clib_host_to_net_u32((v).sec + NTP_TIMESTAMP);	\
-    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u32));	\
-    offset += sizeof (u32);					\
-    tmp = clib_host_to_net_u32((v).nsec);			\
-    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u32));	\
-    offset += sizeof (u32);					\
+    u64 tmp = clib_host_to_net_u64((v) / (1000 * 1000));	\
+    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u64));	\
+    offset += sizeof (u64);					\
   } while (0)
 
 #define IPFIX_VALUE_MOBILE_IMSI(v, n, c)		\
@@ -180,16 +177,16 @@
     IPFIX_VALUE_U64,						\
     flow_stats(f, direction).bytes,				\
     sizeof (u64), 1)
-#define IPFIX_FIELD_FLOW_START_NANOSECONDS(F)			\
-  F(flowStartNanoseconds, 8,					\
-    IPFIX_VALUE_NSEC,						\
-    f->flow_start,						\
-    sizeof(u32), 1)
-#define IPFIX_FIELD_FLOW_END_NANOSECONDS(F)			\
-  F(flowEndNanoseconds, 8,					\
-    IPFIX_VALUE_NSEC,						\
-    f->flow_end,						\
-    sizeof(u32), 1)
+#define IPFIX_FIELD_FLOW_START_MILLISECONDS(F)			\
+  F(flowStartMilliseconds, 8,					\
+    IPFIX_VALUE_DATETIME_MILLISECONDS,				\
+    f->flow_start_time,						\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_FLOW_END_MILLISECONDS(F)			\
+  F(flowEndMilliseconds, 8,					\
+    IPFIX_VALUE_DATETIME_MILLISECONDS,				\
+    f->flow_end_time,						\
+    sizeof(u64), 1)
 #define IPFIX_FIELD_FLOW_DIRECTION(F)				\
   F(flowDirection, 1,						\
     IPFIX_VALUE_DIRECT,						\
