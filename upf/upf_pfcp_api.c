@@ -189,56 +189,6 @@ build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
   }
 }
 
-static void
-  build_user_plane_ip_resource_information
-  (pfcp_user_plane_ip_resource_information_t ** upip)
-{
-  upf_main_t *gtm = &upf_main;
-  upf_upip_res_t *res;
-
-  vec_alloc (*upip, pool_elts (gtm->upip_res));
-
-  pool_foreach (res, gtm->upip_res)
-  {
-    pfcp_user_plane_ip_resource_information_t *r;
-
-    vec_add2 (*upip, r, 1);
-
-    if (res->nwi_index != ~0)
-      {
-	upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, res->nwi_index);
-
-	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI;
-	r->network_instance = vec_dup (nwi->name);
-      }
-
-    if (INTF_INVALID != res->intf)
-      {
-
-	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI;
-	r->source_intf = res->intf;
-      }
-
-    if (res->mask != 0)
-      {
-	r->teid_range_indication = __builtin_popcount (res->mask);
-	r->teid_range = (res->teid >> 24);
-      }
-
-    if (!is_zero_ip4_address (&res->ip4))
-      {
-	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V4;
-	r->ip4 = res->ip4;
-      }
-
-    if (!is_zero_ip6_address (&res->ip6))
-      {
-	r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V6;
-	r->ip6 = res->ip6;
-      }
-  }
-}
-
 /* message handlers */
 
 static int
@@ -371,27 +321,15 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 
   SET_BIT (resp->grp.fields,
 	   ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES);
-  resp->up_function_features |= F_UPFF_EMPU;
-  if (gtm->pfcp_spec_version >= 16)
-    {
-      resp->up_function_features |= F_UPFF_VTIME;
-      resp->up_function_features |= F_UPFF_FTUP;
-      build_ue_ip_address_information (&resp->ue_ip_address_pool_information);
-      if (vec_len (resp->ue_ip_address_pool_information) != 0)
-	SET_BIT (resp->grp.fields,
-		 ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION);
-      SET_BIT (resp->grp.fields,
-	       ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES);
-      resp->bbf_up_function_features |= BBF_UP_NAT;
-    }
-  else
-    {
-      build_user_plane_ip_resource_information
-	(&resp->user_plane_ip_resource_information);
-      if (vec_len (resp->user_plane_ip_resource_information) != 0)
-	SET_BIT (resp->grp.fields,
-		 ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION);
-    }
+  resp->up_function_features |= (F_UPFF_EMPU | F_UPFF_VTIME | F_UPFF_FTUP);
+  build_ue_ip_address_information (&resp->ue_ip_address_pool_information);
+  if (vec_len (resp->ue_ip_address_pool_information) != 0)
+    SET_BIT (resp->grp.fields,
+	     ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION);
+  SET_BIT (resp->grp.fields,
+	   ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES);
+  resp->bbf_up_function_features |= BBF_UP_NAT;
+
   if (r == 0)
     {
       n->heartbeat_handle = upf_pfcp_server_start_timer

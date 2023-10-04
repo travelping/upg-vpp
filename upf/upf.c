@@ -568,7 +568,6 @@ upf_init (vlib_main_t * vm)
 
   sm->vnet_main = vnet_get_main ();
   sm->vlib_main = vm;
-  sm->pfcp_spec_version = 15;
   sm->rand_base = random_default_seed ();
   sm->log_class = vlib_log_register_class ("upf", 0);
 

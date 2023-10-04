@@ -119,7 +119,6 @@ class IPv4Mixin(object):
             "upf nwi name cp vrf 0",
             "upf nwi name epc vrf 100",
             "upf nwi name sgi vrf 200",
-            "upf specification release 16",
             "upf node-id fqdn upg",
             "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip4,
             "ip route add 0.0.0.0/0 table 200 via %s %s" %
@@ -264,7 +263,6 @@ class IPv6Mixin(object):
             "upf nwi name cp vrf 0",
             "upf nwi name epc vrf 100",
             "upf nwi name sgi vrf 200",
-            "upf specification release 16",
             "upf node-id ip6 %s" % cls.if_cp.local_ip6,
             "upf pfcp endpoint ip %s vrf 0" % cls.if_cp.local_ip6,
             "ip route add ::/0 table 200 via %s %s" %
