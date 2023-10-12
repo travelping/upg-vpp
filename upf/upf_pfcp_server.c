@@ -996,11 +996,16 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 #define urr_check(V, NOW)				\
     (((V).base != 0) && ((V).period != 0) &&		\
      ((V).expected != 0) && (V).expected < (NOW))
-#define urr_check_late(V, NOW)					\
-    do { 							\
-      if ((V).expected < (NOW) - LATE_TIMER_WARNING_THRESHOLD)	\
-	clib_warning("WARNING: timer late by %.4f seconds: "#V, \
-		     (NOW) - (V).expected);			\
+#define urr_check_late(V, NOW)					  \
+    do { 							  \
+      if ((V).expected < (NOW) - LATE_TIMER_WARNING_THRESHOLD)    \
+        {	                                                  \
+          vlib_increment_simple_counter (                         \
+            &gtm->upf_simple_counters[UPF_TIMERS_MISSED],         \
+	    vlib_get_thread_index (), 0, 1);                      \
+	  clib_warning("WARNING: timer late by %.4f seconds: "#V, \
+		      (NOW) - (V).expected);			  \
+        }                                                         \
     } while (0)
 
 #define URR_COND_TIME(t, time)			\

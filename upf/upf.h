@@ -581,7 +581,8 @@ typedef enum
   UPF_FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP = 5,
   UPF_FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT = 6,
   UPF_FLOWS_STITCHED_DIRTY_FIFOS = 7,
-  UPF_N_COUNTERS = 8,
+  UPF_TIMERS_MISSED = 8,
+  UPF_N_COUNTERS = 9,
 } upf_counters_type_t;
 
 #define foreach_upf_counter_name   \
@@ -592,6 +593,7 @@ typedef enum
   _(FLOWS_NOT_STITCHED_MSS_MISMATCH, mss_mismatch, upf) \
   _(FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP, tcp_ops_tstamp, upf) \
   _(FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT, tcp_ops_sack_permit, upf) \
+  _(TIMERS_MISSED, timers_missed, upf) \
   _(FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)
 
 /* TODO: measure if more optimize cache line aware layout
