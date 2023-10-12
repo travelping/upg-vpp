@@ -1006,6 +1006,9 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	  clib_warning("WARNING: timer late by %.4f seconds: "#V, \
 		      (NOW) - (V).expected);			  \
         }                                                         \
+          vlib_increment_simple_counter (                         \
+            &gtm->upf_simple_counters[UPF_TIMERS_MISSED],         \
+	    vlib_get_thread_index (), 0, 1);                      \
     } while (0)
 
 #define URR_COND_TIME(t, time)			\
