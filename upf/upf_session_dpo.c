@@ -428,13 +428,18 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 	   * packet was originated from UE to another UE or local SGi interface
 	   * and hit DPO of SGi table. By security reasons this is not allowed.
 	   */
-	  if (UPF_CHECK_INNER_NODE (b))
+	  if (UPF_CHECK_INNER_NODE (b)
+             && !(b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED))
 	    {
-	      upf_debug ("UPF Subgraph re-entered: %U", format_ip4_header,
-			 ip0, b->current_length);
-	      error0 = UPF_SESSION_DPO_ERROR_SUBGRAPH_ENTRY;
-	      next = UPF_SESSION_DPO_NEXT_DROP;
-	      goto trace;
+              upf_debug ("UPF Subgraph re-entered: %U", format_ip4_header,
+                  ip0, b->current_length);
+
+              if (!gtm->allow_graph_reenter)
+                {
+                  error0 = UPF_SESSION_DPO_ERROR_SUBGRAPH_ENTRY;
+                  next = UPF_SESSION_DPO_NEXT_DROP;
+                  goto trace;
+                }
 	    }
 
 	  UPF_ENTER_SUBGRAPH (b, sidx, 1);
@@ -560,6 +565,8 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node) (vlib_main_t * vm,
 	   * for GTPU-U encapsulation are affected. This may cause the packets
 	   * to loop back to session-dpo via ip[46]-input.
 	   */
+
+          // TODO: WIP: REMOVE OR REORDER OR SOMETHING, LOCALLY_ORIGINATED IS USED LATER
 	  if ((b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED)
 	      && ip0->protocol == IP_PROTOCOL_TCP)
 	    {
@@ -574,13 +581,18 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node) (vlib_main_t * vm,
 	   * packet was originated from UE to another UE or local SGi interface
 	   * and hit DPO of SGi table. By security reasons this is not allowed.
 	   */
-	  if (UPF_CHECK_INNER_NODE (b))
+	  if (UPF_CHECK_INNER_NODE (b)
+             && !(b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED))
 	    {
-	      upf_debug ("UPF Subgraph re-entered: %U", format_ip4_header,
-			 ip0, b->current_length);
-	      error0 = UPF_SESSION_DPO_ERROR_SUBGRAPH_ENTRY;
-	      next = UPF_SESSION_DPO_NEXT_DROP;
-	      goto trace;
+              upf_debug ("UPF Subgraph re-entered: %U", format_ip6_header,
+                  ip0, b->current_length);
+
+              if (!gtm->allow_graph_reenter)
+                {
+                  error0 = UPF_SESSION_DPO_ERROR_SUBGRAPH_ENTRY;
+                  next = UPF_SESSION_DPO_NEXT_DROP;
+                  goto trace;
+                }
 	    }
 
 	  UPF_ENTER_SUBGRAPH (b, sidx, 0);

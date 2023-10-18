@@ -1486,6 +1486,60 @@ VLIB_CLI_COMMAND (upf_show_bihash_command, static) =
 /* *INDENT-ON* */
 
 static clib_error_t *
+upf_strict_forwarding_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
+			  vlib_cli_command_t * cmd)
+{
+  upf_main_t *sm = &upf_main;
+  u8 enable = 1;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "enable"))
+	enable = 1;
+      else if (unformat (input, "disable"))
+	enable = 0;
+      else
+        return unformat_parse_error (input);
+    }
+
+  if (enable)
+    sm->allow_graph_reenter = 0;
+  else
+    sm->allow_graph_reenter = 1;
+
+  return NULL;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_strict_forwarding_set_command, static) =
+{
+  .path = "set upf strict forwarding",
+  .short_help = "set upf strict forwarding [enable|disable]",
+  .function = upf_strict_forwarding_set_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+upf_show_strict_forwarding_command_fn (vlib_main_t * vm,
+			   unformat_input_t * main_input,
+			   vlib_cli_command_t * cmd)
+{
+  upf_main_t *sm = &upf_main;
+  vlib_cli_output (vm, "Strict forwarding: %s\n",
+                   sm->allow_graph_reenter ? "disabled" : "enabled");
+  return NULL;
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (upf_show_strict_forwarding_command, static) =
+{
+  .path = "show upf strict forwarding",
+  .short_help = "show upf strict forwarding",
+  .function = upf_show_strict_forwarding_command_fn,
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
 upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
 			  vlib_cli_command_t * cmd)
 {

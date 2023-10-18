@@ -46,6 +46,8 @@
 #include "pfcp.h"
 #include "flowtable.h"
 
+#define CLIB_DEBUG 5
+
 /* #define UPF_TRAFFIC_LOG 1 */
 
 #define ip4_address_initializer { 0 }
@@ -1003,6 +1005,8 @@ typedef struct
   uword *nat_pool_index_by_name;
   upf_ue_ip_pool_info_t *ueip_pools;
   uword *ue_ip_pool_index_by_identity;
+
+  u8 allow_graph_reenter;
 
   policer_t *pfcp_policers;
 

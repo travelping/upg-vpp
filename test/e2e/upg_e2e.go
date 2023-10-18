@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"regexp"
 	"sort"
@@ -1233,30 +1234,90 @@ var _ = ginkgo.Describe("Heartbeats", func() {
 
 var _ = ginkgo.Describe("Accessing SGi interface", func() {
 	ginkgo.Context("from UE", func() {
-		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		// f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+		f := framework.NewDefaultFramework(framework.UPGModePGW, framework.UPGIPModeV4)
 		ginkgo.It("ping should be ignored", func() {
 			sessionCfg := &framework.SessionConfig{
 				IdBase: 1,
 				UEIP:   f.UEIP(),
 				Mode:   f.Mode,
+
+				// only for pgw
+				TEIDPGWs5u: framework.TEIDPGWs5u,
+				TEIDSGWs5u: framework.TEIDSGWs5u,
+				PGWIP:      f.VPPCfg.GetVPPAddress("grx").IP,
+				SGWIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
 			}
 			anotherSessionCfg := &framework.SessionConfig{
 				IdBase: 2,
-				UEIP:   net.ParseIP("10.0.1.2"),
+				UEIP:   net.ParseIP("10.0.1.55"),
 				Mode:   f.Mode,
+
+				// only for pgw
+				TEIDPGWs5u: 100,
+				TEIDSGWs5u: 200,
+				PGWIP:      f.VPPCfg.GetVPPAddress("grx").IP,
+				SGWIP:      f.VPPCfg.GetNamespaceAddress("grx").IP,
 			}
 			_, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)
 			_, err = f.PFCP.EstablishSession(f.Context, 0, anotherSessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)
+
+			// ping to 10.1.0.2 (vpp access)
+			// F tdf strict E: ping works, but never reaches DPO (resolved before upf)
+			// F pgw strict E: not pings, never reaches DPO, arp on sgi iface for 10.0.2.3 (which on grx)
+			// P tdf strict D: ping works, but never reaches DPO (resolved before upf)
+			// F pgw strict D: not pings, never reaches DPO, arp on sgi iface for 10.0.2.3 (which on grx)
+
+			// ping to 10.0.1.2 (vpp sgi)
+			// ? tdf strict E: reaches DPO, icmp response hits DPO, but not forwarded (since flag is not cleared?)
+			//         update: check for LOCALLY_ORIGINATED helps here, but conflicts with proxy similar check
+			// F pgw strict E: ping works, reaches DPO once on reply
+			// P tdf strict D: ping works, reaches DPO twice (ingress, egress)
+			// P pgw strict D: ping works, reaches DPO once on reply
+
+			// ping to 10.0.1.55 (other ue)
+			// P tdf strict E: reaches DPO, reenters DPO and dropped
+			// P pgw strict E: reaches DPO, reenters DPO and dropped
+			// F tdf strict D: packet looped between nodes
+			// P pgw strict D: packet routes correctly (because of GTP encapsulation)
+
+			rec := &traffic.SimpleTrafficRec{}
 			tg, clientNS, serverNS := newTrafficGen(f, &traffic.ICMPPingConfig{
 				//ServerIP: sgiAddress,
-				ServerIP:    net.ParseIP("10.0.1.2"),
-				PacketCount: 10, // 10s
+				ServerIP:    net.ParseIP("10.0.1.55"),
+				PacketCount: 4,
 				Retry:       true,
-				Delay:       100 * time.Millisecond,
-			}, &traffic.SimpleTrafficRec{})
-			tg.Start(f.Context, clientNS, serverNS)
+				Delay:       250 * time.Millisecond,
+			}, rec)
+
+			// r, err := f.VPP.Ctl("set upf strict forwarding enable")
+			r, err := f.VPP.Ctl("set upf strict forwarding disable")
+			framework.ExpectNoError(err)
+			_ = r
+
+			gomega.Expect(<-tg.Start(f.Context, clientNS, serverNS)).ToNot(gomega.HaveOccurred())
+			log.Printf("SSSSSSSSSSSSSTTTTTTAAAAAATTTTTTTSSSSSS: %#+v", rec.Stats())
+
+			printCmd := func(cmd string) {
+				r, err = f.VPP.Ctl(cmd)
+				framework.ExpectNoError(err)
+				log.Printf("OUT %q: %s", cmd, r)
+			}
+
+			printCmd("show upf strict forwarding")
+			printCmd("show errors")
+			printCmd("show int")
+			printCmd("show ip table")
+			printCmd("show ip fib table 0")
+			printCmd("show ip fib table 100")
+			printCmd("show ip fib table 200")
+			printCmd("show ip fib table 1001")
+			printCmd("show int addr")
+			printCmd("show upf nwi")
+			printCmd("show upf tdf ul table")
+
 			// Expect no crash here
 		})
 	})
