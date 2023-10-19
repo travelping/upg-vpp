@@ -126,7 +126,6 @@ type VPPStartupConfig struct {
 	Trace         bool
 	DispatchTrace bool
 	Multicore     bool
-	XDP           bool
 	InterruptMode bool
 }
 
@@ -150,7 +149,6 @@ func (cfg *VPPStartupConfig) SetFromEnv() {
 	cfg.Trace = os.Getenv("VPP_TRACE") != ""
 	cfg.DispatchTrace = os.Getenv("VPP_DISPATCH_TRACE") != ""
 	cfg.Multicore = os.Getenv("VPP_MULTICORE") != ""
-	cfg.XDP = os.Getenv("VPP_XDP") != ""
 	cfg.InterruptMode = os.Getenv("VPP_INTERRUPT_MODE") != ""
 	cfg.SetDefaults()
 }
@@ -191,12 +189,5 @@ func (cfg VPPStartupConfig) Get() string {
 }
 
 func (cfg VPPStartupConfig) DefaultMTU() int {
-	if cfg.XDP {
-		// TODO: this is the max MTU value which works for veths.
-		// Find out why & whether it's always the case
-		// (it may perhaps depend on the kernel version, etc.)
-		return 2034
-	} else {
-		return 9000
-	}
+	return 9000
 }

@@ -10,7 +10,7 @@
 #include <vnet/ip/ip.h>
 
 #define BIT(n)              (1LLU << (n))
-#define SET_BIT(mask, n)    ((mask) |= BIT(n))
+#define UPF_SET_BIT(mask, n)    ((mask) |= BIT(n))
 #define RESET_BIT(mask, n)  ((mask) &= ~BIT(n))
 #define ISSET_BIT(mask, n)  (!!((mask) & BIT(n)))
 

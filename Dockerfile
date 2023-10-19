@@ -12,10 +12,12 @@ RUN BUILD_TYPE=${BUILD_TYPE} /src/hack/build-internal.sh package
 
 FROM ${DEVBASE} as dev-stage
 
+# FIXME: install clang-11 in the fpp-vpp image instead of clang-10
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=private \
     --mount=target=/var/cache/apt,type=cache,sharing=private \
     --mount=target=/build-root,source=/src/build-root,from=build-stage,type=bind \
     apt-get install --no-install-recommends -yy \
+    clang-11 \
     /build-root/upf-plugin_*.deb \
     /build-root/upf-plugin-dev_*.deb && \
     apt-get clean && \

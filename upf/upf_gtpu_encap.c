@@ -236,7 +236,7 @@ upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4)
         udp1->checksum = 0xffff;
 
       p0->flags |= VNET_BUFFER_F_LOCALLY_ORIGINATED;
-      p0->flags |= VLIB_BUFFER_IS_TRACED;
+      //p0->flags |= VLIB_BUFFER_IS_TRACED;
 
       vlib_buffer_advance (p0, -(uword) (sizeof (ip4_header_t) + sizeof (udp_header_t) + gtp_len_encoded + ext_header_len));
 
@@ -315,7 +315,7 @@ upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4)
         udp1->checksum = 0xffff;
 
       p0->flags |= VNET_BUFFER_F_LOCALLY_ORIGINATED;
-      p0->flags |= VLIB_BUFFER_IS_TRACED;
+      // p0->flags |= VLIB_BUFFER_IS_TRACED;
 
       vlib_buffer_advance (p0, -(uword) (sizeof (ip6_header_t) + sizeof (udp_header_t) + gtp_len_encoded + ext_header_len));
 

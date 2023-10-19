@@ -111,7 +111,7 @@ init_response_node_id (pfcp_node_id_t * node_id)
   init_tp_error_report (r, __FILE__, __LINE__, fmt, ## __VA_ARGS__);
 #define tp_session_error_report(r, fmt, ...)				\
   do {									\
-    SET_BIT ((r)->grp.fields, SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT); \
+    UPF_SET_BIT ((r)->grp.fields, SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT); \
     tp_error_report (&(r)->tp_error_report, (fmt), ## __VA_ARGS__);			\
   } while (0)
 
@@ -124,15 +124,15 @@ init_tp_error_report (pfcp_tp_error_report_t * report,
 #endif
   va_list va;
 
-  SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_ERROR_MESSAGE);
+  UPF_SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_ERROR_MESSAGE);
 
   va_start (va, fmt);
   report->error_message = va_format (0, fmt, &va);
   va_end (va);
 
 #if CLIB_DEBUG > 1
-  SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_FILE_NAME);
-  SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_LINE_NUMBER);
+  UPF_SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_FILE_NAME);
+  UPF_SET_BIT (report->grp.fields, TP_ERROR_REPORT_TP_LINE_NUMBER);
 
   if ((p = strrchr (file, '/')) != NULL)
     {
@@ -167,11 +167,12 @@ build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
 
     vec_add2 (*ue_pool_info, ueif, 1);
     ueif->ue_ip_address_pool_identity = vec_dup (ue_p->identity);
-    SET_BIT (ueif->grp.fields, UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY);
+    UPF_SET_BIT (ueif->grp.fields,
+		 UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY);
 
     ueif->network_instance = vec_dup (ue_p->nwi_name);
-    SET_BIT (ueif->grp.fields,
-	     UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE);
+    UPF_SET_BIT (ueif->grp.fields,
+		 UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE);
 
     pool_foreach (np, gtm->nat_pools)
     {
@@ -182,8 +183,8 @@ build_ue_ip_address_information (pfcp_ue_ip_address_pool_information_t **
 
       vec_add2 (ueif->port_blocks, block, 1);
       *block = vec_dup (np->name);
-      SET_BIT (ueif->grp.fields,
-	       UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK);
+      UPF_SET_BIT (ueif->grp.fields,
+		   UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK);
     }
 
   }
@@ -251,7 +252,7 @@ handle_heartbeat_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
 
   memset (resp, 0, sizeof (*resp));
-  SET_BIT (resp->grp.fields, PFCP_RESPONSE_RECOVERY_TIME_STAMP);
+  UPF_SET_BIT (resp->grp.fields, PFCP_RESPONSE_RECOVERY_TIME_STAMP);
   resp->response.recovery_time_stamp = psm->start_time;
 
   upf_debug ("PFCP: start_time: %p, %d, %x.",
@@ -328,17 +329,17 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   int r = 0;
 
   memset (resp, 0, sizeof (*resp));
-  SET_BIT (resp->grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_CAUSE);
+  UPF_SET_BIT (resp->grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_CAUSE);
   resp->cause = PFCP_CAUSE_REQUEST_REJECTED;
 
-  SET_BIT (resp->grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID);
+  UPF_SET_BIT (resp->grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID);
   init_response_node_id (&resp->node_id);
 
-  SET_BIT (resp->grp.fields,
-	   ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP);
+  UPF_SET_BIT (resp->grp.fields,
+	       ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP);
   resp->recovery_time_stamp = psm->start_time;
 
-  SET_BIT (resp->grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID);
+  UPF_SET_BIT (resp->grp.fields, ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID);
   vec_add (resp->tp_build_id, vpe_version_string,
 	   strlen (vpe_version_string));
 
@@ -369,8 +370,8 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 			  &req->request.node_id);
   n->recovery_time_stamp = req->recovery_time_stamp;
 
-  SET_BIT (resp->grp.fields,
-	   ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES);
+  UPF_SET_BIT (resp->grp.fields,
+	       ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES);
   resp->up_function_features |= F_UPFF_EMPU;
   if (gtm->pfcp_spec_version >= 16)
     {
@@ -378,10 +379,10 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
       resp->up_function_features |= F_UPFF_FTUP;
       build_ue_ip_address_information (&resp->ue_ip_address_pool_information);
       if (vec_len (resp->ue_ip_address_pool_information) != 0)
-	SET_BIT (resp->grp.fields,
-		 ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION);
-      SET_BIT (resp->grp.fields,
-	       ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES);
+	UPF_SET_BIT (resp->grp.fields,
+		     ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION);
+      UPF_SET_BIT (resp->grp.fields,
+		   ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES);
       resp->bbf_up_function_features |= BBF_UP_NAT;
     }
   else
@@ -389,8 +390,8 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
       build_user_plane_ip_resource_information
 	(&resp->user_plane_ip_resource_information);
       if (vec_len (resp->user_plane_ip_resource_information) != 0)
-	SET_BIT (resp->grp.fields,
-		 ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION);
+	UPF_SET_BIT (resp->grp.fields,
+		     ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION);
     }
   if (r == 0)
     {
@@ -473,7 +474,7 @@ send_simple_response (pfcp_msg_t * req, u64 seid, u8 type,
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
 
   memset (resp, 0, sizeof (*resp));
-  SET_BIT (resp->grp.fields, PFCP_RESPONSE_CAUSE);
+  UPF_SET_BIT (resp->grp.fields, PFCP_RESPONSE_CAUSE);
   resp->response.cause = cause;
 
   switch (type)
@@ -486,7 +487,7 @@ send_simple_response (pfcp_msg_t * req, u64 seid, u8 type,
       break;
 
     default:
-      SET_BIT (resp->grp.fields, PFCP_RESPONSE_NODE_ID);
+      UPF_SET_BIT (resp->grp.fields, PFCP_RESPONSE_NODE_ID);
       init_response_node_id (&resp->response.node_id);
       break;
     }
@@ -495,7 +496,7 @@ send_simple_response (pfcp_msg_t * req, u64 seid, u8 type,
     {
     case PFCP_HEARTBEAT_RESPONSE:
     case PFCP_ASSOCIATION_SETUP_RESPONSE:
-      SET_BIT (resp->grp.fields, PFCP_RESPONSE_RECOVERY_TIME_STAMP);
+      UPF_SET_BIT (resp->grp.fields, PFCP_RESPONSE_RECOVERY_TIME_STAMP);
       resp->response.recovery_time_stamp = psm->start_time;
       break;
 
@@ -505,7 +506,7 @@ send_simple_response (pfcp_msg_t * req, u64 seid, u8 type,
 
   if (vec_len (err) != 0)
     {
-      SET_BIT (resp->grp.fields, PFCP_RESPONSE_OFFENDING_IE);
+      UPF_SET_BIT (resp->grp.fields, PFCP_RESPONSE_OFFENDING_IE);
       resp->response.offending_ie = err[0];
     }
 
@@ -678,8 +679,8 @@ handle_f_teid (upf_session_t * sx, upf_main_t * gtm, pfcp_pdi_t * pdi,
 	{
 	  vec_add2 (*created_pdr_vec, created_pdr, 1);
 	  memset (created_pdr, 0, sizeof (*created_pdr));
-	  SET_BIT (created_pdr->grp.fields, CREATED_PDR_PDR_ID);
-	  SET_BIT (created_pdr->grp.fields, CREATED_PDR_F_TEID);
+	  UPF_SET_BIT (created_pdr->grp.fields, CREATED_PDR_PDR_ID);
+	  UPF_SET_BIT (created_pdr->grp.fields, CREATED_PDR_F_TEID);
 	  created_pdr->pdr_id = process_pdr->id;
 	  created_pdr->f_teid = process_pdr->pdi.teid;
 
@@ -813,12 +814,12 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t * np, upf_nat_addr_t * addr,
       created_binding->outside_addr.as_u32 = addr->ext_addr.as_u32;
       created_binding->port_range.start_port = port_start;
       created_binding->port_range.end_port = port_end;
-      SET_BIT (created_binding->grp.fields,
-	       TP_CREATED_BINDING_NAT_PORT_BLOCK);
-      SET_BIT (created_binding->grp.fields,
-	       TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS);
-      SET_BIT (created_binding->grp.fields,
-	       TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE);
+      UPF_SET_BIT (created_binding->grp.fields,
+		   TP_CREATED_BINDING_NAT_PORT_BLOCK);
+      UPF_SET_BIT (created_binding->grp.fields,
+		   TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS);
+      UPF_SET_BIT (created_binding->grp.fields,
+		   TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE);
       return 0;
     }
 
@@ -1019,7 +1020,8 @@ handle_create_pdr (upf_session_t * sx, pfcp_create_pdr_t * create_pdr,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
 
   return -1;
@@ -1210,7 +1212,8 @@ handle_update_pdr (upf_session_t * sx, pfcp_update_pdr_t * update_pdr,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
 
   return -1;
@@ -1243,7 +1246,8 @@ handle_remove_pdr (upf_session_t * sx, pfcp_remove_pdr_t * remove_pdr,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
 
   return -1;
@@ -1364,7 +1368,7 @@ ip_udp_gtpu_rewrite (upf_far_forward_t * ff, u32 fib_index, int is_ip4)
   ff->rewrite = r.rw;
 
   /* For now only support 8-byte gtpu header. TBD */
-  _vec_len (ff->rewrite) = len - 4;
+  _vec_find (ff->rewrite)->len = len - 4;
 
   return;
 }
@@ -1402,8 +1406,8 @@ handle_nat_binding_creation (upf_session_t * sx, u8 * nat_pool_name,
   rc =
     upf_alloc_and_assign_nat_binding (np, ap, sx->user_addr, sx,
 				      &response->created_binding);
-  SET_BIT (response->grp.fields,
-	   SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING);
 
   return rc;
 
@@ -1576,7 +1580,8 @@ out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
 out_cause_set:
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
 
   return -1;
@@ -1737,7 +1742,8 @@ out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
 out_cause_set:
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
 
   return -1;
@@ -1770,7 +1776,8 @@ handle_remove_far (upf_session_t * sx, pfcp_remove_far_t * remove_far,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
 
   return -1;
@@ -2013,7 +2020,8 @@ handle_update_urr (upf_session_t * sx, pfcp_update_urr_t * update_urr,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
 
   return -1;
@@ -2046,7 +2054,8 @@ handle_remove_urr (upf_session_t * sx, pfcp_remove_urr_t * remove_urr,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
 
   return -1;
@@ -2165,7 +2174,8 @@ handle_update_qer (upf_session_t * sx, pfcp_update_qer_t * update_qer,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
 
   return -1;
@@ -2198,7 +2208,8 @@ handle_remove_qer (upf_session_t * sx, pfcp_remove_qer_t * remove_qer,
 out_error:
   response->cause = PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE;
 
-  SET_BIT (response->grp.fields, SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
+  UPF_SET_BIT (response->grp.fields,
+	       SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
   response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
 
   return -1;
@@ -2215,14 +2226,14 @@ init_usage_report (upf_urr_t * urr, u32 trigger,
   vec_add2 (*report, r, 1);
   memset (r, 0, sizeof (*r));
 
-  SET_BIT (r->grp.fields, USAGE_REPORT_URR_ID);
+  UPF_SET_BIT (r->grp.fields, USAGE_REPORT_URR_ID);
   r->urr_id = urr->id;
 
-  SET_BIT (r->grp.fields, USAGE_REPORT_UR_SEQN);
+  UPF_SET_BIT (r->grp.fields, USAGE_REPORT_UR_SEQN);
   r->ur_seqn = urr->seq_no;
   urr->seq_no++;
 
-  SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_REPORT_TRIGGER);
+  UPF_SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_REPORT_TRIGGER);
   r->usage_report_trigger = trigger;
 
   return r;
@@ -2278,7 +2289,7 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
       r =
 	init_usage_report (urr, USAGE_REPORT_TRIGGER_MONITORING_TIME, report);
 
-      SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_INFORMATION);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_INFORMATION);
       r->usage_information = USAGE_INFORMATION_BEFORE;
 
       start_time = trunc (urr->usage_before_monitoring_time.start_time);
@@ -2287,8 +2298,8 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
       if ((trigger & (USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
 		      USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
 	{
-	  SET_BIT (r->grp.fields, USAGE_REPORT_START_TIME);
-	  SET_BIT (r->grp.fields, USAGE_REPORT_END_TIME);
+	  UPF_SET_BIT (r->grp.fields, USAGE_REPORT_START_TIME);
+	  UPF_SET_BIT (r->grp.fields, USAGE_REPORT_END_TIME);
 
 	  r->start_time = start_time;
 	  r->end_time = r->start_time + duration;
@@ -2296,7 +2307,7 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
 	  if (urr->usage_before_monitoring_time.time_of_first_packet !=
 	      INFINITY)
 	    {
-	      SET_BIT (r->grp.fields, USAGE_REPORT_TIME_OF_FIRST_PACKET);
+	      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_TIME_OF_FIRST_PACKET);
 	      r->time_of_first_packet =
 		trunc (now -
 		       (vnow -
@@ -2306,7 +2317,8 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
 	      if (urr->usage_before_monitoring_time.time_of_last_packet !=
 		  INFINITY)
 		{
-		  SET_BIT (r->grp.fields, USAGE_REPORT_TIME_OF_LAST_PACKET);
+		  UPF_SET_BIT (r->grp.fields,
+			       USAGE_REPORT_TIME_OF_LAST_PACKET);
 		  r->time_of_last_packet =
 		    trunc (now -
 			   (vnow -
@@ -2315,16 +2327,16 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
 		}
 	    }
 
-	  SET_BIT (r->grp.fields, USAGE_REPORT_TP_NOW);
-	  SET_BIT (r->grp.fields, USAGE_REPORT_TP_START_TIME);
-	  SET_BIT (r->grp.fields, USAGE_REPORT_TP_END_TIME);
+	  UPF_SET_BIT (r->grp.fields, USAGE_REPORT_TP_NOW);
+	  UPF_SET_BIT (r->grp.fields, USAGE_REPORT_TP_START_TIME);
+	  UPF_SET_BIT (r->grp.fields, USAGE_REPORT_TP_END_TIME);
 
 	  r->tp_now = now;
 	  r->tp_start_time = urr->usage_before_monitoring_time.start_time;
 	  r->tp_end_time = urr->start_time;
 	}
 
-      SET_BIT (r->grp.fields, USAGE_REPORT_VOLUME_MEASUREMENT);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_VOLUME_MEASUREMENT);
       r->volume_measurement.fields = PFCP_VOLUME_ALL;
 
       r->volume_measurement.volume.ul =
@@ -2340,7 +2352,7 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
       r->volume_measurement.packets.total =
 	urr->usage_before_monitoring_time.volume.packets.total;
 
-      SET_BIT (r->grp.fields, USAGE_REPORT_DURATION_MEASUREMENT);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_DURATION_MEASUREMENT);
       r->duration_measurement = duration;
     }
 
@@ -2348,7 +2360,7 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
 
   if (urr->status & URR_AFTER_MONITORING_TIME)
     {
-      SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_INFORMATION);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_INFORMATION);
       r->usage_information = USAGE_INFORMATION_AFTER;
     }
 
@@ -2358,8 +2370,8 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
   if ((trigger & (USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
 		  USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
     {
-      SET_BIT (r->grp.fields, USAGE_REPORT_START_TIME);
-      SET_BIT (r->grp.fields, USAGE_REPORT_END_TIME);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_START_TIME);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_END_TIME);
 
       r->start_time = start_time;
       r->end_time = r->start_time + duration;
@@ -2367,21 +2379,21 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
 
       if (urr->time_of_first_packet != INFINITY)
 	{
-	  SET_BIT (r->grp.fields, USAGE_REPORT_TIME_OF_FIRST_PACKET);
+	  UPF_SET_BIT (r->grp.fields, USAGE_REPORT_TIME_OF_FIRST_PACKET);
 	  r->time_of_first_packet =
 	    trunc (now - (vnow - urr->time_of_first_packet));
 
 	  if (urr->time_of_last_packet != INFINITY)
 	    {
-	      SET_BIT (r->grp.fields, USAGE_REPORT_TIME_OF_LAST_PACKET);
+	      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_TIME_OF_LAST_PACKET);
 	      r->time_of_last_packet =
 		trunc (now - (vnow - urr->time_of_last_packet));
 	    }
 	}
 
-      SET_BIT (r->grp.fields, USAGE_REPORT_TP_NOW);
-      SET_BIT (r->grp.fields, USAGE_REPORT_TP_START_TIME);
-      SET_BIT (r->grp.fields, USAGE_REPORT_TP_END_TIME);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_TP_NOW);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_TP_START_TIME);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_TP_END_TIME);
 
       r->tp_now = now;
       r->tp_start_time = urr->start_time;
@@ -2393,7 +2405,7 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
       && (ue != NULL))
     {
 
-      SET_BIT (r->grp.fields, USAGE_REPORT_UE_IP_ADDRESS);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_UE_IP_ADDRESS);
       if (ip46_address_is_ip4 (ue))
 	{
 	  r->ue_ip_address.flags = IE_UE_IP_ADDRESS_V4;
@@ -2408,7 +2420,7 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
 
   if ((trigger & USAGE_REPORT_TRIGGER_START_OF_TRAFFIC) == 0)
     {
-      SET_BIT (r->grp.fields, USAGE_REPORT_VOLUME_MEASUREMENT);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_VOLUME_MEASUREMENT);
       r->volume_measurement.fields = PFCP_VOLUME_ALL;
 
       r->volume_measurement.volume.ul = volume.measure.bytes.ul;
@@ -2418,13 +2430,13 @@ report_usage_ev (upf_session_t * sess, ip46_address_t * ue, upf_urr_t * urr,
       r->volume_measurement.packets.dl = volume.measure.packets.dl;
       r->volume_measurement.packets.total = volume.measure.packets.total;
 
-      SET_BIT (r->grp.fields, USAGE_REPORT_DURATION_MEASUREMENT);
+      UPF_SET_BIT (r->grp.fields, USAGE_REPORT_DURATION_MEASUREMENT);
       r->duration_measurement = duration;
     }
 
-  /* SET_BIT(r->grp.fields, USAGE_REPORT_APPLICATION_DETECTION_INFORMATION); */
-  /* SET_BIT(r->grp.fields, USAGE_REPORT_NETWORK_INSTANCE); */
-  /* SET_BIT(r->grp.fields, USAGE_REPORT_USAGE_INFORMATION); */
+  /* UPF_SET_BIT(r->grp.fields, USAGE_REPORT_APPLICATION_DETECTION_INFORMATION); */
+  /* UPF_SET_BIT(r->grp.fields, USAGE_REPORT_NETWORK_INSTANCE); */
+  /* UPF_SET_BIT(r->grp.fields, USAGE_REPORT_USAGE_INFORMATION); */
 
   urr->status &= ~URR_AFTER_MONITORING_TIME;
   urr->start_time += duration;
@@ -2502,10 +2514,10 @@ handle_session_establishment_request (pfcp_msg_t * msg,
   u64 seid;
 
   memset (resp, 0, sizeof (*resp));
-  SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
+  UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp->cause = PFCP_CAUSE_REQUEST_REJECTED;
 
-  SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_NODE_ID);
+  UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_NODE_ID);
   init_response_node_id (&resp->node_id);
 
   seid = req->f_seid.seid;
@@ -2522,7 +2534,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       return -1;
     }
 
-  SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
+  UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
   resp->up_f_seid.seid = req->f_seid.seid;
 
   /*
@@ -2577,7 +2589,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
     goto out_send_resp;
 
   if (vec_len (resp->created_pdr) > 0)
-    SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CREATED_PDR);
+    UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CREATED_PDR);
 
   if ((r = handle_create_far (sess, req->create_far, resp)) != 0)
     goto out_send_resp;
@@ -2636,7 +2648,7 @@ handle_session_modification_request (pfcp_msg_t * msg,
     &resp_dmsg.session_procedure_response;
 
   memset (resp, 0, sizeof (*resp));
-  SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
+  UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp->cause = PFCP_CAUSE_REQUEST_REJECTED;
 
   if (!(sess = pfcp_lookup (dmsg->seid)))
@@ -2664,7 +2676,7 @@ handle_session_modification_request (pfcp_msg_t * msg,
     {
       upf_usage_report_init (&report, vec_len (active->urr));
       have_report = true;
-      SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
+      UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 
       vec_foreach (rurr, req->remove_urr)
       {
@@ -2713,7 +2725,8 @@ handle_session_modification_request (pfcp_msg_t * msg,
 	goto out_send_resp;
 
       if (vec_len (resp->created_pdr) > 0)
-	SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CREATED_PDR);
+	UPF_SET_BIT (resp->grp.fields,
+		     SESSION_PROCEDURE_RESPONSE_CREATED_PDR);
 
       if ((r = handle_update_pdr (sess, req->update_pdr, resp)) != 0)
 	goto out_send_resp;
@@ -2758,7 +2771,7 @@ handle_session_modification_request (pfcp_msg_t * msg,
   if (ISSET_BIT (req->grp.fields, SESSION_MODIFICATION_REQUEST_QUERY_URR) &&
       vec_len (req->query_urr) != 0)
     {
-      SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
+      UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
       if (!have_report)
 	{
 	  have_report = true;
@@ -2789,7 +2802,8 @@ handle_session_modification_request (pfcp_msg_t * msg,
 	}
       if (vec_len (active->urr) != 0)
 	{
-	  SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
+	  UPF_SET_BIT (resp->grp.fields,
+		       SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 	  upf_usage_report_set (&report,
 				USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT, now);
 	}
@@ -2837,7 +2851,7 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   int r = 0;
 
   memset (resp, 0, sizeof (*resp));
-  SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
+  UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp->cause = PFCP_CAUSE_REQUEST_REJECTED;
 
   if (!(sess = pfcp_lookup (dmsg->seid)))
@@ -2858,7 +2872,7 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
     {
       upf_usage_report_t report;
 
-      SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
+      UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 
       upf_usage_report_init (&report, vec_len (active->urr));
       upf_usage_report_set (&report, USAGE_REPORT_TRIGGER_TERMINATION_REPORT,
@@ -2941,12 +2955,13 @@ upf_pfcp_error_report (upf_session_t * sx, gtp_error_ind_t * error)
   pfcp_session_report_request_t *req = &dmsg.session_report_request;
 
   memset (req, 0, sizeof (*req));
-  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
+  UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
   req->report_type = REPORT_TYPE_ERIR;
 
-  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_ERROR_INDICATION_REPORT);
-  SET_BIT (req->error_indication_report.grp.fields,
-	   ERROR_INDICATION_REPORT_F_TEID);
+  UPF_SET_BIT (req->grp.fields,
+	       SESSION_REPORT_REQUEST_ERROR_INDICATION_REPORT);
+  UPF_SET_BIT (req->error_indication_report.grp.fields,
+	       ERROR_INDICATION_REPORT_F_TEID);
 
   f_teid.teid = error->teid;
   if (ip46_address_is_ip4 (&error->addr))

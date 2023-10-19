@@ -112,7 +112,7 @@ func (us *UDPServer) Start(ctx context.Context, ns *network.NetNS) error {
 		Port: us.cfg.Port,
 	})
 	if err != nil {
-		return errors.Wrap(err, "ListenTCP")
+		return errors.Wrap(err, "ListenUDP")
 	}
 
 	if us.cfg.NoMTUDiscovery {

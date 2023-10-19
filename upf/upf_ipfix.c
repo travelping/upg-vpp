@@ -227,21 +227,6 @@ upf_ipfix_data_callback (flow_report_main_t *frm, ipfix_exporter_t *exp,
   if (b)
     upf_ipfix_export_send (vm, b, context, now);
 
-  /*
-   * The following is a workaround for a VPP bug fixed in this commit
-   * https://github.com/FDio/vpp/commit/eaa83c0439c13b76525224267c23d0cf52a6668b
-   *
-   * When migrating to newer VPP versions (22.10+), this workaround
-   * will no longer compile and should be removed, as the leak is
-   * fixed in 22.10 and later versions
-   */
-  if (!f->n_vectors)
-    {
-      vlib_node_runtime_t *rt = vlib_node_get_runtime (vm, node_index);
-      vlib_frame_free (vm, rt, f);
-      return 0;
-    }
-
   return f;
 }
 

@@ -6,7 +6,7 @@ set -o errtrace
 
 cd "$(dirname "${BASH_SOURCE}")/.."
 
-make -C /vpp-src/test VPP_BIN=/usr/bin/vpp \
+make -C /vpp-src/test \
      VPP_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/vpp_plugins \
      VPP_INSTALL_PATH=/usr retest \
      WS_ROOT=/vpp-src \
@@ -14,4 +14,6 @@ make -C /vpp-src/test VPP_BIN=/usr/bin/vpp \
      TEST_DIR=/tmp \
      TEST="${TEST:-test_upf}" V=2 \
      EXTERN_TESTS=/src/upf/test \
-     RND_SEED=$(python3 -c 'import time; print(time.time())')
+     RND_SEED=$(python3 -c 'import time; print(time.time())') \
+     VPP_WS_DIR=/usr \
+     TEST_PLUGIN_PATH_ARGS="--vpp /usr/bin/vpp --vpp-plugin-dir /usr/lib/x86_64-linux-gnu/vpp_plugins --vpp-install-dir /usr"

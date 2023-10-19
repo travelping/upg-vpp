@@ -20,7 +20,6 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : "${E2E_DISPATCH_TRACE:=}"
 : "${E2E_PAUSE_ON_ERROR:=}"
 : "${E2E_MULTICORE:=}"
-: "${E2E_XDP:=}"
 : "${E2E_KEEP_ALL_ARTIFACTS:=}"
 : "${E2E_POLLING_MODE:=}"
 : "${E2E_VPP_NOT_INSTALLED:=}"
@@ -52,10 +51,6 @@ export UPG_TEST_QUICK="${E2E_QUICK}"
 export VPP_TRACE="${E2E_TRACE}"
 export VPP_DISPATCH_TRACE="${E2E_DISPATCH_TRACE}"
 export VPP_MULTICORE="${E2E_MULTICORE}"
-if [[ ${E2E_XDP} ]]; then
-  ulimit -l 10000000
-  export VPP_XDP=1
-fi
 
 if [[ ${E2E_VPP_NOT_INSTALLED} ]]; then
   case ${BUILD_TYPE} in
