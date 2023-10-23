@@ -593,8 +593,8 @@ typedef enum
   _(FLOWS_NOT_STITCHED_MSS_MISMATCH, mss_mismatch, upf) \
   _(FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP, tcp_ops_tstamp, upf) \
   _(FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT, tcp_ops_sack_permit, upf) \
-  _(TIMERS_MISSED, timers_missed, upf) \
-  _(FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)
+  _(FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf) \
+  _(TIMERS_MISSED, timers_missed, upf)
 
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */
