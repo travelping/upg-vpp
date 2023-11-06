@@ -188,9 +188,9 @@ upf_pfcp_send_data (pfcp_msg_t * msg)
   at.lcl_port = msg->lcl.port;
   at.rmt_port = msg->rmt.port;
 
-  app_send_dgram_raw (s->tx_fifo, &at, mq, msg->data,
-		      _vec_len (msg->data), SESSION_IO_EVT_TX,
-		      1 /* do_evt */ , 0);
+  int r = app_send_dgram_raw (s->tx_fifo, &at, mq, msg->data,
+			      _vec_len (msg->data), SESSION_IO_EVT_TX,
+			      1 /* do_evt */ , 0);
   /*
    * This is needed in case if there are > 0 workers
    * as PFCP still runs on the main thread which can't
@@ -374,6 +374,9 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
 	msg->seid = req->seid;
 
 	pfcp_msg_pool_put (psm, req);
+	/* FIXME: handle edge case: t1 timer also expired in this iteration for this seq_no */
+	/* (do we really need any special handling there? unsure...) */
+	hash_unset (psm->request_q, msg->seq_no);
 
 	upf_pfcp_handle_msg (msg);
 
@@ -672,7 +675,9 @@ upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg)
   dmsg->seq_no = pfcp_msg_seq (req->data);
 
   if ((r = pfcp_encode_msg (dmsg, &resp->data)) != 0)
-    pfcp_msg_pool_put (psm, resp);
+    {
+      pfcp_msg_pool_put (psm, resp);
+    }
   else
     {
       upf_pfcp_send_data (resp);
@@ -714,7 +719,7 @@ upf_pfcp_session_up_deletion_report (upf_session_t * sx)
   f64 now = psm->now;
 
   memset (req, 0, sizeof (*req));
-  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
+  UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
 
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
   if (vec_len (active->urr) != 0)
@@ -723,7 +728,7 @@ upf_pfcp_session_up_deletion_report (upf_session_t * sx)
 
       req->report_type = REPORT_TYPE_USAR;
 
-      SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
+      UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
       upf_usage_report_init (&report, vec_len (active->urr));
       upf_usage_report_set (&report,
@@ -736,7 +741,7 @@ upf_pfcp_session_up_deletion_report (upf_session_t * sx)
   else
     req->report_type = REPORT_TYPE_UISR;
 
-  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS);
+  UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS);
   /* PSDBU = PFCP Session Deleted By the UP function */
   req->pfcpsrreq_flags = PFCPSRREQ_PSDBU;
 
@@ -769,10 +774,10 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
     return;
 
   memset (req, 0, sizeof (*req));
-  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
+  UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
   req->report_type = REPORT_TYPE_USAR;
 
-  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
+  UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
   upf_usage_report_init (&report, vec_len (active->urr));
 
@@ -960,7 +965,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	     active->inactivity_timer.handle);
 
   memset (req, 0, sizeof (*req));
-  SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
+  UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
 
   if (active->inactivity_timer.handle != ~0 &&
       active->inactivity_timer.period != 0)
@@ -1142,7 +1147,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
     if (trigger != 0)
       {
 	req->report_type |= REPORT_TYPE_USAR;
-	SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
+	UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
 	upf_usage_report_trigger (&report, idx, trigger, urr->liusa_bitmap,
 				  trigger_now);
@@ -1318,7 +1323,7 @@ void upf_server_handle_hb_timer (u32 node_idx)
   n->heartbeat_handle = ~0;
 
   memset (req, 0, sizeof (*req));
-  SET_BIT (req->grp.fields, HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP);
+  UPF_SET_BIT (req->grp.fields, HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP);
   req->recovery_time_stamp = psm->start_time;
 
   upf_pfcp_server_send_node_request (n, &dmsg);
@@ -1424,10 +1429,9 @@ static uword
 	      {
 		upf_event_urr_data_t *uev =
 		  (upf_event_urr_data_t *) event_data[i];
+		/* TBD: re-verify! */
 		upf_event_urr_hdr_t *ueh =
-		  (upf_event_urr_hdr_t *) vec_header (uev,
-						      sizeof
-						      (upf_event_urr_hdr_t));
+		  (upf_event_urr_hdr_t *) vec_header (uev);
 		upf_session_t *sx = 0;
 
 		/*
@@ -1467,7 +1471,7 @@ static uword
 		  }
 
 	      next_ev_urr:
-		vec_free_h (uev, sizeof (upf_event_urr_hdr_t));
+		vec_free (uev);
 	      }
 	    break;
 	  }

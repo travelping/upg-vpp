@@ -178,12 +178,14 @@ func (f *Framework) BeforeEach() {
 
 		f.GTPUs = []*GTPU{accessGTPU, coreGTPU}
 	}
-	ExpectNoError(f.VPP.StartCapture())
 	ExpectNoError(f.VPP.StartVPP())
 	_, err = f.VPP.Ctl("show version")
 	ExpectNoError(err)
 	ExpectNoError(f.VPP.Configure())
+	// create routes after the interfaces are configured
+	ExpectNoError(f.VPP.SetupRoutes())
 	ExpectNoError(f.VPP.VerifyVPPAlive())
+	ExpectNoError(f.VPP.StartCapture())
 
 	for _, nsCfg := range f.VPPCfg.Namespaces {
 		if nsCfg.VPPIP == nil {

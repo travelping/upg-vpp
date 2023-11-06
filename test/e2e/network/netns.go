@@ -95,50 +95,17 @@ func (netns *NetNS) AddAddress(linkName string, address *net.IPNet) error {
 		netns.ipv6 = true
 	}
 	return netns.Do(func() error {
-		veth, err := netlink.LinkByName(linkName)
+		link, err := netlink.LinkByName(linkName)
 		if err != nil {
 			return errors.Wrap(err, "locating client link in the client netns")
 		}
 
-		if err := netlink.AddrAdd(veth, &netlink.Addr{IPNet: address}); err != nil {
+		if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: address}); err != nil {
 			return errors.Errorf("failed to set address for the veth: %v", err)
 		}
 
 		return nil
 	})
-}
-
-func (netns *NetNS) SetupVethPair(thisLinkName string, thisAddress *net.IPNet, other *NetNS, otherLinkName string, otherAddress *net.IPNet, mtu int) error {
-	if err := netns.Do(func() error {
-		if _, _, err := SetupVethWithName(thisLinkName, otherLinkName, mtu, other); err != nil {
-			return errors.Wrap(err, "creating veth pair")
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	if err := netns.disableOffloading(thisLinkName); err != nil {
-		return errors.Wrapf(err, "disable offloading for %s", thisLinkName)
-	}
-
-	if err := other.disableOffloading(otherLinkName); err != nil {
-		return errors.Wrapf(err, "disable offloading for %s", otherLinkName)
-	}
-
-	if thisAddress != nil {
-		if err := netns.AddAddress(thisLinkName, thisAddress); err != nil {
-			return errors.Wrapf(err, "error adding address to link %s", thisLinkName)
-		}
-	}
-
-	if otherAddress != nil {
-		if err := other.AddAddress(otherLinkName, otherAddress); err != nil {
-			return errors.Wrapf(err, "error adding address to link %s", otherLinkName)
-		}
-	}
-
-	return nil
 }
 
 func (netns *NetNS) control(network, address string, c syscall.RawConn) error {
@@ -259,7 +226,7 @@ func (netns *NetNS) ListenUDP(ctx context.Context, laddr *net.UDPAddr) (*net.UDP
 	err := netns.Do(func() error {
 		var innerErr error
 		network := "udp4"
-		if netns.ipv6 {
+		if netns.ipv6 || laddr.IP.To4() == nil {
 			network = "udp6"
 		}
 		c, innerErr = netns.listenConfig().ListenPacket(ctx, network, laddr.String())

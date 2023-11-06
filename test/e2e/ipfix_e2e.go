@@ -372,7 +372,7 @@ func (v *ipfixVerifier) withForwardingPolicy(fpID string) {
 			v.fpIPTable = 301
 		}
 		v.f.AddCustomServerIP(v.altServerIP)
-		v.f.VPP.Ctl("ip route add %s table %d via %s host-sgi0",
+		v.f.VPP.Ctl("ip route add %s table %d via %s sgi0",
 			v.altServerIP, v.fpIPTable, v.f.ServerIP())
 	})
 }
@@ -578,7 +578,7 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 			} else {
 				gomega.Expect(r["flowStartMilliseconds"]).To(gomega.Equal(v.ulStartTS))
 			}
-			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
+			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.ulEndTS))
 			v.ulEndTS = r["flowEndMilliseconds"].(time.Time)
 			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
 			// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", ulPacketCount))
@@ -687,7 +687,7 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 
 		if r[srcAddressKey].(net.IP).Equal(v.f.UEIP()) {
 			// upload
-			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">", v.ulEndTS))
+			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.ulEndTS))
 			v.ulEndTS = r["flowEndMilliseconds"].(time.Time)
 			expectedEgressVRFID := uint32(200)
 			serverIP := v.f.ServerIP()
@@ -703,7 +703,7 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			gomega.Expect(r["ingressVRFID"]).To(gomega.Equal(uint32(100)))
 			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(expectedEgressVRFID))
 			gomega.Expect(r["VRFname"]).To(gomega.Equal(originVRFName))
-			gomega.Expect(r["interfaceName"]).To(gomega.Equal("host-sgi0"))
+			gomega.Expect(r["interfaceName"]).To(gomega.Equal("sgi0"))
 			ulOctets += r["octetDeltaCount"].(uint64)
 		} else {
 			// download
@@ -719,9 +719,9 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			gomega.Expect(r["ingressVRFID"]).To(gomega.Equal(uint32(200)))
 			gomega.Expect(r["egressVRFID"]).To(gomega.Equal(uint32(100)))
 			gomega.Expect(r["VRFname"]).To(gomega.Equal(reverseVRFName))
-			expectedIfName := "host-access0"
+			expectedIfName := "access0"
 			if v.f.Mode == framework.UPGModePGW {
-				expectedIfName = "host-grx0"
+				expectedIfName = "grx0"
 			}
 			gomega.Expect(r["interfaceName"]).To(gomega.Equal(expectedIfName))
 			dlOctets += r["octetDeltaCount"].(uint64)

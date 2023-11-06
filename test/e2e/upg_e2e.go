@@ -204,7 +204,7 @@ func describeMeasurement(f *framework.Framework) {
 					appServerIP,
 				)
 				// TODO: use VPP-side ping in the framework, too
-				f.VPP.Ctl("ping %s source host-sgi0 repeat 3", appServerIP)
+				f.VPP.Ctl("ping %s source sgi0 repeat 3", appServerIP)
 
 				seid = startMeasurementSession(f, &framework.SessionConfig{
 					AppName: framework.IPAppName,
@@ -2319,7 +2319,7 @@ func describeRoutingPolicy(f *framework.Framework) {
 				ipTable = 301
 			}
 			f.AddCustomServerIP(altServerIP)
-			f.VPP.Ctl("ip route add %s table %d via %s host-sgi0", altServerIP, ipTable, f.ServerIP())
+			f.VPP.Ctl("ip route add %s table %d via %s sgi0", altServerIP, ipTable, f.ServerIP())
 		})
 
 		verify := func(sessionCfg framework.SessionConfig) {
@@ -2436,7 +2436,7 @@ func verifyConnFlood(f *framework.Framework, netem bool) {
 
 	ueLink := "access"
 	if f.Mode == framework.UPGModeTDF {
-		ueLink = "access1" // FIXME
+		ueLink = "access0" // FIXME
 	}
 
 	if netem {
@@ -2705,8 +2705,8 @@ func verifyPSDBU(m message.Message, numUsageReports int) {
 }
 
 func setupNAT(f *framework.Framework) {
-	f.VPP.Ctl("nat44 enable sessions 1000")
-	f.VPP.Ctl("set interface nat44 out host-sgi0 output-feature")
+	f.VPP.Ctl("nat44 plugin enable sessions 1000")
+	f.VPP.Ctl("set interface nat44 out sgi0 output-feature")
 	f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing min_port 10128")
 	f.VPP.Ctl("nat44 controlled enable")
 }

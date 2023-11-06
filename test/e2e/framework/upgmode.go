@@ -66,19 +66,18 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 	return vpp.VPPConfig{
 		Namespaces: []vpp.VPPNetworkNamespace{
 			{
-				Name:          "cp",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-				VPPIP:         MustParseIPNet("10.0.0.2/24"),
-				OtherIP:       MustParseIPNet("10.0.0.3/24"),
-				VPPLinkName:   "cp0",
-				OtherLinkName: "cp1",
-				Table:         0,
-				Placement:     -1, // main thread
+				Name:        "cp",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:5b:5b"),
+				VPPIP:       MustParseIPNet("10.0.0.2/24"),
+				OtherIP:     MustParseIPNet("10.0.0.3/24"),
+				VPPLinkName: "cp0",
+				Table:       0,
+				Placement:   -1, // main thread
 			},
 			{
 				Name:          "ue",
 				OtherIP:       MustParseIPNet("10.1.0.3/16"),
-				OtherLinkName: "access",
+				VPPLinkName:   "access",
 				SkipVPPConfig: true,
 				// using L3 capture because of tun
 				// (no Ethernet headers)
@@ -86,22 +85,20 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 				// the default route is added by gtpu (sgw) code here
 			},
 			{
-				Name:          "grx",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:42:01"),
-				VPPIP:         MustParseIPNet("10.0.2.2/24"),
-				OtherIP:       MustParseIPNet("10.0.2.3/24"),
-				VPPLinkName:   "grx0",
-				OtherLinkName: "grx1",
-				Table:         100,
+				Name:        "grx",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:42:01"),
+				VPPIP:       MustParseIPNet("10.0.2.2/24"),
+				OtherIP:     MustParseIPNet("10.0.2.3/24"),
+				VPPLinkName: "grx0",
+				Table:       100,
 			},
 			{
-				Name:          "sgi",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
-				VPPIP:         MustParseIPNet("10.0.1.2/24"),
-				OtherIP:       MustParseIPNet("10.0.1.3/24"),
-				VPPLinkName:   "sgi0",
-				OtherLinkName: "sgi1",
-				Table:         200,
+				Name:        "sgi",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:19:01"),
+				VPPIP:       MustParseIPNet("10.0.1.2/24"),
+				OtherIP:     MustParseIPNet("10.0.1.3/24"),
+				VPPLinkName: "sgi0",
+				Table:       200,
 				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("10.1.0.0/16"),
@@ -122,7 +119,7 @@ func pgwVPPConfigIPv4() vpp.VPPConfig {
 			"upf gtpu endpoint ip 10.0.2.2 nwi epc teid 0x80000000/2",
 			// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
 			// For IPv6, ::/0 should be used as the subnet
-			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
+			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 sgi0",
 			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
@@ -137,19 +134,18 @@ func pgwVPPConfigIPv6() vpp.VPPConfig {
 	return vpp.VPPConfig{
 		Namespaces: []vpp.VPPNetworkNamespace{
 			{
-				Name:          "cp",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-				VPPIP:         MustParseIPNet("10.0.0.2/24"),
-				OtherIP:       MustParseIPNet("10.0.0.3/24"),
-				VPPLinkName:   "cp0",
-				OtherLinkName: "cp1",
-				Table:         0,
-				Placement:     -1, // main thread
+				Name:        "cp",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:5b:5b"),
+				VPPIP:       MustParseIPNet("10.0.0.2/24"),
+				OtherIP:     MustParseIPNet("10.0.0.3/24"),
+				VPPLinkName: "cp0",
+				Table:       0,
+				Placement:   -1, // main thread
 			},
 			{
 				Name:          "ue",
 				OtherIP:       MustParseIPNet("2001:db8:11::3/64"),
-				OtherLinkName: "access",
+				VPPLinkName:   "access",
 				SkipVPPConfig: true,
 				// using L3 capture because of tun
 				// (no Ethernet headers)
@@ -157,22 +153,20 @@ func pgwVPPConfigIPv6() vpp.VPPConfig {
 				// the default route is added by gtpu (sgw) code here
 			},
 			{
-				Name:          "grx",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:42:01"),
-				VPPIP:         MustParseIPNet("2001:db8:13::2/64"),
-				OtherIP:       MustParseIPNet("2001:db8:13::3/64"),
-				VPPLinkName:   "grx0",
-				OtherLinkName: "grx1",
-				Table:         100,
+				Name:        "grx",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:42:01"),
+				VPPIP:       MustParseIPNet("2001:db8:13::2/64"),
+				OtherIP:     MustParseIPNet("2001:db8:13::3/64"),
+				VPPLinkName: "grx0",
+				Table:       100,
 			},
 			{
-				Name:          "sgi",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
-				VPPIP:         MustParseIPNet("2001:db8:12::2/64"),
-				OtherIP:       MustParseIPNet("2001:db8:12::3/64"),
-				VPPLinkName:   "sgi0",
-				OtherLinkName: "sgi1",
-				Table:         200,
+				Name:        "sgi",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:19:01"),
+				VPPIP:       MustParseIPNet("2001:db8:12::2/64"),
+				OtherIP:     MustParseIPNet("2001:db8:12::3/64"),
+				VPPLinkName: "sgi0",
+				Table:       200,
 				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("2001:db8:11::/64"),
@@ -194,7 +188,7 @@ func pgwVPPConfigIPv6() vpp.VPPConfig {
 			// "upf pfcp endpoint ip 2001:db8:10::2 vrf 0",
 			// "upf gtpu endpoint ip6 2001:db8:10::2 nwi cp teid 0x80000000/2",
 			"upf gtpu endpoint ip6 2001:db8:13::2 nwi epc teid 0x80000000/2",
-			"ip route add ::/0 table 200 via 2001:db8:12::3 host-sgi0",
+			"ip route add ::/0 table 200 via 2001:db8:12::3 sgi0",
 			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
@@ -208,23 +202,21 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 	return vpp.VPPConfig{
 		Namespaces: []vpp.VPPNetworkNamespace{
 			{
-				Name:          "cp",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-				VPPIP:         MustParseIPNet("10.0.0.2/24"),
-				OtherIP:       MustParseIPNet("10.0.0.3/24"),
-				VPPLinkName:   "cp0",
-				OtherLinkName: "cp1",
-				Table:         0,
-				Placement:     -1, // main thread
+				Name:        "cp",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:5b:5b"),
+				VPPIP:       MustParseIPNet("10.0.0.2/24"),
+				OtherIP:     MustParseIPNet("10.0.0.3/24"),
+				VPPLinkName: "cp0",
+				Table:       0,
+				Placement:   -1, // main thread
 			},
 			{
-				Name:          "ue",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:18:01"),
-				VPPIP:         MustParseIPNet("10.1.0.2/16"),
-				OtherIP:       MustParseIPNet("10.1.0.3/16"),
-				VPPLinkName:   "access0",
-				OtherLinkName: "access1",
-				Table:         100,
+				Name:        "ue",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:18:01"),
+				VPPIP:       MustParseIPNet("10.1.0.2/16"),
+				OtherIP:     MustParseIPNet("10.1.0.3/16"),
+				VPPLinkName: "access0",
+				Table:       100,
 				NSRoutes: []vpp.RouteConfig{
 					{
 						Gw: MustParseIP("10.1.0.2"),
@@ -232,13 +224,12 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 				},
 			},
 			{
-				Name:          "sgi",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
-				VPPIP:         MustParseIPNet("10.0.1.2/24"),
-				OtherIP:       MustParseIPNet("10.0.1.3/24"),
-				VPPLinkName:   "sgi0",
-				OtherLinkName: "sgi1",
-				Table:         200,
+				Name:        "sgi",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:19:01"),
+				VPPIP:       MustParseIPNet("10.0.1.2/24"),
+				OtherIP:     MustParseIPNet("10.0.1.3/24"),
+				VPPLinkName: "sgi0",
+				Table:       200,
 				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("10.1.0.0/16"),
@@ -263,10 +254,10 @@ func tdfVPPConfigIPv4() vpp.VPPConfig {
 			// NOTE: "ip6" instead of "ip4" for IPv6
 			"upf tdf ul table vrf 100 ip4 table-id 1001",
 			// NOTE: "ip6" instead of "ip4" for IPv6
-			"upf tdf ul enable ip4 host-access0",
+			"upf tdf ul enable ip4 access0",
 			// NOTE: both IP and subnet (ip4 or ipv6) should be variable below
 			// For IPv6, ::/0 should be used as the subnet
-			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 host-sgi0",
+			"ip route add 0.0.0.0/0 table 200 via 10.0.2.3 sgi0",
 			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
@@ -280,23 +271,21 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 	return vpp.VPPConfig{
 		Namespaces: []vpp.VPPNetworkNamespace{
 			{
-				Name:          "cp",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-				VPPIP:         MustParseIPNet("10.0.0.2/24"),
-				OtherIP:       MustParseIPNet("10.0.0.3/24"),
-				VPPLinkName:   "cp0",
-				OtherLinkName: "cp1",
-				Table:         0,
-				Placement:     -1, // main thread
+				Name:        "cp",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:5b:5b"),
+				VPPIP:       MustParseIPNet("10.0.0.2/24"),
+				OtherIP:     MustParseIPNet("10.0.0.3/24"),
+				VPPLinkName: "cp0",
+				Table:       0,
+				Placement:   -1, // main thread
 			},
 			{
-				Name:          "ue",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:18:01"),
-				VPPIP:         MustParseIPNet("2001:db8:11::2/64"),
-				OtherIP:       MustParseIPNet("2001:db8:11::3/64"),
-				VPPLinkName:   "access0",
-				OtherLinkName: "access1",
-				Table:         100,
+				Name:        "ue",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:18:01"),
+				VPPIP:       MustParseIPNet("2001:db8:11::2/64"),
+				OtherIP:     MustParseIPNet("2001:db8:11::3/64"),
+				VPPLinkName: "access0",
+				Table:       100,
 				NSRoutes: []vpp.RouteConfig{
 					{
 						Gw: MustParseIP("2001:db8:11::2"),
@@ -304,13 +293,12 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 				},
 			},
 			{
-				Name:          "sgi",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:19:01"),
-				VPPIP:         MustParseIPNet("2001:db8:12::2/64"),
-				OtherIP:       MustParseIPNet("2001:db8:12::3/64"),
-				VPPLinkName:   "sgi0",
-				OtherLinkName: "sgi1",
-				Table:         200,
+				Name:        "sgi",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:19:01"),
+				VPPIP:       MustParseIPNet("2001:db8:12::2/64"),
+				OtherIP:     MustParseIPNet("2001:db8:12::3/64"),
+				VPPLinkName: "sgi0",
+				Table:       200,
 				NSRoutes: []vpp.RouteConfig{
 					{
 						Dst: MustParseIPNet("2001:db8:11::/64"),
@@ -330,8 +318,8 @@ func tdfVPPConfigIPv6() vpp.VPPConfig {
 			// FIXME: zero udp checksum on Session Modification Responses
 			// "upf pfcp endpoint ip 2001:db8:10::2 vrf 0",
 			"upf tdf ul table vrf 100 ip6 table-id 1001",
-			"upf tdf ul enable ip6 host-access0",
-			"ip route add ::/0 table 200 via 2001:db8:12::3 host-sgi0",
+			"upf tdf ul enable ip6 access0",
+			"ip route add ::/0 table 200 via 2001:db8:12::3 sgi0",
 			"create upf application name IPAPP",
 			"create upf application proxy name TST",
 			"upf application TST rule 3000 add l7 regex ^https?://theserver[46]-.*",
@@ -345,18 +333,17 @@ func gtpProxyVPPConfigIPv4() vpp.VPPConfig {
 	return vpp.VPPConfig{
 		Namespaces: []vpp.VPPNetworkNamespace{
 			{
-				Name:          "cp",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-				VPPIP:         MustParseIPNet("10.0.0.2/24"),
-				OtherIP:       MustParseIPNet("10.0.0.3/24"),
-				VPPLinkName:   "cp0",
-				OtherLinkName: "cp1",
-				Table:         0,
+				Name:        "cp",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:5b:5b"),
+				VPPIP:       MustParseIPNet("10.0.0.2/24"),
+				OtherIP:     MustParseIPNet("10.0.0.3/24"),
+				VPPLinkName: "cp0",
+				Table:       0,
 			},
 			{
 				Name:          "ue",
 				OtherIP:       MustParseIPNet("10.1.0.3/16"),
-				OtherLinkName: "access",
+				VPPLinkName:   "access",
 				SkipVPPConfig: true,
 				// using L3 capture because of tun
 				// (no Ethernet headers)
@@ -364,27 +351,25 @@ func gtpProxyVPPConfigIPv4() vpp.VPPConfig {
 				// the default route is added by gtpu (sgw) code here
 			},
 			{
-				Name:          "access",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:42:01"),
-				VPPIP:         MustParseIPNet("10.0.2.2/24"),
-				OtherIP:       MustParseIPNet("10.0.2.3/24"),
-				VPPLinkName:   "access0",
-				OtherLinkName: "access1",
-				Table:         100,
+				Name:        "access",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:42:01"),
+				VPPIP:       MustParseIPNet("10.0.2.2/24"),
+				OtherIP:     MustParseIPNet("10.0.2.3/24"),
+				VPPLinkName: "access0",
+				Table:       100,
 			},
 			{
-				Name:          "core",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:99:01"),
-				VPPIP:         MustParseIPNet("10.0.3.2/24"),
-				OtherIP:       MustParseIPNet("10.0.3.3/24"),
-				VPPLinkName:   "core0",
-				OtherLinkName: "core1",
-				Table:         200,
+				Name:        "core",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:99:01"),
+				VPPIP:       MustParseIPNet("10.0.3.2/24"),
+				OtherIP:     MustParseIPNet("10.0.3.3/24"),
+				VPPLinkName: "core0",
+				Table:       200,
 			},
 			{
 				Name:          "srv",
 				OtherIP:       MustParseIPNet("10.0.1.3/24"),
-				OtherLinkName: "srv1",
+				VPPLinkName:   "srv",
 				SkipVPPConfig: true,
 				// using L3 capture because of tun
 				// (no Ethernet headers)
@@ -416,18 +401,17 @@ func gtpProxyVPPConfigIPv6() vpp.VPPConfig {
 	return vpp.VPPConfig{
 		Namespaces: []vpp.VPPNetworkNamespace{
 			{
-				Name:          "cp",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:5b:5b"),
-				VPPIP:         MustParseIPNet("10.0.0.2/24"),
-				OtherIP:       MustParseIPNet("10.0.0.3/24"),
-				VPPLinkName:   "cp0",
-				OtherLinkName: "cp1",
-				Table:         0,
+				Name:        "cp",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:5b:5b"),
+				VPPIP:       MustParseIPNet("10.0.0.2/24"),
+				OtherIP:     MustParseIPNet("10.0.0.3/24"),
+				VPPLinkName: "cp0",
+				Table:       0,
 			},
 			{
 				Name:          "ue",
 				OtherIP:       MustParseIPNet("2001:db8:11::3/64"),
-				OtherLinkName: "access",
+				VPPLinkName:   "access",
 				SkipVPPConfig: true,
 				// using L3 capture because of tun
 				// (no Ethernet headers)
@@ -435,27 +419,25 @@ func gtpProxyVPPConfigIPv6() vpp.VPPConfig {
 				// the default route is added by gtpu (sgw) code here
 			},
 			{
-				Name:          "access",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:42:01"),
-				VPPIP:         MustParseIPNet("2001:db8:13::2/64"),
-				OtherIP:       MustParseIPNet("2001:db8:13::3/64"),
-				VPPLinkName:   "access0",
-				OtherLinkName: "access1",
-				Table:         100,
+				Name:        "access",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:42:01"),
+				VPPIP:       MustParseIPNet("2001:db8:13::2/64"),
+				OtherIP:     MustParseIPNet("2001:db8:13::3/64"),
+				VPPLinkName: "access0",
+				Table:       100,
 			},
 			{
-				Name:          "core",
-				VPPMac:        MustParseMAC("fa:8a:78:4d:99:01"),
-				VPPIP:         MustParseIPNet("2001:db8:14::2/64"),
-				OtherIP:       MustParseIPNet("2001:db8:14::3/64"),
-				VPPLinkName:   "core0",
-				OtherLinkName: "core1",
-				Table:         200,
+				Name:        "core",
+				VPPMac:      MustParseMAC("fa:8a:78:4d:99:01"),
+				VPPIP:       MustParseIPNet("2001:db8:14::2/64"),
+				OtherIP:     MustParseIPNet("2001:db8:14::3/64"),
+				VPPLinkName: "core0",
+				Table:       200,
 			},
 			{
 				Name:          "srv",
 				OtherIP:       MustParseIPNet("2001:db8:12::3/64"),
-				OtherLinkName: "srv1",
+				VPPLinkName:   "srv",
 				SkipVPPConfig: true,
 				// using L3 capture because of tun
 				// (no Ethernet headers)

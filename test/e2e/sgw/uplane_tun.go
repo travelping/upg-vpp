@@ -69,7 +69,7 @@ func (tt *TunTunnel) Start(ctx context.Context) error {
 	}
 
 	if link, err := tt.up.grxHandle.LinkByName(tt.cfg.InterfaceName); err != nil {
-		return errors.Wrapf(err, "Failed to find GTP-U link by name")
+		return errors.Wrapf(err, "Failed to find GTP-U link by name: %q", tt.cfg.InterfaceName)
 	} else {
 		link, err = tt.up.moveLinkFromGRXToUE(link)
 		if err != nil {

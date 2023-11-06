@@ -75,7 +75,6 @@ type VPPNetworkNamespace struct {
 	VPPIP         *net.IPNet
 	OtherIP       *net.IPNet
 	VPPLinkName   string
-	OtherLinkName string
 	Table         int
 	NSRoutes      []RouteConfig
 	SkipVPPConfig bool
@@ -133,7 +132,10 @@ func (cfg VPPConfig) GetNamespaceAddress(namespace string) *net.IPNet {
 func (cfg VPPConfig) GetNamespaceLinkName(namespace string) string {
 	for _, ns := range cfg.Namespaces {
 		if ns.Name == namespace {
-			return ns.OtherLinkName
+			if ns.VPPLinkName == "" {
+				panic("empty VPPLinkName for namespace " + namespace)
+			}
+			return ns.VPPLinkName
 		}
 	}
 
@@ -153,6 +155,7 @@ type VPPInstance struct {
 	pipeCopyWG            sync.WaitGroup
 	t                     tomb.Tomb
 	dispatchTraceFileName string
+	tapIndex              int
 }
 
 func NewVPPInstance(cfg VPPConfig) *VPPInstance {
@@ -504,41 +507,35 @@ func (vi *VPPInstance) SetupNamespaces() error {
 			panic("duplicate namespace name")
 		}
 
-		if nsCfg.VPPLinkName != "" {
-			mtu := nsCfg.MTU
-			if mtu == 0 {
-				mtu = vi.startupCfg.DefaultMTU()
-			}
-			if err := vi.vppNS.SetupVethPair(nsCfg.VPPLinkName, nil, ns, nsCfg.OtherLinkName, nsCfg.OtherIP, mtu); err != nil {
-				return errors.Wrap(err, "SetupVethPair (client)")
-			}
+		vi.log.WithFields(logrus.Fields{
+			"netns":   nsCfg.Name,
+			"nsPath":  ns.Path(),
+			"OtherIP": *nsCfg.OtherIP,
+		}).Info("netns created")
 
-			for _, rcfg := range nsCfg.NSRoutes {
-				if err := ns.AddRoute(rcfg.Dst, rcfg.Gw); err != nil {
-					return errors.Wrapf(err, "route for ns %s", nsCfg.Name)
-				}
-			}
-			vi.log.WithFields(logrus.Fields{
-				"netns":   nsCfg.Name,
-				"nsPath":  ns.Path(),
-				"VPPIP":   *nsCfg.VPPIP,
-				"OtherIP": *nsCfg.OtherIP,
-			}).Info("netns created")
-		} else {
-			vi.log.WithFields(logrus.Fields{
-				"netns":   nsCfg.Name,
-				"nsPath":  ns.Path(),
-				"OtherIP": *nsCfg.OtherIP,
-			}).Info("netns created")
-
-			if nsCfg.OtherIP != nil && nsCfg.OtherIP.IP.To4() == nil {
-				ns.SetIPv6()
-			}
+		if nsCfg.OtherIP != nil && nsCfg.OtherIP.IP.To4() == nil {
+			ns.SetIPv6()
 		}
 
 		vi.namespaces[nsCfg.Name] = ns
 	}
 
+	return nil
+}
+
+func (vi *VPPInstance) SetupRoutes() error {
+	for _, nsCfg := range vi.cfg.Namespaces {
+		ns, found := vi.namespaces[nsCfg.Name]
+		if !found {
+			return errors.Errorf("namespace not found: " + nsCfg.Name)
+		}
+
+		for _, rcfg := range nsCfg.NSRoutes {
+			if err := ns.AddRoute(rcfg.Dst, rcfg.Gw); err != nil {
+				return errors.Wrapf(err, "route for ns %s", nsCfg.Name)
+			}
+		}
+	}
 	return nil
 }
 
@@ -551,12 +548,12 @@ func (vi *VPPInstance) StartCapture() error {
 		captureCfg := network.CaptureConfig{
 			Iface: nsCfg.VPPLinkName,
 			// FIXME: store pcaps to the specified location not /tmp
-			PCAPPath: filepath.Join(vi.cfg.BaseDir, fmt.Sprintf("%s.pcap", nsCfg.OtherLinkName)),
+			PCAPPath: filepath.Join(vi.cfg.BaseDir, fmt.Sprintf("%s.pcap", nsCfg.VPPLinkName)),
 			Snaplen:  0,
 			TargetNS: vi.vppNS,
 		}
 
-		captureCfg.Iface = nsCfg.OtherLinkName
+		captureCfg.Iface = nsCfg.VPPLinkName
 		captureCfg.TargetNS = ns
 
 		if nsCfg.L3Capture {
@@ -613,12 +610,21 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 	if mtu == 0 {
 		mtu = vi.startupCfg.DefaultMTU()
 	}
-	if vi.startupCfg.XDP {
-		cmds = append(cmds, fmt.Sprintf("create interface af_xdp host-if %s name host-%s",
-			nsCfg.VPPLinkName, nsCfg.VPPLinkName))
-	} else {
-		cmds = append(cmds, fmt.Sprintf("create host-interface name %s", nsCfg.VPPLinkName))
+	ns, found := vi.namespaces[nsCfg.Name]
+	if !found {
+		panic("namespace not found: " + nsCfg.Name)
 	}
+	vi.tapIndex += 1
+	hostAddr := ""
+	if nsCfg.OtherIP != nil {
+		if nsCfg.OtherIP.IP.To4() == nil {
+			hostAddr = fmt.Sprintf(" host-ip6-addr %s", nsCfg.OtherIP)
+		} else {
+			hostAddr = fmt.Sprintf(" host-ip4-addr %s", nsCfg.OtherIP)
+		}
+	}
+	cmds = append(cmds, fmt.Sprintf("create tap id %d host-ns %s%s host-if-name %s persist attach", vi.tapIndex, ns.Path(), hostAddr, nsCfg.VPPLinkName))
+	cmds = append(cmds, fmt.Sprintf("set interface name tap%d %s", vi.tapIndex, nsCfg.VPPLinkName))
 
 	if vi.startupCfg.Multicore {
 		placement := "main"
@@ -626,22 +632,21 @@ func (vi *VPPInstance) interfaceCmds(nsCfg VPPNetworkNamespace) []string {
 			placement = fmt.Sprintf("worker %d", nsCfg.Placement)
 		}
 		cmds = append(cmds,
-			fmt.Sprintf("set interface rx-placement host-%s %s",
+			fmt.Sprintf("set interface rx-placement %s %s",
 				nsCfg.VPPLinkName, placement))
 	}
 
 	if vi.startupCfg.InterruptMode {
 		cmds = append(cmds,
-			fmt.Sprintf("set interface rx-mode host-%s interrupt", nsCfg.VPPLinkName))
+			fmt.Sprintf("set interface rx-mode %s interrupt", nsCfg.VPPLinkName))
 	}
 
 	return append(cmds,
-		fmt.Sprintf("set interface mac address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
-		fmt.Sprintf("set interface %s table host-%s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
-		fmt.Sprintf("set interface ip address host-%s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),
-		fmt.Sprintf("set interface state host-%s up", nsCfg.VPPLinkName),
-		// TODO: newer VPP should be able to pick up MTU value from the link
-		fmt.Sprintf("set interface mtu %d host-%s", mtu, nsCfg.VPPLinkName),
+		// fmt.Sprintf("set interface mac address %s %s", nsCfg.VPPLinkName, nsCfg.VPPMac),
+		fmt.Sprintf("set interface %s table %s %d", ipCmd, nsCfg.VPPLinkName, nsCfg.Table),
+		fmt.Sprintf("set interface ip address %s %s", nsCfg.VPPLinkName, nsCfg.VPPIP),
+		fmt.Sprintf("set interface state %s up", nsCfg.VPPLinkName),
+		fmt.Sprintf("set interface mtu %d %s", mtu, nsCfg.VPPLinkName),
 	)
 }
 
@@ -655,7 +660,7 @@ func (vi *VPPInstance) setupDispatchTrace() error {
 		return errors.Wrap(err, "error creating vppcapture temp file (closing)")
 	}
 
-	_, err = vi.Ctl("pcap dispatch trace on max 100000 file %s buffer-trace af-packet-input 100", filepath.Base(tmpFile.Name()))
+	_, err = vi.Ctl("pcap dispatch trace on max 100000 file %s buffer-trace virtio-input 100", filepath.Base(tmpFile.Name()))
 	if err != nil {
 		return errors.Wrap(err, "error turning on the dispatch trace")
 	}
@@ -746,7 +751,7 @@ func (vi *VPPInstance) Configure() error {
 
 	cmds := vi.cfg.SetupCommands
 	if vi.startupCfg.Trace {
-		cmds = append(cmds, "trace add af-packet-input 10000")
+		cmds = append(cmds, "trace add virtio-input 10000")
 	}
 	return vi.runCmds(cmds...)
 }
