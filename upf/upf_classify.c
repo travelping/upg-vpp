@@ -431,17 +431,12 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
   n_left_from = from_frame->n_vectors;
 
   u32 thread_index = vlib_get_thread_index ();
-  u32 stats_sw_if_index, stats_n_packets, stats_n_bytes;
-  u32 sw_if_index = 0;
   u32 next = 0;
   upf_session_t *sess = NULL;
   struct rules *active;
   u32 sidx = 0;
-  u32 len;
 
   next_index = node->cached_next_index;
-  stats_sw_if_index = node->runtime_data[0];
-  stats_n_packets = stats_n_bytes = 0;
 
   while (n_left_from > 0)
     {
@@ -563,27 +558,11 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  ASSERT (flow_next (flow, FT_REVERSE) != FT_NEXT_PROXY
 		  || flow_pdr_id (flow, FT_REVERSE) != ~0);
 
-	  len = vlib_buffer_length_in_chain (vm, b);
-	  stats_n_packets += 1;
-	  stats_n_bytes += len;
-
-	  /* Batch stats increment on the same gtpu tunnel so counter is not
-	     incremented per packet. Note stats are still incremented for deleted
-	     and admin-down tunnel where packets are dropped. It is not worthwhile
-	     to check for this rare case and affect normal path performance. */
-	  if (PREDICT_FALSE (sw_if_index != stats_sw_if_index))
-	    {
-	      stats_n_packets -= 1;
-	      stats_n_bytes -= len;
-	      if (stats_n_packets)
-		vlib_increment_combined_counter
-		  (im->combined_sw_if_counters + VNET_INTERFACE_COUNTER_TX,
-		   thread_index, stats_sw_if_index,
-		   stats_n_packets, stats_n_bytes);
-	      stats_n_packets = 1;
-	      stats_n_bytes = len;
-	      stats_sw_if_index = sw_if_index;
-	    }
+	  upf_debug ("flow: %p (%u): %U\n",
+		     fm->flows + upf_buffer_opaque (b)->gtpu.flow_id,
+		     upf_buffer_opaque (b)->gtpu.flow_id,
+		     format_flow_key,
+		     &(fm->flows + upf_buffer_opaque (b)->gtpu.flow_id)->key);
 
 	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
 	    {

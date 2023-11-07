@@ -113,15 +113,10 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
   from = vlib_frame_vector_args (from_frame);
   n_left_from = from_frame->n_vectors;
 
-  u32 thread_index = vlib_get_thread_index ();
-  u32 stats_sw_if_index, stats_n_packets, stats_n_bytes;
   u32 sw_if_index = 0;
   u32 next = 0;
-  u32 len;
 
   next_index = node->cached_next_index;
-  stats_sw_if_index = node->runtime_data[0];
-  stats_n_packets = stats_n_bytes = 0;
 
   while (n_left_from > 0)
     {
@@ -226,7 +221,7 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 		     format_ip4_header, vlib_buffer_get_current (b),
 		     b->current_length);
 		  next = UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP;
-		  goto stats;
+		  goto trace;
 		}
 	      flow_id = tconn->next_node_opaque;
 	    }
@@ -240,7 +235,7 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 			 format_ip4_header,
 			 vlib_buffer_get_current (b), b->current_length);
 	      next = UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP;
-	      goto stats;
+	      goto trace;
 	    }
 
 	  flow_id--;
@@ -249,7 +244,7 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    {
 	      next = UPF_PROXY_OUTPUT_NEXT_DROP;
 	      error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
-	      goto stats;
+	      goto trace;
 	    }
 
 	  flow = pool_elt_at_index (fm->flows, flow_id);
@@ -282,7 +277,7 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 		 flow->session_index);
 	      next = UPF_PROXY_OUTPUT_NEXT_DROP;
 	      error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
-	      goto stats;
+	      goto trace;
 	    }
 
 	  UPF_ENTER_SUBGRAPH (b, flow->session_index, is_ip4);
@@ -335,7 +330,7 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 		{
 		  next = UPF_PROXY_OUTPUT_NEXT_DROP;
 		  error = UPF_PROXY_OUTPUT_ERROR_NO_SESSION;
-		  goto stats;
+		  goto trace;
 		}
 
 	      upf_buffer_opaque (b)->gtpu.pdr_idx = pdr - active->pdr;
@@ -347,29 +342,7 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
 		upf_buffer_opaque (b)->gtpu.flags |= BUFFER_FAR_ONLY;
 	    }
 
-	stats:
-	  len = vlib_buffer_length_in_chain (vm, b);
-	  stats_n_packets += 1;
-	  stats_n_bytes += len;
-
-	  /* Batch stats increment on the same gtpu tunnel so counter is not
-	     incremented per packet. Note stats are still incremented for deleted
-	     and admin-down tunnel where packets are dropped. It is not worthwhile
-	     to check for this rare case and affect normal path performance. */
-	  if (PREDICT_FALSE (sw_if_index != stats_sw_if_index))
-	    {
-	      stats_n_packets -= 1;
-	      stats_n_bytes -= len;
-	      if (stats_n_packets)
-		vlib_increment_combined_counter
-		  (im->combined_sw_if_counters + VNET_INTERFACE_COUNTER_TX,
-		   thread_index, stats_sw_if_index,
-		   stats_n_packets, stats_n_bytes);
-	      stats_n_packets = 1;
-	      stats_n_bytes = len;
-	      stats_sw_if_index = sw_if_index;
-	    }
-
+	trace:
 	  b->error = error ? node->errors[error] : 0;
 
 	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))

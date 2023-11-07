@@ -104,17 +104,13 @@ upf_input (vlib_main_t * vm, vlib_node_runtime_t * node,
   n_left_from = from_frame->n_vectors;
 
   u32 thread_index = vlib_get_thread_index ();
-  u32 stats_sw_if_index, stats_n_packets, stats_n_bytes;
   u32 sw_if_index = 0;
   u32 next = 0;
   upf_session_t *sess = NULL;
   u32 sidx = 0;
-  u32 len;
   struct rules *active;
 
   next_index = node->cached_next_index;
-  stats_sw_if_index = node->runtime_data[0];
-  stats_n_packets = stats_n_bytes = 0;
 
   while (n_left_from > 0)
     {
@@ -138,7 +134,7 @@ upf_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  n_left_to_next -= 1;
 
 	  b = vlib_get_buffer (vm, bi);
-          UPF_CHECK_INNER_NODE (b);
+	  UPF_CHECK_INNER_NODE (b);
 
 	  /* Get next node index and adj index from tunnel next_dpo */
 	  sidx = upf_buffer_opaque (b)->gtpu.session_index;
@@ -161,7 +157,7 @@ upf_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  upf_debug ("PDR Idx: %u, PDR: %p, FAR: %p",
 		     upf_buffer_opaque (b)->gtpu.pdr_idx, pdr, far);
 	  if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
-	    goto stats;
+	    goto trace;
 
 	  upf_debug ("PDR OHR: %u", pdr->outer_header_removal);
 
@@ -247,29 +243,6 @@ upf_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    default:
 	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
 	      break;
-	    }
-
-	stats:
-	  len = vlib_buffer_length_in_chain (vm, b);
-	  stats_n_packets += 1;
-	  stats_n_bytes += len;
-
-	  /* Batch stats increment on the same gtpu tunnel so counter is not
-	     incremented per packet. Note stats are still incremented for deleted
-	     and admin-down tunnel where packets are dropped. It is not worthwhile
-	     to check for this rare case and affect normal path performance. */
-	  if (PREDICT_FALSE (sw_if_index != stats_sw_if_index))
-	    {
-	      stats_n_packets -= 1;
-	      stats_n_bytes -= len;
-	      if (stats_n_packets)
-		vlib_increment_combined_counter
-		  (im->combined_sw_if_counters + VNET_INTERFACE_COUNTER_TX,
-		   thread_index, stats_sw_if_index,
-		   stats_n_packets, stats_n_bytes);
-	      stats_n_packets = 1;
-	      stats_n_bytes = len;
-	      stats_sw_if_index = sw_if_index;
 	    }
 
 	trace:

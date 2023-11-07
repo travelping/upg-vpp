@@ -108,20 +108,14 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
   from = vlib_frame_vector_args (from_frame);
   n_left_from = from_frame->n_vectors;
 
-  u32 thread_index = vlib_get_thread_index ();
-  u32 stats_sw_if_index, stats_n_packets, stats_n_bytes;
-  u32 sw_if_index = 0;
   u32 next = 0;
   upf_session_t *sess = NULL;
   u32 sidx = 0;
-  u32 len;
   struct rules *active;
 
   upf_forwarding_policy_t *fp_entry;
 
   next_index = node->cached_next_index;
-  stats_sw_if_index = node->runtime_data[0];
-  stats_n_packets = stats_n_bytes = 0;
   timestamp_ns = unix_time_now_nsec ();
 
   while (n_left_from > 0)
@@ -179,13 +173,13 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  if (PREDICT_FALSE (!pdr))
 	    {
 	      error = UPF_FORWARD_ERROR_PDR_MISSING;
-	      goto stats;
+	      goto trace;
 	    }
 
 	  if (PREDICT_FALSE (!far))
 	    {
 	      error = UPF_FORWARD_ERROR_FAR_MISSING;
-	      goto stats;
+	      goto trace;
 	    }
 
 	  upf_debug ("PDR: %u, FAR: %u", pdr->id, far->id);
@@ -328,29 +322,6 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 #undef IS_DL
 #undef IS_UL
-
-	stats:
-	  len = vlib_buffer_length_in_chain (vm, b);
-	  stats_n_packets += 1;
-	  stats_n_bytes += len;
-
-	  /* Batch stats increment on the same gtpu tunnel so counter is not
-	     incremented per packet. Note stats are still incremented for deleted
-	     and admin-down tunnel where packets are dropped. It is not worthwhile
-	     to check for this rare case and affect normal path performance. */
-	  if (PREDICT_FALSE (sw_if_index != stats_sw_if_index))
-	    {
-	      stats_n_packets -= 1;
-	      stats_n_bytes -= len;
-	      if (stats_n_packets)
-		vlib_increment_combined_counter
-		  (im->combined_sw_if_counters + VNET_INTERFACE_COUNTER_TX,
-		   thread_index, stats_sw_if_index,
-		   stats_n_packets, stats_n_bytes);
-	      stats_n_packets = 1;
-	      stats_n_bytes = len;
-	      stats_sw_if_index = sw_if_index;
-	    }
 
 	trace:
 	  b->error = error ? node->errors[error] : 0;

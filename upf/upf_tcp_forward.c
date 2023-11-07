@@ -206,15 +206,9 @@ upf_tcp_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
   from = vlib_frame_vector_args (from_frame);
   n_left_from = from_frame->n_vectors;
 
-  u32 thread_index = vlib_get_thread_index ();
-  u32 stats_sw_if_index, stats_n_packets, stats_n_bytes;
-  u32 sw_if_index = 0;
   u32 next = 0;
-  u32 len;
 
   next_index = node->cached_next_index;
-  stats_sw_if_index = node->runtime_data[0];
-  stats_n_packets = stats_n_bytes = 0;
 
   while (n_left_from > 0)
     {
@@ -243,7 +237,7 @@ upf_tcp_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  n_left_to_next -= 1;
 
 	  b = vlib_get_buffer (vm, bi);
-          UPF_CHECK_INNER_NODE (b);
+	  UPF_CHECK_INNER_NODE (b);
 
 	  error = 0;
 	  next = UPF_TCP_FORWARD_NEXT_FORWARD;
@@ -254,7 +248,7 @@ upf_tcp_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    {
 	      next = UPF_TCP_FORWARD_NEXT_DROP;
 	      error = UPF_TCP_FORWARD_ERROR_INVALID_FLOW;
-	      goto stats;
+	      goto trace;
 	    }
 
 	  flow = pool_elt_at_index (fm->flows, flow_id);
@@ -313,29 +307,7 @@ upf_tcp_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  b->flags &= ~VNET_BUFFER_OFFLOAD_F_UDP_CKSUM;
 	  b->flags &= ~VNET_BUFFER_OFFLOAD_F_IP_CKSUM;
 
-	stats:
-	  len = vlib_buffer_length_in_chain (vm, b);
-	  stats_n_packets += 1;
-	  stats_n_bytes += len;
-
-	  /* Batch stats increment on the same gtpu tunnel so counter is not
-	     incremented per packet. Note stats are still incremented for deleted
-	     and admin-down tunnel where packets are dropped. It is not worthwhile
-	     to check for this rare case and affect normal path performance. */
-	  if (PREDICT_FALSE (sw_if_index != stats_sw_if_index))
-	    {
-	      stats_n_packets -= 1;
-	      stats_n_bytes -= len;
-	      if (stats_n_packets)
-		vlib_increment_combined_counter
-		  (im->combined_sw_if_counters + VNET_INTERFACE_COUNTER_TX,
-		   thread_index, stats_sw_if_index,
-		   stats_n_packets, stats_n_bytes);
-	      stats_n_packets = 1;
-	      stats_n_bytes = len;
-	      stats_sw_if_index = sw_if_index;
-	    }
-
+	trace:
 	  b->error = error ? node->errors[error] : 0;
 
 	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
