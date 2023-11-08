@@ -303,14 +303,9 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
   n_left_from = from_frame->n_vectors;
 
   u32 thread_index = vlib_get_thread_index ();
-  u32 stats_sw_if_index, stats_n_packets, stats_n_bytes;
-  u32 sw_if_index = 0;
   u32 next = 0;
-  u32 len;
 
   next_index = node->cached_next_index;
-  stats_sw_if_index = node->runtime_data[0];
-  stats_n_packets = stats_n_bytes = 0;
   timestamp_ns = unix_time_now_nsec ();
 
   while (n_left_from > 0)
@@ -445,7 +440,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
 		}
 	      else
-		goto stats;
+		goto trace;
 	    }
 
 	  // FT_REVERSE direction (DL) and stitched traffic (upf-ip[46]-tcp-forward)
@@ -463,7 +458,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
 		{
 		  next = UPF_FORWARD_NEXT_DROP;
-		  goto stats;
+		  goto trace;
 		}
 
 #define IS_DL(_pdr, _far)						\
@@ -486,29 +481,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 #undef IS_UL
 	    }
 
-	stats:
-	  len = vlib_buffer_length_in_chain (vm, b);
-	  stats_n_packets += 1;
-	  stats_n_bytes += len;
-
-	  /* Batch stats increment on the same gtpu tunnel so counter is not
-	     incremented per packet. Note stats are still incremented for deleted
-	     and admin-down tunnel where packets are dropped. It is not worthwhile
-	     to check for this rare case and affect normal path performance. */
-	  if (PREDICT_FALSE (sw_if_index != stats_sw_if_index))
-	    {
-	      stats_n_packets -= 1;
-	      stats_n_bytes -= len;
-	      if (stats_n_packets)
-		vlib_increment_combined_counter
-		  (im->combined_sw_if_counters + VNET_INTERFACE_COUNTER_TX,
-		   thread_index, stats_sw_if_index,
-		   stats_n_packets, stats_n_bytes);
-	      stats_n_packets = 1;
-	      stats_n_bytes = len;
-	      stats_sw_if_index = sw_if_index;
-	    }
-
+	trace:
 	  b->error = error ? node->errors[error] : 0;
 
 	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
