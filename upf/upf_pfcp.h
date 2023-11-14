@@ -29,6 +29,10 @@ upf_node_assoc_t *pfcp_new_association (session_handle_t session_handle,
 					pfcp_node_id_t * node_id);
 void pfcp_release_association (upf_node_assoc_t * n);
 
+void pfcp_node_enter_smf_set (upf_node_assoc_t * n,
+                              u8 * fqdn);
+u32 *pfcp_node_exit_smf_set (upf_node_assoc_t * n);
+
 upf_session_t *pfcp_create_session (upf_node_assoc_t * assoc,
 				    const ip46_address_t * up_address,
 				    uint64_t cp_seid,

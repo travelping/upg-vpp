@@ -891,8 +891,17 @@ typedef struct
   u32 sessions;
   u32 heartbeat_handle;
 
+  u32 smf_set_idx;
+  u32 idx_in_smf_set_pool;
+
   u32 policer_idx;
 } upf_node_assoc_t;
+
+typedef struct
+{
+  u8 *fqdn;
+  u32 *node_ids; // pool of node ids
+} upf_smf_set_t;
 
 typedef u8 *regex_t;
 
@@ -984,11 +993,16 @@ typedef struct
   upf_peer_t *peers;
   clib_bihash_24_8_t peer_index_by_ip;	/* remote GTP-U peer keyed on it's ip addr and vrf */
 
-  /* vector of associated PFCP nodes */
+  /* pool of associated PFCP nodes */
   upf_node_assoc_t *nodes;
   /* lookup PFCP nodes */
   mhash_t node_index_by_ip;
   uword *node_index_by_fqdn;
+
+  /* pool of SMF sets */
+  upf_smf_set_t *smf_sets;
+  /* lookup SMF sets */
+  uword *smf_set_by_fqdn; // hashmap to smf set id
 
   /* upg-related counters */
   vlib_simple_counter_main_t *upf_simple_counters;

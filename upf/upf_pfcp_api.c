@@ -370,9 +370,13 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 			  &req->request.node_id);
   n->recovery_time_stamp = req->recovery_time_stamp;
 
+  if (ISSET_BIT (req->grp.fields, ASSOCIATION_SETUP_REQUEST_SMF_SET_ID))
+    pfcp_node_enter_smf_set(n, req->smf_set_id.fqdn);
+
   UPF_SET_BIT (resp->grp.fields,
 	       ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES);
   resp->up_function_features |= F_UPFF_EMPU;
+  resp->up_function_features |= F_UPFF_MPAS;
   if (gtm->pfcp_spec_version >= 16)
     {
       resp->up_function_features |= F_UPFF_VTIME;

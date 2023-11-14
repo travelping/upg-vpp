@@ -1148,6 +1148,12 @@ typedef struct
   ip6_address_t ip6;
 } pfcp_alternative_smf_ip_address_t;
 
+#define PFCP_IE_SMF_SET_ID				180
+typedef struct
+{
+  u8 *fqdn;
+} pfcp_smf_set_id_t;
+
 #define PFCP_IE_QUOTA_VALIDITY_TIME			181
 typedef u32 pfcp_quota_validity_time_t;
 
@@ -2406,8 +2412,9 @@ enum
   ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION,
   ASSOCIATION_SETUP_REQUEST_TP_BUILD_ID,
   ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS,
+  ASSOCIATION_SETUP_REQUEST_SMF_SET_ID,
   ASSOCIATION_SETUP_REQUEST_LAST =
-    ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS
+    ASSOCIATION_SETUP_REQUEST_SMF_SET_ID
 };
 
 typedef struct
@@ -2423,6 +2430,7 @@ typedef struct
     * user_plane_ip_resource_information;
   pfcp_tp_build_id_t tp_build_id;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
+  pfcp_smf_set_id_t smf_set_id;
 } pfcp_association_setup_request_t;
 
 enum
@@ -2437,8 +2445,9 @@ enum
   ASSOCIATION_UPDATE_REQUEST_PFCPAUREQ_FLAGS,
   ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_IDENTITY,
   ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS,
+  ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID,
   ASSOCIATION_UPDATE_REQUEST_LAST =
-    ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS
+    ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID
 };
 
 typedef struct
@@ -2455,6 +2464,7 @@ typedef struct
     * user_plane_ip_resource_information;
   pfcp_pfcpaureq_flags_t pfcpaureq_flags;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
+  pfcp_smf_set_id_t smf_set_id;
 } pfcp_association_update_request_t;
 
 enum
@@ -2480,6 +2490,7 @@ enum
   ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES,
   ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION,
   ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION,
+  ASSOCIATION_PROCEDURE_RESPONSE_SMF_SET_ID,
   ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT,
   ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID,
   ASSOCIATION_PROCEDURE_RESPONSE_LAST =
@@ -2501,6 +2512,7 @@ typedef struct
     * user_plane_ip_resource_information;
   pfcp_bbf_up_function_features_t bbf_up_function_features;
   pfcp_tp_build_id_t tp_build_id;
+  pfcp_smf_set_id_t smf_set_id;
 } pfcp_association_procedure_response_t;
 
 enum
