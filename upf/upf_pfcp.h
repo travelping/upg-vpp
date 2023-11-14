@@ -34,9 +34,8 @@ void pfcp_node_enter_smf_set (upf_node_assoc_t * n,
 u32 *pfcp_node_exit_smf_set (upf_node_assoc_t * n);
 
 upf_session_t *pfcp_create_session (upf_node_assoc_t * assoc,
-				    const ip46_address_t * up_address,
-				    uint64_t cp_seid,
-				    const ip46_address_t * cp_address);
+				    u64 cp_seid,
+                                    u64 up_seid);
 void pfcp_update_session (upf_session_t * sx);
 void pfcp_disable_session (upf_session_t * sx);
 void pfcp_free_session (upf_session_t * sx);
@@ -69,7 +68,7 @@ void pfcp_send_end_marker (upf_session_t * sx, u16 far_id);
 int pfcp_update_apply (upf_session_t * sx);
 void pfcp_update_finish (upf_session_t * sx);
 
-upf_session_t *pfcp_lookup (uint64_t sess_id);
+upf_session_t *pfcp_lookup_up_seid (u64 up_seid);
 
 static inline struct rules *
 pfcp_get_rules (upf_session_t * sx, int rules)

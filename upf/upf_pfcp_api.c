@@ -46,6 +46,7 @@
 #include "upf_app_db.h"
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
+#include "vppinfra/time.h"
 
 #include <vlib/unix/plugin.h>
 
@@ -467,13 +468,13 @@ handle_node_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 }
 
 static void
-send_simple_response (pfcp_msg_t * req, u64 seid, u8 type,
+send_simple_response (pfcp_msg_t * req, u64 cp_seid, u8 type,
 		      pfcp_cause_t cause, pfcp_offending_ie_t * err)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t resp_dmsg = {
     .type = type,
-    .seid = seid
+    .seid = cp_seid
   };
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
 
@@ -2515,7 +2516,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
   f64 now = psm->now;
   int r = 0;
   int is_ip4;
-  u64 seid;
+  u64 cp_seid;
 
   memset (resp, 0, sizeof (*resp));
   UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
@@ -2524,8 +2525,8 @@ handle_session_establishment_request (pfcp_msg_t * msg,
   UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_NODE_ID);
   init_response_node_id (&resp->node_id);
 
-  seid = req->f_seid.seid;
-  resp_dmsg.seid = seid;
+  cp_seid = req->f_seid.seid;
+  resp_dmsg.seid = cp_seid;
 
   assoc = pfcp_get_association (&req->request.node_id);
   if (!assoc)
@@ -2538,20 +2539,34 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       return -1;
     }
 
-  UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
-  resp->up_f_seid.seid = req->f_seid.seid;
-
-  /*
-   * TODO: unique CP-provided SEIDs here don't follow the spec.  The
-   * SEIDs need to be unique per-SMC / SMF Set and UPG should provide
-   * it's UP SEID instead of just reusing CP SEID.
-   */
-  if (pfcp_lookup (seid))
+  // Try to reuse cp seid for up seid to simplify debugging (search in wireshark)
+  u64 up_seid = cp_seid;
+  if (pfcp_lookup_up_seid (up_seid))
     {
-      tp_session_error_report (resp, "Duplicate SEID");
-      r = -1;
-      goto out_send_resp;
+      u64 seed = unix_time_now_nsec() ^ cp_seid;
+      u8 retry_cnt = 10;
+
+      do {
+        // try to generate random seid
+        up_seid = random_u64(&seed);
+        if (up_seid == 0 || up_seid == ~0) {
+          continue;
+        }
+
+        if (!pfcp_lookup_up_seid(up_seid)) {
+          break;
+        }
+      } while(retry_cnt--);
+
+      if (retry_cnt == 0) {
+        tp_session_error_report (resp, "Duplicate SEID");
+        r = -1;
+        goto out_send_resp;
+      }
     }
+
+  UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
+  resp->up_f_seid.seid = up_seid;
 
   is_ip4 = ip46_address_is_ip4 (&msg->rmt.address);
   if (is_ip4)
@@ -2571,7 +2586,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       ip_set (&cp_address, &req->f_seid.ip6, 0);
     }
 
-  sess = pfcp_create_session (assoc, &up_address, seid, &cp_address);
+  sess = pfcp_create_session (assoc, cp_seid, up_seid);
 
   if (ISSET_BIT
       (req->grp.fields,
@@ -2655,7 +2670,7 @@ handle_session_modification_request (pfcp_msg_t * msg,
   UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp->cause = PFCP_CAUSE_REQUEST_REJECTED;
 
-  if (!(sess = pfcp_lookup (dmsg->seid)))
+  if (!(sess = pfcp_lookup_up_seid (dmsg->seid)))
     {
       upf_debug ("PFCP Session %" PRIu64 " not found.\n", dmsg->seid);
       resp->cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
@@ -2858,7 +2873,7 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp->cause = PFCP_CAUSE_REQUEST_REJECTED;
 
-  if (!(sess = pfcp_lookup (dmsg->seid)))
+  if (!(sess = pfcp_lookup_up_seid (dmsg->seid)))
     {
       upf_debug ("PFCP Session %" PRIu64 " not found.\n", dmsg->seid);
       resp->cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;

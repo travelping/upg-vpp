@@ -684,9 +684,7 @@ node_assoc_detach_session (upf_session_t * sx)
 }
 
 upf_session_t *
-pfcp_create_session (upf_node_assoc_t * assoc,
-		     const ip46_address_t * up_address, uint64_t cp_seid,
-		     const ip46_address_t * cp_address)
+pfcp_create_session (upf_node_assoc_t * assoc, u64 cp_seid, u64 up_seid)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   vlib_main_t *vm = vlib_get_main ();
@@ -696,16 +694,15 @@ pfcp_create_session (upf_node_assoc_t * assoc,
   upf_debug ("CP F-SEID: 0x%016" PRIx64 " @ %U\n"
 	     "UP F-SEID: 0x%016" PRIx64 " @ %U\n",
 	     cp_seid, format_ip46_address, cp_address, IP46_TYPE_ANY,
-	     cp_seid, format_ip46_address, up_address, IP46_TYPE_ANY);
+	     up_seid, format_ip46_address, up_address, IP46_TYPE_ANY);
 
   vlib_worker_thread_barrier_sync (vm);
 
   pool_get_aligned (gtm->sessions, sx, CLIB_CACHE_LINE_BYTES);
   memset (sx, 0, sizeof (*sx));
 
-  sx->up_address = *up_address;
   sx->cp_seid = cp_seid;
-  sx->cp_address = *cp_address;
+  sx->up_seid = up_seid;
 
   sx->last_ul_traffic = vlib_time_now (psm->vlib_main);
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)
@@ -713,11 +710,12 @@ pfcp_create_session (upf_node_assoc_t * assoc,
 
   sx->unix_time_start = psm->now;
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_init (&sx->lock);
+#endif
 
-  //TODO sx->up_f_seid = sx - gtm->sessions;
   node_assoc_attach_session (assoc, sx);
-  hash_set (gtm->session_by_id, cp_seid, sx - gtm->sessions);
+  hash_set (gtm->session_by_up_seid, up_seid, sx - gtm->sessions);
 
   /*Init TEID by choose_id hash lookup table */
   sx->teid_by_chid =
@@ -1205,7 +1203,7 @@ pfcp_disable_session (upf_session_t * sx)
   upf_acl_t *acl;
   upf_far_t *far;
 
-  hash_unset (gtm->session_by_id, sx->cp_seid);
+  hash_unset (gtm->session_by_up_seid, sx->up_seid);
   vec_foreach (v4_teid, active->v4_teid) pfcp_add_del_v4_teid (v4_teid, sx,
 							       0);
   vec_foreach (v6_teid, active->v6_teid) pfcp_add_del_v6_teid (v6_teid, sx,
@@ -1294,7 +1292,10 @@ pfcp_free_session (upf_session_t * sx)
 
   free_user_id (&sx->user_id);
 
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_free (&sx->lock);
+#endif
+
   pool_put (gtm->sessions, sx);
 
   vlib_worker_thread_barrier_release (vm);
@@ -2104,7 +2105,7 @@ pfcp_update_apply (upf_session_t * sx)
 
   if (pending_pdr)
     {
-      sx->flags |= PFCP_UPDATING;
+      sx->flags |= UPF_SESSION_UPDATING;
 
       /* update UE addresses and TEIDs */
       vec_diff (pending->ue_dst_ip, active->ue_dst_ip, ip46_address_fib_cmp,
@@ -2132,7 +2133,7 @@ pfcp_update_apply (upf_session_t * sx)
 
   /* flip the switch */
   sx->active ^= PFCP_PENDING;
-  sx->flags &= ~PFCP_UPDATING;
+  sx->flags &= ~UPF_SESSION_UPDATING;
 
   pending = pfcp_get_rules (sx, PFCP_PENDING);
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
@@ -2304,12 +2305,12 @@ pfcp_update_finish (upf_session_t * sx)
  *
  */
 upf_session_t *
-pfcp_lookup (uint64_t sess_id)
+pfcp_lookup_up_seid (uint64_t up_seid)
 {
   upf_main_t *gtm = &upf_main;
   uword *p;
 
-  p = hash_get (gtm->session_by_id, sess_id);
+  p = hash_get (gtm->session_by_up_seid, up_seid);
   if (!p)
     return NULL;
 
@@ -2672,7 +2673,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
       vec_validate_hap (uev, 0, sizeof (upf_event_urr_hdr_t), 0, 0);
       ueh = (upf_event_urr_hdr_t *) vec_header (uev);
       ueh->session_idx = (uword) (sess - gtm->sessions);
-      ueh->cp_seid = sess->cp_seid;
+      ueh->up_seid = sess->up_seid;
       ueh->ue = tt.ip;
       ueh->status = status;
 
@@ -2919,12 +2920,14 @@ format_pfcp_session (u8 * s, va_list * args)
   upf_qer_t *qer;
   u8 *user_id_str;
 
+  upf_node_assoc_t *assoc = pool_elt_at_index(gtm->nodes, sx->assoc.node);
+
   s = format (s,
 	      "CP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U\n"
 	      "UP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U\n",
-	      sx->cp_seid, sx->cp_seid, format_ip46_address, &sx->cp_address,
-	      IP46_TYPE_ANY, sx->cp_seid, sx->cp_seid, format_ip46_address,
-	      &sx->up_address, IP46_TYPE_ANY, sx);
+	      sx->cp_seid, sx->cp_seid, format_ip46_address, &assoc->rmt_addr,
+	      IP46_TYPE_ANY, sx->up_seid, sx->up_seid, format_ip46_address,
+	      &assoc->lcl_addr, IP46_TYPE_ANY, sx);
 
   user_id_str = format (0, "%U", format_user_id, &sx->user_id);
   if (user_id_str)
@@ -3234,7 +3237,7 @@ format_pfcp_node_association (u8 * s, va_list * args)
 	  if (i > 0 && (i % 8) == 0)
 	    s = format (s, "\n            ");
 
-	  s = format (s, " 0x%016" PRIx64, sx->cp_seid);
+	  s = format (s, " 0x%016" PRIx64, sx->up_seid);
 	}
 
       i++;

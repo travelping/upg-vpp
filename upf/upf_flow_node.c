@@ -35,7 +35,7 @@
 typedef struct
 {
   u32 session_index;
-  u64 cp_seid;
+  u64 up_seid;
   flow_key_t key;
   u32 flow_idx;
   u32 sw_if_index;
@@ -53,9 +53,9 @@ format_get_flowinfo (u8 * s, va_list * args)
   u32 indent = format_get_indent (s);
 
   s = format (s,
-	      "upf_session%d cp-seid 0x%016llx\n"
+	      "upf_session%d up-seid 0x%016llx\n"
 	      "%UFlowInfo - sw_if_index %d, next_index = %d\n%U%U\n%U%U\n%U%U",
-	      t->session_index, t->cp_seid,
+	      t->session_index, t->up_seid,
 	      format_white_space, indent,
 	      t->sw_if_index, t->next_index,
 	      format_white_space, indent,
@@ -218,8 +218,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
 	  active1 = pfcp_get_rules (sx1, PFCP_ACTIVE);
 
-	  flow_mk_key (sx0->cp_seid, p0, is_ip4, &is_reverse0, &kv0);
-	  flow_mk_key (sx1->cp_seid, p1, is_ip4, &is_reverse1, &kv1);
+	  flow_mk_key (sx0->up_seid, p0, is_ip4, &is_reverse0, &kv0);
+	  flow_mk_key (sx1->up_seid, p1, is_ip4, &is_reverse1, &kv1);
 
 	  /* lookup/create flow */
 	  flow_idx0 =
@@ -297,7 +297,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
 	      flow_trace_t *t = vlib_add_trace (vm, node, b0, sizeof (*t));
 	      t->session_index = sidx;
-	      t->cp_seid = sess->cp_seid;
+	      t->up_seid = sess->up_seid;
 	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
 	      clib_memcpy (t->packet_data, vlib_buffer_get_current (b0) +
@@ -310,7 +310,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
 	      flow_trace_t *t = vlib_add_trace (vm, node, b1, sizeof (*t));
 	      t->session_index = sidx;
-	      t->cp_seid = sess->cp_seid;
+	      t->up_seid = sess->up_seid;
 	      t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];
 	      t->next_index = next1;
 	      clib_memcpy (t->packet_data, vlib_buffer_get_current (b1) +
@@ -372,7 +372,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
 
 	  /* lookup/create flow */
-	  flow_mk_key (sx0->cp_seid, p, is_ip4, &is_reverse, &kv);
+	  flow_mk_key (sx0->up_seid, p, is_ip4, &is_reverse, &kv);
 	  flow_idx =
 	    flowtable_entry_lookup_create (fm, fmt, &kv,
 					   timestamp_ns, current_time,
@@ -436,7 +436,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
 	      flow_trace_t *t = vlib_add_trace (vm, node, b0, sizeof (*t));
 	      t->session_index = sidx;
-	      t->cp_seid = sess->cp_seid;
+	      t->up_seid = sess->up_seid;
 	      memcpy (&t->key, &kv.key, sizeof (t->key));
 	      t->flow_idx = flow - fm->flows;
 	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];

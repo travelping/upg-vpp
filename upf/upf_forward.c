@@ -71,7 +71,7 @@ typedef enum
 typedef struct
 {
   u32 session_index;
-  u64 cp_seid;
+  u64 up_seid;
   u32 pdr_id;
   u32 far_id;
   u8 packet_data[64 - 1 * sizeof (u32)];
@@ -86,8 +86,8 @@ format_upf_forward_trace (u8 * s, va_list * args)
   upf_forward_trace_t *t = va_arg (*args, upf_forward_trace_t *);
   u32 indent = format_get_indent (s);
 
-  s = format (s, "upf_session%d cp-seid 0x%016" PRIx64 " pdr %d far %d\n%U%U",
-	      t->session_index, t->cp_seid, t->pdr_id, t->far_id,
+  s = format (s, "upf_session%d up-seid 0x%016" PRIx64 " pdr %d far %d\n%U%U",
+	      t->session_index, t->up_seid, t->pdr_id, t->far_id,
 	      format_white_space, indent,
 	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
   return s;
@@ -333,7 +333,7 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      upf_forward_trace_t *tr =
 		vlib_add_trace (vm, node, b, sizeof (*tr));
 	      tr->session_index = sidx;
-	      tr->cp_seid = sess->cp_seid;
+	      tr->up_seid = sess->up_seid;
 	      tr->pdr_id = pdr ? pdr->id : ~0;
 	      tr->far_id = far ? far->id : ~0;
 	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),

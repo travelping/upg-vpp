@@ -135,7 +135,7 @@ typedef struct
 typedef struct
 {
   uword session_idx;
-  u64 cp_seid;
+  u64 up_seid;
   ip46_address_t ue;
   u8 status;
 } upf_event_urr_hdr_t;
@@ -181,6 +181,7 @@ init_pfcp_msg (pfcp_msg_t * m)
   memset (m, 0, sizeof (*m));
   m->is_valid_pool_item = is_valid_pool_item;
   m->node = ~0;
+  m->session_index = ~0;
 }
 
 static inline void

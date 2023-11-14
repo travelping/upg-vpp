@@ -225,8 +225,8 @@ encode_pfcp_session_msg (upf_session_t * sx,
     return r;
 
   msg->session_handle = n->session_handle;
-  msg->lcl.address = sx->up_address;
-  msg->rmt.address = sx->cp_address;
+  msg->lcl.address = n->lcl_addr;
+  msg->rmt.address = n->rmt_addr;
   msg->lcl.port = clib_host_to_net_u16 (UDP_DST_PORT_PFCP);
   msg->rmt.port = clib_host_to_net_u16 (UDP_DST_PORT_PFCP);
 
@@ -482,6 +482,26 @@ request_t1_expired (u32 seq_no)
 
   msg = pfcp_msg_pool_elt_at_index (psm, p[0]);
   upf_debug ("Msg Seq No: %u, %p, n1 %u\n", msg->seq_no, msg, msg->n1);
+
+  // make sure to resent reports to new peer if it changed
+  if (pfcp_msg_type(msg->data) == PFCP_SESSION_REPORT_REQUEST) {
+    if (msg->session_index != ~0) { // FIXME: can be assert instead?
+      upf_session_t *ses = pool_elt_at_index (gtm->sessions, msg->session_index);
+      if (ses->assoc.node != msg->node) {
+        msg->n1 = PFCP_DEFAULT_REQUEST_RETRIES;
+
+        pfcp_decoded_msg_t dmsg;
+        pfcp_offending_ie_t *err = NULL;
+
+        pfcp_decode_msg(msg->data, vec_len (msg->data), &dmsg, &err);
+
+        // TODO: TODO: TODO: TODO: TODO:
+        // dmsg.session_report_request.old_cp_f_seid = ses->cp_seid;
+
+        pfcp_free_dmsg_contents (&dmsg);
+      }
+    }
+  }
 
   if (--msg->n1 != 0)
     {
@@ -959,7 +979,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 
   upf_debug ("upf_pfcp_session_urr_timer (%p, 0x%016" PRIx64 " @ %u, %.4f)\n"
 	     "  UP Inactivity Timer: %u secs, inactive %12.4f secs (0x%08x)",
-	     sx, sx->cp_seid, sx - gtm->sessions, now,
+	     sx, sx->up_seid, sx - gtm->sessions, now,
 	     active->inactivity_timer.period,
 	     vlib_time_now (gtm->vlib_main) - sx->last_ul_traffic,
 	     active->inactivity_timer.handle);
@@ -1061,7 +1081,7 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 	    clib_warning
 	      ("WARNING: URR %p, Measurement Period wrong, Session 0x%016"
 	       PRIx64 ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE, urr,
-	       sx->cp_seid, urr->id, URR_DEBUG_VALUES ("Period",
+	       sx->up_seid, urr->id, URR_DEBUG_VALUES ("Period",
 						       urr->measurement_period));
 #if CLIB_DEBUG > 0
 	    ASSERT ((urr->measurement_period.base +
@@ -1200,7 +1220,7 @@ upf_validate_session_timer (upf_session_t * sx)
     clib_warning
       ("WARNING: Pending URR %p with active timer handler, Session 0x%016"
        PRIx64 ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE URR_DEUBG_LINE
-       URR_DEUBG_LINE URR_DEUBG_ABS_LINE, urr, sx->cp_seid, urr->id,
+       URR_DEUBG_LINE URR_DEUBG_ABS_LINE, urr, sx->up_seid, urr->id,
        URR_DEBUG_VALUES ("Period", urr->measurement_period),
        URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
        URR_DEBUG_VALUES ("Quota", urr->time_quota));
@@ -1224,7 +1244,7 @@ upf_validate_session_timer (upf_session_t * sx)
     clib_warning ("WARNING: Active URR %p with expired timer, Session 0x%016"
 		  PRIx64 ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE
 		  URR_DEUBG_LINE URR_DEUBG_LINE URR_DEUBG_ABS_LINE, urr,
-		  sx->cp_seid, urr->id, URR_DEBUG_VALUES ("Period",
+		  sx->up_seid, urr->id, URR_DEBUG_VALUES ("Period",
 							  urr->measurement_period),
 		  URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
 		  URR_DEBUG_VALUES ("Quota", urr->time_quota),
@@ -1443,13 +1463,13 @@ static uword
 		 * The session could have been freed or replaced after
 		 * this even has been queued, but before it has been
 		 * handled. So we check if the pool entry is free, and
-		 * also verify that CP-SEID in the session matches
-		 * CP-SEID in the event.
+		 * also verify that UP-SEID in the session matches
+		 * UP-SEID in the event.
 		 */
 		if (!pool_is_free_index (gtm->sessions, ueh->session_idx))
 		  sx = pool_elt_at_index (gtm->sessions, ueh->session_idx);
 
-		if (!sx || sx->cp_seid != ueh->cp_seid)
+		if (!sx || sx->up_seid != ueh->up_seid)
 		  goto next_ev_urr;
 
 		if (!(ueh->status & URR_DROP_SESSION))

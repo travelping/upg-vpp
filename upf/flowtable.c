@@ -460,7 +460,7 @@ format_flow_key (u8 * s, va_list * args)
 		 format_ip46_address, &key->ip[FT_ORIGIN], IP46_TYPE_ANY,
 		 clib_net_to_host_u16 (key->port[FT_ORIGIN]),
 		 format_ip46_address, &key->ip[FT_REVERSE], IP46_TYPE_ANY,
-		 clib_net_to_host_u16 (key->port[FT_REVERSE]), key->seid);
+		 clib_net_to_host_u16 (key->port[FT_REVERSE]), key->up_seid);
 }
 
 u8 *

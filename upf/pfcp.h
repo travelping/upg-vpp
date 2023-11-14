@@ -2713,7 +2713,8 @@ enum
   SESSION_REPORT_REQUEST_OVERLOAD_CONTROL_INFORMATION,
   SESSION_REPORT_REQUEST_ADDITIONAL_USAGE_REPORTS_INFORMATION,
   SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS,
-  SESSION_REPORT_REQUEST_LAST = SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS
+  SESSION_REPORT_REQUEST_OLD_CP_F_SEID,
+  SESSION_REPORT_REQUEST_LAST = SESSION_REPORT_REQUEST_OLD_CP_F_SEID
 };
 
 typedef struct
@@ -2729,6 +2730,7 @@ typedef struct
     pfcp_additional_usage_reports_information_t
     additional_usage_reports_information;
   pfcp_pfcpsrreq_flags_t pfcpsrreq_flags;
+  pfcp_f_seid_t old_cp_f_seid;
 } pfcp_session_report_request_t;
 
 enum

@@ -7717,6 +7717,10 @@ static struct pfcp_group_ie_def pfcp_session_report_request_group[] =
       .type = PFCP_IE_PFCPSRREQ_FLAGS,
       .offset = offsetof(pfcp_session_report_request_t, pfcpsrreq_flags)
     },
+    [SESSION_REPORT_REQUEST_OLD_CP_F_SEID] = {
+      .type = PFCP_IE_F_SEID,
+      .offset = offsetof(pfcp_session_report_request_t, old_cp_f_seid)
+    },
   };
 
 static struct pfcp_group_ie_def pfcp_session_report_response_group[] =

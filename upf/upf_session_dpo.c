@@ -171,7 +171,7 @@ format_upf_session_dpo (u8 * s, va_list * ap)
   upf_session_t *sx = upf_session_dpo_get (index);
 
   s =
-    format (s, "UPF session: UP SEID: 0x%016" PRIx64 " (@%p)", sx->cp_seid,
+    format (s, "UPF session: UP SEID: 0x%016" PRIx64 " (@%p)", sx->up_seid,
 	    sx);
   return (s);
 }
@@ -288,7 +288,7 @@ typedef enum
 typedef struct
 {
   u32 session_index;
-  u64 cp_seid;
+  u64 up_seid;
   u8 packet_data[64 - 1 * sizeof (u32)];
 }
 upf_session_dpo_trace_t;
@@ -302,7 +302,7 @@ format_upf_session_dpo_trace (u8 * s, va_list * args)
   u32 indent = format_get_indent (s);
 
   s = format (s, "upf_session%d seid %d \n%U%U",
-	      t->session_index, t->cp_seid,
+	      t->session_index, t->up_seid,
 	      format_white_space, indent,
 	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
   return s;
@@ -441,7 +441,7 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 	      upf_session_dpo_trace_t *tr =
 		vlib_add_trace (vm, node, b, sizeof (*tr));
 	      tr->session_index = sidx;
-	      tr->cp_seid = sess->cp_seid;
+	      tr->up_seid = sess->up_seid;
 	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
 			   sizeof (tr->packet_data));
 	    }
@@ -573,7 +573,7 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node) (vlib_main_t * vm,
 	      upf_session_dpo_trace_t *tr =
 		vlib_add_trace (vm, node, b, sizeof (*tr));
 	      tr->session_index = sidx;
-	      tr->cp_seid = sess->cp_seid;
+	      tr->up_seid = sess->up_seid;
 	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
 			   sizeof (tr->packet_data));
 	    }

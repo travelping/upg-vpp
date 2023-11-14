@@ -735,11 +735,14 @@ typedef struct
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
 
   /* most updated fields first */
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_t lock;
+#endif
+
   f64 last_ul_traffic;
 
-  ip46_address_t up_address;
-  u64 cp_seid;
+  u64 up_seid; // up_seid assigned once
+  u64 cp_seid; // cp_seid can be chaged by SMF
   ip46_address_t cp_address;
 
   struct
@@ -750,7 +753,8 @@ typedef struct
   } assoc;
 
   uint32_t flags;
-#define PFCP_UPDATING    0x8000
+#define UPF_SESSION_NEW_SMF     0x4000 // cp_seid is not valid, since owner node is down
+#define UPF_SESSION_UPDATING    0x8000 // TODO: remove since not used
 
   volatile int active;
 
@@ -974,8 +978,8 @@ typedef struct
   /* vector of encap tunnel instances */
   upf_session_t *sessions;
 
-  /* lookup session by id */
-  uword *session_by_id;		/* keyed session id */
+  /* lookup session by up seid */
+  uword *session_by_up_seid;		/* keyed session id */
 
   /* lookup tunnel by TEID */
   clib_bihash_8_8_t v4_tunnel_by_key;	/* keyed session id */
