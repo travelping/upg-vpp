@@ -493,7 +493,10 @@ request_t1_expired (u32 seq_no)
         pfcp_decoded_msg_t dmsg;
         pfcp_offending_ie_t *err = NULL;
 
-        pfcp_decode_msg(msg->data, vec_len (msg->data), &dmsg, &err);
+        pfcp_decode_msg (msg->data, vec_len (msg->data), &dmsg, &err);
+
+        hash_unset (psm->request_q, msg->seq_no);
+        pfcp_msg_pool_put (psm, msg);
 
         // TODO: TODO: TODO: TODO: TODO:
         // dmsg.session_report_request.old_cp_f_seid = ses->cp_seid;

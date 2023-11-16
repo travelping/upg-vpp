@@ -743,7 +743,6 @@ typedef struct
 
   u64 up_seid; // up_seid assigned once
   u64 cp_seid; // cp_seid can be chaged by SMF
-  ip46_address_t cp_address;
 
   struct
   {
@@ -753,8 +752,8 @@ typedef struct
   } assoc;
 
   uint32_t flags;
-#define UPF_SESSION_NEW_SMF     0x4000 // cp_seid is not valid, since owner node is down
-#define UPF_SESSION_UPDATING    0x8000 // TODO: remove since not used
+#define UPF_SESSION_NEW_SMF     0x4000 // cp_seid is not valid becase cp node is changed
+#define UPF_SESSION_UPDATING    0x8000 // TODO: remove, looks like not used
 
   volatile int active;
 

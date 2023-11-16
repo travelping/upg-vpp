@@ -605,7 +605,7 @@ pfcp_node_exit_smf_set (upf_node_assoc_t * n) {
   ASSERT (n->smf_set_idx != ~0);
 
   upf_smf_set_t *smfs = pool_elt_at_index(gtm->smf_sets, n->smf_set_idx);
-  pool_put_index(smfs, n->idx_in_smf_set_pool);
+  pool_put_index(smfs->node_ids, n->idx_in_smf_set_pool);
 
   n->idx_in_smf_set_pool = ~0;
   n->smf_set_idx = ~0;
