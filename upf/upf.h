@@ -752,7 +752,7 @@ typedef struct
   } assoc;
 
   uint32_t flags;
-#define UPF_SESSION_NEW_SMF     0x4000 // cp_seid is not valid becase cp node is changed
+#define UPF_SESSION_LOST_CP     0x0001 // remote peer down, old node stored in old_node_idx
 #define UPF_SESSION_UPDATING    0x8000 // TODO: remove, looks like not used
 
   volatile int active;
@@ -803,6 +803,9 @@ typedef struct
   pfcp_user_id_t user_id;
 
   session_flows_list_t flows;
+
+  // present when this session in process of migrating (UPF_SESSION_LOST_CP)
+  u32 old_node_idx;
 
   u16 generation;
 } upf_session_t;

@@ -483,7 +483,7 @@ request_t1_expired (u32 seq_no)
   msg = pfcp_msg_pool_elt_at_index (psm, p[0]);
   upf_debug ("Msg Seq No: %u, %p, n1 %u\n", msg->seq_no, msg, msg->n1);
 
-  // make sure to resent reports to new peer if it changed
+  // make sure to resent reports to new peer if peer changed
   if (pfcp_msg_type(msg->data) == PFCP_SESSION_REPORT_REQUEST) {
     if (msg->session_index != ~0) { // FIXME: can be assert instead?
       upf_session_t *ses = pool_elt_at_index (gtm->sessions, msg->session_index);
@@ -494,7 +494,6 @@ request_t1_expired (u32 seq_no)
         pfcp_offending_ie_t *err = NULL;
 
         pfcp_decode_msg (msg->data, vec_len (msg->data), &dmsg, &err);
-
         hash_unset (psm->request_q, msg->seq_no);
         pfcp_msg_pool_put (psm, msg);
 
