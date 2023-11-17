@@ -303,9 +303,10 @@ upf_tcp_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
 		ip6_tcp_udp_icmp_compute_checksum (vm, b, ip6, &bogus);
 	    }
 
-	  b->flags &= ~VNET_BUFFER_OFFLOAD_F_TCP_CKSUM;
-	  b->flags &= ~VNET_BUFFER_OFFLOAD_F_UDP_CKSUM;
-	  b->flags &= ~VNET_BUFFER_OFFLOAD_F_IP_CKSUM;
+	  vnet_buffer_offload_flags_clear
+	    (b, (VNET_BUFFER_OFFLOAD_F_TCP_CKSUM |
+		 VNET_BUFFER_OFFLOAD_F_UDP_CKSUM |
+		 VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
 
 	trace:
 	  b->error = error ? node->errors[error] : 0;
