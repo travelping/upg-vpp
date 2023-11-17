@@ -34,7 +34,7 @@ void pfcp_node_enter_smf_set (upf_node_assoc_t * n,
 u32 *pfcp_node_exit_smf_set (upf_node_assoc_t * n);
 
 upf_session_t *pfcp_create_session (upf_node_assoc_t * assoc,
-				    u64 cp_seid,
+				    pfcp_f_seid_t * cp_f_seid,
                                     u64 up_seid);
 void pfcp_update_session (upf_session_t * sx);
 void pfcp_disable_session (upf_session_t * sx);

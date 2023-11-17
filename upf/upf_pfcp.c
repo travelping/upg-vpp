@@ -45,6 +45,7 @@
 #include "upf_pfcp_server.h"
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
+#include "vppinfra/hash.h"
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -683,8 +684,41 @@ node_assoc_detach_session (upf_session_t * sx)
   sx->assoc.node = sx->assoc.prev = sx->assoc.next = ~0;
 }
 
+
+void
+pfcp_session_free_fseid(upf_session_t * sx)
+{
+  upf_main_t *gtm = &upf_main;
+  upf_cached_f_seid_t *cached_fseid;
+
+  if (sx->cached_fseid_idx != ~0) {
+    cached_fseid = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
+    if (cached_fseid->refcount-- == 0) {
+      hash_unset_mem(gtm->hashmap_cached_fseid_idx, &cached_fseid->key);
+    }
+    pool_put(gtm->cached_fseid_pool, cached_fseid);
+    sx->cached_fseid_idx = ~0;
+  }
+}
+
+void
+pfcp_session_set_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
+{
+  upf_main_t *gtm = &upf_main;
+
+  pfcp_session_free_fseid(sx);
+
+  upf_cached_f_seid_key_t key = {
+    .flags = f_seid->flags,
+    .ip4 = f_seid->ip4,
+    .ip6 = f_seid->ip6,
+  };
+
+  hash_get_mem(gtm->hashmap_cached_fseid_idx, &key);
+}
+
 upf_session_t *
-pfcp_create_session (upf_node_assoc_t * assoc, u64 cp_seid, u64 up_seid)
+pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up_seid)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   vlib_main_t *vm = vlib_get_main ();
@@ -701,8 +735,17 @@ pfcp_create_session (upf_node_assoc_t * assoc, u64 cp_seid, u64 up_seid)
   pool_get_aligned (gtm->sessions, sx, CLIB_CACHE_LINE_BYTES);
   memset (sx, 0, sizeof (*sx));
 
-  sx->cp_seid = cp_seid;
   sx->up_seid = up_seid;
+  sx->cp_seid = cp_f_seid->seid;
+
+  if (ISSET_BIT(cp_f_seid->flags, IE_F_SEID_IP_ADDRESS_V4)) {
+    UPF_SET_BIT(sx->flags, UPF_SESSION_CP_F_SEID_IPv4);
+    sx->f_seid_ipv4 = cp_f_seid->ip4;
+  }
+  if (ISSET_BIT(cp_f_seid->flags, IE_F_SEID_IP_ADDRESS_V6)) {
+    UPF_SET_BIT(sx->flags, UPF_SESSION_CP_F_SEID_IPv6);
+    sx->f_seid_ipv6 = cp_f_seid->ip6;
+  }
 
   sx->last_ul_traffic = vlib_time_now (psm->vlib_main);
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)

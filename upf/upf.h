@@ -45,6 +45,7 @@
 
 #include "pfcp.h"
 #include "flowtable.h"
+#include "vnet/ip/ip46_address.h"
 
 /* #define UPF_TRAFFIC_LOG 1 */
 
@@ -752,8 +753,10 @@ typedef struct
   } assoc;
 
   uint32_t flags;
-#define UPF_SESSION_LOST_CP     0x0001 // remote peer down, old node stored in old_node_idx
-#define UPF_SESSION_UPDATING    0x8000 // TODO: remove, looks like not used
+#define UPF_SESSION_LOST_CP         BIT(0) // remote peer down, f_seid is old
+#define UPF_SESSION_CP_F_SEID_IPv4  BIT(1) // cp_f_seid_ipv4 field is part of f_seid
+#define UPF_SESSION_CP_F_SEID_IPv6  BIT(2) // cp_f_seid_ipv6 field is part of f_seid
+#define UPF_SESSION_UPDATING        BIT(3) // TODO: remove, looks like not used
 
   volatile int active;
 
@@ -804,8 +807,8 @@ typedef struct
 
   session_flows_list_t flows;
 
-  // present when this session in process of migrating (UPF_SESSION_LOST_CP)
-  u32 old_node_idx;
+  // index in hashmap_cached_fseid_idx
+  u32 cached_fseid_idx;
 
   u16 generation;
 } upf_session_t;
@@ -941,6 +944,20 @@ typedef enum
   ADR_NEED_MORE_DATA
 } adr_result_t;
 
+typedef struct
+{
+  // same as in pfcp_f_seid_t
+  u8 flags;
+  ip4_address_t ip4;
+  ip6_address_t ip6;
+} upf_cached_f_seid_key_t;
+
+typedef struct
+{
+  u32 refcount;
+  upf_cached_f_seid_key_t key;
+} upf_cached_f_seid_t;
+
 /* bihash buckets are cheap, only 8 bytes per bucket */
 #define UPF_MAPPING_BUCKETS      (64 * 1024)
 
@@ -1046,6 +1063,11 @@ typedef struct
   uword *nat_pool_index_by_name;
   upf_ue_ip_pool_info_t *ueip_pools;
   uword *ue_ip_pool_index_by_identity;
+
+  // cache fseid addresses since they not unique per session
+  upf_cached_f_seid_t *cached_fseid_pool;
+  // hashmap key: upf_cached_f_seid_key_t value: index in cached_fseid_pool
+  uword *hashmap_cached_fseid_idx;
 
   policer_t *pfcp_policers;
 

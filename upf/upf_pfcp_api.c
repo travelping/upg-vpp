@@ -46,6 +46,7 @@
 #include "upf_app_db.h"
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
+#include "vppinfra/clib.h"
 #include "vppinfra/time.h"
 
 #include <vlib/unix/plugin.h>
@@ -105,6 +106,27 @@ init_response_node_id (pfcp_node_id_t * node_id)
   if (gtm->node_id.type == NID_FQDN)
     {
       node_id->fqdn = vec_dup (gtm->node_id.fqdn);
+    }
+}
+
+static void
+init_response_up_f_seid (pfcp_f_seid_t * up_f_seid, ip46_address_t * address, bool is_ip4)
+{
+  if (is_ip4)
+    {
+      up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V4;
+      up_f_seid->ip4 = address->ip4;
+
+      ip_set (&up_f_seid->ip4, &address->ip4, 1);
+      ip_set (&cp_address, &req->f_seid.ip4, 1);
+    }
+  else
+    {
+      up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V6;
+      up_f_seid->ip6 = addr.ip6;
+
+      ip_set (&up_address, &msg->lcl.address.ip6, 0);
+      ip_set (&cp_address, &req->f_seid.ip6, 0);
     }
 }
 
@@ -2539,9 +2561,10 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       return -1;
     }
 
+  // Generate up_seid
   // Try to reuse cp seid for up seid to simplify debugging (search in wireshark)
   u64 up_seid = cp_seid;
-  if (pfcp_lookup_up_seid (up_seid))
+  if (PREDICT_FALSE(pfcp_lookup_up_seid (up_seid) != NULL))
     {
       u64 seed = unix_time_now_nsec() ^ cp_seid;
       u8 retry_cnt = 10;
@@ -2585,8 +2608,9 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       ip_set (&up_address, &msg->lcl.address.ip6, 0);
       ip_set (&cp_address, &req->f_seid.ip6, 0);
     }
+  init_response_up_f_seid(&resp->up_f_seid, &msg->lcl.address, is_ip4);
 
-  sess = pfcp_create_session (assoc, cp_seid, up_seid);
+  sess = pfcp_create_session (assoc, &req->f_seid, up_seid);
 
   if (ISSET_BIT
       (req->grp.fields,

@@ -653,6 +653,10 @@ upf_init (vlib_main_t * vm)
   sm->ue_ip_pool_index_by_identity =
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
 
+  sm->hashmap_cached_fseid_idx =
+    hash_create_mem ( /* initial length */ 32, sizeof (upf_cached_f_seid_key_t), sizeof (uword));
+
+
   error = flowtable_init (vm);
   if (!error)
     error = upf_ipfix_init (vm);
