@@ -130,6 +130,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
       /* Dual loop */
       while (n_left_from >= 4 && n_left_to_next >= 2)
 	{
+          CPT_LOOP_DOUBLE += 1;
 	  u32 bi0, bi1;
 	  vlib_buffer_t *b0, *b1;
 	  upf_session_t *sx0, *sx1;
@@ -330,6 +331,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
       /* Single loop */
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
+          CPT_LOOP_SINGLE += 1;
 	  u32 bi0;
 	  u32 next0;
 	  vlib_buffer_t *b0;

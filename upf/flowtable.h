@@ -36,7 +36,14 @@
   _(UNHANDLED, "unhandled (non-ip)  packet")		\
   _(TIMER_EXPIRE, "flows that have expired")		\
   _(COLLISION, "hashtable collisions")			\
-  _(RECYCLE, "flow recycled")
+  _(RECYCLE, "flow recycled")                           \
+  _(EXPIRATION_BLOCKED, "expiration blocked by event handler") \
+  _(FLOW_REMOVED, "flows removed") \
+  _(FLOW_CREATED, "flows created") \
+  _(FLOW_RECYCLE_ON_CREATE, "flows recycled on creation") \
+  _(FLOW_CREATED_NO_RECYCLE, "flows not recycled on creation") \
+  _(LOOP_DOUBLE, "doubleloop") \
+  _(LOOP_SINGLE, "singleloop")
 
 typedef enum
 {

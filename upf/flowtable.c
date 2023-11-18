@@ -151,6 +151,8 @@ flowtable_entry_remove_internal (flowtable_main_t * fm,
 {
   clib_bihash_kv_48_8_t kv;
 
+  vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
+                                      FLOWTABLE_ERROR_FLOW_REMOVED, 1);
   upf_debug ("Flow Remove %d", f - fm->flows);
 
   flowtable_handle_event (fm, f, FLOW_EVENT_REMOVE, FT_ORIGIN, now);
@@ -188,6 +190,8 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 		 f - fm->flows);
       f->active += f->lifetime;
       keep = true;
+      vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
+                                    FLOWTABLE_ERROR_EXPIRATION_BLOCKED, 1);
     }
 
   if (keep)
@@ -389,7 +393,13 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
 	  vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
 				       FLOWTABLE_ERROR_RECYCLE, 1);
 	  return ~0;
-	}
+	} else {
+          vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
+				       FLOWTABLE_ERROR_FLOW_RECYCLE_ON_CREATE, 1);
+        }
+    } else {
+      vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
+                                      FLOWTABLE_ERROR_FLOW_CREATED_NO_RECYCLE, 1);
     }
 
   *created = 1;
@@ -432,6 +442,9 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   timer_wheel_insert_flow (fm, fmt, f);
   upf_debug ("Flow Created: fidx %d timer_index %d", f - fm->flows,
 	     f->timer_index);
+
+  vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
+				       FLOWTABLE_ERROR_FLOW_CREATED, 1);
 
   vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
