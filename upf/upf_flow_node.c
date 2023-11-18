@@ -67,6 +67,8 @@ format_get_flowinfo (u8 * s, va_list * args)
   return s;
 }
 
+extern vlib_node_registration_t upf_flow_node;
+
 always_inline u32
 load_gtpu_flow_info (flowtable_main_t * fm, vlib_buffer_t * b,
 		     flow_entry_t * flow, struct rules *r, uword is_reverse,
@@ -93,7 +95,24 @@ load_gtpu_flow_info (flowtable_main_t * fm, vlib_buffer_t * b,
   else
     upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, r);
 
-  return flow_next (flow, direction);
+  u32 result = flow_next (flow, direction);
+
+  u32 counter_index = FLOWTABLE_ERROR_NEXT_UNKNOWN;
+  switch (result) {
+    case FT_NEXT_DROP:
+      counter_index = FLOWTABLE_ERROR_NEXT_DROP; break;
+    case FT_NEXT_CLASSIFY:
+      counter_index = FLOWTABLE_ERROR_NEXT_CLASSIFY; break;
+    case FT_NEXT_PROCESS:
+      counter_index = FLOWTABLE_ERROR_NEXT_PROCESS; break;
+    case FT_NEXT_PROXY:
+      counter_index = FLOWTABLE_ERROR_NEXT_PROXY; break;
+  }
+
+  vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
+				       counter_index, 1);
+
+  return result;
 }
 
 #define FLOW_DEBUG(fm, flow)						\

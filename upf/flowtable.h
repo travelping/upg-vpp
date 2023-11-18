@@ -43,7 +43,12 @@
   _(FLOW_RECYCLE_ON_CREATE, "flows recycled on creation") \
   _(FLOW_CREATED_NO_RECYCLE, "flows not recycled on creation") \
   _(LOOP_DOUBLE, "doubleloop") \
-  _(LOOP_SINGLE, "singleloop")
+  _(LOOP_SINGLE, "singleloop") \
+  _(NEXT_DROP, "next drop") \
+  _(NEXT_CLASSIFY, "next classify") \
+  _(NEXT_PROCESS, "next process") \
+  _(NEXT_PROXY, "next proxy") \
+  _(NEXT_UNKNOWN, "next unknown")
 
 typedef enum
 {
