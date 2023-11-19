@@ -30,9 +30,12 @@
 
 #include <vppinfra/bihash_template.c>
 
+#include "upf/pfcp.h"
+#include "upf/upf.h"
 #include "upf_pfcp.h"
 #include "upf_pfcp_api.h"
 #include "upf_pfcp_server.h"
+#include "vppinfra/pool.h"
 
 #define RESPONSE_TIMEOUT 30
 
@@ -59,6 +62,7 @@
 
 static void upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req);
 static void restart_response_timer (pfcp_msg_t * msg);
+static void upf_pfcp_server_send_session_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg);
 
 pfcp_server_main_t pfcp_server_main;
 
@@ -217,10 +221,23 @@ encode_pfcp_session_msg (upf_session_t * sx,
   msg->seq_no = clib_atomic_add_fetch (&psm->seq_no, 1) % 0x1000000;
   msg->node = sx->assoc.node;
   msg->session_index = sx - gtm->sessions;
-  msg->seid = sx->cp_seid;
+
+  if (dmsg->type == PFCP_SESSION_REPORT_REQUEST) {
+    if (sx->flags & UPF_SESSION_LOST_CP) {
+      msg->seid = 0;
+      upf_cached_f_seid_t *cached_f_seid = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
+      UPF_SET_BIT(dmsg->session_report_request.grp.fields, SESSION_REPORT_REQUEST_OLD_CP_F_SEID);
+      dmsg->session_report_request.old_cp_f_seid.seid = sx->cp_seid;
+      dmsg->session_report_request.old_cp_f_seid.flags = cached_f_seid->key.flags;
+      dmsg->session_report_request.old_cp_f_seid.ip4 = cached_f_seid->key.ip4;
+      dmsg->session_report_request.old_cp_f_seid.ip6 = cached_f_seid->key.ip6;
+    } else {
+      msg->seid = sx->cp_seid;
+    }
+  }
 
   dmsg->seq_no = msg->seq_no;
-  dmsg->seid = sx->cp_seid;
+  dmsg->seid = msg->seid;
   if ((r = pfcp_encode_msg (dmsg, &msg->data)) != 0)
     return r;
 
@@ -492,13 +509,28 @@ request_t1_expired (u32 seq_no)
 
         pfcp_decoded_msg_t dmsg;
         pfcp_offending_ie_t *err = NULL;
-
         pfcp_decode_msg (msg->data, vec_len (msg->data), &dmsg, &err);
+
+        // remove old msg
+
         hash_unset (psm->request_q, msg->seq_no);
         pfcp_msg_pool_put (psm, msg);
 
-        // TODO: TODO: TODO: TODO: TODO:
-        // dmsg.session_report_request.old_cp_f_seid = ses->cp_seid;
+        upf_cached_f_seid_t *cached_f_seid = pool_elt_at_index(gtm->cached_fseid_pool, ses->cached_fseid_idx);
+        UPF_SET_BIT(dmsg.session_report_request.grp.fields, SESSION_REPORT_REQUEST_OLD_CP_F_SEID);
+        dmsg.session_report_request.old_cp_f_seid.seid = ses->cp_seid;
+        dmsg.session_report_request.old_cp_f_seid.flags = cached_f_seid->key.flags;
+        dmsg.session_report_request.old_cp_f_seid.ip4 = cached_f_seid->key.ip4;
+        dmsg.session_report_request.old_cp_f_seid.ip6 = cached_f_seid->key.ip6;
+        dmsg.seid = 0; // seid should be zero
+
+        // TODO: TODO: TODO: update method to not include it in the first place
+        u64 seid_save = ses->cp_seid;
+        ses->cp_seid = 0;
+
+        upf_pfcp_server_send_session_request(ses, &dmsg);
+
+        ses->cp_seid = seid_save;
 
         pfcp_free_dmsg_contents (&dmsg);
       }

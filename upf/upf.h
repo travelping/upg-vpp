@@ -752,7 +752,7 @@ typedef struct
     u32 prev;
   } assoc;
 
-  uint32_t flags;
+  uint32_t flags; // TODO: use bitfields instead
 #define UPF_SESSION_LOST_CP         BIT(0) // remote cp peer is down, f_seid is old
 #define UPF_SESSION_UPDATING        BIT(1) // TODO: remove, looks like not used
 
@@ -899,7 +899,7 @@ typedef struct
   u32 heartbeat_handle;
 
   u32 smf_set_idx;
-  u32 idx_in_smf_set_pool;
+  u32 idx_in_smf_set_nodes_pool;
 
   u32 policer_idx;
 } upf_node_assoc_t;
@@ -907,7 +907,7 @@ typedef struct
 typedef struct
 {
   u8 *fqdn;
-  u32 *node_ids; // pool of node ids
+  u32 *node_ids_pool; // pool of node ids
 } upf_smf_set_t;
 
 typedef u8 *regex_t;

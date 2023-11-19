@@ -40,6 +40,7 @@
 #include <vnet/fib/fib_path_list.h>
 
 #include "pfcp.h"
+#include "upf/upf.h"
 #include "upf_pfcp.h"
 #include "upf_pfcp_server.h"
 #include "upf_pfcp_api.h"
@@ -51,6 +52,7 @@
 
 #include <vlib/unix/plugin.h>
 
+#define CLIB_DEBUG 2
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -2945,11 +2947,13 @@ handle_session_report_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 static int
 handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 {
-  if (dmsg->session_report_response.response.cause ==
-      PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND)
+  upf_main_t *gtm = &upf_main;
+  pfcp_session_report_response_t *resp = &dmsg->session_report_response;
+
+  upf_debug("session report response cause %d", resp->response.cause);
+  if (resp->response.cause == PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND)
     {
       /* control plane does not know about the session. drop it */
-      upf_main_t *gtm = &upf_main;
       upf_session_t *sess;
 
       if (pool_is_free_index (gtm->sessions, msg->session_index))
@@ -2971,6 +2975,28 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
       /* TODO: count those drops */
       pfcp_disable_session (sess);
       pfcp_free_session (sess);
+    }
+  else if (resp->response.cause == PFCP_CAUSE_REQUEST_ACCEPTED)
+    {
+      upf_session_t *sess;
+      sess = pool_elt_at_index (gtm->sessions, msg->session_index);
+      upf_debug("session report response session flags 0x%x", sess->flags);
+      if (sess->flags & UPF_SESSION_LOST_CP)
+        {
+          if (resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID)
+            {
+              pfcp_f_seid_t *cp_f_seid = &dmsg->session_report_response.cp_f_seid;
+              pfcp_session_set_fseid(sess, cp_f_seid);
+
+              sess->flags &= ~(UPF_SESSION_LOST_CP);
+              sess->cp_seid = cp_f_seid->seid;
+              upf_debug("updated session seid 0x%x (%U,%U) session flags 0x%x",
+                        sess->cp_seid,
+                        format_ip4_address, &cp_f_seid->ip4,
+                        format_ip6_address, &cp_f_seid->ip6,
+                        sess->flags);
+            }
+        }
     }
 
   return -1;
@@ -3055,6 +3081,8 @@ upf_pfcp_handle_msg (pfcp_msg_t * msg)
   u8 type = pfcp_msg_type (msg->data);
   int r;
 
+  upf_debug("received message %U", format_pfcp_msg_type, pfcp_msg_type(msg->data));
+
   if (type >= ARRAY_LEN (msg_handlers) || !msg_handlers[type])
     {
       /* probably non-PFCP datagram, nothing to reply */
@@ -3072,6 +3100,7 @@ upf_pfcp_handle_msg (pfcp_msg_t * msg)
 
   if (r != 0)
     {
+      upf_debug ("PFCP: error response %d", r);
       switch (dmsg.type)
 	{
 	case PFCP_HEARTBEAT_REQUEST:

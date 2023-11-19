@@ -1349,6 +1349,139 @@ const sessionsPerPeer = 1
 
 var _ = ginkgo.Describe("Multiple PFCP peers", func() {
 	f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
+	ginkgo.Context("in SMFSet", func() {
+		ginkgo.It("should retransmit in-flight request to new peer", func() {
+			hbConfig := &upf.UpfPfcpHeartbeatsSet{
+				Retries: 2,
+				Timeout: 1,
+			}
+			reply := &upf.UpfPfcpHeartbeatsSetReply{}
+			err := f.VPP.ApiChannel.SendRequest(hbConfig).ReceiveReply(reply)
+			gomega.Expect(err).To(gomega.BeNil())
+
+			var conns [3]*pfcp.PFCPConnection
+			var reportCh [3]<-chan message.Message
+			var pfcpCfgs [4]pfcp.PFCPConfig
+
+			for i := 0; i < 4; i++ {
+				pfcpCfgs[i] = framework.DefaultPFCPConfig(*f.VPPCfg)
+				pfcpCfgs[i].Namespace = f.VPP.GetNS("cp")
+				pfcpCfgs[i].NodeID = fmt.Sprintf("node%d", i)
+				pfcpCfgs[i].CNodeIP = f.AddCNodeIP()
+				pfcpCfgs[i].RecoveryTimestamp = time.Now().Local().Add(time.Duration(-i) * 24 * time.Hour)
+				pfcpCfgs[i].SMFSet = "\x06smfset\x04test"
+			}
+			for i := 0; i < 3; i++ {
+				pc := pfcp.NewPFCPConnection(pfcpCfgs[i])
+				framework.ExpectNoError(pc.Start(f.Context))
+				conns[i] = pc
+				reportCh[i] = pc.AcquireReportCh()
+			}
+			time.Sleep(2 * time.Second)
+
+			sessionCfg := framework.SessionConfig{
+				IdBase:            1,
+				UEIP:              f.AddUEIP(),
+				Mode:              framework.UPGModeTDF,
+				VTime:             1 * time.Second,
+				MeasurementPeriod: 15 * time.Second,
+			}
+
+			// TODO: also check for order of reports
+
+			cp_seid, err := conns[0].EstablishSession(f.Context, 100, sessionCfg.SessionIEs()...)
+			framework.ExpectNoError(err)
+
+			// stop new association 0, node should migrate to 1 or 2
+			var fitHook util.FITHook
+			fitHook.EnableFault(util.FaultReportResponse)
+			fitHook.EnableFault(util.FaultIgnoreHeartbeat)
+
+			gomega.Expect(conns[1].ShareSession(conns[0], cp_seid)).To(gomega.Succeed())
+			gomega.Expect(conns[2].ShareSession(conns[0], cp_seid)).To(gomega.Succeed())
+
+			conns[0].FITHook = &fitHook
+			conns[0].Stop()
+
+			type nodeMsg struct {
+				id  int
+				msg message.Message
+			}
+
+			// TODO: replace with func
+			resutCh := make(chan nodeMsg, 1)
+			go func() {
+				select {
+				case m := <-reportCh[0]:
+					resutCh <- nodeMsg{msg: m, id: 0}
+				case m := <-reportCh[1]:
+					resutCh <- nodeMsg{msg: m, id: 1}
+				case m := <-reportCh[2]:
+					resutCh <- nodeMsg{msg: m, id: 2}
+				}
+			}()
+
+			var cpOwnerNodeId int
+			{
+				var m nodeMsg
+				gomega.Eventually(resutCh, 20*time.Second, 50*time.Millisecond).Should(gomega.Receive(&m))
+				framework.ExpectEqual(m.msg.MessageType(), message.MsgTypeSessionReportRequest)
+				framework.ExpectNotEqual(m.id, 0, "should not receive on old peer")
+
+				rr := m.msg.(*message.SessionReportRequest)
+				gomega.Expect(rr.ReportType).NotTo(gomega.BeNil())
+				framework.ExpectEqual(rr.SEID(), uint64(0), "should not have SEID")
+				framework.ExpectEqual(rr.OldCPFSEID, conns[0].NewIEFSEID(cp_seid), "should have same old cpfseid")
+
+				cpOwnerNodeId = m.id
+			}
+			// now create new association 3 in set and stop nodes 1 and 2
+
+			cp_seid += pfcp.CP_SEID_CHANGE_ON_SMF_MIGRATION
+
+			pc3 := pfcp.NewPFCPConnection(pfcpCfgs[3])
+			framework.ExpectNoError(pc3.Start(f.Context))
+			conn3 := pc3
+			reportCh3 := pc3.AcquireReportCh()
+
+			gomega.Expect(conn3.ShareSession(conns[cpOwnerNodeId], cp_seid)).To(gomega.Succeed())
+
+			conns[1].FITHook = &fitHook
+			conns[1].Stop()
+			conns[2].FITHook = &fitHook
+			conns[2].Stop()
+
+			go func() {
+				select {
+				case m := <-reportCh[0]:
+					resutCh <- nodeMsg{msg: m, id: 0}
+				case m := <-reportCh[1]:
+					resutCh <- nodeMsg{msg: m, id: 1}
+				case m := <-reportCh[2]:
+					resutCh <- nodeMsg{msg: m, id: 2}
+				case m := <-reportCh3:
+					resutCh <- nodeMsg{msg: m, id: 3}
+				}
+			}()
+
+			{
+				var m nodeMsg
+				gomega.Eventually(resutCh, 20*time.Second, 50*time.Millisecond).Should(gomega.Receive(&m))
+				framework.ExpectEqual(m.msg.MessageType(), message.MsgTypeSessionReportRequest)
+				framework.ExpectEqual(m.id, 3, "should receive on only peer left")
+
+				rr := m.msg.(*message.SessionReportRequest)
+				gomega.Expect(rr.ReportType).NotTo(gomega.BeNil())
+				framework.ExpectEqual(rr.SEID(), uint64(0), "should not have SEID")
+				framework.ExpectEqual(rr.OldCPFSEID, conns[cpOwnerNodeId].NewIEFSEID(cp_seid), "should have same old cpfseid")
+			}
+
+			for _, pc := range conns {
+				pc.Stop()
+			}
+		})
+	})
+
 	ginkgo.It("should work correctly", func() {
 		var conns [numPFCPPeers]*pfcp.PFCPConnection
 		hbConfig := &upf.UpfPfcpHeartbeatsSet{
@@ -1368,7 +1501,6 @@ var _ = ginkgo.Describe("Multiple PFCP peers", func() {
 			pc := pfcp.NewPFCPConnection(pfcpCfg)
 			framework.ExpectNoError(pc.Start(f.Context))
 			conns[i] = pc
-
 		}
 		// time.Sleep(40 * time.Second)
 		time.Sleep(10 * time.Second)
