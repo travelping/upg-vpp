@@ -753,10 +753,8 @@ typedef struct
   } assoc;
 
   uint32_t flags;
-#define UPF_SESSION_LOST_CP         BIT(0) // remote peer down, f_seid is old
-#define UPF_SESSION_CP_F_SEID_IPv4  BIT(1) // cp_f_seid_ipv4 field is part of f_seid
-#define UPF_SESSION_CP_F_SEID_IPv6  BIT(2) // cp_f_seid_ipv6 field is part of f_seid
-#define UPF_SESSION_UPDATING        BIT(3) // TODO: remove, looks like not used
+#define UPF_SESSION_LOST_CP         BIT(0) // remote cp peer is down, f_seid is old
+#define UPF_SESSION_UPDATING        BIT(1) // TODO: remove, looks like not used
 
   volatile int active;
 

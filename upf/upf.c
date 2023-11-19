@@ -656,7 +656,6 @@ upf_init (vlib_main_t * vm)
   sm->hashmap_cached_fseid_idx =
     hash_create_mem ( /* initial length */ 32, sizeof (upf_cached_f_seid_key_t), sizeof (uword));
 
-
   error = flowtable_init (vm);
   if (!error)
     error = upf_ipfix_init (vm);

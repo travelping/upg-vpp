@@ -116,17 +116,11 @@ init_response_up_f_seid (pfcp_f_seid_t * up_f_seid, ip46_address_t * address, bo
     {
       up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V4;
       up_f_seid->ip4 = address->ip4;
-
-      ip_set (&up_f_seid->ip4, &address->ip4, 1);
-      ip_set (&cp_address, &req->f_seid.ip4, 1);
     }
   else
     {
       up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V6;
-      up_f_seid->ip6 = addr.ip6;
-
-      ip_set (&up_address, &msg->lcl.address.ip6, 0);
-      ip_set (&cp_address, &req->f_seid.ip6, 0);
+      up_f_seid->ip6 = address->ip6;
     }
 }
 
@@ -2592,23 +2586,17 @@ handle_session_establishment_request (pfcp_msg_t * msg,
   resp->up_f_seid.seid = up_seid;
 
   is_ip4 = ip46_address_is_ip4 (&msg->rmt.address);
-  if (is_ip4)
-    {
-      resp->up_f_seid.flags |= IE_F_SEID_IP_ADDRESS_V4;
-      resp->up_f_seid.ip4 = msg->lcl.address.ip4;
-
-      ip_set (&up_address, &msg->lcl.address.ip4, 1);
-      ip_set (&cp_address, &req->f_seid.ip4, 1);
-    }
-  else
-    {
-      resp->up_f_seid.flags |= IE_F_SEID_IP_ADDRESS_V6;
-      resp->up_f_seid.ip6 = msg->lcl.address.ip6;
-
-      ip_set (&up_address, &msg->lcl.address.ip6, 0);
-      ip_set (&cp_address, &req->f_seid.ip6, 0);
-    }
   init_response_up_f_seid(&resp->up_f_seid, &msg->lcl.address, is_ip4);
+  ip_set (&up_address, &msg->lcl.address.ip4, is_ip4);
+  ip_set (&cp_address, &req->f_seid.ip4, is_ip4);
+
+  upf_debug ("CP F-SEID: 0x%016" PRIx64 " @ %U %U\n"
+	     "UP F-SEID: 0x%016" PRIx64 " @ %U\n",
+             req->f_seid.seid,
+	     format_ip4_address, &req->f_seid.ip4,
+             format_ip6_address, &req->f_seid.ip6,
+	     up_seid,
+             format_ip46_address, &up_address, IP46_TYPE_ANY);
 
   sess = pfcp_create_session (assoc, &req->f_seid, up_seid);
 

@@ -691,14 +691,14 @@ pfcp_session_free_fseid(upf_session_t * sx)
   upf_main_t *gtm = &upf_main;
   upf_cached_f_seid_t *cached_fseid;
 
-  if (sx->cached_fseid_idx != ~0) {
-    cached_fseid = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
-    if (cached_fseid->refcount-- == 0) {
-      hash_unset_mem(gtm->hashmap_cached_fseid_idx, &cached_fseid->key);
-    }
-    pool_put(gtm->cached_fseid_pool, cached_fseid);
-    sx->cached_fseid_idx = ~0;
+  ASSERT (sx->cached_fseid_idx != ~0);
+
+  cached_fseid = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
+  if (cached_fseid->refcount-- == 0) {
+    hash_unset_mem(gtm->hashmap_cached_fseid_idx, &cached_fseid->key);
   }
+  pool_put(gtm->cached_fseid_pool, cached_fseid);
+  sx->cached_fseid_idx = ~0;
 }
 
 void
@@ -706,7 +706,9 @@ pfcp_session_set_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
 {
   upf_main_t *gtm = &upf_main;
 
-  pfcp_session_free_fseid(sx);
+  if (sx->cached_fseid_idx != ~0) {
+    pfcp_session_free_fseid(sx);
+  }
 
   upf_cached_f_seid_key_t key = {
     .flags = f_seid->flags,
@@ -714,7 +716,21 @@ pfcp_session_set_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
     .ip6 = f_seid->ip6,
   };
 
-  hash_get_mem(gtm->hashmap_cached_fseid_idx, &key);
+  uword *existing_f_seid;
+  upf_cached_f_seid_t *cached_f_seid;
+
+  existing_f_seid = hash_get_mem(gtm->hashmap_cached_fseid_idx, &key);
+  if (existing_f_seid) {
+    cached_f_seid = pool_elt_at_index(gtm->cached_fseid_pool, *existing_f_seid);
+  } else {
+    pool_get_zero(gtm->cached_fseid_pool, cached_f_seid);
+
+    cached_f_seid->key = key;
+    hash_set_mem(gtm->hashmap_cached_fseid_idx, &key, cached_f_seid - gtm->cached_fseid_pool);
+  }
+
+  sx->cached_fseid_idx = cached_f_seid - gtm->cached_fseid_pool;
+  cached_f_seid->refcount += 1;
 }
 
 upf_session_t *
@@ -725,11 +741,6 @@ pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up
   upf_main_t *gtm = &upf_main;
   upf_session_t *sx;
 
-  upf_debug ("CP F-SEID: 0x%016" PRIx64 " @ %U\n"
-	     "UP F-SEID: 0x%016" PRIx64 " @ %U\n",
-	     cp_seid, format_ip46_address, cp_address, IP46_TYPE_ANY,
-	     up_seid, format_ip46_address, up_address, IP46_TYPE_ANY);
-
   vlib_worker_thread_barrier_sync (vm);
 
   pool_get_aligned (gtm->sessions, sx, CLIB_CACHE_LINE_BYTES);
@@ -737,15 +748,9 @@ pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up
 
   sx->up_seid = up_seid;
   sx->cp_seid = cp_f_seid->seid;
+  sx->cached_fseid_idx = ~0;
 
-  if (ISSET_BIT(cp_f_seid->flags, IE_F_SEID_IP_ADDRESS_V4)) {
-    UPF_SET_BIT(sx->flags, UPF_SESSION_CP_F_SEID_IPv4);
-    sx->f_seid_ipv4 = cp_f_seid->ip4;
-  }
-  if (ISSET_BIT(cp_f_seid->flags, IE_F_SEID_IP_ADDRESS_V6)) {
-    UPF_SET_BIT(sx->flags, UPF_SESSION_CP_F_SEID_IPv6);
-    sx->f_seid_ipv6 = cp_f_seid->ip6;
-  }
+  pfcp_session_set_fseid (sx, cp_f_seid);
 
   sx->last_ul_traffic = vlib_time_now (psm->vlib_main);
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)
@@ -1334,6 +1339,9 @@ pfcp_free_session (upf_session_t * sx)
     upf_delete_nat_binding (sx);
 
   free_user_id (&sx->user_id);
+  if (sx->cached_fseid_idx != ~0) {
+    pfcp_session_free_fseid (sx);
+  }
 
 #ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_free (&sx->lock);
@@ -2965,12 +2973,20 @@ format_pfcp_session (u8 * s, va_list * args)
 
   upf_node_assoc_t *assoc = pool_elt_at_index(gtm->nodes, sx->assoc.node);
 
+  upf_cached_f_seid_key_t f_seid = {};
+  if (sx->cached_fseid_idx != ~0) {
+    upf_cached_f_seid_t *cached = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
+    f_seid = cached->key;
+  }
+
   s = format (s,
 	      "CP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U\n"
-	      "UP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U\n",
-	      sx->cp_seid, sx->cp_seid, format_ip46_address, &assoc->rmt_addr,
-	      IP46_TYPE_ANY, sx->up_seid, sx->up_seid, format_ip46_address,
-	      &assoc->lcl_addr, IP46_TYPE_ANY, sx);
+	      "UP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U (%U %U)\n",
+	      sx->cp_seid, sx->cp_seid,
+              format_ip46_address, &assoc->rmt_addr, IP46_TYPE_ANY,
+              sx->up_seid, sx->up_seid,
+              format_ip46_address, &assoc->lcl_addr, IP46_TYPE_ANY,
+              format_ip4_address, &f_seid.ip4, format_ip6_address, &f_seid.ip6);
 
   user_id_str = format (0, "%U", format_user_id, &sx->user_id);
   if (user_id_str)
