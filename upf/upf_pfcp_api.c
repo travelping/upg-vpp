@@ -52,7 +52,6 @@
 
 #include <vlib/unix/plugin.h>
 
-#define CLIB_DEBUG 2
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -2979,6 +2978,7 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   else if (resp->response.cause == PFCP_CAUSE_REQUEST_ACCEPTED)
     {
       upf_session_t *sess;
+
       sess = pool_elt_at_index (gtm->sessions, msg->session_index);
       upf_debug("session report response session flags 0x%x", sess->flags);
       if (sess->flags & UPF_SESSION_LOST_CP)

@@ -713,10 +713,12 @@ pfcp_session_free_fseid(upf_session_t * sx)
   ASSERT (sx->cached_fseid_idx != ~0);
 
   cached_fseid = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
-  if (cached_fseid->refcount-- == 0) {
+  cached_fseid->refcount -= 1;
+
+  if (cached_fseid->refcount == 0) {
     hash_unset_mem(gtm->hashmap_cached_fseid_idx, &cached_fseid->key);
+    pool_put(gtm->cached_fseid_pool, cached_fseid);
   }
-  pool_put(gtm->cached_fseid_pool, cached_fseid);
   sx->cached_fseid_idx = ~0;
 }
 
