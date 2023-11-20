@@ -52,13 +52,6 @@
 
 #include <vlib/unix/plugin.h>
 
-#if CLIB_DEBUG > 1
-#define upf_debug clib_warning
-#else
-#define upf_debug(...)				\
-  do { } while (0)
-#endif
-
 #define API_VERSION      1
 #define TRAFFIC_TIMER_PERIOD 60
 
@@ -2953,49 +2946,47 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   if (resp->response.cause == PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND)
     {
       /* control plane does not know about the session. drop it */
-      upf_session_t *sess;
+      upf_session_t *sx;
 
-      if (pool_is_free_index (gtm->sessions, msg->session_index))
-	{
-	  upf_debug ("PFCP Session not found.\n");
-	  return -1;
-	}
+      // This should not happen, all requests are forgotten when session removed
+      // TODO: remove
+      //if (pool_is_free_index (gtm->sessions, msg->session.idx))
+      //  {
+      //    upf_debug ("PFCP Session not found.\n");
+      //    return -1;
+      //  }
 
-      sess = pool_elt_at_index (gtm->sessions, msg->session_index);
+      sx = pool_elt_at_index (gtm->sessions, msg->session.idx);
 
       /* since this is a response, and some time passed since the request
          make sure that session index still matches the original session */
-      if (sess->up_seid != msg->seid)
+      if (sx->up_seid != msg->seid)
 	{
 	  upf_debug ("PFCP Session seid not matching (deleted already?).\n");
 	  return -1;
 	}
 
       /* TODO: count those drops */
-      pfcp_disable_session (sess);
-      pfcp_free_session (sess);
+      pfcp_disable_session (sx);
+      pfcp_free_session (sx);
     }
   else if (resp->response.cause == PFCP_CAUSE_REQUEST_ACCEPTED)
     {
-      upf_session_t *sess;
+      upf_session_t *sx = pool_elt_at_index (gtm->sessions, msg->session.idx);
 
-      sess = pool_elt_at_index (gtm->sessions, msg->session_index);
-      upf_debug("session report response session flags 0x%x", sess->flags);
-      if (sess->flags & UPF_SESSION_LOST_CP)
+      upf_debug("session report response session flags 0x%x", sx->flags);
+      if (sx->flags & UPF_SESSION_LOST_CP && resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID)
         {
-          if (resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID)
-            {
-              pfcp_f_seid_t *cp_f_seid = &dmsg->session_report_response.cp_f_seid;
-              pfcp_session_set_fseid(sess, cp_f_seid);
+          pfcp_f_seid_t *cp_f_seid = &dmsg->session_report_response.cp_f_seid;
+          pfcp_session_set_fseid(sx, cp_f_seid);
 
-              sess->flags &= ~(UPF_SESSION_LOST_CP);
-              sess->cp_seid = cp_f_seid->seid;
-              upf_debug("updated session seid 0x%x (%U,%U) session flags 0x%x",
-                        sess->cp_seid,
-                        format_ip4_address, &cp_f_seid->ip4,
-                        format_ip6_address, &cp_f_seid->ip6,
-                        sess->flags);
-            }
+          sx->flags &= ~(UPF_SESSION_LOST_CP);
+          sx->cp_seid = cp_f_seid->seid;
+          upf_debug("updated session seid 0x%x (%U,%U) session flags 0x%x",
+                    sx->cp_seid,
+                    format_ip4_address, &cp_f_seid->ip4,
+                    format_ip6_address, &cp_f_seid->ip6,
+                    sx->flags);
         }
     }
 

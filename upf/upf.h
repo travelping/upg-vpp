@@ -43,9 +43,22 @@
 #include <vlib/vlib.h>
 #include <vlib/log.h>
 
+#define CLIB_DEBUG 2
+
+#if CLIB_DEBUG > 1
+#define upf_debug clib_warning
+#else
+#define upf_debug(...)				\
+  do { } while (0)
+#endif
+
 #include "pfcp.h"
 #include "flowtable.h"
 #include "vnet/ip/ip46_address.h"
+#include "llist.h"
+
+UPF_LLIST_TEMPLATE_TYPES(upf_session_requests) // requests in flight for session
+UPF_LLIST_TEMPLATE_TYPES(upf_node_sessions) // sessions for node
 
 /* #define UPF_TRAFFIC_LOG 1 */
 
@@ -415,11 +428,11 @@ typedef struct
 {
   u32 precedence;
 
-  int is_ip4:1;
-  int match_teid:1;
-  int match_ue_ip:3;
-  int match_sdf:1;
-  int match_ip_app:1;
+  u32 is_ip4:1;
+  u32 match_teid:1;
+  u32 match_ue_ip:3;
+  u32 match_sdf:1;
+  u32 match_ip_app:1;
 
   u32 fib_index;
   u32 teid;			// TEID
@@ -748,8 +761,7 @@ typedef struct
   struct
   {
     u32 node;
-    u32 next;
-    u32 prev;
+    upf_node_sessions_anchor_t anchor;
   } assoc;
 
   uint32_t flags; // TODO: use bitfields instead
@@ -808,7 +820,9 @@ typedef struct
   // index in hashmap_cached_fseid_idx
   u32 cached_fseid_idx;
 
-  u16 generation;
+  upf_session_requests_llist_t requests;
+
+  u16 generation; // increased on session modification request
 } upf_session_t;
 
 
@@ -895,7 +909,7 @@ typedef struct
   ip46_address_t rmt_addr;
   ip46_address_t lcl_addr;
 
-  u32 sessions;
+  upf_node_sessions_llist_t sessions;
   u32 heartbeat_handle;
 
   u32 smf_set_idx;
@@ -907,6 +921,8 @@ typedef struct
 typedef struct
 {
   u8 *fqdn;
+
+  // TODO: use llist instead
   u32 *node_ids_pool; // pool of node ids
 } upf_smf_set_t;
 
@@ -1151,6 +1167,8 @@ void upf_ip_lookup_tx (u32 bi, int is_ip4);
 void upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4);
 
 void upf_pfcp_policers_relalculate (qos_pol_cfg_params_st * cfg);
+
+UPF_LLIST_TEMPLATE_DEFINITIONS(upf_node_sessions, upf_session_t, assoc.anchor);
 
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)

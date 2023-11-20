@@ -73,7 +73,12 @@ typedef struct
   } lcl;
 
   u32 node;
-  u32 session_index;
+
+  struct {
+    u32 idx;
+    upf_session_requests_anchor_t anchor;
+  } session;
+
   u64 seid;
 
   f64 expires_at;		/* message timestamp */
@@ -173,6 +178,8 @@ void upf_pfcp_server_session_usage_report (upf_event_urr_data_t * uev);
 
 clib_error_t *pfcp_server_main_init (vlib_main_t * vm);
 
+UPF_LLIST_TEMPLATE_DEFINITIONS(upf_session_requests, pfcp_msg_t, session.anchor)
+
 static inline void
 init_pfcp_msg (pfcp_msg_t * m)
 {
@@ -181,7 +188,8 @@ init_pfcp_msg (pfcp_msg_t * m)
   memset (m, 0, sizeof (*m));
   m->is_valid_pool_item = is_valid_pool_item;
   m->node = ~0;
-  m->session_index = ~0;
+  m->session.idx = ~0;
+  upf_session_requests_anchor_init(m);
 }
 
 static inline void
@@ -221,13 +229,13 @@ pfcp_msg_pool_get (pfcp_server_main_t * psm)
       u32 index = vec_pop (psm->msg_pool_cache);
 
       m = pool_elt_at_index (psm->msg_pool, index);
-      init_pfcp_msg (m);
     }
   else
     {
       pool_get_aligned_zero (psm->msg_pool, m, CLIB_CACHE_LINE_BYTES);
     }
 
+  init_pfcp_msg (m);
   m->is_valid_pool_item = 1;
   return m;
 }

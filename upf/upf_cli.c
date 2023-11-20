@@ -1759,7 +1759,7 @@ upf_pfcp_heartbeat_config_command_fn (vlib_main_t * vm,
 
   rv = vnet_upf_pfcp_heartbeat_config (timeout, retries);
   if (rv)
-    error = clib_return_error ("Invalid parameters");
+    error = (clib_error_return (0, "invalid parameters"));
   return error;
 }
 

@@ -37,6 +37,8 @@
 #include "upf_pfcp_server.h"
 #include "vppinfra/pool.h"
 
+#define CLIB_DEBUG 2
+
 #define RESPONSE_TIMEOUT 30
 
 /* use pow2 to avoid rounding error accumulation in timerwheel implementation */
@@ -220,7 +222,7 @@ encode_pfcp_session_msg (upf_session_t * sx,
 
   msg->seq_no = clib_atomic_add_fetch (&psm->seq_no, 1) % 0x1000000;
   msg->node = sx->assoc.node;
-  msg->session_index = sx - gtm->sessions;
+  msg->session.idx = sx - gtm->sessions;
 
   if (dmsg->type == PFCP_SESSION_REPORT_REQUEST) {
     if (sx->flags & UPF_SESSION_LOST_CP) {
@@ -386,8 +388,13 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
 	hash_unset (psm->request_q, msg->seq_no);
 	upf_pfcp_server_stop_msg_timer (req);
 
+        if (req->session.idx != ~0) {
+          upf_session_t *sx = pool_elt_at_index(upf_main.sessions, req->session.idx);
+          upf_session_requests_remove(psm->msg_pool, &sx->requests, req);
+        }
+
 	msg->node = req->node;
-	msg->session_index = req->session_index;
+	msg->session.idx = req->session.idx;
 	msg->seid = req->seid;
 
 	pfcp_msg_pool_put (psm, req);
@@ -478,6 +485,15 @@ enqueue_request (pfcp_msg_t * msg, u32 n1, u32 t1)
   msg->t1 = t1;
 
   hash_set (psm->request_q, msg->seq_no, id);
+  if (msg->session.idx != ~0) {
+    upf_session_t *sx = pool_elt_at_index(upf_main.sessions, msg->session.idx);
+
+    upf_debug ("enqueqing request for session %d %U",
+      msg->session.idx,
+      format_pfcp_session, sx, PFCP_ACTIVE, true);
+    upf_session_requests_insert_tail(psm->msg_pool, &sx->requests, msg);
+  }
+
   msg->timer =
     upf_pfcp_server_start_timer (PFCP_SERVER_T1, msg->seq_no, msg->t1);
   msg->expires_at = psm->now + msg->t1;
@@ -502,9 +518,9 @@ request_t1_expired (u32 seq_no)
 
   // make sure to resent reports to new peer if peer changed
   if (pfcp_msg_type(msg->data) == PFCP_SESSION_REPORT_REQUEST) {
-    if (msg->session_index != ~0) { // FIXME: can be assert instead?
-      upf_session_t *ses = pool_elt_at_index (gtm->sessions, msg->session_index);
-      if (ses->assoc.node != msg->node) {
+    if (msg->session.idx != ~0) { // FIXME: can be assert instead?
+      upf_session_t *sx = pool_elt_at_index (gtm->sessions, msg->session.idx);
+      if (sx->assoc.node != msg->node) {
         msg->n1 = PFCP_DEFAULT_REQUEST_RETRIES;
 
         pfcp_decoded_msg_t dmsg;
@@ -512,25 +528,25 @@ request_t1_expired (u32 seq_no)
         pfcp_decode_msg (msg->data, vec_len (msg->data), &dmsg, &err);
 
         // remove old msg
-
+        upf_session_requests_remove(psm->msg_pool, &sx->requests, msg);
         hash_unset (psm->request_q, msg->seq_no);
         pfcp_msg_pool_put (psm, msg);
 
-        upf_cached_f_seid_t *cached_f_seid = pool_elt_at_index(gtm->cached_fseid_pool, ses->cached_fseid_idx);
+        upf_cached_f_seid_t *cached_f_seid = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
         UPF_SET_BIT(dmsg.session_report_request.grp.fields, SESSION_REPORT_REQUEST_OLD_CP_F_SEID);
-        dmsg.session_report_request.old_cp_f_seid.seid = ses->cp_seid;
+        dmsg.session_report_request.old_cp_f_seid.seid = sx->cp_seid;
         dmsg.session_report_request.old_cp_f_seid.flags = cached_f_seid->key.flags;
         dmsg.session_report_request.old_cp_f_seid.ip4 = cached_f_seid->key.ip4;
         dmsg.session_report_request.old_cp_f_seid.ip6 = cached_f_seid->key.ip6;
         dmsg.seid = 0; // seid should be zero
 
         // TODO: TODO: TODO: update method to not include it in the first place
-        u64 seid_save = ses->cp_seid;
-        ses->cp_seid = 0;
+        u64 seid_save = sx->cp_seid;
+        sx->cp_seid = 0;
 
-        upf_pfcp_server_send_session_request(ses, &dmsg);
+        upf_pfcp_server_send_session_request(sx, &dmsg);
 
-        ses->cp_seid = seid_save;
+        sx->cp_seid = seid_save;
 
         pfcp_free_dmsg_contents (&dmsg);
       }
@@ -1464,6 +1480,8 @@ static uword
 	    for (int i = 0; i < vec_len (event_data); i++)
 	      {
 		pfcp_msg_t *tx = (pfcp_msg_t *) event_data[i];
+                // Handle case when session was removed before
+                // receiving this event
 
 		if (!pool_is_free_index (gtm->nodes, tx->node))
 		  {
@@ -1614,6 +1632,7 @@ static uword
 
 	ASSERT (msg->expires_at);
 
+        // TODO: this is crazy, replace this with linked list solution, will be faster
 	if (!hash_get (psm->free_msgs_by_node, msg->node))
 	  {
 	    /*
