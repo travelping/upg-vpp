@@ -2965,7 +2965,7 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 
       /* since this is a response, and some time passed since the request
          make sure that session index still matches the original session */
-      if (sess->cp_seid != msg->seid)
+      if (sess->up_seid != msg->seid)
 	{
 	  upf_debug ("PFCP Session seid not matching (deleted already?).\n");
 	  return -1;
