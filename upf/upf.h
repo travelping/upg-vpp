@@ -43,7 +43,7 @@
 #include <vlib/vlib.h>
 #include <vlib/log.h>
 
-#define CLIB_DEBUG 2
+#define CLIB_DEBUG 1
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning

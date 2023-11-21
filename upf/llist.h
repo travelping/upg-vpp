@@ -183,6 +183,26 @@ typedef upf_llist_anchor_t NAME ## _anchor_t; \
 
 /* Create methods instead of macros for type verification */
 #define UPF_LLIST_TEMPLATE_DEFINITIONS(NAME, TYPE, ANCHOR) \
+static u8 *__clib_unused \
+format_ ## NAME ## _llist(u8 * s, va_list * args) { \
+  TYPE *pool = va_arg (*args, TYPE*); \
+  upf_llist_t *list = va_arg (*args, upf_llist_t*); \
+  \
+  ASSERT(pool); \
+  u32 i = 0; \
+  s = format (s, "head: %d", list->head); \
+  if (!upf_llist_list_is_empty(list)) { \
+    upf_llist_foreach(el, pool, ANCHOR, list, { \
+      s = format(s, "   element (%x) %d", el, el - pool); \
+      s = format(s, " next %d prev %d", el->ANCHOR.next, el->ANCHOR.prev); \
+      /* s = format(s, "  element (%x) %d next %d prev %d",*/ \
+      /* el, el - pool, el->ANCHOR.next, el->ANCHOR.prev);*/ \
+      if (i++ == 10000) break; \
+    }); \
+  } \
+  \
+  return s; \
+} \
 static inline void __clib_unused \
 NAME ## _init(NAME ## _t *list) { \
   upf_llist_init(list); \
@@ -202,6 +222,7 @@ NAME ## _el_is_part_of_list(TYPE *el) { \
 static void __clib_unused \
 NAME ## _insert_tail(TYPE *pool, NAME ## _t *list, TYPE *el) { \
   upf_llist_insert_tail(pool, ANCHOR, list, el); \
+  /* upf_debug(">>>>>>>>>>>>>>> after insert: %U", format_ ## NAME ## _llist, pool, list); */ \
 } \
 static void __clib_unused \
 NAME ## _remove(TYPE *pool, NAME ## _t *list, TYPE *el) { \

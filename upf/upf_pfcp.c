@@ -36,6 +36,9 @@
 #include <search.h>
 #include <netinet/ip.h>
 #include <vlib/unix/plugin.h>
+#include "vppinfra/hash.h"
+#include "vppinfra/vec_bootstrap.h"
+#include "vppinfra/vector.h"
 
 #include "pfcp.h"
 #include "upf.h"
@@ -45,9 +48,6 @@
 #include "upf_pfcp_server.h"
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
-#include "vppinfra/hash.h"
-#include "vppinfra/vec_bootstrap.h"
-#include "vppinfra/vector.h"
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -491,6 +491,7 @@ pfcp_release_association (upf_node_assoc_t * n)
   if (n->smf_set_idx != ~0)
     {
       smf_alt_node_ids = pfcp_node_exit_smf_set(n);
+#if CLIB_DEBUG > 1
       u32 *set_node_id;
       vec_foreach(set_node_id, smf_alt_node_ids)
       {
@@ -499,6 +500,7 @@ pfcp_release_association (upf_node_assoc_t * n)
                   (u32)(node - gtm->nodes),
                   format_node_id, &node->node_id);
       }
+#endif
     }
 
   if (vec_len(smf_alt_node_ids))
@@ -520,6 +522,13 @@ pfcp_release_association (upf_node_assoc_t * n)
         // TODO: update session in-flight requests
         node_assoc_detach_session(sx);
         node_assoc_attach_session(new_node, sx);
+
+        upf_llist_foreach(req, pfcp_server_main.msg_pool, session.anchor, (&sx->requests), {
+          req->node = new_node_idx;
+        });
+
+        upf_debug("session requests after reattach %U",
+          format_upf_session_requests_llist, pfcp_server_main.msg_pool, &sx->requests);
       });
 
     } else {

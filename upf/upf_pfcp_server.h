@@ -268,6 +268,10 @@ _pfcp_msg_pool_put (pfcp_server_main_t * psm, pfcp_msg_t * m)
 {
   ASSERT (m->is_valid_pool_item);
 
+  if (m->session.idx != ~0) {
+    ASSERT (!upf_session_requests_el_is_part_of_list(m) );
+  }
+
   vec_free (m->data);
 #if CLIB_DEBUG > 0
   clib_memset (m, 0xfa, sizeof (pfcp_msg_t));

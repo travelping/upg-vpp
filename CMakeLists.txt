@@ -158,9 +158,9 @@ endif (NOT CMAKE_BUILD_TYPE)
 SET(UPF_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR} CACHE STRING "upf_install_prefix")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall -march=corei7 -mtune=corei7-avx -O3 -g")
+   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall -march=corei7 -mtune=corei7-avx -O3 -g -Wno-address-of-packed-member -Wno-macro-redefined")
 elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
-   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -march=corei7 -mtune=corei7-avx -O0 -g")
+   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -march=corei7 -mtune=corei7-avx -O0 -g -Wno-address-of-packed-member -Wno-macro-redefined")
    add_definitions(-DCLIB_DEBUG -DVLIB_BUFFER_TRACE_TRAJECTORY -fPIC -fstack-protector-all)
 endif()
 
