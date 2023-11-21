@@ -709,7 +709,6 @@ pfcp_session_set_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
     cached_f_seid = pool_elt_at_index(gtm->cached_fseid_pool, existing_f_seid[0]);
   } else {
     pool_get_zero(gtm->cached_fseid_pool, cached_f_seid);
-
     cached_f_seid->key = key;
     hash_set_mem(gtm->hashmap_cached_fseid_idx, &key, cached_f_seid - gtm->cached_fseid_pool);
   }
@@ -728,8 +727,7 @@ pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up
 
   vlib_worker_thread_barrier_sync (vm);
 
-  pool_get_aligned (gtm->sessions, sx, CLIB_CACHE_LINE_BYTES);
-  memset (sx, 0, sizeof (*sx));
+  pool_get_aligned_zero (gtm->sessions, sx, CLIB_CACHE_LINE_BYTES);
 
   sx->up_seid = up_seid;
   sx->cp_seid = cp_f_seid->seid;
@@ -753,7 +751,7 @@ pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up
   node_assoc_attach_session (assoc, sx);
   hash_set (gtm->session_by_up_seid, up_seid, sx - gtm->sessions);
 
-  /*Init TEID by choose_id hash lookup table */
+  /* Init TEID by choose_id hash lookup table */
   sx->teid_by_chid =
     sparse_vec_new ( /*elt bytes */ sizeof (u32), /*bits in index */ 8);
 
