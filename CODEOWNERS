@@ -1,0 +1,6 @@
+# These owners will be the default owners for everything in the repo. Unless a later match takes precedence, the default owners will be requested for review when someone opens a pull request.
+* @demo-exe @mogaika
+
+# Documentation - must be at the end of this file
+/docs @klaudiagrz @mentelka
+*.md @klaudiagrz @mentelka
