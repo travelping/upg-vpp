@@ -523,7 +523,7 @@ pfcp_release_association (upf_node_assoc_t * n)
         node_assoc_detach_session(sx);
         node_assoc_attach_session(new_node, sx);
 
-        upf_llist_foreach(req, pfcp_server_main.msg_pool, session.anchor, (&sx->requests), {
+        upf_llist_foreach(req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
           req->node = new_node_idx;
         });
 
@@ -1269,6 +1269,12 @@ pfcp_disable_session (upf_session_t * sx)
     upf_pfcp_session_stop_urr_time (&urr->traffic_timer, now);
   }
   upf_pfcp_session_stop_up_inactivity_timer (&active->inactivity_timer);
+
+  /* detach all requests */
+  upf_llist_foreach(req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
+    upf_session_requests_remove(pfcp_server_main.msg_pool, &sx->requests, req);
+    req->session.idx = ~0;
+  });
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters
 				 [UPF_SESSIONS_COUNTER],

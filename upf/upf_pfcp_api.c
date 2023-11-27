@@ -2942,46 +2942,43 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   upf_main_t *gtm = &upf_main;
   pfcp_session_report_response_t *resp = &dmsg->session_report_response;
 
+  if (msg->session.idx == ~0) {
+    // related session was removed previously, nothing to do
+    return -1;
+  }
+
+  upf_session_t *sx = pool_elt_at_index (gtm->sessions, msg->session.idx);
+
+  if (msg->seid != sx->up_seid) {
+    /*
+      since this is a response, and some time passed since the request
+      make sure that session index still matches the original session
+    */
+    upf_debug ("PFCP Session seid not matching (deleted already?).\n");
+    // TODO: this check is not needed anymore since now we detach request
+    // from session on session removal
+    return -1;
+  }
+
   upf_debug("session report response cause %d", resp->response.cause);
   if (resp->response.cause == PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND)
     {
-      /* control plane does not know about the session. drop it */
-      upf_session_t *sx;
-
-      // This should not happen, all requests are forgotten when session removed
-      // TODO: remove
-      //if (pool_is_free_index (gtm->sessions, msg->session.idx))
-      //  {
-      //    upf_debug ("PFCP Session not found.\n");
-      //    return -1;
-      //  }
-
-      sx = pool_elt_at_index (gtm->sessions, msg->session.idx);
-
-      /* since this is a response, and some time passed since the request
-         make sure that session index still matches the original session */
-      if (sx->up_seid != msg->seid)
-	{
-	  upf_debug ("PFCP Session seid not matching (deleted already?).\n");
-	  return -1;
-	}
-
       /* TODO: count those drops */
       pfcp_disable_session (sx);
       pfcp_free_session (sx);
     }
   else if (resp->response.cause == PFCP_CAUSE_REQUEST_ACCEPTED)
     {
-      upf_session_t *sx = pool_elt_at_index (gtm->sessions, msg->session.idx);
-
       upf_debug("session report response session flags 0x%x", sx->flags);
+      // This is first response since we lost smf peer
+      // So we have to use new cp_f_seid
       if (sx->flags & UPF_SESSION_LOST_CP && resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID)
         {
           pfcp_f_seid_t *cp_f_seid = &dmsg->session_report_response.cp_f_seid;
           pfcp_session_set_fseid(sx, cp_f_seid);
-
-          sx->flags &= ~(UPF_SESSION_LOST_CP);
           sx->cp_seid = cp_f_seid->seid;
+          sx->flags &= ~(UPF_SESSION_LOST_CP);
+
           upf_debug("updated session seid 0x%x (%U,%U) session flags 0x%x",
                     sx->cp_seid,
                     format_ip4_address, &cp_f_seid->ip4,
