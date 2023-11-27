@@ -76,7 +76,7 @@ static upf_classify_next_t upf_classify_flow_next[] = {
 typedef struct
 {
   u32 session_index;
-  u64 cp_seid;
+  u64 up_seid;
   u32 pdr_idx;
   u32 next_index;
   u8 packet_data[64 - 1 * sizeof (u32)];
@@ -93,8 +93,8 @@ format_upf_classify_trace (u8 * s, va_list * args)
 
   s =
     format (s,
-	    "upf_session%d cp-seid 0x%016" PRIx64
-	    " pdr %d, next_index = %d\n%U%U", t->session_index, t->cp_seid,
+	    "upf_session%d up-seid 0x%016" PRIx64
+	    " pdr %d, next_index = %d\n%U%U", t->session_index, t->up_seid,
 	    t->pdr_idx, t->next_index, format_white_space, indent,
 	    format_ip4_header, t->packet_data, sizeof (t->packet_data));
   return s;
@@ -569,7 +569,7 @@ upf_classify_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      upf_classify_trace_t *tr =
 		vlib_add_trace (vm, node, b, sizeof (*tr));
 	      tr->session_index = sidx;
-	      tr->cp_seid = sess->cp_seid;
+	      tr->up_seid = sess->up_seid;
 	      tr->pdr_idx = upf_buffer_opaque (b)->gtpu.pdr_idx;
 	      tr->next_index = next;
 	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),

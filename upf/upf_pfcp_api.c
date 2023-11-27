@@ -478,13 +478,13 @@ handle_node_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 }
 
 static void
-send_simple_response (pfcp_msg_t * req, u64 cp_seid, u8 type,
+send_simple_response (pfcp_msg_t * req, u8 type,
 		      pfcp_cause_t cause, pfcp_offending_ie_t * err)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t resp_dmsg = {
     .type = type,
-    .seid = cp_seid
+    .seid = 0,
   };
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
 
@@ -2511,8 +2511,6 @@ static int
 handle_session_establishment_request (pfcp_msg_t * msg,
 				      pfcp_decoded_msg_t * dmsg)
 {
-  ip46_address_t up_address = ip46_address_initializer;
-  ip46_address_t cp_address = ip46_address_initializer;
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_session_establishment_request_t *req =
     &dmsg->session_establishment_request;
@@ -2576,11 +2574,16 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       }
     }
 
+  is_ip4 = ip46_address_is_ip4 (&msg->rmt.address);
+
   UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
+  init_response_up_f_seid(&resp->up_f_seid, &msg->lcl.address, is_ip4);
   resp->up_f_seid.seid = up_seid;
 
-  is_ip4 = ip46_address_is_ip4 (&msg->rmt.address);
-  init_response_up_f_seid(&resp->up_f_seid, &msg->lcl.address, is_ip4);
+  #if CLIB_DEBUG > 1
+  ip46_address_t up_address = ip46_address_initializer;
+  ip46_address_t cp_address = ip46_address_initializer;
+
   ip_set (&up_address, &msg->lcl.address.ip4, is_ip4);
   ip_set (&cp_address, &req->f_seid.ip4, is_ip4);
 
@@ -2591,6 +2594,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
              format_ip6_address, &req->f_seid.ip6,
 	     up_seid,
              format_ip46_address, &up_address, IP46_TYPE_ANY);
+  #endif
 
   sess = pfcp_create_session (assoc, &req->f_seid, up_seid);
 
@@ -2949,7 +2953,7 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 
   upf_session_t *sx = pool_elt_at_index (gtm->sessions, msg->session.idx);
 
-  if (msg->seid != sx->up_seid) {
+  if (msg->up_seid != sx->up_seid) {
     /*
       since this is a response, and some time passed since the request
       make sure that session index still matches the original session
@@ -2957,6 +2961,7 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
     upf_debug ("PFCP Session seid not matching (deleted already?).\n");
     // TODO: this check is not needed anymore since now we detach request
     // from session on session removal
+    ASSERT(msg->up_seid != sx->up_seid);
     return -1;
   }
 
@@ -2975,8 +2980,7 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
       if (sx->flags & UPF_SESSION_LOST_CP && resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID)
         {
           pfcp_f_seid_t *cp_f_seid = &dmsg->session_report_response.cp_f_seid;
-          pfcp_session_set_fseid(sx, cp_f_seid);
-          sx->cp_seid = cp_f_seid->seid;
+          pfcp_session_set_cp_fseid(sx, cp_f_seid);
           sx->flags &= ~(UPF_SESSION_LOST_CP);
 
           upf_debug("updated session seid 0x%x (%U,%U) session flags 0x%x",
@@ -3086,7 +3090,7 @@ upf_pfcp_handle_msg (pfcp_msg_t * msg)
       return -1;
     }
 
-  if (r != 0)
+  if (r != 0) // if cause != 0
     {
       upf_debug ("PFCP: error response %d", r);
       switch (dmsg.type)
@@ -3101,7 +3105,7 @@ upf_pfcp_handle_msg (pfcp_msg_t * msg)
 	case PFCP_SESSION_MODIFICATION_REQUEST:
 	case PFCP_SESSION_DELETION_REQUEST:
 	case PFCP_SESSION_REPORT_REQUEST:
-	  send_simple_response (msg, 0, dmsg.type + 1, r, err);
+	  send_simple_response (msg, dmsg.type + 1, r, err);
 	  break;
 
 	default:

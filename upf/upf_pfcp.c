@@ -510,7 +510,6 @@ pfcp_release_association (upf_node_assoc_t * n)
       u32 rand_seed = unix_time_now_nsec();
 
       upf_llist_foreach(sx, gtm->sessions, assoc.anchor, sessions, {
-        upf_debug("expected session node to equal %d when it %d", node_id, sx->assoc.node);
         ASSERT (sx->assoc.node == node_id);
 
         u32 random_idx = random_u32(&rand_seed) % alt_node_count;
@@ -519,15 +518,16 @@ pfcp_release_association (upf_node_assoc_t * n)
 
         sx->flags |= UPF_SESSION_LOST_CP;
 
-        // TODO: update session in-flight requests
         node_assoc_detach_session(sx);
         node_assoc_attach_session(new_node, sx);
 
+        // mark all in-flight session requests
         upf_llist_foreach(req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
+          req->flags.is_migrated_in_smfset = 1;
           req->node = new_node_idx;
         });
 
-        upf_debug("session requests after reattach %U",
+        upf_debug("session requests after migration %U",
           format_upf_session_requests_llist, pfcp_server_main.msg_pool, &sx->requests);
       });
 
@@ -544,7 +544,6 @@ pfcp_release_association (upf_node_assoc_t * n)
 
   ASSERT(upf_node_sessions_list_is_empty(sessions));
 
-  // TODO: replace this with linked list solution
   upf_pfcp_server_deferred_free_msgs_by_node (node_id);
   pool_put_index (gtm->pfcp_policers, n->policer_idx);
 
@@ -552,7 +551,6 @@ pfcp_release_association (upf_node_assoc_t * n)
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
-
 }
 
 uword
@@ -687,7 +685,7 @@ pfcp_session_free_fseid(upf_session_t * sx)
 }
 
 void
-pfcp_session_set_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
+pfcp_session_set_cp_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -714,6 +712,8 @@ pfcp_session_set_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
   }
 
   sx->cached_fseid_idx = cached_f_seid - gtm->cached_fseid_pool;
+  sx->cp_seid = f_seid->seid;
+
   cached_f_seid->refcount += 1;
 }
 
@@ -730,10 +730,12 @@ pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up
   pool_get_aligned_zero (gtm->sessions, sx, CLIB_CACHE_LINE_BYTES);
 
   sx->up_seid = up_seid;
-  sx->cp_seid = cp_f_seid->seid;
   sx->cached_fseid_idx = ~0;
+  sx->assoc.node = ~0;
+  upf_node_sessions_anchor_init(sx);
+  upf_session_requests_list_init(&sx->requests);
 
-  pfcp_session_set_fseid (sx, cp_f_seid);
+  pfcp_session_set_cp_fseid (sx, cp_f_seid);
 
   sx->last_ul_traffic = vlib_time_now (psm->vlib_main);
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)
@@ -744,9 +746,6 @@ pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up
 #ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_init (&sx->lock);
 #endif
-
-  upf_session_requests_list_init(&sx->requests);
-  upf_node_sessions_anchor_init(sx);
 
   node_assoc_attach_session (assoc, sx);
   hash_set (gtm->session_by_up_seid, up_seid, sx - gtm->sessions);

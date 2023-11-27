@@ -29,7 +29,7 @@ upf_node_assoc_t *pfcp_new_association (session_handle_t session_handle,
 					pfcp_node_id_t * node_id);
 void pfcp_release_association (upf_node_assoc_t * n);
 
-void pfcp_session_set_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid);
+void pfcp_session_set_cp_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid);
 
 void pfcp_node_enter_smf_set (upf_node_assoc_t * n,
                               u8 * fqdn);

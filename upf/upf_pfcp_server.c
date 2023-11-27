@@ -221,23 +221,26 @@ encode_pfcp_session_msg (upf_session_t * sx,
   msg->seq_no = clib_atomic_add_fetch (&psm->seq_no, 1) % 0x1000000;
   msg->node = sx->assoc.node;
   msg->session.idx = sx - gtm->sessions;
+  msg->up_seid = sx->up_seid;
 
-  if (dmsg->type == PFCP_SESSION_REPORT_REQUEST) {
-    if (sx->flags & UPF_SESSION_LOST_CP) {
-      msg->seid = 0;
+  if (dmsg->type == PFCP_SESSION_REPORT_REQUEST &&
+      sx->flags & UPF_SESSION_LOST_CP)
+    {
       upf_cached_f_seid_t *cached_f_seid = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
       UPF_SET_BIT(dmsg->session_report_request.grp.fields, SESSION_REPORT_REQUEST_OLD_CP_F_SEID);
       dmsg->session_report_request.old_cp_f_seid.seid = sx->cp_seid;
       dmsg->session_report_request.old_cp_f_seid.flags = cached_f_seid->key.flags;
       dmsg->session_report_request.old_cp_f_seid.ip4 = cached_f_seid->key.ip4;
       dmsg->session_report_request.old_cp_f_seid.ip6 = cached_f_seid->key.ip6;
-    } else {
-      msg->seid = sx->cp_seid;
+
+      dmsg->seid = 0;
     }
-  }
+  else
+    {
+      dmsg->seid = sx->cp_seid;
+    }
 
   dmsg->seq_no = msg->seq_no;
-  dmsg->seid = msg->seid;
   if ((r = pfcp_encode_msg (dmsg, &msg->data)) != 0)
     return r;
 
@@ -383,24 +386,16 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
 	  break;
 
 	req = pfcp_msg_pool_elt_at_index (psm, p[0]);
-	hash_unset (psm->request_q, msg->seq_no);
-	upf_pfcp_server_stop_msg_timer (req);
-
-        if (req->session.idx != ~0) {
-          upf_session_t *sx = pool_elt_at_index(upf_main.sessions, req->session.idx);
-          upf_session_requests_remove(psm->msg_pool, &sx->requests, req);
-        }
 
 	msg->node = req->node;
 	msg->session.idx = req->session.idx;
-	msg->seid = req->seid;
+	msg->up_seid = req->up_seid;
 
-	pfcp_msg_pool_put (psm, req);
-	/* FIXME: handle edge case: t1 timer also expired in this iteration for this seq_no */
-	/* (do we really need any special handling there? unsure...) */
-	hash_unset (psm->request_q, msg->seq_no);
+        upf_pfcp_server_stop_msg_timer(req);
 
 	upf_pfcp_handle_msg (msg);
+
+        upf_pfcp_server_stop_request(req);
 
 	break;
       }
@@ -510,50 +505,37 @@ request_t1_expired (u32 seq_no)
     return;
 
   req = pfcp_msg_pool_elt_at_index (psm, p[0]);
+  ASSERT(req->flags.is_stopped == 0);
+  req->timer = ~0;
+
   upf_debug ("Msg Seq No: %u, %p, n1 %u\n", req->seq_no, req, req->n1);
 
-  // make sure to resent reports to new peer if peer changed
-  if (pfcp_msg_type(req->data) == PFCP_SESSION_REPORT_REQUEST) {
-    if (req->session.idx != ~0) { // FIXME: can be assert instead?
-      upf_session_t *sx = pool_elt_at_index (gtm->sessions, req->session.idx);
-      if (sx->assoc.node != req->node) {
-        req->n1 = PFCP_DEFAULT_REQUEST_RETRIES;
+  // make sure to resent reports to new peer if smfset peer is changed
+  if (req->flags.is_migrated_in_smfset &&
+      req->session.idx != ~0 &&
+      pfcp_msg_type(req->data) == PFCP_SESSION_REPORT_REQUEST) {
+    upf_session_t *sx = pool_elt_at_index (gtm->sessions, req->session.idx);
 
-        pfcp_decoded_msg_t dmsg;
-        pfcp_offending_ie_t *err = NULL;
-        pfcp_decode_msg (req->data, vec_len (req->data), &dmsg, &err);
+    pfcp_decoded_msg_t dmsg;
+    pfcp_offending_ie_t *err = NULL;
 
-        // remove old msg
-        upf_session_requests_remove(psm->msg_pool, &sx->requests, req);
-        hash_unset (psm->request_q, req->seq_no);
-        pfcp_msg_pool_put (psm, req);
+    // Decode request to dmesg so we can reencode it as new request
+    pfcp_decode_msg (req->data, vec_len (req->data), &dmsg, &err);
+    upf_pfcp_server_send_session_request(sx, &dmsg);
+    pfcp_free_dmsg_contents (&dmsg);
 
-        upf_cached_f_seid_t *cached_f_seid = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
-        UPF_SET_BIT(dmsg.session_report_request.grp.fields, SESSION_REPORT_REQUEST_OLD_CP_F_SEID);
-        dmsg.session_report_request.old_cp_f_seid.seid = sx->cp_seid;
-        dmsg.session_report_request.old_cp_f_seid.flags = cached_f_seid->key.flags;
-        dmsg.session_report_request.old_cp_f_seid.ip4 = cached_f_seid->key.ip4;
-        dmsg.session_report_request.old_cp_f_seid.ip6 = cached_f_seid->key.ip6;
-        dmsg.seid = 0; // seid should be zero
-
-        {
-          // TODO: TODO: TODO: update method to not include it in the first place
-
-          u64 seid_save = sx->cp_seid;
-          sx->cp_seid = 0;
-          upf_pfcp_server_send_session_request(sx, &dmsg);
-          sx->cp_seid = seid_save;
-        }
-
-        pfcp_free_dmsg_contents (&dmsg);
-      }
-    }
+    upf_pfcp_server_stop_request(req); // stop old request
+    return;
   }
 
   if (--req->n1 != 0)
     {
       u8 type = pfcp_msg_type (req->data);
 
+      // FIXME: here in pool_is_free_index we check for node index which can be reused
+      // as soon as node goes back. Instead we should stop all requests as soon
+      // as node is stopped. It should be easier to track since we can have
+      // only one heartbeat request at time
       if (type == PFCP_HEARTBEAT_REQUEST
 	  && !pool_is_free_index (gtm->nodes, req->node))
 	{
@@ -580,13 +562,11 @@ request_t1_expired (u32 seq_no)
       upf_debug ("abort...\n");
       // TODO: handle communication breakdown....
 
-      if (req->session.idx != ~0) { // FIXME: can be assert instead?
-        upf_session_t *sx = pool_elt_at_index (gtm->sessions, req->session.idx);
-        upf_session_requests_remove(psm->msg_pool, &sx->requests, req);
-        hash_unset (psm->request_q, req->seq_no);
-        pfcp_msg_pool_put (psm, req);
-      }
+      upf_pfcp_server_stop_request(req);
 
+      // TODO: this pool_is_free_index is invalid since pool id can be reused
+      // instead we should do checking based on persistent key or instead we
+      // could track or requests of node and forget them as soon as association is lost
       if (type == PFCP_HEARTBEAT_REQUEST
 	  && !pool_is_free_index (gtm->nodes, node))
 	{
@@ -601,6 +581,28 @@ request_t1_expired (u32 seq_no)
 	  pfcp_release_association (n);
 	}
     }
+}
+
+void
+upf_pfcp_server_stop_request (pfcp_msg_t * req)
+{
+  /* FIXME: ivan4th: handle edge case: t1 timer also expired in this iteration for this seq_no */
+  /* (do we really need any special handling there? unsure...) */
+
+  pfcp_server_main_t *psm = &pfcp_server_main;
+  upf_main_t *gtm = &upf_main;
+
+  if (req->session.idx != ~0) {
+    upf_session_t *sx = pool_elt_at_index (gtm->sessions, req->session.idx);
+    upf_session_requests_remove(psm->msg_pool, &sx->requests, req);
+    req->session.idx = ~0;
+  }
+  upf_pfcp_server_stop_msg_timer(req);
+
+  hash_unset (psm->request_q, req->seq_no);
+
+  req->flags.is_stopped = 1;
+  pfcp_msg_pool_put (psm, req);
 }
 
 static void
@@ -1357,10 +1359,10 @@ void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg)
 
 void upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t * n)
 {
-  pfcp_server_main_t *psm = &pfcp_server_main;
-
-  if (n->heartbeat_handle != ~0)
+  if (n->heartbeat_handle != ~0) {
     upf_pfcp_server_stop_generic_timer (n->heartbeat_handle);
+    n->heartbeat_handle = ~0;
+  }
 }
 
 u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds)
@@ -1629,12 +1631,12 @@ static uword
       /* Free messages that must be freed after the loop */
       pool_foreach (msg, psm->msg_pool)
       {
-	if (!msg->is_valid_pool_item)
+	if (!msg->flags.is_valid_pool_item)
 	  continue;
 
 	ASSERT (msg->expires_at);
 
-        // TODO: this is crazy, replace this with linked list solution, will be faster
+        // TODO: this is crazy, replace this workaround
 	if (!hash_get (psm->free_msgs_by_node, msg->node))
 	  {
 	    /*
