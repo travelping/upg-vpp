@@ -678,7 +678,8 @@ pfcp_session_free_fseid(upf_session_t * sx)
   cached_fseid->refcount -= 1;
 
   if (cached_fseid->refcount == 0) {
-    hash_unset_mem(gtm->hashmap_cached_fseid_idx, &cached_fseid->key);
+    hash_unset_mem_free(&gtm->hashmap_cached_fseid_idx, &cached_fseid->key);
+    ASSERT(hash_get_mem(gtm->hashmap_cached_fseid_idx, &cached_fseid->key) == 0);
     pool_put(gtm->cached_fseid_pool, cached_fseid);
   }
   sx->cached_fseid_idx = ~0;
@@ -692,6 +693,25 @@ pfcp_session_set_cp_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
   if (sx->cached_fseid_idx != ~0) {
     pfcp_session_free_fseid(sx);
   }
+
+#if CLIB_DEBUG > 1
+  upf_cached_f_seid_key_t *k;
+  u32 v;
+
+  hash_foreach_mem(k, v, gtm->hashmap_cached_fseid_idx, {
+    upf_cached_f_seid_t *kfsd = gtm->cached_fseid_pool + v;
+    clib_warning("fseid hashmap dump [%d, %U, %U] => %d [%d, %U, %U] ref: %d",
+      k->flags,
+      format_ip4_address, &k->ip4,
+      format_ip6_address, &k->ip6,
+      v,
+      kfsd->key.flags,
+      format_ip4_address, &kfsd->key.ip4,
+      format_ip6_address, &kfsd->key.ip6,
+      kfsd->refcount
+    );
+  });
+#endif
 
   upf_cached_f_seid_key_t key = {
     .flags = f_seid->flags,
@@ -708,7 +728,7 @@ pfcp_session_set_cp_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
   } else {
     pool_get_zero(gtm->cached_fseid_pool, cached_f_seid);
     cached_f_seid->key = key;
-    hash_set_mem(gtm->hashmap_cached_fseid_idx, &key, cached_f_seid - gtm->cached_fseid_pool);
+    hash_set_mem_alloc(&gtm->hashmap_cached_fseid_idx, &key, cached_f_seid - gtm->cached_fseid_pool);
   }
 
   sx->cached_fseid_idx = cached_f_seid - gtm->cached_fseid_pool;
