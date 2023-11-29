@@ -607,7 +607,7 @@ pfcp_create_session (upf_node_assoc_t * assoc,
   sx->teid_by_chid =
     sparse_vec_new ( /*elt bytes */ sizeof (u32), /*bits in index */ 8);
 
-  session_flows_list_init(&sx->flows);
+  session_flows_list_init (&sx->flows);
 
   vlib_worker_thread_barrier_release (vm);
 
@@ -1157,10 +1157,14 @@ pfcp_free_session (upf_session_t * sx)
    * Remove the flows belonging to the session before freeing the
    * session, so flow reporting can still be done on these flows
    */
+   /* *INDENT-OFF* */
   upf_llist_foreach(f, fm->flows, session_anchor, &sx->flows, {
     flowtable_entry_remove (fm, f, now);
-    ASSERT(!session_flows_el_is_part_of_list(f));
+    ASSERT (!session_flows_el_is_part_of_list (f));
   });
+  /* *INDENT-ON* */
+
+  ASSERT (session_flows_list_is_empty (&sx->flows));
 
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)
     pfcp_free_rules (sx, i);
@@ -1187,7 +1191,7 @@ session_flow_unlink_handler (flowtable_main_t * fm, flow_entry_t * flow,
   u32 flow_index = flow - fm->flows;
   ASSERT (!pool_is_free_index (fm->flows, flow_index));
 
-  session_flows_remove(fm->flows, &sx->flows, flow);
+  session_flows_remove (fm->flows, &sx->flows, flow);
 
   return 0;
 }

@@ -113,7 +113,7 @@ typedef struct flow_tc
   u32 thread_index;
 } flow_tc_t;
 
-UPF_LLIST_TEMPLATE_TYPES(session_flows);
+UPF_LLIST_TEMPLATE_TYPES (session_flows);
 
 typedef struct flow_entry
 {
@@ -169,7 +169,7 @@ typedef struct flow_entry
   u16 nat_sport;
 } flow_entry_t;
 
-UPF_LLIST_TEMPLATE_DEFINITIONS(session_flows, flow_entry_t, session_anchor);
+UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows, flow_entry_t, session_anchor);
 
 /* accessor helper */
 #define flow_member(F, M, D)   (F)->M[(D) ^ (F)->is_reverse]

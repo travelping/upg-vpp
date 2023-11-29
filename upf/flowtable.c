@@ -425,7 +425,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   f->ps_index = ~0;
   f->session_index = session_index;
 
-  session_flows_anchor_init(f);
+  session_flows_anchor_init (f);
 
   /* insert in timer list */
   pool_get (fmt->timers, timer_entry);

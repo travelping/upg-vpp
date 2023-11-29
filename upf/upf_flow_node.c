@@ -132,7 +132,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
       while (n_left_from >= 4 && n_left_to_next >= 2)
 	{
 	  u32 bi0, bi1;
-          u32 si0, si1;
+	  u32 si0, si1;
 	  vlib_buffer_t *b0, *b1;
 	  upf_session_t *sx0, *sx1;
 	  struct rules *active0, *active1;
@@ -174,12 +174,11 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  created0 = created1 = 0;
 	  is_reverse0 = is_reverse1 = 0;
 
-          si0 = upf_buffer_opaque (b0)->gtpu.session_index;
-          si1 = upf_buffer_opaque (b1)->gtpu.session_index;
+	  si0 = upf_buffer_opaque (b0)->gtpu.session_index;
+	  si1 = upf_buffer_opaque (b1)->gtpu.session_index;
 
-	  if (PREDICT_FALSE(
-              pool_is_free_index(gtm->sessions, si0) ||
-              pool_is_free_index (gtm->sessions, si1)))
+	  if (PREDICT_FALSE (pool_is_free_index (gtm->sessions, si0) ||
+			     pool_is_free_index (gtm->sessions, si1)))
 	    {
 	      /*
 	       * break out of the dual loop and let the
@@ -230,12 +229,14 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 					   timestamp_ns, current_time,
 					   is_reverse1, sx1->generation,
 					   si1, &created1);
-          if (created0)
-              session_flows_insert_tail(fm->flows, &sx0->flows,
-                                        pool_elt_at_index(fm->flows, flow_idx0));
-          if (created1)
-              session_flows_insert_tail(fm->flows, &sx1->flows,
-                                        pool_elt_at_index(fm->flows, flow_idx1));
+	  if (created0)
+	    session_flows_insert_tail (fm->flows, &sx0->flows,
+				       pool_elt_at_index (fm->flows,
+							  flow_idx0));
+	  if (created1)
+	    session_flows_insert_tail (fm->flows, &sx1->flows,
+				       pool_elt_at_index (fm->flows,
+							  flow_idx1));
 
 
 	  if (PREDICT_FALSE (~0 == flow_idx0 || ~0 == flow_idx1))
@@ -319,7 +320,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
 	  u32 bi0;
-          u32 si0;
+	  u32 si0;
 	  u32 next0;
 	  vlib_buffer_t *b0;
 	  upf_session_t *sx0;
@@ -337,9 +338,9 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  len0 = vlib_buffer_length_in_chain (vm, b0);
 	  UPF_CHECK_INNER_NODE (b0);
 
-          si0 = upf_buffer_opaque (b0)->gtpu.session_index;
+	  si0 = upf_buffer_opaque (b0)->gtpu.session_index;
 
-	  if (PREDICT_FALSE(pool_is_free_index(gtm->sessions, si0)))
+	  if (PREDICT_FALSE (pool_is_free_index (gtm->sessions, si0)))
 	    {
 	      /*
 	       * break out of the dual loop and let the
@@ -370,9 +371,10 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 					   is_reverse, sx0->generation,
 					   si0, &created);
 
-          if (created)
-              session_flows_insert_tail(fm->flows, &sx0->flows,
-                                        pool_elt_at_index(fm->flows, flow_idx));
+	  if (created)
+	    session_flows_insert_tail (fm->flows, &sx0->flows,
+				       pool_elt_at_index (fm->flows,
+							  flow_idx));
 
 	  if (PREDICT_FALSE (~0 == flow_idx))
 	    {
