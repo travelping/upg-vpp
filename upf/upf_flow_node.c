@@ -24,6 +24,7 @@
 #include "upf_pfcp.h"
 #include "flowtable.h"
 #include "flowtable_tcp.h"
+#include "vppinfra/pool.h"
 
 #if CLIB_DEBUG > 1
 #define flow_debug clib_warning
@@ -131,6 +132,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
       while (n_left_from >= 4 && n_left_to_next >= 2)
 	{
 	  u32 bi0, bi1;
+          u32 si0, si1;
 	  vlib_buffer_t *b0, *b1;
 	  upf_session_t *sx0, *sx1;
 	  struct rules *active0, *active1;
@@ -172,12 +174,12 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  created0 = created1 = 0;
 	  is_reverse0 = is_reverse1 = 0;
 
-	  if (PREDICT_FALSE
-	      (pool_is_free_index
-	       (gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index)
-	       || pool_is_free_index (gtm->sessions,
-				      upf_buffer_opaque (b1)->
-				      gtpu.session_index)))
+          si0 = upf_buffer_opaque (b0)->gtpu.session_index;
+          si1 = upf_buffer_opaque (b1)->gtpu.session_index;
+
+	  if (PREDICT_FALSE(
+              pool_is_free_index(gtm->sessions, si0) ||
+              pool_is_free_index (gtm->sessions, si1)))
 	    {
 	      /*
 	       * break out of the dual loop and let the
@@ -208,12 +210,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    vlib_buffer_get_current (b1) +
 	    upf_buffer_opaque (b1)->gtpu.data_offset;
 
-	  sx0 =
-	    pool_elt_at_index (gtm->sessions,
-			       upf_buffer_opaque (b0)->gtpu.session_index);
-	  sx1 =
-	    pool_elt_at_index (gtm->sessions,
-			       upf_buffer_opaque (b1)->gtpu.session_index);
+	  sx0 = pool_elt_at_index (gtm->sessions, si0);
+	  sx1 = pool_elt_at_index (gtm->sessions, si1);
 
 	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
 	  active1 = pfcp_get_rules (sx1, PFCP_ACTIVE);
@@ -226,29 +224,19 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    flowtable_entry_lookup_create (fm, fmt, &kv0,
 					   timestamp_ns, current_time,
 					   is_reverse0, sx0->generation,
-					   sx0->first_flow_index, &created0);
-	  if (created0)
-	    {
-	      ASSERT (flowtable_get_flow
-		      (fm,
-		       flow_idx0)->next_session_flow_index ==
-		      sx0->first_flow_index);
-	      sx0->first_flow_index = flow_idx0;
-	    }
-
+					   si0, &created0);
 	  flow_idx1 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv1,
 					   timestamp_ns, current_time,
 					   is_reverse1, sx1->generation,
-					   sx1->first_flow_index, &created1);
-	  if (created1)
-	    {
-	      ASSERT (flowtable_get_flow
-		      (fm,
-		       flow_idx1)->next_session_flow_index ==
-		      sx1->first_flow_index);
-	      sx1->first_flow_index = flow_idx1;
-	    }
+					   si1, &created1);
+          if (created0)
+              session_flows_insert_tail(fm->flows, &sx0->flows,
+                                        pool_elt_at_index(fm->flows, flow_idx0));
+          if (created1)
+              session_flows_insert_tail(fm->flows, &sx1->flows,
+                                        pool_elt_at_index(fm->flows, flow_idx1));
+
 
 	  if (PREDICT_FALSE (~0 == flow_idx0 || ~0 == flow_idx1))
 	    {
@@ -262,8 +250,8 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  flow0 = flowtable_get_flow (fm, flow_idx0);
 	  flow1 = flowtable_get_flow (fm, flow_idx1);
 
-	  flow0->session_index = upf_buffer_opaque (b0)->gtpu.session_index;
-	  flow1->session_index = upf_buffer_opaque (b1)->gtpu.session_index;
+	  flow0->session_index = si0;
+	  flow1->session_index = si1;
 
 	  FLOW_DEBUG (fm, flow0);
 	  FLOW_DEBUG (fm, flow1);
@@ -331,6 +319,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
 	  u32 bi0;
+          u32 si0;
 	  u32 next0;
 	  vlib_buffer_t *b0;
 	  upf_session_t *sx0;
@@ -348,9 +337,9 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  len0 = vlib_buffer_length_in_chain (vm, b0);
 	  UPF_CHECK_INNER_NODE (b0);
 
-	  if (PREDICT_FALSE
-	      (pool_is_free_index
-	       (gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index)))
+          si0 = upf_buffer_opaque (b0)->gtpu.session_index;
+
+	  if (PREDICT_FALSE(pool_is_free_index(gtm->sessions, si0)))
 	    {
 	      /*
 	       * break out of the dual loop and let the
@@ -369,9 +358,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    vlib_buffer_get_current (b0) +
 	    upf_buffer_opaque (b0)->gtpu.data_offset;
 
-	  sx0 =
-	    pool_elt_at_index (gtm->sessions,
-			       upf_buffer_opaque (b0)->gtpu.session_index);
+	  sx0 = pool_elt_at_index (gtm->sessions, si0);
 
 	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
 
@@ -381,15 +368,11 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    flowtable_entry_lookup_create (fm, fmt, &kv,
 					   timestamp_ns, current_time,
 					   is_reverse, sx0->generation,
-					   sx0->first_flow_index, &created);
-	  if (created)
-	    {
-	      ASSERT (flowtable_get_flow
-		      (fm,
-		       flow_idx)->next_session_flow_index ==
-		      sx0->first_flow_index);
-	      sx0->first_flow_index = flow_idx;
-	    }
+					   si0, &created);
+
+          if (created)
+              session_flows_insert_tail(fm->flows, &sx0->flows,
+                                        pool_elt_at_index(fm->flows, flow_idx));
 
 	  if (PREDICT_FALSE (~0 == flow_idx))
 	    {
@@ -400,7 +383,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    }
 
 	  flow = flowtable_get_flow (fm, flow_idx);
-	  flow->session_index = upf_buffer_opaque (b0)->gtpu.session_index;
+	  flow->session_index = si0;
 	  FLOW_DEBUG (fm, flow);
 
 	  flow_debug ("is_rev: %u, flow: %u, c: %u", is_reverse,

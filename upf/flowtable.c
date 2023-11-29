@@ -364,7 +364,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       clib_bihash_kv_48_8_t * kv,
 			       u64 timestamp_ns, u32 const now,
 			       u8 is_reverse, u16 generation,
-			       u32 next_session_flow_index, int *created)
+			       u32 session_index, int *created)
 {
   flow_entry_t *f;
   dlist_elt_t *timer_entry;
@@ -423,7 +423,9 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
   flow_last_exported (f, FT_ORIGIN) = now;
   flow_last_exported (f, FT_REVERSE) = now;
   f->ps_index = ~0;
-  f->next_session_flow_index = next_session_flow_index;
+  f->session_index = session_index;
+
+  session_flows_anchor_init(f);
 
   /* insert in timer list */
   pool_get (fmt->timers, timer_entry);

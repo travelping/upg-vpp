@@ -28,6 +28,7 @@
 #include <vppinfra/vec.h>
 
 #include "flowtable_tcp.h"
+#include "llist.h"
 
 #define foreach_flowtable_error				\
   _(HIT, "packets with an existing flow")		\
@@ -112,6 +113,8 @@ typedef struct flow_tc
   u32 thread_index;
 } flow_tc_t;
 
+UPF_LLIST_TEMPLATE_TYPES(session_flows);
+
 typedef struct flow_entry
 {
   /* Required for pool_get_aligned  */
@@ -158,14 +161,15 @@ typedef struct flow_entry
   u32 last_exported[FT_ORDER_MAX];
   u32 ipfix_info_index[FT_ORDER_MAX];
 
-  /* Linkage to the next flow for the same session */
-  u32 next_session_flow_index;
+  session_flows_anchor_t session_anchor;
 
   /* Generation ID that must match the session's if this flow is up to date */
   u16 generation;
   u32 cpu_index;
   u16 nat_sport;
 } flow_entry_t;
+
+UPF_LLIST_TEMPLATE_DEFINITIONS(session_flows, flow_entry_t, session_anchor);
 
 /* accessor helper */
 #define flow_member(F, M, D)   (F)->M[(D) ^ (F)->is_reverse]
@@ -323,7 +327,7 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
 			       clib_bihash_kv_48_8_t * kv,
 			       u64 timestamp_ns, u32 const now,
 			       u8 is_reverse, u16 generation,
-			       u32 next_session_flow_index, int *created);
+			       u32 session_index, int *created);
 
 void
 timer_wheel_index_update (flowtable_main_t * fm,
