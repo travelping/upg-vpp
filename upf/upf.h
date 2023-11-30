@@ -15,9 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#define CLIB_DEBUG 1
-
 #ifndef __included_upf_h__
 #define __included_upf_h__
 

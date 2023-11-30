@@ -162,9 +162,10 @@ typedef struct flow_entry
   u32 ipfix_info_index[FT_ORDER_MAX];
 
   session_flows_list_anchor_t session_list_anchor;
-  u16 cpu_index;
+
   /* Generation ID that must match the session's if this flow is up to date */
   u16 generation;
+  u32 cpu_index;
   u16 nat_sport;
 } flow_entry_t;
 

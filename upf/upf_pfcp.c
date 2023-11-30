@@ -39,15 +39,12 @@
 
 #include "pfcp.h"
 #include "upf.h"
-#include "upf/flowtable.h"
 #include "upf_app_db.h"
 #include "upf_pfcp.h"
 #include "upf_pfcp_api.h"
 #include "upf_pfcp_server.h"
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
-#include "vppinfra/error.h"
-#include "vppinfra/error_bootstrap.h"
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -1195,8 +1192,6 @@ session_flow_unlink_handler (flowtable_main_t * fm, flow_entry_t * flow,
   ASSERT (!pool_is_free_index (fm->flows, flow_index));
 
   session_flows_list_remove (fm->flows, &sx->flows, flow);
-
-  clib_warning("unlink handler f %d", flow_index);
 
   return 0;
 }

@@ -11,7 +11,7 @@ Also this implementation can create typed helpers.
 
 #if CLIB_ASSERT_ENABLE
   /* llist debug adds count field to list to verify it's length */
-  // #define UPF_LLIST_DEBUG
+  #define UPF_LLIST_DEBUG
 #endif
 
 typedef struct {
