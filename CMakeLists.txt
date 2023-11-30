@@ -129,6 +129,7 @@ set(UPF_PLUGIN_HEADER_FILES
   upf/upf_ipfix_templates.h
   upf/upf_gtpu_error.def
   upf/version.h
+  upf/llist.h
 )
 
 set(UPF_API_TEST_SOURCE_FILES

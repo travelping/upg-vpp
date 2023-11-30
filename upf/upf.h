@@ -799,8 +799,7 @@ typedef struct
 
   pfcp_user_id_t user_id;
 
-  /* per-session flow list linkage */
-  u32 first_flow_index;
+  session_flows_list_t flows;
 
   u16 generation;
 } upf_session_t;
