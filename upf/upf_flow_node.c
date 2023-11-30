@@ -347,22 +347,19 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  if (PREDICT_FALSE
 	      (pool_is_free_index
 	       (gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index)))
-	    if (PREDICT_FALSE (pool_is_free_index (gtm->sessions,
-						   upf_buffer_opaque
-						   (b0)->gtpu.session_index)))
-	      {
-		/*
-		 * break out of the dual loop and let the
-		 * single loop handle the problem
-		 */
+	    {
+	      /*
+	       * break out of the dual loop and let the
+	       * single loop handle the problem
+	       */
 
-		/* TODO: see comment in dual loop */
+	      /* TODO: see comment in dual loop */
 
-		CPT_UNHANDLED++;
-		next0 = FT_NEXT_DROP;
+	      CPT_UNHANDLED++;
+	      next0 = FT_NEXT_DROP;
 
-		goto stats1;
-	      }
+	      goto stats1;
+	    }
 
 	  p =
 	    vlib_buffer_get_current (b0) +
@@ -371,7 +368,6 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  sx0 =
 	    pool_elt_at_index (gtm->sessions,
 			       upf_buffer_opaque (b0)->gtpu.session_index);
-
 
 	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
 
@@ -382,13 +378,16 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 					   timestamp_ns, current_time,
 					   is_reverse, sx0->generation,
 					   sx0 - gtm->sessions, &created);
-
 	  if (created)
 	    {
+	      flow_entry_t *f = pool_elt_at_index (fm->flows, flow_idx);
+	      ASSERT (!session_flows_list_el_is_part_of_list (f));
+
 	      session_flows_list_insert_tail (fm->flows, &sx0->flows,
 					      pool_elt_at_index (fm->flows,
 								 flow_idx));
-	      flow_entry_t *f = pool_elt_at_index (fm->flows, flow_idx);
+
+	      ASSERT (session_flows_list_el_is_part_of_list (f));
 	    }
 
 	  if (PREDICT_FALSE (~0 == flow_idx))

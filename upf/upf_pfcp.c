@@ -1158,7 +1158,8 @@ pfcp_free_session (upf_session_t * sx)
   /* *INDENT-OFF* */
   upf_llist_foreach(f, fm->flows, session_list_anchor, &sx->flows, {
     flowtable_entry_remove (fm, f, now);
-    clib_warning("removed flow %d from sid %d", f - fm->flows, sx - gtm->sessions);
+
+    /* make sure session_flow_unlink_handler has been called */
     ASSERT (!session_flows_list_el_is_part_of_list (f));
   });
   /* *INDENT-ON* */
