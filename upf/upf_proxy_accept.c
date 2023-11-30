@@ -240,6 +240,10 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
       upf_debug ("flow_id: 0x%08x", flow_id);
       flow = pool_elt_at_index (fm->flows, flow_id);
       ASSERT (flow);
+
+      clib_warning("accept for flow %d", flow_id);
+
+      ASSERT (flow->session_index != ~0);
       ASSERT (!pool_is_free
 	      (gtm->sessions, gtm->sessions + flow->session_index));
 
@@ -267,7 +271,7 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 	upf_tcp_lookup_connection (fib_idx, b, thread_index, is_ip4, 0);
       if (PREDICT_FALSE (old_conn != NULL))
 	{
-	  clib_warning ("duplicate connection in upf-proxy-accept");
+	  clib_warning ("duplicate connection in upf-proxy-accept, flow %d", flow_id);
 	  error = UPF_PROXY_ERROR_CONNECTION_EXISTS;
 	  goto done;
 	}

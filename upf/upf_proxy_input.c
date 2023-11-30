@@ -399,7 +399,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    vnet_buffer (b)->sw_if_index[VLIB_RX];
 
 	  ftc = &flow_tc (flow, direction);
-
+          clib_warning("proxy input flow %d", flow - fm->flows);
 	  if (flow->is_spliced)
 	    {
 	      /* bypass TCP connection handling */

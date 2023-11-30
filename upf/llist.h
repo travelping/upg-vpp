@@ -11,7 +11,7 @@ Also this implementation can create typed helpers.
 
 #if CLIB_ASSERT_ENABLE
   /* llist debug adds count field to list to verify it's length */
-  #define UPF_LLIST_DEBUG
+  // #define UPF_LLIST_DEBUG
 #endif
 
 typedef struct {
@@ -173,13 +173,13 @@ do { \
 
 /* Create type aliases for specific type */
 #define UPF_LLIST_TEMPLATE_TYPES(NAME) \
-typedef upf_llist_t NAME ## _llist_t; \
+typedef upf_llist_t NAME ## _t; \
 typedef upf_llist_anchor_t NAME ## _anchor_t; \
 
 /* Create methods instead of macros for type verification */
 #define UPF_LLIST_TEMPLATE_DEFINITIONS(NAME, TYPE, ANCHOR) \
 static inline void __clib_unused \
-NAME ## _list_init(NAME ## _llist_t *list) { \
+NAME ## _init(NAME ## _t *list) { \
   upf_llist_init(list); \
 } \
 static void __clib_unused \
@@ -187,7 +187,7 @@ NAME ## _anchor_init(TYPE *el) { \
   upf_llist_anchor_init(ANCHOR, el); \
 } \
 static bool __clib_unused \
-NAME ## _list_is_empty(NAME ## _llist_t *list) { \
+NAME ## _is_empty(NAME ## _t *list) { \
   return upf_llist_list_is_empty(list); \
 } \
 static bool __clib_unused \
@@ -195,10 +195,10 @@ NAME ## _el_is_part_of_list(TYPE *el) { \
   return upf_llist_el_is_part_of_list(ANCHOR, el); \
 } \
 static void __clib_unused \
-NAME ## _insert_tail(TYPE *pool, NAME ## _llist_t *list, TYPE *el) { \
+NAME ## _insert_tail(TYPE *pool, NAME ## _t *list, TYPE *el) { \
   upf_llist_insert_tail(pool, ANCHOR, list, el); \
 } \
 static void __clib_unused \
-NAME ## _remove(TYPE *pool, NAME ## _llist_t *list, TYPE *el) { \
+NAME ## _remove(TYPE *pool, NAME ## _t *list, TYPE *el) { \
   upf_llist_remove(pool, ANCHOR, list, el); \
 }

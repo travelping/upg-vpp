@@ -15,6 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#define CLIB_DEBUG 1
+
 #ifndef __included_upf_h__
 #define __included_upf_h__
 
@@ -799,7 +802,7 @@ typedef struct
 
   pfcp_user_id_t user_id;
 
-  session_flows_llist_t flows;
+  session_flows_list_t flows;
 
   u16 generation;
 } upf_session_t;

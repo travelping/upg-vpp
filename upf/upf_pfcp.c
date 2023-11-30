@@ -46,6 +46,7 @@
 #include "upf_pfcp_server.h"
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
+#include "vppinfra/error.h"
 #include "vppinfra/error_bootstrap.h"
 
 #if CLIB_DEBUG > 1
@@ -1157,10 +1158,11 @@ pfcp_free_session (upf_session_t * sx)
    * Remove the flows belonging to the session before freeing the
    * session, so flow reporting can still be done on these flows
    */
-   /* *INDENT-OFF* */
-  upf_llist_foreach(f, fm->flows, session_anchor, &sx->flows, {
+  /* *INDENT-OFF* */
+  upf_llist_foreach(f, fm->flows, session_list_anchor, &sx->flows, {
     flowtable_entry_remove (fm, f, now);
-    ASSERT (!session_flows_el_is_part_of_list (f));
+    clib_warning("removed flow %d from sid %d", f - fm->flows, sx - gtm->sessions);
+    ASSERT (!session_flows_list_el_is_part_of_list (f));
   });
   /* *INDENT-ON* */
 
@@ -1187,11 +1189,14 @@ session_flow_unlink_handler (flowtable_main_t * fm, flow_entry_t * flow,
 			     flow_direction_t direction, u32 now)
 {
   upf_main_t *gtm = &upf_main;
+  ASSERT(flow->session_index != ~0);
   upf_session_t *sx = pool_elt_at_index (gtm->sessions, flow->session_index);
   u32 flow_index = flow - fm->flows;
   ASSERT (!pool_is_free_index (fm->flows, flow_index));
 
-  session_flows_remove (fm->flows, &sx->flows, flow);
+  session_flows_list_remove (fm->flows, &sx->flows, flow);
+
+  clib_warning("unlink handler f %d", flow_index);
 
   return 0;
 }

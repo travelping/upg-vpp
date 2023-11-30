@@ -26,6 +26,7 @@
 #include "upf_pfcp_api.h"
 #include "upf_proxy.h"
 #include "upf_app_db.h"
+#include "vppinfra/error.h"
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -1413,6 +1414,8 @@ upf_proxy_flow_remove_handler (flowtable_main_t * fm, flow_entry_t * flow,
 
   ps = proxy_session_get (flow->ps_index);
   ASSERT (ps);
+
+  clib_warning("removing proxy flow %d", flow - fm->flows);
 
   for (is_active_open = 0; is_active_open <= 1; is_active_open++)
     {
