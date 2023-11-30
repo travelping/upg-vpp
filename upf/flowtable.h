@@ -169,7 +169,8 @@ typedef struct flow_entry
   u16 nat_sport;
 } flow_entry_t;
 
-UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t, session_list_anchor);
+UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t,
+				session_list_anchor);
 
 /* accessor helper */
 #define flow_member(F, M, D)   (F)->M[(D) ^ (F)->is_reverse]

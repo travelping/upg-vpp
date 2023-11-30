@@ -1186,7 +1186,7 @@ session_flow_unlink_handler (flowtable_main_t * fm, flow_entry_t * flow,
 			     flow_direction_t direction, u32 now)
 {
   upf_main_t *gtm = &upf_main;
-  ASSERT(flow->session_index != ~0);
+  ASSERT (flow->session_index != ~0);
   upf_session_t *sx = pool_elt_at_index (gtm->sessions, flow->session_index);
   u32 flow_index = flow - fm->flows;
   ASSERT (!pool_is_free_index (fm->flows, flow_index));

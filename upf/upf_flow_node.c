@@ -228,11 +228,11 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 					   is_reverse0, sx0->generation,
 					   sx0 - gtm->sessions, &created0);
 	  if (created0)
-          {
-	    session_flows_list_insert_tail (fm->flows, &sx0->flows,
-				       pool_elt_at_index (fm->flows,
-							  flow_idx0));
-          }
+	    {
+	      session_flows_list_insert_tail (fm->flows, &sx0->flows,
+					      pool_elt_at_index (fm->flows,
+								 flow_idx0));
+	    }
 
 	  flow_idx1 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv1,
@@ -240,11 +240,11 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 					   is_reverse1, sx1->generation,
 					   sx1 - gtm->sessions, &created1);
 	  if (created1)
-          {
-	    session_flows_list_insert_tail (fm->flows, &sx1->flows,
-				       pool_elt_at_index (fm->flows,
-							  flow_idx1));
-          }
+	    {
+	      session_flows_list_insert_tail (fm->flows, &sx1->flows,
+					      pool_elt_at_index (fm->flows,
+								 flow_idx1));
+	    }
 
 	  if (PREDICT_FALSE (~0 == flow_idx0 || ~0 == flow_idx1))
 	    {
@@ -346,30 +346,31 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  if (PREDICT_FALSE
 	      (pool_is_free_index
-               (gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index)))
-          if (PREDICT_FALSE(pool_is_free_index(gtm->sessions,
-            upf_buffer_opaque (b0)->gtpu.session_index)))
-	    {
-	      /*
-	       * break out of the dual loop and let the
-	       * single loop handle the problem
-	       */
+	       (gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index)))
+	    if (PREDICT_FALSE (pool_is_free_index (gtm->sessions,
+						   upf_buffer_opaque
+						   (b0)->gtpu.session_index)))
+	      {
+		/*
+		 * break out of the dual loop and let the
+		 * single loop handle the problem
+		 */
 
-	      /* TODO: see comment in dual loop */
+		/* TODO: see comment in dual loop */
 
-	      CPT_UNHANDLED++;
-	      next0 = FT_NEXT_DROP;
+		CPT_UNHANDLED++;
+		next0 = FT_NEXT_DROP;
 
-	      goto stats1;
-	    }
+		goto stats1;
+	      }
 
 	  p =
 	    vlib_buffer_get_current (b0) +
 	    upf_buffer_opaque (b0)->gtpu.data_offset;
 
-         sx0 =
-           pool_elt_at_index (gtm->sessions,
-                              upf_buffer_opaque (b0)->gtpu.session_index);
+	  sx0 =
+	    pool_elt_at_index (gtm->sessions,
+			       upf_buffer_opaque (b0)->gtpu.session_index);
 
 
 	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
@@ -382,12 +383,13 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 					   is_reverse, sx0->generation,
 					   sx0 - gtm->sessions, &created);
 
-	  if (created) {
-	    session_flows_list_insert_tail (fm->flows, &sx0->flows,
-				       pool_elt_at_index (fm->flows,
-							  flow_idx));
-            flow_entry_t *f = pool_elt_at_index(fm->flows, flow_idx);
-          }
+	  if (created)
+	    {
+	      session_flows_list_insert_tail (fm->flows, &sx0->flows,
+					      pool_elt_at_index (fm->flows,
+								 flow_idx));
+	      flow_entry_t *f = pool_elt_at_index (fm->flows, flow_idx);
+	    }
 
 	  if (PREDICT_FALSE (~0 == flow_idx))
 	    {
