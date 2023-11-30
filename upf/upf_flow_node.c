@@ -226,28 +226,24 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    flowtable_entry_lookup_create (fm, fmt, &kv0,
 					   timestamp_ns, current_time,
 					   is_reverse0, sx0->generation,
-					   sx0->first_flow_index, &created0);
+					   sx0 - gtm->sessions, &created0);
 	  if (created0)
 	    {
-	      ASSERT (flowtable_get_flow
-		      (fm,
-		       flow_idx0)->next_session_flow_index ==
-		      sx0->first_flow_index);
-	      sx0->first_flow_index = flow_idx0;
+	      session_flows_list_insert_tail (fm->flows, &sx0->flows,
+					      pool_elt_at_index (fm->flows,
+								 flow_idx0));
 	    }
 
 	  flow_idx1 =
 	    flowtable_entry_lookup_create (fm, fmt, &kv1,
 					   timestamp_ns, current_time,
 					   is_reverse1, sx1->generation,
-					   sx1->first_flow_index, &created1);
+					   sx1 - gtm->sessions, &created1);
 	  if (created1)
 	    {
-	      ASSERT (flowtable_get_flow
-		      (fm,
-		       flow_idx1)->next_session_flow_index ==
-		      sx1->first_flow_index);
-	      sx1->first_flow_index = flow_idx1;
+	      session_flows_list_insert_tail (fm->flows, &sx1->flows,
+					      pool_elt_at_index (fm->flows,
+								 flow_idx1));
 	    }
 
 	  if (PREDICT_FALSE (~0 == flow_idx0 || ~0 == flow_idx1))
@@ -381,14 +377,17 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    flowtable_entry_lookup_create (fm, fmt, &kv,
 					   timestamp_ns, current_time,
 					   is_reverse, sx0->generation,
-					   sx0->first_flow_index, &created);
+					   sx0 - gtm->sessions, &created);
 	  if (created)
 	    {
-	      ASSERT (flowtable_get_flow
-		      (fm,
-		       flow_idx)->next_session_flow_index ==
-		      sx0->first_flow_index);
-	      sx0->first_flow_index = flow_idx;
+	      flow_entry_t *f = pool_elt_at_index (fm->flows, flow_idx);
+	      ASSERT (!session_flows_list_el_is_part_of_list (f));
+
+	      session_flows_list_insert_tail (fm->flows, &sx0->flows,
+					      pool_elt_at_index (fm->flows,
+								 flow_idx));
+
+	      ASSERT (session_flows_list_el_is_part_of_list (f));
 	    }
 
 	  if (PREDICT_FALSE (~0 == flow_idx))
