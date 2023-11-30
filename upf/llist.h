@@ -159,15 +159,20 @@ do { \
   /* Save head in case it's removed inside loop */ \
   if (!upf_llist_list_is_empty(__list)) { \
     u32 __head_idx = __list->head; \
-    u32 __cur_idx = __head_idx; \
+    typeof(POOL) __head_el = __upf_llist_get(POOL, __head_idx); \
+    u32 __last_idx = __head_el->ANCHOR.prev; \
+    u32 __next_idx = __head_idx; \
+    u32 __cur_idx; \
     do { \
-      typeof(POOL) __cur_el = __upf_llist_get(POOL, __cur_idx); \
-      u32 __next_idx = __cur_el->ANCHOR.next; \
-      ASSERT(upf_llist_el_is_part_of_list(ANCHOR, __cur_el)); \
-      typeof(POOL) VAR = __cur_el; \
-      BODY; \
       __cur_idx = __next_idx; \
-    } while (__cur_idx != __head_idx); \
+      typeof(POOL) __cur_el = __upf_llist_get(POOL, __cur_idx); \
+      __next_idx = __cur_el->ANCHOR.next; \
+      ASSERT(upf_llist_el_is_part_of_list(ANCHOR, __cur_el)); \
+      do { \
+        typeof(POOL) VAR = __cur_el; \
+        BODY; \
+      } while (0); \
+    } while (__cur_idx != __last_idx); \
   } \
 } while (0)
 
