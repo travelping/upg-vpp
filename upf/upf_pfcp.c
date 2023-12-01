@@ -605,7 +605,7 @@ pfcp_create_session (upf_node_assoc_t * assoc,
   sx->teid_by_chid =
     sparse_vec_new ( /*elt bytes */ sizeof (u32), /*bits in index */ 8);
 
-  sx->first_flow_index = ~0;
+  session_flows_list_init (&sx->flows);
 
   vlib_worker_thread_barrier_release (vm);
 
@@ -1147,7 +1147,6 @@ pfcp_free_session (upf_session_t * sx)
   vlib_main_t *vm = vlib_get_main ();
   upf_main_t *gtm = &upf_main;
   flowtable_main_t *fm = &flowtable_main;
-  u32 flow_index, next;
   u32 now = (u32) vlib_time_now (vm);
 
   vlib_worker_thread_barrier_sync (vm);
@@ -1156,14 +1155,16 @@ pfcp_free_session (upf_session_t * sx)
    * Remove the flows belonging to the session before freeing the
    * session, so flow reporting can still be done on these flows
    */
-  for (flow_index = sx->first_flow_index; flow_index != ~0; flow_index = next)
-    {
-      flow_entry_t *f = flowtable_get_flow (fm, flow_index);
-      next = f->next_session_flow_index;
-      flowtable_entry_remove (fm, f, now);
-      /* make sure session_flow_unlink_handler has been called */
-      ASSERT (sx->first_flow_index == next);
-    }
+  /* *INDENT-OFF* */
+  upf_llist_foreach(f, fm->flows, session_list_anchor, &sx->flows, {
+    flowtable_entry_remove (fm, f, now);
+
+    /* make sure session_flow_unlink_handler has been called */
+    ASSERT (!session_flows_list_el_is_part_of_list (f));
+  });
+  /* *INDENT-ON* */
+
+  ASSERT (session_flows_list_is_empty (&sx->flows));
 
   for (size_t i = 0; i < ARRAY_LEN (sx->rules); i++)
     pfcp_free_rules (sx, i);
@@ -1186,39 +1187,13 @@ session_flow_unlink_handler (flowtable_main_t * fm, flow_entry_t * flow,
 			     flow_direction_t direction, u32 now)
 {
   upf_main_t *gtm = &upf_main;
+  ASSERT (flow->session_index != ~0);
   upf_session_t *sx = pool_elt_at_index (gtm->sessions, flow->session_index);
   u32 flow_index = flow - fm->flows;
   ASSERT (!pool_is_free_index (fm->flows, flow_index));
 
-  if (sx->first_flow_index == flow_index)
-    sx->first_flow_index = flow->next_session_flow_index;
-  else
-    {
-      /*
-       * We could use a doubly-linked list for the session flows,
-       * making this part faster, but that would further enlarge the
-       * flow_entry_t structure, lowering cache efficiency, or would
-       * require a separate list for the session flow linkage. For
-       * now, we consider that the session shouldn't have too many
-       * flows in it to traverse that list upon flow expiration
-       */
-      u32 cur_flow_index;
-      flow_entry_t *cur_flow;
-      for (cur_flow_index = sx->first_flow_index; cur_flow_index != ~0;
-	   cur_flow_index = cur_flow->next_session_flow_index)
-	{
-	  cur_flow = flowtable_get_flow (fm, cur_flow_index);
-	  if (cur_flow->next_session_flow_index == flow_index)
-	    {
-	      cur_flow->next_session_flow_index =
-		flow->next_session_flow_index;
-	      break;
-	    }
-	}
+  session_flows_list_remove (fm->flows, &sx->flows, flow);
 
-      /* make sure the flow was present in the list */
-      ASSERT (cur_flow_index != ~0);
-    }
   return 0;
 }
 
