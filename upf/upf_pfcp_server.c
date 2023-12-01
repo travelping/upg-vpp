@@ -479,10 +479,10 @@ enqueue_request (pfcp_msg_t * msg, u32 n1, u32 t1)
 
   hash_set (psm->request_q, msg->seq_no, id);
   if (msg->session.idx != ~0) {
-    upf_session_requests_anchor_init(msg);
+    upf_session_requests_list_anchor_init(msg);
     upf_session_t *sx = pool_elt_at_index(upf_main.sessions, msg->session.idx);
 
-    upf_session_requests_insert_tail(psm->msg_pool, &sx->requests, msg);
+    upf_session_requests_list_insert_tail(psm->msg_pool, &sx->requests, msg);
   }
 
   msg->timer =
@@ -594,7 +594,7 @@ upf_pfcp_server_stop_request (pfcp_msg_t * req)
 
   if (req->session.idx != ~0) {
     upf_session_t *sx = pool_elt_at_index (gtm->sessions, req->session.idx);
-    upf_session_requests_remove(psm->msg_pool, &sx->requests, req);
+    upf_session_requests_list_remove(psm->msg_pool, &sx->requests, req);
     req->session.idx = ~0;
   }
   upf_pfcp_server_stop_msg_timer(req);

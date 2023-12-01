@@ -55,8 +55,8 @@
 #include "vnet/ip/ip46_address.h"
 #include "llist.h"
 
-UPF_LLIST_TEMPLATE_TYPES(upf_session_requests) // requests in flight for session
-UPF_LLIST_TEMPLATE_TYPES(upf_node_sessions) // sessions for node
+UPF_LLIST_TEMPLATE_TYPES(upf_session_requests_list) // requests in flight for session
+UPF_LLIST_TEMPLATE_TYPES(upf_node_sessions_list) // sessions for node
 
 /* #define UPF_TRAFFIC_LOG 1 */
 
@@ -759,7 +759,7 @@ typedef struct
   struct
   {
     u32 node;
-    upf_node_sessions_anchor_t anchor;
+    upf_node_sessions_list_anchor_t anchor;
   } assoc;
 
   uint32_t flags; // TODO: use bitfields instead
@@ -818,7 +818,7 @@ typedef struct
   // index in hashmap_cached_fseid_idx
   u32 cached_fseid_idx;
 
-  upf_session_requests_llist_t requests;
+  upf_session_requests_list_t requests;
 
   u16 generation; // increased on session modification request
 } upf_session_t;
@@ -907,7 +907,7 @@ typedef struct
   ip46_address_t rmt_addr;
   ip46_address_t lcl_addr;
 
-  upf_node_sessions_llist_t sessions;
+  upf_node_sessions_list_t sessions;
   u32 heartbeat_handle;
 
   u32 smf_set_idx;
@@ -1166,7 +1166,7 @@ void upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4);
 
 void upf_pfcp_policers_relalculate (qos_pol_cfg_params_st * cfg);
 
-UPF_LLIST_TEMPLATE_DEFINITIONS(upf_node_sessions, upf_session_t, assoc.anchor);
+UPF_LLIST_TEMPLATE_DEFINITIONS(upf_node_sessions_list, upf_session_t, assoc.anchor);
 
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)

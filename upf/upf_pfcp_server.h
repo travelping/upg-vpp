@@ -78,7 +78,7 @@ typedef struct
     // request can lost session attachment in-flight if session was removed
     // while request is being answered
     u32 idx;
-    upf_session_requests_anchor_t anchor;
+    upf_session_requests_list_anchor_t anchor;
   } session;
 
   u64 up_seid;
@@ -187,7 +187,7 @@ void upf_pfcp_server_session_usage_report (upf_event_urr_data_t * uev);
 
 clib_error_t *pfcp_server_main_init (vlib_main_t * vm);
 
-UPF_LLIST_TEMPLATE_DEFINITIONS(upf_session_requests, pfcp_msg_t, session.anchor)
+UPF_LLIST_TEMPLATE_DEFINITIONS(upf_session_requests_list, pfcp_msg_t, session.anchor)
 
 static inline void
 init_pfcp_msg (pfcp_msg_t * m)
@@ -199,7 +199,7 @@ init_pfcp_msg (pfcp_msg_t * m)
   m->node = ~0;
   m->session.idx = ~0;
   m->timer = ~0;
-  upf_session_requests_anchor_init(m);
+  upf_session_requests_list_anchor_init(m);
 }
 
 static inline void
@@ -279,7 +279,7 @@ _pfcp_msg_pool_put (pfcp_server_main_t * psm, pfcp_msg_t * m)
   ASSERT (m->flags.is_valid_pool_item);
 
   if (m->session.idx != ~0) {
-    ASSERT (!upf_session_requests_el_is_part_of_list(m) );
+    ASSERT (!upf_session_requests_list_el_is_part_of_list(m) );
   }
 
   vec_free (m->data);

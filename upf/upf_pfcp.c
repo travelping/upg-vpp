@@ -464,7 +464,7 @@ pfcp_release_association (upf_node_assoc_t * n)
 {
   upf_main_t *gtm = &upf_main;
   u32 node_id = n - gtm->nodes;
-  upf_node_sessions_llist_t *sessions = &n->sessions;
+  upf_node_sessions_list_t *sessions = &n->sessions;
   u32 *smf_alt_node_ids = NULL;
 
   upf_pfcp_associnfo
@@ -526,11 +526,7 @@ pfcp_release_association (upf_node_assoc_t * n)
           req->flags.is_migrated_in_smfset = 1;
           req->node = new_node_idx;
         });
-
-        upf_debug("session requests after migration %U",
-          format_upf_session_requests_llist, pfcp_server_main.msg_pool, &sx->requests);
       });
-
     } else {
       // remove sessions
       upf_llist_foreach(sx, gtm->sessions, assoc.anchor, sessions, {
@@ -649,7 +645,7 @@ node_assoc_attach_session (upf_node_assoc_t * n, upf_session_t * sx)
   upf_main_t *gtm = &upf_main;
   sx->assoc.node = n - gtm->nodes;
 
-  upf_node_sessions_insert_tail(gtm->sessions, &n->sessions, sx);
+  upf_node_sessions_list_insert_tail(gtm->sessions, &n->sessions, sx);
 }
 
 static void
@@ -662,7 +658,7 @@ node_assoc_detach_session (upf_session_t * sx)
 
   n = pool_elt_at_index (gtm->nodes, sx->assoc.node);
 
-  upf_node_sessions_remove(gtm->sessions, &n->sessions, sx);
+  upf_node_sessions_list_remove(gtm->sessions, &n->sessions, sx);
   sx->assoc.node = ~0;
 }
 
@@ -752,7 +748,7 @@ pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up
   sx->up_seid = up_seid;
   sx->cached_fseid_idx = ~0;
   sx->assoc.node = ~0;
-  upf_node_sessions_anchor_init(sx);
+  upf_node_sessions_list_anchor_init(sx);
   upf_session_requests_list_init(&sx->requests);
 
   pfcp_session_set_cp_fseid (sx, cp_f_seid);
@@ -1291,7 +1287,7 @@ pfcp_disable_session (upf_session_t * sx)
 
   /* detach all requests */
   upf_llist_foreach(req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
-    upf_session_requests_remove(pfcp_server_main.msg_pool, &sx->requests, req);
+    upf_session_requests_list_remove(pfcp_server_main.msg_pool, &sx->requests, req);
     req->session.idx = ~0;
   });
 
@@ -3290,7 +3286,7 @@ format_pfcp_node_association (u8 * s, va_list * args)
   upf_node_assoc_t *node = va_arg (*args, upf_node_assoc_t *);
   u8 verbose = va_arg (*args, int);
   upf_main_t *gtm = &upf_main;
-  upf_node_sessions_llist_t *sessions = &node->sessions;
+  upf_node_sessions_list_t *sessions = &node->sessions;
   u32 i = 0;
 
   s = format (s,
