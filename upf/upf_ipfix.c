@@ -484,11 +484,8 @@ upf_ipfix_flow_stats_update_handler (flowtable_main_t * _fm,
     return 0;
 
   info = pool_elt_at_index (fm->infos, iidx);
-  if (info->report_interval != ~0)
-    {
-      if (now > flow_last_exported(f, direction) + info->report_interval)
-        upf_ipfix_export_entry (vm, f, direction, now, false);
-    }
+  if (now > flow_last_exported(f, direction) + info->report_interval)
+    upf_ipfix_export_entry (vm, f, direction, now, false);
 
   return 0;
 }
@@ -672,7 +669,7 @@ upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key)
   else
     clib_warning ("non-existent egress NWI at index %u", key->info_nwi_index);
 
-  if (info->report_interval == 0)
+  if (info->report_interval == 0 || info->report_interval == ~0)
     info->report_interval = UPF_IPFIX_DEFAULT_REPORT_INTERVAL;
 
   context_key.policy = key->policy;

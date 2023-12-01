@@ -430,7 +430,7 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
       else if (unformat (line_input, "ipfix-collector-ip %U",
 			 unformat_ip_address, &ipfix_collector_ip))
 	;
-      else if (unformat (line_input, "ipfix-report-interval %d",
+      else if (unformat (line_input, "ipfix-report-interval %u",
 			 &ipfix_report_interval))
 	;
       else
