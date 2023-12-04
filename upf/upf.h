@@ -55,8 +55,8 @@
 #include "vnet/ip/ip46_address.h"
 #include "llist.h"
 
-UPF_LLIST_TEMPLATE_TYPES(upf_session_requests_list) // requests in flight for session
-UPF_LLIST_TEMPLATE_TYPES(upf_node_sessions_list) // sessions for node
+UPF_LLIST_TEMPLATE_TYPES(upf_session_requests_list); // requests in flight for session
+UPF_LLIST_TEMPLATE_TYPES(upf_node_sessions_list); // sessions for node
 
 /* #define UPF_TRAFFIC_LOG 1 */
 

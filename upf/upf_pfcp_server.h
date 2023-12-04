@@ -187,7 +187,7 @@ void upf_pfcp_server_session_usage_report (upf_event_urr_data_t * uev);
 
 clib_error_t *pfcp_server_main_init (vlib_main_t * vm);
 
-UPF_LLIST_TEMPLATE_DEFINITIONS(upf_session_requests_list, pfcp_msg_t, session.anchor)
+UPF_LLIST_TEMPLATE_DEFINITIONS(upf_session_requests_list, pfcp_msg_t, session.anchor);
 
 static inline void
 init_pfcp_msg (pfcp_msg_t * m)

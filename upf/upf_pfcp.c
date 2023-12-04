@@ -512,32 +512,36 @@ pfcp_release_association (upf_node_assoc_t * n)
       u32 alt_node_count = vec_len(smf_alt_node_ids);
       u32 rand_seed = unix_time_now_nsec();
 
-      upf_llist_foreach(sx, gtm->sessions, assoc.anchor, sessions, {
+      /* *INDENT-OFF* */
+      upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
         ASSERT (sx->assoc.node == node_id);
 
-        u32 random_idx = random_u32(&rand_seed) % alt_node_count;
-        u32 new_node_idx = vec_elt(smf_alt_node_ids, random_idx);
-        upf_node_assoc_t *new_node = pool_elt_at_index(gtm->nodes, new_node_idx);
+        u32 random_idx = random_u32 (&rand_seed) % alt_node_count;
+        u32 new_node_idx = vec_elt (smf_alt_node_ids, random_idx);
+        upf_node_assoc_t *new_node = pool_elt_at_index (gtm->nodes, new_node_idx);
 
         sx->flags |= UPF_SESSION_LOST_CP;
 
-        node_assoc_detach_session(sx);
-        node_assoc_attach_session(new_node, sx);
+        node_assoc_detach_session (sx);
+        node_assoc_attach_session (new_node, sx);
 
         // mark all in-flight session requests
-        upf_llist_foreach(req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
+        upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
           req->flags.is_migrated_in_smfset = 1;
           req->node = new_node_idx;
         });
       });
+      /* *INDENT-ON* */
     } else {
       // remove sessions
+      /* *INDENT-OFF* */
       upf_llist_foreach(sx, gtm->sessions, assoc.anchor, sessions, {
         ASSERT (sx->assoc.node == node_id);
 
         pfcp_disable_session (sx);
         pfcp_free_session (sx);
       });
+      /* *INDENT-ON* */
     }
   vec_free(smf_alt_node_ids);
 
@@ -1301,10 +1305,12 @@ pfcp_disable_session (upf_session_t * sx)
   upf_pfcp_session_stop_up_inactivity_timer (&active->inactivity_timer);
 
   /* detach all requests */
-  upf_llist_foreach(req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
-    upf_session_requests_list_remove(pfcp_server_main.msg_pool, &sx->requests, req);
+  /* *INDENT-OFF* */
+  upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
+    upf_session_requests_list_remove (pfcp_server_main.msg_pool, &sx->requests, req);
     req->session.idx = ~0;
   });
+  /* *INDENT-ON* */
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters
 				 [UPF_SESSIONS_COUNTER],
@@ -3312,7 +3318,8 @@ format_pfcp_node_association (u8 * s, va_list * args)
 	      format_time_stamp, &node->recovery_time_stamp);
 
   if (verbose) {
-    upf_llist_foreach(sx, gtm->sessions, assoc.anchor, sessions, {
+    /* *INDENT-OFF* */
+    upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
       if (i > 0 && (i % 8) == 0)
         s = format (s, "\n            ");
 
@@ -3320,6 +3327,7 @@ format_pfcp_node_association (u8 * s, va_list * args)
 
       i++;
     });
+    /* *INDENT-ON* */
   }
 
   if (verbose)
