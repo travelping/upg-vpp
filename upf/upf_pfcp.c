@@ -60,7 +60,8 @@
 upf_main_t upf_main;
 qos_pol_cfg_params_st pfcp_rate_cfg_main;
 
-static void node_assoc_attach_session (upf_node_assoc_t * n, upf_session_t * sx);
+static void node_assoc_attach_session (upf_node_assoc_t * n,
+				       upf_session_t * sx);
 static void node_assoc_detach_session (upf_session_t * sx);
 
 static void pfcp_add_del_ue_ip (const void *ue_ip, void *si, int is_add);
@@ -427,7 +428,7 @@ pfcp_new_association (session_handle_t session_handle,
   upf_node_assoc_t *n;
 
   pool_get_aligned_zero (gtm->nodes, n, CLIB_CACHE_LINE_BYTES);
-  upf_node_sessions_list_init(&n->sessions);
+  upf_node_sessions_list_init (&n->sessions);
   n->idx_in_smf_set_nodes_pool = ~0;
   n->smf_set_idx = ~0;
   n->node_id = *node_id;
@@ -435,7 +436,7 @@ pfcp_new_association (session_handle_t session_handle,
   n->lcl_addr = *lcl_addr;
   n->rmt_addr = *rmt_addr;
 
-  mhash_init(&n->hash_cp_seid_to_session_id, sizeof(uword), sizeof(u64));
+  mhash_init (&n->hash_cp_seid_to_session_id, sizeof (uword), sizeof (u64));
 
   switch (node_id->type)
     {
@@ -493,24 +494,23 @@ pfcp_release_association (upf_node_assoc_t * n)
 
   if (n->smf_set_idx != ~0)
     {
-      smf_alt_node_ids = pfcp_node_exit_smf_set(n);
+      smf_alt_node_ids = pfcp_node_exit_smf_set (n);
 #if CLIB_DEBUG > 1
       u32 *set_node_id;
-      vec_foreach(set_node_id, smf_alt_node_ids)
+      vec_foreach (set_node_id, smf_alt_node_ids)
       {
-        upf_node_assoc_t *node = pool_elt_at_index(gtm->nodes, *set_node_id);
-        upf_debug("smf_set remaining %d node: %U",
-                  (u32)(node - gtm->nodes),
-                  format_node_id, &node->node_id);
+	upf_node_assoc_t *node = pool_elt_at_index (gtm->nodes, *set_node_id);
+	upf_debug ("smf_set remaining %d node: %U",
+		   (u32) (node - gtm->nodes), format_node_id, &node->node_id);
       }
 #endif
     }
 
-  if (vec_len(smf_alt_node_ids))
+  if (vec_len (smf_alt_node_ids))
     {
       // migrate sessions to peers in smf set
-      u32 alt_node_count = vec_len(smf_alt_node_ids);
-      u32 rand_seed = unix_time_now_nsec();
+      u32 alt_node_count = vec_len (smf_alt_node_ids);
+      u32 rand_seed = unix_time_now_nsec ();
 
       /* *INDENT-OFF* */
       upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
@@ -532,7 +532,9 @@ pfcp_release_association (upf_node_assoc_t * n)
         });
       });
       /* *INDENT-ON* */
-    } else {
+    }
+  else
+    {
       // remove sessions
       /* *INDENT-OFF* */
       upf_llist_foreach(sx, gtm->sessions, assoc.anchor, sessions, {
@@ -543,23 +545,24 @@ pfcp_release_association (upf_node_assoc_t * n)
       });
       /* *INDENT-ON* */
     }
-  vec_free(smf_alt_node_ids);
+  vec_free (smf_alt_node_ids);
 
-  ASSERT(upf_node_sessions_list_is_empty(sessions));
+  ASSERT (upf_node_sessions_list_is_empty (sessions));
 
   upf_pfcp_server_deferred_free_msgs_by_node (node_id);
   pool_put_index (gtm->pfcp_policers, n->policer_idx);
 
   pool_put (gtm->nodes, n);
 
-  mhash_free(&n->hash_cp_seid_to_session_id);
+  mhash_free (&n->hash_cp_seid_to_session_id);
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
 }
 
 uword
-pfcp_new_smf_set (u8* fqdn) {
+pfcp_new_smf_set (u8 * fqdn)
+{
   upf_main_t *gtm = &upf_main;
   upf_smf_set_t *new_smfs;
   uword new_smfs_idx;
@@ -571,13 +574,14 @@ pfcp_new_smf_set (u8* fqdn) {
   new_smfs_idx = new_smfs - gtm->smf_sets;
   hash_set_mem (gtm->smf_set_by_fqdn, new_smfs->fqdn, new_smfs_idx);
 
-  upf_debug("new smf set %U", format_dns_labels, new_smfs->fqdn);
+  upf_debug ("new smf set %U", format_dns_labels, new_smfs->fqdn);
 
   return new_smfs_idx;
 }
 
 uword
-pfcp_ensure_smf_set (u8* fqdn) {
+pfcp_ensure_smf_set (u8 * fqdn)
+{
   upf_main_t *gtm = &upf_main;
   ASSERT (fqdn);
 
@@ -585,39 +589,42 @@ pfcp_ensure_smf_set (u8* fqdn) {
   if (smfs_idx)
     {
       return *smfs_idx;
-    } else {
-      return pfcp_new_smf_set(fqdn);
+    }
+  else
+    {
+      return pfcp_new_smf_set (fqdn);
     }
 }
 
 void
-pfcp_free_smf_set (upf_smf_set_t * smfs) {
+pfcp_free_smf_set (upf_smf_set_t * smfs)
+{
   upf_main_t *gtm = &upf_main;
 
-  ASSERT(pool_len(smfs->node_ids_pool) == 0);
-  pool_free(smfs->node_ids_pool);
-  vec_free(smfs->fqdn);
+  ASSERT (pool_len (smfs->node_ids_pool) == 0);
+  pool_free (smfs->node_ids_pool);
+  vec_free (smfs->fqdn);
 
-  pool_put(gtm->smf_sets, smfs);
+  pool_put (gtm->smf_sets, smfs);
 }
 
 void
-pfcp_node_enter_smf_set (upf_node_assoc_t * n, u8* fqdn) {
+pfcp_node_enter_smf_set (upf_node_assoc_t * n, u8 * fqdn)
+{
   upf_main_t *gtm = &upf_main;
   u32 *node_idx_in_smf_set;
 
   ASSERT (fqdn);
   ASSERT (n->smf_set_idx == ~0);
 
-  uword smfs_idx = pfcp_ensure_smf_set(fqdn);
-  upf_smf_set_t *smfs = pool_elt_at_index(gtm->smf_sets, smfs_idx);
+  uword smfs_idx = pfcp_ensure_smf_set (fqdn);
+  upf_smf_set_t *smfs = pool_elt_at_index (gtm->smf_sets, smfs_idx);
 
-  pool_get(smfs->node_ids_pool, node_idx_in_smf_set);
+  pool_get (smfs->node_ids_pool, node_idx_in_smf_set);
   *node_idx_in_smf_set = n - gtm->nodes;
 
-  upf_debug("node %d %U entered set %U", n - gtm->nodes,
-            format_node_id, &n->node_id,
-            format_dns_labels, smfs->fqdn);
+  upf_debug ("node %d %U entered set %U", n - gtm->nodes,
+	     format_node_id, &n->node_id, format_dns_labels, smfs->fqdn);
 
   n->smf_set_idx = smfs_idx;
   n->idx_in_smf_set_nodes_pool = node_idx_in_smf_set - smfs->node_ids_pool;
@@ -625,27 +632,32 @@ pfcp_node_enter_smf_set (upf_node_assoc_t * n, u8* fqdn) {
 
 // returns vector of alternative node ids
 u32 *
-pfcp_node_exit_smf_set (upf_node_assoc_t * n) {
+pfcp_node_exit_smf_set (upf_node_assoc_t * n)
+{
   upf_main_t *gtm = &upf_main;
   u32 *alternatives = NULL;
   ASSERT (n->smf_set_idx != ~0);
 
-  upf_smf_set_t *smfs = pool_elt_at_index(gtm->smf_sets, n->smf_set_idx);
+  upf_smf_set_t *smfs = pool_elt_at_index (gtm->smf_sets, n->smf_set_idx);
 
-  pool_put_index(smfs->node_ids_pool, n->idx_in_smf_set_nodes_pool);
+  pool_put_index (smfs->node_ids_pool, n->idx_in_smf_set_nodes_pool);
   n->idx_in_smf_set_nodes_pool = ~0;
   n->smf_set_idx = ~0;
 
-  if (pool_elts (smfs) == 0) {
-    pfcp_free_smf_set (smfs);
-    return NULL;
-  } else {
-    u32 *node_id;
-    pool_foreach (node_id, smfs->node_ids_pool) {
-      vec_add1 (alternatives, *node_id);
+  if (pool_elts (smfs) == 0)
+    {
+      pfcp_free_smf_set (smfs);
+      return NULL;
     }
-    return alternatives;
-  }
+  else
+    {
+      u32 *node_id;
+      pool_foreach (node_id, smfs->node_ids_pool)
+      {
+	vec_add1 (alternatives, *node_id);
+      }
+      return alternatives;
+    }
 }
 
 static void
@@ -654,12 +666,14 @@ node_assoc_attach_session (upf_node_assoc_t * n, upf_session_t * sx)
   upf_main_t *gtm = &upf_main;
   sx->assoc.node = n - gtm->nodes;
 
-  if (!(sx->flags & UPF_SESSION_LOST_CP)) {
-    /* if we have valid cp_seid, use it */
-    mhash_set(&n->hash_cp_seid_to_session_id, &sx->cp_seid, sx - gtm->sessions, NULL);
-  }
+  if (!(sx->flags & UPF_SESSION_LOST_CP))
+    {
+      /* if we have valid cp_seid, use it */
+      mhash_set (&n->hash_cp_seid_to_session_id, &sx->cp_seid,
+		 sx - gtm->sessions, NULL);
+    }
 
-  upf_node_sessions_list_insert_tail(gtm->sessions, &n->sessions, sx);
+  upf_node_sessions_list_insert_tail (gtm->sessions, &n->sessions, sx);
 }
 
 static void
@@ -672,60 +686,64 @@ node_assoc_detach_session (upf_session_t * sx)
 
   n = pool_elt_at_index (gtm->nodes, sx->assoc.node);
 
-  if (!(sx->flags & UPF_SESSION_LOST_CP)) {
-    /* if we have valid cp_seid, remove it */
-    mhash_unset(&n->hash_cp_seid_to_session_id, &sx->cp_seid, NULL);
-  }
+  if (!(sx->flags & UPF_SESSION_LOST_CP))
+    {
+      /* if we have valid cp_seid, remove it */
+      mhash_unset (&n->hash_cp_seid_to_session_id, &sx->cp_seid, NULL);
+    }
 
-  upf_node_sessions_list_remove(gtm->sessions, &n->sessions, sx);
+  upf_node_sessions_list_remove (gtm->sessions, &n->sessions, sx);
   sx->assoc.node = ~0;
 }
 
 void
-pfcp_session_free_fseid(upf_session_t * sx)
+pfcp_session_free_fseid (upf_session_t * sx)
 {
   upf_main_t *gtm = &upf_main;
   upf_cached_f_seid_t *cached_fseid;
 
   ASSERT (sx->cached_fseid_idx != ~0);
 
-  cached_fseid = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
+  cached_fseid =
+    pool_elt_at_index (gtm->cached_fseid_pool, sx->cached_fseid_idx);
   cached_fseid->refcount -= 1;
 
-  if (cached_fseid->refcount == 0) {
-    hash_unset_mem_free(&gtm->hashmap_cached_fseid_idx, &cached_fseid->key);
-    ASSERT(hash_get_mem(gtm->hashmap_cached_fseid_idx, &cached_fseid->key) == 0);
-    pool_put(gtm->cached_fseid_pool, cached_fseid);
-  }
+  if (cached_fseid->refcount == 0)
+    {
+      hash_unset_mem_free (&gtm->hashmap_cached_fseid_idx,
+			   &cached_fseid->key);
+      ASSERT (hash_get_mem (gtm->hashmap_cached_fseid_idx, &cached_fseid->key)
+	      == 0);
+      pool_put (gtm->cached_fseid_pool, cached_fseid);
+    }
   sx->cached_fseid_idx = ~0;
 }
 
 void
-pfcp_session_set_cp_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
+pfcp_session_set_cp_fseid (upf_session_t * sx, pfcp_f_seid_t * f_seid)
 {
   upf_main_t *gtm = &upf_main;
 
-  if (sx->cached_fseid_idx != ~0) {
-    pfcp_session_free_fseid(sx);
-  }
+  if (sx->cached_fseid_idx != ~0)
+    {
+      pfcp_session_free_fseid (sx);
+    }
 
 #if CLIB_DEBUG > 1
   upf_cached_f_seid_key_t *k;
   u32 v;
 
-  hash_foreach_mem(k, v, gtm->hashmap_cached_fseid_idx, {
-    upf_cached_f_seid_t *kfsd = gtm->cached_fseid_pool + v;
-    clib_warning("fseid hashmap dump [%d, %U, %U] => %d [%d, %U, %U] ref: %d",
-      k->flags,
-      format_ip4_address, &k->ip4,
-      format_ip6_address, &k->ip6,
-      v,
-      kfsd->key.flags,
-      format_ip4_address, &kfsd->key.ip4,
-      format_ip6_address, &kfsd->key.ip6,
-      kfsd->refcount
-    );
-  });
+  hash_foreach_mem (k, v, gtm->hashmap_cached_fseid_idx,
+		    {
+		    upf_cached_f_seid_t * kfsd = gtm->cached_fseid_pool + v;
+		    clib_warning
+		    ("fseid hashmap dump [%d, %U, %U] => %d [%d, %U, %U] ref: %d",
+		     k->flags, format_ip4_address, &k->ip4,
+		     format_ip6_address, &k->ip6, v, kfsd->key.flags,
+		     format_ip4_address, &kfsd->key.ip4, format_ip6_address,
+		     &kfsd->key.ip6, kfsd->refcount);
+		    }
+  );
 #endif
 
   upf_cached_f_seid_key_t key = {
@@ -737,14 +755,19 @@ pfcp_session_set_cp_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
   uword *existing_f_seid;
   upf_cached_f_seid_t *cached_f_seid;
 
-  existing_f_seid = hash_get_mem(gtm->hashmap_cached_fseid_idx, &key);
-  if (existing_f_seid) {
-    cached_f_seid = pool_elt_at_index(gtm->cached_fseid_pool, existing_f_seid[0]);
-  } else {
-    pool_get_zero(gtm->cached_fseid_pool, cached_f_seid);
-    cached_f_seid->key = key;
-    hash_set_mem_alloc(&gtm->hashmap_cached_fseid_idx, &key, cached_f_seid - gtm->cached_fseid_pool);
-  }
+  existing_f_seid = hash_get_mem (gtm->hashmap_cached_fseid_idx, &key);
+  if (existing_f_seid)
+    {
+      cached_f_seid =
+	pool_elt_at_index (gtm->cached_fseid_pool, existing_f_seid[0]);
+    }
+  else
+    {
+      pool_get_zero (gtm->cached_fseid_pool, cached_f_seid);
+      cached_f_seid->key = key;
+      hash_set_mem_alloc (&gtm->hashmap_cached_fseid_idx, &key,
+			  cached_f_seid - gtm->cached_fseid_pool);
+    }
 
   sx->cached_fseid_idx = cached_f_seid - gtm->cached_fseid_pool;
   sx->cp_seid = f_seid->seid;
@@ -753,7 +776,8 @@ pfcp_session_set_cp_fseid(upf_session_t * sx, pfcp_f_seid_t * f_seid)
 }
 
 upf_session_t *
-pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up_seid)
+pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid,
+		     u64 up_seid)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   vlib_main_t *vm = vlib_get_main ();
@@ -767,8 +791,8 @@ pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid, u64 up
   sx->up_seid = up_seid;
   sx->cached_fseid_idx = ~0;
   sx->assoc.node = ~0;
-  upf_node_sessions_list_anchor_init(sx);
-  upf_session_requests_list_init(&sx->requests);
+  upf_node_sessions_list_anchor_init (sx);
+  upf_session_requests_list_init (&sx->requests);
 
   pfcp_session_set_cp_fseid (sx, cp_f_seid);
 
@@ -1343,7 +1367,7 @@ pfcp_free_session (upf_session_t * sx)
 
   vlib_worker_thread_barrier_sync (vm);
 
-  ASSERT(upf_session_requests_list_is_empty(&sx->requests));
+  ASSERT (upf_session_requests_list_is_empty (&sx->requests));
 
   /*
    * Remove the flows belonging to the session before freeing the
@@ -1369,9 +1393,10 @@ pfcp_free_session (upf_session_t * sx)
     upf_delete_nat_binding (sx);
 
   free_user_id (&sx->user_id);
-  if (sx->cached_fseid_idx != ~0) {
-    pfcp_session_free_fseid (sx);
-  }
+  if (sx->cached_fseid_idx != ~0)
+    {
+      pfcp_session_free_fseid (sx);
+    }
 
 #ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_free (&sx->lock);
@@ -3001,22 +3026,25 @@ format_pfcp_session (u8 * s, va_list * args)
   upf_qer_t *qer;
   u8 *user_id_str;
 
-  upf_node_assoc_t *assoc = pool_elt_at_index(gtm->nodes, sx->assoc.node);
+  upf_node_assoc_t *assoc = pool_elt_at_index (gtm->nodes, sx->assoc.node);
 
-  upf_cached_f_seid_key_t f_seid = {};
-  if (sx->cached_fseid_idx != ~0) {
-    upf_cached_f_seid_t *cached = pool_elt_at_index(gtm->cached_fseid_pool, sx->cached_fseid_idx);
-    f_seid = cached->key;
-  }
+  upf_cached_f_seid_key_t f_seid = { };
+  if (sx->cached_fseid_idx != ~0)
+    {
+      upf_cached_f_seid_t *cached =
+	pool_elt_at_index (gtm->cached_fseid_pool, sx->cached_fseid_idx);
+      f_seid = cached->key;
+    }
 
   s = format (s,
 	      "CP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U\n"
 	      "UP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U (%U %U)\n",
 	      sx->cp_seid, sx->cp_seid,
-              format_ip46_address, &assoc->rmt_addr, IP46_TYPE_ANY,
-              sx->up_seid, sx->up_seid,
-              format_ip46_address, &assoc->lcl_addr, IP46_TYPE_ANY,
-              format_ip4_address, &f_seid.ip4, format_ip6_address, &f_seid.ip6);
+	      format_ip46_address, &assoc->rmt_addr, IP46_TYPE_ANY,
+	      sx->up_seid, sx->up_seid,
+	      format_ip46_address, &assoc->lcl_addr, IP46_TYPE_ANY,
+	      format_ip4_address, &f_seid.ip4, format_ip6_address,
+	      &f_seid.ip6);
 
   user_id_str = format (0, "%U", format_user_id, &sx->user_id);
   if (user_id_str)
@@ -3317,7 +3345,8 @@ format_pfcp_node_association (u8 * s, va_list * args)
 	      format_node_id, &node->node_id,
 	      format_time_stamp, &node->recovery_time_stamp);
 
-  if (verbose) {
+  if (verbose)
+    {
     /* *INDENT-OFF* */
     upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
       if (i > 0 && (i % 8) == 0)
@@ -3328,7 +3357,7 @@ format_pfcp_node_association (u8 * s, va_list * args)
       i++;
     });
     /* *INDENT-ON* */
-  }
+    }
 
   if (verbose)
     s = format (s, "\n  %u Session(s)\n", i);

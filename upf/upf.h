@@ -55,8 +55,8 @@
 #include "vnet/ip/ip46_address.h"
 #include "llist.h"
 
-UPF_LLIST_TEMPLATE_TYPES(upf_session_requests_list); // requests in flight for session
-UPF_LLIST_TEMPLATE_TYPES(upf_node_sessions_list); // sessions for node
+UPF_LLIST_TEMPLATE_TYPES (upf_session_requests_list);	// requests in flight for session
+UPF_LLIST_TEMPLATE_TYPES (upf_node_sessions_list);	// sessions for node
 
 /* #define UPF_TRAFFIC_LOG 1 */
 
@@ -766,9 +766,9 @@ typedef struct
     upf_node_sessions_list_anchor_t anchor;
   } assoc;
 
-  uint32_t flags; // TODO: use bitfields instead
-#define UPF_SESSION_LOST_CP         BIT(0) // remote cp peer is down, f_seid is old
-#define UPF_SESSION_UPDATING        BIT(1) // TODO: remove, looks like not used
+  uint32_t flags;		// TODO: use bitfields instead
+#define UPF_SESSION_LOST_CP         BIT(0)	// remote cp peer is down, f_seid is old
+#define UPF_SESSION_UPDATING        BIT(1)	// TODO: remove, looks like not used
 
   volatile int active;
 
@@ -824,7 +824,7 @@ typedef struct
 
   upf_session_requests_list_t requests;
 
-  u16 generation; // increased on session modification request
+  u16 generation;		// increased on session modification request
 } upf_session_t;
 
 
@@ -929,7 +929,7 @@ typedef struct
   u8 *fqdn;
 
   // TODO: use llist instead
-  u32 *node_ids_pool; // pool of node ids
+  u32 *node_ids_pool;		// pool of node ids
 } upf_smf_set_t;
 
 typedef u8 *regex_t;
@@ -1019,7 +1019,7 @@ typedef struct
   upf_session_t *sessions;
 
   /* lookup session by up seid */
-  uword *session_by_up_seid;		/* keyed session id */
+  uword *session_by_up_seid;	/* keyed session id */
 
   /* lookup tunnel by TEID */
   clib_bihash_8_8_t v4_tunnel_by_key;	/* keyed session id */
@@ -1046,7 +1046,7 @@ typedef struct
   /* pool of SMF sets */
   upf_smf_set_t *smf_sets;
   /* lookup SMF sets */
-  uword *smf_set_by_fqdn; // hashmap to smf set id
+  uword *smf_set_by_fqdn;	// hashmap to smf set id
 
   /* upg-related counters */
   vlib_simple_counter_main_t *upf_simple_counters;
@@ -1175,7 +1175,8 @@ void upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4);
 
 void upf_pfcp_policers_relalculate (qos_pol_cfg_params_st * cfg);
 
-UPF_LLIST_TEMPLATE_DEFINITIONS(upf_node_sessions_list, upf_session_t, assoc.anchor);
+UPF_LLIST_TEMPLATE_DEFINITIONS (upf_node_sessions_list, upf_session_t,
+				assoc.anchor);
 
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
