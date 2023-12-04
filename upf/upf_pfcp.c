@@ -37,6 +37,7 @@
 #include <netinet/ip.h>
 #include <vlib/unix/plugin.h>
 #include "vppinfra/hash.h"
+#include "vppinfra/mhash.h"
 #include "vppinfra/vec_bootstrap.h"
 #include "vppinfra/vector.h"
 
@@ -434,6 +435,8 @@ pfcp_new_association (session_handle_t session_handle,
   n->lcl_addr = *lcl_addr;
   n->rmt_addr = *rmt_addr;
 
+  mhash_init(&n->hash_cp_seid_to_session_id, sizeof(uword), sizeof(u64));
+
   switch (node_id->type)
     {
     case NID_IPv4:
@@ -545,6 +548,8 @@ pfcp_release_association (upf_node_assoc_t * n)
 
   pool_put (gtm->nodes, n);
 
+  mhash_free(&n->hash_cp_seid_to_session_id);
+
   vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
 				 vlib_get_thread_index (), 0, 1);
 }
@@ -645,6 +650,11 @@ node_assoc_attach_session (upf_node_assoc_t * n, upf_session_t * sx)
   upf_main_t *gtm = &upf_main;
   sx->assoc.node = n - gtm->nodes;
 
+  if (!(sx->flags & UPF_SESSION_LOST_CP)) {
+    /* if we have valid cp_seid, use it */
+    mhash_set(&n->hash_cp_seid_to_session_id, &sx->cp_seid, sx - gtm->sessions, NULL);
+  }
+
   upf_node_sessions_list_insert_tail(gtm->sessions, &n->sessions, sx);
 }
 
@@ -657,6 +667,11 @@ node_assoc_detach_session (upf_session_t * sx)
   ASSERT (sx->assoc.node != ~0);
 
   n = pool_elt_at_index (gtm->nodes, sx->assoc.node);
+
+  if (!(sx->flags & UPF_SESSION_LOST_CP)) {
+    /* if we have valid cp_seid, remove it */
+    mhash_unset(&n->hash_cp_seid_to_session_id, &sx->cp_seid, NULL);
+  }
 
   upf_node_sessions_list_remove(gtm->sessions, &n->sessions, sx);
   sx->assoc.node = ~0;
@@ -2573,7 +2588,7 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 	    clib_warning ("Possible control plane bug:"
 			  " dropping the session 0x%016" PRIx64
 			  " instead of enqueueing 2nd Monitoring Time split",
-			  sess->cp_seid);
+			  sess->up_seid);
 	    status |= URR_DROP_SESSION;
 	    break;
 	  }

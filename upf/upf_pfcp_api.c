@@ -48,6 +48,8 @@
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
 #include "vppinfra/clib.h"
+#include "vppinfra/mhash.h"
+#include "vppinfra/pool.h"
 #include "vppinfra/time.h"
 
 #include <vlib/unix/plugin.h>
@@ -2547,6 +2549,15 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       return -1;
     }
 
+  {
+    uword *existing_cp_seid = mhash_get(&assoc->hash_cp_seid_to_session_id, &cp_seid);
+    if (existing_cp_seid) {
+      tp_session_error_report (resp, "Duplicate SEID");
+      r = -1;
+      goto out_send_resp;
+    }
+  }
+
   // Generate up_seid
   // Try to reuse cp seid for up seid to simplify debugging (search in wireshark)
   u64 up_seid = cp_seid;
@@ -2568,7 +2579,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       } while(retry_cnt--);
 
       if (retry_cnt == 0) {
-        tp_session_error_report (resp, "Duplicate SEID");
+        tp_session_error_report (resp, "Out of attempts to generate SEID");
         r = -1;
         goto out_send_resp;
       }
@@ -2975,15 +2986,22 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   else if (resp->response.cause == PFCP_CAUSE_REQUEST_ACCEPTED)
     {
       upf_debug("session report response session flags 0x%x", sx->flags);
+
       // This is first response since we lost smf peer
       // So we have to use new cp_f_seid
-      if (sx->flags & UPF_SESSION_LOST_CP && resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID)
+      if ((sx->flags & UPF_SESSION_LOST_CP)
+       && (resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID)
+       && (sx->assoc.node == msg->node))
         {
+          upf_node_assoc_t *n = pool_elt_at_index(gtm->nodes, msg->node);
           pfcp_f_seid_t *cp_f_seid = &dmsg->session_report_response.cp_f_seid;
-          pfcp_session_set_cp_fseid(sx, cp_f_seid);
-          sx->flags &= ~(UPF_SESSION_LOST_CP);
 
-          upf_debug("updated session seid 0x%x (%U,%U) session flags 0x%x",
+          pfcp_session_set_cp_fseid(sx, cp_f_seid);
+
+          sx->flags &= ~(UPF_SESSION_LOST_CP);
+          mhash_set(&n->hash_cp_seid_to_session_id, &sx->cp_seid, sx - gtm->sessions, NULL);
+
+          upf_debug("updated session cp_seid 0x%x (%U,%U) session flags 0x%x",
                     sx->cp_seid,
                     format_ip4_address, &cp_f_seid->ip4,
                     format_ip6_address, &cp_f_seid->ip6,

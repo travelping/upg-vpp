@@ -753,8 +753,12 @@ typedef struct
 
   f64 last_ul_traffic;
 
-  u64 up_seid; // up_seid assigned once
-  u64 cp_seid; // cp_seid can be chaged by SMF
+  /* up_seid assigned once */
+  u64 up_seid;
+
+  /* cp_seid can be chaged by SMF or be invalid
+     should be reflected in current assoc hashmap */
+  u64 cp_seid;
 
   struct
   {
@@ -914,6 +918,10 @@ typedef struct
   u32 idx_in_smf_set_nodes_pool;
 
   u32 policer_idx;
+
+  // We have to track seids of association to not allow seid collision
+  // key: seid u64 value: session index
+  mhash_t hash_cp_seid_to_session_id;
 } upf_node_assoc_t;
 
 typedef struct
@@ -969,6 +977,7 @@ typedef struct
   u32 refcount;
   upf_cached_f_seid_key_t key;
 } upf_cached_f_seid_t;
+
 
 /* bihash buckets are cheap, only 8 bytes per bucket */
 #define UPF_MAPPING_BUCKETS      (64 * 1024)
@@ -1078,7 +1087,7 @@ typedef struct
 
   // cache fseid addresses since they not unique per session
   upf_cached_f_seid_t *cached_fseid_pool;
-  // hashmap key: upf_cached_f_seid_key_t value: index in cached_fseid_pool
+  // key: upf_cached_f_seid_key_t value: index in cached_fseid_pool
   uword *hashmap_cached_fseid_idx;
 
   policer_t *pfcp_policers;
