@@ -52,6 +52,8 @@
 UPF_LLIST_TEMPLATE_TYPES (upf_session_requests_list);
 /* sessions for association */
 UPF_LLIST_TEMPLATE_TYPES (upf_node_sessions_list);
+/* associations for smfset */
+UPF_LLIST_TEMPLATE_TYPES (upf_smfset_nodes_list);
 
 /* #define UPF_TRAFFIC_LOG 1 */
 
@@ -911,8 +913,10 @@ typedef struct
   upf_node_sessions_list_t sessions;
   u32 heartbeat_handle;
 
-  u32 smf_set_idx;
-  u32 idx_in_smf_set_nodes_pool;
+  struct {
+    u32 idx;
+    upf_smfset_nodes_list_anchor_t anchor;
+  } smf_set;
 
   u32 policer_idx;
 } upf_node_assoc_t;
@@ -920,9 +924,7 @@ typedef struct
 typedef struct
 {
   u8 *fqdn;
-
-  /* pool of node indexes */
-  u32 *node_ids_pool;
+  upf_smfset_nodes_list_t nodes;
 } upf_smf_set_t;
 
 typedef u8 *regex_t;
@@ -1179,6 +1181,9 @@ void upf_pfcp_policers_relalculate (qos_pol_cfg_params_st * cfg);
 
 UPF_LLIST_TEMPLATE_DEFINITIONS (upf_node_sessions_list, upf_session_t,
 				assoc.anchor);
+
+UPF_LLIST_TEMPLATE_DEFINITIONS (upf_smfset_nodes_list, upf_node_assoc_t,
+				smf_set.anchor);
 
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)

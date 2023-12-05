@@ -425,8 +425,8 @@ pfcp_new_association (session_handle_t session_handle,
 
   pool_get_aligned_zero (gtm->nodes, n, CLIB_CACHE_LINE_BYTES);
   upf_node_sessions_list_init (&n->sessions);
-  n->idx_in_smf_set_nodes_pool = ~0;
-  n->smf_set_idx = ~0;
+  upf_smfset_nodes_list_anchor_init(n);
+  n->smf_set.idx = ~0;
   n->node_id = *node_id;
   n->session_handle = session_handle;
   n->lcl_addr = *lcl_addr;
@@ -486,7 +486,7 @@ pfcp_release_association (upf_node_assoc_t * n)
       break;
     }
 
-  if (n->smf_set_idx != ~0)
+  if (n->smf_set.idx != ~0)
     {
       smf_alt_node_ids = pfcp_node_exit_smf_set (n);
 #if CLIB_DEBUG > 1
@@ -556,19 +556,19 @@ uword
 pfcp_new_smf_set (u8 * fqdn)
 {
   upf_main_t *gtm = &upf_main;
-  upf_smf_set_t *new_smfs;
-  uword new_smfs_idx;
+  upf_smf_set_t *smfs;
+  uword smfs_idx;
 
-  pool_get_zero (gtm->smf_sets, new_smfs);
-  new_smfs->fqdn = vec_dup (fqdn);
-  new_smfs->node_ids_pool = NULL;
+  pool_get_zero (gtm->smf_sets, smfs);
+  smfs->fqdn = vec_dup (fqdn);
+  upf_smfset_nodes_list_init(&smfs->nodes);
 
-  new_smfs_idx = new_smfs - gtm->smf_sets;
-  hash_set_mem (gtm->smf_set_by_fqdn, new_smfs->fqdn, new_smfs_idx);
+  smfs_idx = smfs - gtm->smf_sets;
+  hash_set_mem (gtm->smf_set_by_fqdn, smfs->fqdn, smfs_idx);
 
-  upf_debug ("new smf set %U", format_dns_labels, new_smfs->fqdn);
+  upf_debug ("new smf set %U", format_dns_labels, smfs->fqdn);
 
-  return new_smfs_idx;
+  return smfs_idx;
 }
 
 uword
@@ -593,8 +593,7 @@ pfcp_free_smf_set (upf_smf_set_t * smfs)
 {
   upf_main_t *gtm = &upf_main;
 
-  ASSERT (pool_len (smfs->node_ids_pool) == 0);
-  pool_free (smfs->node_ids_pool);
+  ASSERT (upf_llist_list_is_empty(&smfs->nodes));
   vec_free (smfs->fqdn);
 
   pool_put (gtm->smf_sets, smfs);
@@ -604,22 +603,18 @@ void
 pfcp_node_enter_smf_set (upf_node_assoc_t * n, u8 * fqdn)
 {
   upf_main_t *gtm = &upf_main;
-  u32 *node_idx_in_smf_set;
 
   ASSERT (fqdn);
-  ASSERT (n->smf_set_idx == ~0);
+  ASSERT (n->smf_set.idx == ~0);
 
   uword smfs_idx = pfcp_ensure_smf_set (fqdn);
   upf_smf_set_t *smfs = pool_elt_at_index (gtm->smf_sets, smfs_idx);
 
-  pool_get (smfs->node_ids_pool, node_idx_in_smf_set);
-  *node_idx_in_smf_set = n - gtm->nodes;
+  upf_smfset_nodes_list_insert_tail(gtm->nodes, &smfs->nodes, n);
+  n->smf_set.idx = smfs_idx;
 
   upf_debug ("node %d %U entered set %U", n - gtm->nodes,
 	     format_node_id, &n->node_id, format_dns_labels, smfs->fqdn);
-
-  n->smf_set_idx = smfs_idx;
-  n->idx_in_smf_set_nodes_pool = node_idx_in_smf_set - smfs->node_ids_pool;
 }
 
 /* returns vector of alternative node indexes */
@@ -628,26 +623,25 @@ pfcp_node_exit_smf_set (upf_node_assoc_t * n)
 {
   upf_main_t *gtm = &upf_main;
   u32 *alternatives = NULL;
-  ASSERT (n->smf_set_idx != ~0);
+  ASSERT (n->smf_set.idx != ~0);
 
-  upf_smf_set_t *smfs = pool_elt_at_index (gtm->smf_sets, n->smf_set_idx);
+  upf_smf_set_t *smfs = pool_elt_at_index (gtm->smf_sets, n->smf_set.idx);
 
-  pool_put_index (smfs->node_ids_pool, n->idx_in_smf_set_nodes_pool);
-  n->idx_in_smf_set_nodes_pool = ~0;
-  n->smf_set_idx = ~0;
+  upf_smfset_nodes_list_remove(gtm->nodes, &smfs->nodes, n);
+  n->smf_set.idx = ~0;
 
-  if (pool_elts (smfs) == 0)
+  if (upf_smfset_nodes_list_is_empty(&smfs->nodes))
     {
       pfcp_free_smf_set (smfs);
       return NULL;
     }
   else
     {
-      u32 *node_id;
-      pool_foreach (node_id, smfs->node_ids_pool)
-      {
-	vec_add1 (alternatives, *node_id);
-      }
+      /* *INDENT-OFF* */
+      upf_llist_foreach(el, gtm->nodes, smf_set.anchor, &smfs->nodes, {
+        vec_add1 (alternatives, el - gtm->nodes);
+      });
+      /* *INDENT-ON* */
       return alternatives;
     }
 }
