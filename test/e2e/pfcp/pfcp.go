@@ -133,6 +133,8 @@ const (
 	timerIDHeartbeatTimeout timerID = iota
 	timerIDRetransmit
 
+	// This is hack to perform and validate CP SEID change on session migration in SMFSet
+	// Session CP SEID will be increased on this value after migration
 	CP_SEID_CHANGE_ON_SMF_MIGRATION SEID = 0x1_0000_000
 )
 
@@ -906,7 +908,7 @@ func (pc *PFCPConnection) sendSessionReportResponse(req *message.SessionReportRe
 		}
 		ses = pc.sessions[SEID(fseidFields.SEID)]
 		if ses != nil {
-			// change seid to test for updated cp seid in upf
+			// update CP SEID to validate change of node
 
 			delete(pc.sessions, SEID(fseidFields.SEID))
 			ses.cp_seid += CP_SEID_CHANGE_ON_SMF_MIGRATION

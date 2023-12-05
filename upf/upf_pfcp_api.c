@@ -40,21 +40,22 @@
 #include <vnet/fib/fib_path_list.h>
 
 #include "pfcp.h"
-#include "upf/upf.h"
+#include "upf.h"
 #include "upf_pfcp.h"
 #include "upf_pfcp_server.h"
 #include "upf_pfcp_api.h"
 #include "upf_app_db.h"
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
-#include "vnet/ip/format.h"
-#include "vppinfra/clib.h"
-#include "vppinfra/error.h"
-#include "vppinfra/mhash.h"
-#include "vppinfra/pool.h"
-#include "vppinfra/time.h"
 
 #include <vlib/unix/plugin.h>
+
+#if CLIB_DEBUG > 1
+#define upf_debug clib_warning
+#else
+#define upf_debug(...)                         \
+  do { } while (0)
+#endif
 
 #define API_VERSION      1
 #define TRAFFIC_TIMER_PERIOD 60
@@ -482,6 +483,7 @@ handle_node_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   return -1;
 }
 
+/* this methods used for cases when incoming message decode is failed */
 static void
 send_simple_response (pfcp_msg_t * req, u8 type,
 		      pfcp_cause_t cause, pfcp_offending_ie_t * err)
@@ -489,7 +491,6 @@ send_simple_response (pfcp_msg_t * req, u8 type,
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t resp_dmsg = {
     .type = type,
-    .seid = 0,
   };
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
 

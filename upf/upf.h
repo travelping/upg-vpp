@@ -44,16 +44,8 @@
 #include <vlib/vlib.h>
 #include <vlib/log.h>
 
-#if CLIB_DEBUG > 1
-#define upf_debug clib_warning
-#else
-#define upf_debug(...)				\
-  do { } while (0)
-#endif
-
 #include "pfcp.h"
 #include "flowtable.h"
-#include "vnet/ip/ip46_address.h"
 #include "llist.h"
 
 /* requests in flight for session */
@@ -429,11 +421,11 @@ typedef struct
 {
   u32 precedence;
 
-  u32 is_ip4:1;
-  u32 match_teid:1;
-  u32 match_ue_ip:3;
-  u32 match_sdf:1;
-  u32 match_ip_app:1;
+  int is_ip4:1;
+  int match_teid:1;
+  int match_ue_ip:3;
+  int match_sdf:1;
+  int match_ip_app:1;
 
   u32 fib_index;
   u32 teid;			// TEID
@@ -759,12 +751,13 @@ typedef struct
   /* up_seid assigned once */
   u64 up_seid;
 
-  /* cp_seid can be chaged by SMF or be invalid
-     should be reflected in current assoc hashmap */
+  /* cp_seid can be chaged by SMF or be invalid and
+     should be reflected in f_seid hashmap */
   u64 cp_seid;
 
   struct
   {
+    /* even in case of SMFSet node keeps pointing to valid association */
     u32 node;
     upf_node_sessions_list_anchor_t anchor;
   } assoc;
@@ -822,12 +815,13 @@ typedef struct
 
   session_flows_list_t flows;
 
-  /* index in upf_main mhash_cached_fseid_idx */
+  /* Cache f_seid ip addresses to save memory.
+     Contains index in upf_main mhash_cached_fseid_idx */
   u32 cached_fseid_idx;
 
   upf_session_requests_list_t requests;
 
-  u16 generation;		// increased on session modification request
+  u16 generation;
 } upf_session_t;
 
 
@@ -1050,7 +1044,7 @@ typedef struct
 
   /* pool of SMF sets */
   upf_smf_set_t *smf_sets;
-  /* hashmap of fqdn to smf set index */
+  /* map fqdn to smf set index */
   uword *smf_set_by_fqdn;
 
   /* upg-related counters */

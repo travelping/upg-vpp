@@ -30,12 +30,9 @@
 
 #include <vppinfra/bihash_template.c>
 
-#include "upf/pfcp.h"
-#include "upf/upf.h"
 #include "upf_pfcp.h"
 #include "upf_pfcp_api.h"
 #include "upf_pfcp_server.h"
-#include "vppinfra/pool.h"
 
 #define RESPONSE_TIMEOUT 30
 

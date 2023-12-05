@@ -1387,7 +1387,7 @@ var _ = ginkgo.Describe("Multiple PFCP peers", func() {
 				MeasurementPeriod: 15 * time.Second,
 			}
 
-			// TODO: also check for order of reports
+			// TODO: also possible to check for order of reports
 
 			cp_seid, err := conns[0].EstablishSession(f.Context, 100, sessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)

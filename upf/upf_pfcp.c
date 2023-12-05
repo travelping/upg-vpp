@@ -36,10 +36,6 @@
 #include <search.h>
 #include <netinet/ip.h>
 #include <vlib/unix/plugin.h>
-#include "vppinfra/hash.h"
-#include "vppinfra/mhash.h"
-#include "vppinfra/vec_bootstrap.h"
-#include "vppinfra/vector.h"
 
 #include "pfcp.h"
 #include "upf.h"
@@ -712,9 +708,7 @@ pfcp_session_set_cp_fseid (upf_session_t * sx, pfcp_f_seid_t * f_seid)
   upf_main_t *gtm = &upf_main;
 
   if (sx->cached_fseid_idx != ~0)
-    {
       pfcp_session_free_cp_fseid (sx);
-    }
 
   upf_cached_f_seid_key_t key = { };
   key.flags = f_seid->flags;
@@ -1369,9 +1363,7 @@ pfcp_free_session (upf_session_t * sx)
 
   free_user_id (&sx->user_id);
   if (sx->cached_fseid_idx != ~0)
-    {
       pfcp_session_free_cp_fseid (sx);
-    }
 
 #ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_free (&sx->lock);
