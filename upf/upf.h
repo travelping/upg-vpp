@@ -913,7 +913,8 @@ typedef struct
   upf_node_sessions_list_t sessions;
   u32 heartbeat_handle;
 
-  struct {
+  struct
+  {
     u32 idx;
     upf_smfset_nodes_list_anchor_t anchor;
   } smf_set;
