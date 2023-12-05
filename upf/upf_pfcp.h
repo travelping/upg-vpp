@@ -71,6 +71,8 @@ int pfcp_update_apply (upf_session_t * sx);
 void pfcp_update_finish (upf_session_t * sx);
 
 upf_session_t *pfcp_lookup_up_seid (u64 up_seid);
+upf_session_t *pfcp_lookup_cp_cached_f_seid (u32 cached_f_seid_idx, u64 cp_seid);
+upf_session_t *pfcp_lookup_cp_f_seid (pfcp_f_seid_t *f_seid);
 
 static inline struct rules *
 pfcp_get_rules (upf_session_t * sx, int rules)

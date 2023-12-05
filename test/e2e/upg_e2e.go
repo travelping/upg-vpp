@@ -2139,7 +2139,7 @@ var _ = ginkgo.Describe("Multiple PFCP Sessions", func() {
 			f.PFCP.ForgetSession(seid)
 			sessionCfg.UEIP = f.AddUEIP()
 			_, err = f.PFCP.EstablishSession(f.Context, seid, sessionCfg.SessionIEs()...)
-			verifyPFCPError(err, ie.CauseRequestRejected, seid, 0, "Duplicate SEID")
+			verifyPFCPError(err, ie.CauseRequestRejected, seid, 0, "Duplicate F-SEID")
 		})
 	})
 

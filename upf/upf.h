@@ -18,6 +18,7 @@
 #ifndef __included_upf_h__
 #define __included_upf_h__
 
+#include "vppinfra/mhash.h"
 #include <vppinfra/lock.h>
 #include <vppinfra/error.h>
 #include <vppinfra/hash.h>
@@ -55,8 +56,10 @@
 #include "vnet/ip/ip46_address.h"
 #include "llist.h"
 
-UPF_LLIST_TEMPLATE_TYPES (upf_session_requests_list);	// requests in flight for session
-UPF_LLIST_TEMPLATE_TYPES (upf_node_sessions_list);	// sessions for node
+/* requests in flight for session */
+UPF_LLIST_TEMPLATE_TYPES (upf_session_requests_list);
+/* sessions for association */
+UPF_LLIST_TEMPLATE_TYPES (upf_node_sessions_list);
 
 /* #define UPF_TRAFFIC_LOG 1 */
 
@@ -766,9 +769,9 @@ typedef struct
     upf_node_sessions_list_anchor_t anchor;
   } assoc;
 
-  uint32_t flags;		// TODO: use bitfields instead
-#define UPF_SESSION_LOST_CP         BIT(0)	// remote cp peer is down, f_seid is old
-#define UPF_SESSION_UPDATING        BIT(1)	// TODO: remove, looks like not used
+  uint32_t flags;
+#define UPF_SESSION_LOST_CP         BIT(0)	/* remote cp peer is down, f_seid is invalid */
+#define UPF_SESSION_UPDATING        BIT(1)	/* TODO: remove, looks like not used */
 
   volatile int active;
 
@@ -819,7 +822,7 @@ typedef struct
 
   session_flows_list_t flows;
 
-  // index in hashmap_cached_fseid_idx
+  /* index in upf_main mhash_cached_fseid_idx */
   u32 cached_fseid_idx;
 
   upf_session_requests_list_t requests;
@@ -918,18 +921,14 @@ typedef struct
   u32 idx_in_smf_set_nodes_pool;
 
   u32 policer_idx;
-
-  // We have to track seids of association to not allow seid collision
-  // key: seid u64 value: session index
-  mhash_t hash_cp_seid_to_session_id;
 } upf_node_assoc_t;
 
 typedef struct
 {
   u8 *fqdn;
 
-  // TODO: use llist instead
-  u32 *node_ids_pool;		// pool of node ids
+  /* pool of node indexes */
+  u32 *node_ids_pool;
 } upf_smf_set_t;
 
 typedef u8 *regex_t;
@@ -964,20 +963,26 @@ typedef enum
   ADR_NEED_MORE_DATA
 } adr_result_t;
 
+/* same as pfcp_f_seid_t, but without seid */
 typedef struct
 {
-  // same as in pfcp_f_seid_t
-  u8 flags;
-  ip4_address_t ip4;
   ip6_address_t ip6;
+  ip4_address_t ip4;
+  u8 flags;
 } upf_cached_f_seid_key_t;
 
 typedef struct
 {
-  u32 refcount;
   upf_cached_f_seid_key_t key;
+  u32 refcount;
 } upf_cached_f_seid_t;
 
+/* same as pfcp_f_seid_t, but uses cached ip fields to save memory */
+typedef struct
+{
+  u64 seid;
+  u32 cached_f_seid_id;
+} upf_cp_fseid_key_t;
 
 /* bihash buckets are cheap, only 8 bytes per bucket */
 #define UPF_MAPPING_BUCKETS      (64 * 1024)
@@ -1045,8 +1050,8 @@ typedef struct
 
   /* pool of SMF sets */
   upf_smf_set_t *smf_sets;
-  /* lookup SMF sets */
-  uword *smf_set_by_fqdn;	// hashmap to smf set id
+  /* hashmap of fqdn to smf set index */
+  uword *smf_set_by_fqdn;
 
   /* upg-related counters */
   vlib_simple_counter_main_t *upf_simple_counters;
@@ -1085,10 +1090,13 @@ typedef struct
   upf_ue_ip_pool_info_t *ueip_pools;
   uword *ue_ip_pool_index_by_identity;
 
-  // cache fseid addresses since they not unique per session
+  /* cache fseid ip addresses, to reduce memory usage */
+  /* pool of cached fseid ip addresses */
   upf_cached_f_seid_t *cached_fseid_pool;
-  // key: upf_cached_f_seid_key_t value: index in cached_fseid_pool
-  uword *hashmap_cached_fseid_idx;
+  /* map upf_cached_f_seid_key_t to index in cached_fseid_pool */
+  mhash_t mhash_cached_fseid_idx;
+  /* map upf_cp_fseid_key_t to session index */
+  mhash_t mhash_cp_fseid_to_session_idx;
 
   policer_t *pfcp_policers;
 

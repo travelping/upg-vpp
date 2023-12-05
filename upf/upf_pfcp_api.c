@@ -47,7 +47,9 @@
 #include "upf_app_db.h"
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
+#include "vnet/ip/format.h"
 #include "vppinfra/clib.h"
+#include "vppinfra/error.h"
 #include "vppinfra/mhash.h"
 #include "vppinfra/pool.h"
 #include "vppinfra/time.h"
@@ -2514,6 +2516,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
 				      pfcp_decoded_msg_t * dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
+  upf_main_t *gtm = &upf_main;
   pfcp_session_establishment_request_t *req =
     &dmsg->session_establishment_request;
   pfcp_decoded_msg_t resp_dmsg = {
@@ -2549,17 +2552,16 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       return -1;
     }
 
-  {
-    uword *existing_cp_seid = mhash_get(&assoc->hash_cp_seid_to_session_id, &cp_seid);
-    if (existing_cp_seid) {
-      tp_session_error_report (resp, "Duplicate SEID");
-      r = -1;
-      goto out_send_resp;
-    }
+  if (pfcp_lookup_cp_f_seid(&req->f_seid)) {
+    tp_session_error_report (resp, "Duplicate F-SEID");
+    r = -1;
+    goto out_send_resp;
   }
 
-  // Generate up_seid
-  // Try to reuse cp seid for up seid to simplify debugging (search in wireshark)
+  /*
+    Generate up_seid
+    Try to reuse cp seid for up seid to simplify debugging (search in wireshark)
+  */
   u64 up_seid = cp_seid;
   if (PREDICT_FALSE(pfcp_lookup_up_seid (up_seid) != NULL))
     {
@@ -2567,7 +2569,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       u8 retry_cnt = 10;
 
       do {
-        // try to generate random seid
+        /* try to generate random seid */
         up_seid = random_u64(&seed);
         if (up_seid == 0 || up_seid == ~0) {
           continue;
@@ -2958,7 +2960,7 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   pfcp_session_report_response_t *resp = &dmsg->session_report_response;
 
   if (msg->session.idx == ~0) {
-    // related session was removed previously, nothing to do
+    /* related session was removed previously, nothing to do */
     return -1;
   }
 
@@ -2966,12 +2968,14 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 
   if (msg->up_seid != sx->up_seid) {
     /*
+      TODO: this check is not needed anymore since now we detach request
+      from session on session removal, but keeping it for safety
+    */
+    /*
       since this is a response, and some time passed since the request
       make sure that session index still matches the original session
     */
     upf_debug ("PFCP Session seid not matching (deleted already?).\n");
-    // TODO: this check is not needed anymore since now we detach request
-    // from session on session removal
     ASSERT(msg->up_seid != sx->up_seid);
     return -1;
   }
@@ -2987,19 +2991,17 @@ handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
     {
       upf_debug("session report response session flags 0x%x", sx->flags);
 
-      // This is first response since we lost smf peer
-      // So we have to use new cp_f_seid
+      /*
+        This is first response since we lost smf peer
+        So we have to use new cp_f_seid
+      */
       if ((sx->flags & UPF_SESSION_LOST_CP)
-       && (resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID)
-       && (sx->assoc.node == msg->node))
+       && (resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID))
         {
-          upf_node_assoc_t *n = pool_elt_at_index(gtm->nodes, msg->node);
           pfcp_f_seid_t *cp_f_seid = &dmsg->session_report_response.cp_f_seid;
 
-          pfcp_session_set_cp_fseid(sx, cp_f_seid);
-
           sx->flags &= ~(UPF_SESSION_LOST_CP);
-          mhash_set(&n->hash_cp_seid_to_session_id, &sx->cp_seid, sx - gtm->sessions, NULL);
+          pfcp_session_set_cp_fseid(sx, cp_f_seid);
 
           upf_debug("updated session cp_seid 0x%x (%U,%U) session flags 0x%x",
                     sx->cp_seid,
@@ -3108,7 +3110,7 @@ upf_pfcp_handle_msg (pfcp_msg_t * msg)
       return -1;
     }
 
-  if (r != 0) // if cause != 0
+  if (r != 0) /* if cause != 0 */
     {
       upf_debug ("PFCP: error response %d", r);
       switch (dmsg.type)

@@ -76,8 +76,10 @@ typedef struct
 
   struct
   {
-    // request can lost session attachment in-flight if session was removed
-    // while request is being answered
+    /*
+      request can lost session in-flight if session was removed
+      while request is being answered
+    */
     u32 idx;
     upf_session_requests_list_anchor_t anchor;
   } session;

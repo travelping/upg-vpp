@@ -510,7 +510,7 @@ request_t1_expired (u32 seq_no)
 
   upf_debug ("Msg Seq No: %u, %p, n1 %u\n", req->seq_no, req, req->n1);
 
-  // make sure to resent reports to new peer if smfset peer is changed
+  /* make sure to resent reports to new peer if smfset peer is changed */
   if (req->flags.is_migrated_in_smfset &&
       req->session.idx != ~0 &&
       pfcp_msg_type(req->data) == PFCP_SESSION_REPORT_REQUEST) {
@@ -519,12 +519,13 @@ request_t1_expired (u32 seq_no)
     pfcp_decoded_msg_t dmsg;
     pfcp_offending_ie_t *err = NULL;
 
-    // Decode request to dmesg so we can reencode it as new request
+    /* Decode request to dmesg so we can reencode it as new request */
     pfcp_decode_msg (req->data, vec_len (req->data), &dmsg, &err);
     upf_pfcp_server_send_session_request(sx, &dmsg);
     pfcp_free_dmsg_contents (&dmsg);
 
-    upf_pfcp_server_stop_request(req); // stop old request
+    /* stop old request */
+    upf_pfcp_server_stop_request(req);
     return;
   }
 
@@ -532,10 +533,12 @@ request_t1_expired (u32 seq_no)
     {
       u8 type = pfcp_msg_type (req->data);
 
-      // FIXME: here in pool_is_free_index we check for node index which can be reused
-      // as soon as node goes back. Instead we should stop all requests as soon
-      // as node is stopped. It should be easier to track since we can have
-      // only one heartbeat request at time
+      /*
+        FIXME: here in pool_is_free_index we check for node index which can be reused
+        as soon as node goes back. Instead we should stop all requests as soon
+        as node is stopped. It should be easier to track since we can have
+        only one heartbeat request at time
+      */
       if (type == PFCP_HEARTBEAT_REQUEST
 	  && !pool_is_free_index (gtm->nodes, req->node))
 	{
@@ -564,9 +567,11 @@ request_t1_expired (u32 seq_no)
 
       upf_pfcp_server_stop_request(req);
 
-      // TODO: this pool_is_free_index is invalid since pool id can be reused
-      // instead we should do checking based on persistent key or instead we
-      // could track or requests of node and forget them as soon as association is lost
+      /*
+        TODO: this pool_is_free_index is invalid since pool id can be reused
+        instead we should do checking based on persistent key or instead we
+        could track or requests of node and forget them as soon as association is lost
+      */
       if (type == PFCP_HEARTBEAT_REQUEST
 	  && !pool_is_free_index (gtm->nodes, node))
 	{
@@ -1636,7 +1641,7 @@ static uword
 
 	ASSERT (msg->expires_at);
 
-        // TODO: this is crazy, replace this workaround
+        /* TODO: replace this workaround with proper msg removal inplace */
 	if (!hash_get (psm->free_msgs_by_node, msg->node))
 	  {
 	    /*

@@ -471,6 +471,10 @@ typedef struct
 
   union
   {
+    /*
+      When set to an IP address, it indicates that the
+      CP/UP function only exposes one IP address for the PFCP Association signalling.
+    */
     ip46_address_t ip;
     u8 *fqdn;
   };
@@ -2826,6 +2830,7 @@ u8 *format_user_plane_ip_resource_information (u8 * s, va_list * args);
 u8 *format_redirect_information (u8 * s, va_list * args);
 u8 *format_ue_ip_address (u8 * s, va_list * args);
 u8 *format_node_id (u8 * s, va_list * args);
+u8 *format_f_seid (u8 * s, va_list * args);
 u8 *format_smf_set_id (u8 * s, va_list * args);
 u8 *format_outer_header_creation (u8 * s, va_list * args);
 uword tbcd_len (u8 * in, uword n_bytes);

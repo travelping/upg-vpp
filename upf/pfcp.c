@@ -1746,7 +1746,7 @@ format_pfcpsrrsp_flags (u8 * s, va_list * args)
 #define decode_pdr_id decode_u16_ie
 #define encode_pdr_id encode_u16_ie
 
-static u8 *
+u8 *
 format_f_seid (u8 * s, va_list * args)
 {
   pfcp_f_seid_t *n = va_arg (*args, pfcp_f_seid_t *);

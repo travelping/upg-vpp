@@ -608,6 +608,8 @@ upf_init (vlib_main_t * vm)
   sm->node_index_by_fqdn =
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
   mhash_init (&sm->node_index_by_ip, sizeof (uword), sizeof (ip46_address_t));
+  mhash_init (&sm->mhash_cp_fseid_to_session_idx, sizeof (uword), sizeof (upf_cp_fseid_key_t));
+  mhash_init (&sm->mhash_cached_fseid_idx, sizeof (uword), sizeof (upf_cached_f_seid_key_t));
 
   sm->smf_sets = NULL;
   sm->smf_set_by_fqdn =
@@ -652,9 +654,6 @@ upf_init (vlib_main_t * vm)
 
   sm->ue_ip_pool_index_by_identity =
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
-
-  sm->hashmap_cached_fseid_idx =
-    hash_create_mem ( /* initial length */ 32, sizeof (upf_cached_f_seid_key_t), sizeof (uword));
 
   error = flowtable_init (vm);
   if (!error)
