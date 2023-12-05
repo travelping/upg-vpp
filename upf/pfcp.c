@@ -4757,10 +4757,10 @@ decode_smf_set_id (u8 * data, u16 length, void *p)
 {
   pfcp_smf_set_id_t *v = p;
 
-  get_u8(data); // skip spare
+  get_u8 (data);		// skip spare
   length--;
 
-  get_vec(v->fqdn, length, data);
+  get_vec (v->fqdn, length, data);
 
   return 0;
 }
@@ -4770,7 +4770,7 @@ encode_smf_set_id (void *p, u8 ** vec)
 {
   pfcp_smf_set_id_t *v = p;
 
-  put_u8 (*vec, 0); // spare
+  put_u8 (*vec, 0);		// spare
   vec_append (*vec, v->fqdn);
 
   return 0;
@@ -4781,7 +4781,7 @@ free_smf_set_id (void *p)
 {
   pfcp_smf_set_id_t *v = p;
 
-  vec_free(v->fqdn);
+  vec_free (v->fqdn);
 }
 
 #define format_quota_validity_time format_u32_ie

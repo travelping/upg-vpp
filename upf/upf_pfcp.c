@@ -687,10 +687,10 @@ pfcp_session_free_cp_fseid (upf_session_t * sx)
 
   ASSERT (sx->cached_fseid_idx != ~0);
 
-  upf_cp_fseid_key_t cp_key = {};
+  upf_cp_fseid_key_t cp_key = { };
   cp_key.seid = sx->cp_seid,
-  cp_key.cached_f_seid_id = sx->cached_fseid_idx,
-  mhash_unset(&gtm->mhash_cp_fseid_to_session_idx, &cp_key, NULL);
+    cp_key.cached_f_seid_id = sx->cached_fseid_idx,
+    mhash_unset (&gtm->mhash_cp_fseid_to_session_idx, &cp_key, NULL);
 
   cached_fseid =
     pool_elt_at_index (gtm->cached_fseid_pool, sx->cached_fseid_idx);
@@ -698,8 +698,9 @@ pfcp_session_free_cp_fseid (upf_session_t * sx)
 
   if (cached_fseid->refcount == 0)
     {
-      mhash_unset(&gtm->mhash_cached_fseid_idx, &cached_fseid->key, NULL);
-      ASSERT (mhash_get(&gtm->mhash_cached_fseid_idx, &cached_fseid->key) == NULL);
+      mhash_unset (&gtm->mhash_cached_fseid_idx, &cached_fseid->key, NULL);
+      ASSERT (mhash_get (&gtm->mhash_cached_fseid_idx, &cached_fseid->key) ==
+	      NULL);
       pool_put (gtm->cached_fseid_pool, cached_fseid);
     }
   sx->cached_fseid_idx = ~0;
@@ -715,7 +716,7 @@ pfcp_session_set_cp_fseid (upf_session_t * sx, pfcp_f_seid_t * f_seid)
       pfcp_session_free_cp_fseid (sx);
     }
 
-  upf_cached_f_seid_key_t key = {};
+  upf_cached_f_seid_key_t key = { };
   key.flags = f_seid->flags;
   key.ip4 = f_seid->ip4;
   key.ip6 = f_seid->ip6;
@@ -733,19 +734,20 @@ pfcp_session_set_cp_fseid (upf_session_t * sx, pfcp_f_seid_t * f_seid)
     {
       pool_get_zero (gtm->cached_fseid_pool, cached_f_seid);
       cached_f_seid->key = key;
-      mhash_set(&gtm->mhash_cached_fseid_idx, &key,
-                cached_f_seid - gtm->cached_fseid_pool, NULL);
-      ASSERT(mhash_get(&gtm->mhash_cached_fseid_idx, &key));
+      mhash_set (&gtm->mhash_cached_fseid_idx, &key,
+		 cached_f_seid - gtm->cached_fseid_pool, NULL);
+      ASSERT (mhash_get (&gtm->mhash_cached_fseid_idx, &key));
     }
 
   sx->cached_fseid_idx = cached_f_seid - gtm->cached_fseid_pool;
   sx->cp_seid = f_seid->seid;
   cached_f_seid->refcount += 1;
 
-  upf_cp_fseid_key_t cp_key = {};
+  upf_cp_fseid_key_t cp_key = { };
   cp_key.seid = sx->cp_seid;
   cp_key.cached_f_seid_id = sx->cached_fseid_idx;
-  mhash_set(&gtm->mhash_cp_fseid_to_session_idx, &cp_key, sx - gtm->sessions, NULL);
+  mhash_set (&gtm->mhash_cp_fseid_to_session_idx, &cp_key, sx - gtm->sessions,
+	     NULL);
 }
 
 upf_session_t *
@@ -2402,30 +2404,31 @@ pfcp_lookup_cp_cached_f_seid (u32 cached_f_seid_idx, u64 cp_seid)
 {
   upf_main_t *gtm = &upf_main;
 
-  upf_cp_fseid_key_t fseid_key = {};
+  upf_cp_fseid_key_t fseid_key = { };
   fseid_key.seid = cp_seid;
   fseid_key.cached_f_seid_id = cached_f_seid_idx;
 
   uword *p = mhash_get (&gtm->mhash_cp_fseid_to_session_idx, &fseid_key);
   if (p)
-    return pool_elt_at_index(gtm->sessions, p[0]);
+    return pool_elt_at_index (gtm->sessions, p[0]);
   else
     return NULL;
 }
 
 upf_session_t *
-pfcp_lookup_cp_f_seid (pfcp_f_seid_t *f_seid)
+pfcp_lookup_cp_f_seid (pfcp_f_seid_t * f_seid)
 {
   upf_main_t *gtm = &upf_main;
 
-  upf_cached_f_seid_key_t cached_f_seid_key = {0};
+  upf_cached_f_seid_key_t cached_f_seid_key = { 0 };
   cached_f_seid_key.flags = f_seid->flags;
   cached_f_seid_key.ip4 = f_seid->ip4;
   cached_f_seid_key.ip6 = f_seid->ip6;
 
-  uword *cached_f_seid_idx = mhash_get (&gtm->mhash_cached_fseid_idx, &cached_f_seid_key);
+  uword *cached_f_seid_idx =
+    mhash_get (&gtm->mhash_cached_fseid_idx, &cached_f_seid_key);
   if (cached_f_seid_idx)
-    return pfcp_lookup_cp_cached_f_seid(cached_f_seid_idx[0], f_seid->seid);
+    return pfcp_lookup_cp_cached_f_seid (cached_f_seid_idx[0], f_seid->seid);
   else
     return NULL;
 }
@@ -3035,7 +3038,7 @@ format_pfcp_session (u8 * s, va_list * args)
 
   upf_node_assoc_t *assoc = pool_elt_at_index (gtm->nodes, sx->assoc.node);
 
-  upf_cached_f_seid_key_t f_seid = {};
+  upf_cached_f_seid_key_t f_seid = { };
   if (sx->cached_fseid_idx != ~0)
     {
       upf_cached_f_seid_t *cached =

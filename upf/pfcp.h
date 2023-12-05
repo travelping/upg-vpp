@@ -472,9 +472,9 @@ typedef struct
   union
   {
     /*
-      When set to an IP address, it indicates that the
-      CP/UP function only exposes one IP address for the PFCP Association signalling.
-    */
+       When set to an IP address, it indicates that the
+       CP/UP function only exposes one IP address for the PFCP Association signalling.
+     */
     ip46_address_t ip;
     u8 *fqdn;
   };
@@ -2417,8 +2417,7 @@ enum
   ASSOCIATION_SETUP_REQUEST_TP_BUILD_ID,
   ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS,
   ASSOCIATION_SETUP_REQUEST_SMF_SET_ID,
-  ASSOCIATION_SETUP_REQUEST_LAST =
-    ASSOCIATION_SETUP_REQUEST_SMF_SET_ID
+  ASSOCIATION_SETUP_REQUEST_LAST = ASSOCIATION_SETUP_REQUEST_SMF_SET_ID
 };
 
 typedef struct
@@ -2450,8 +2449,7 @@ enum
   ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_IDENTITY,
   ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS,
   ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID,
-  ASSOCIATION_UPDATE_REQUEST_LAST =
-    ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID
+  ASSOCIATION_UPDATE_REQUEST_LAST = ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID
 };
 
 typedef struct
