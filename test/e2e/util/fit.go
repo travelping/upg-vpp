@@ -23,8 +23,8 @@ type FITHook struct {
 }
 
 const (
-	FaultSessionForgot  FaultType = "session_forgot"
-	FaultReportResponse FaultType = "no_report_response"
+	FaultSessionForgot    FaultType = "session_forgot"
+	FaultNoReportResponse FaultType = "no_report_response"
 
 	// IgnoreHeartbeatRequests makes PFCPConnection ignore incoming
 	// PFCP Heartbeat Requests, thus simulating a faulty CP.

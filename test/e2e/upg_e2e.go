@@ -1394,7 +1394,7 @@ var _ = ginkgo.Describe("Multiple PFCP peers", func() {
 
 			// stop new association 0, node should migrate to 1 or 2
 			var fitHook util.FITHook
-			fitHook.EnableFault(util.FaultReportResponse)
+			fitHook.EnableFault(util.FaultNoReportResponse)
 			fitHook.EnableFault(util.FaultIgnoreHeartbeat)
 
 			gomega.Expect(conns[1].ShareSession(conns[0], cp_seid)).To(gomega.Succeed())

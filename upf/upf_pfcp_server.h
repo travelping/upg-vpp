@@ -77,7 +77,7 @@ typedef struct
   struct
   {
     /*
-       request can lost session in-flight if session was removed
+       request can loose session in-flight if session was removed
        while request is being answered
      */
     u32 idx;

@@ -349,7 +349,7 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 
 		if pc.FITHook.IsFaultInjected(util.FaultSessionForgot) {
 			return pc.sendSessionReportResponseFIT(ev.msg.(*message.SessionReportRequest))
-		} else if pc.FITHook.IsFaultInjected(util.FaultReportResponse) {
+		} else if pc.FITHook.IsFaultInjected(util.FaultNoReportResponse) {
 			return nil
 		} else {
 			return pc.sendSessionReportResponse(ev.msg.(*message.SessionReportRequest))
