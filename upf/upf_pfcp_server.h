@@ -73,14 +73,30 @@ typedef struct
   } lcl;
 
   u32 node;
-  u32 session_index;
-  u64 seid;
+
+  struct
+  {
+    /*
+       request can loose session in-flight if session was removed
+       while request is being answered
+     */
+    u32 idx;
+    upf_session_requests_list_anchor_t anchor;
+  } session;
+
+  u64 up_seid;
 
   f64 expires_at;		/* message timestamp */
   u32 timer;
   u32 n1;
   u32 t1;
-  u8 is_valid_pool_item;
+
+  struct
+  {
+    u8 is_valid_pool_item:1;
+    u8 is_migrated_in_smfset:1;
+    u8 is_stopped:1;
+  } flags;
 
 #if CLIB_DEBUG > 0
   char pool_put_loc[128];
@@ -135,7 +151,7 @@ typedef struct
 typedef struct
 {
   uword session_idx;
-  u64 cp_seid;
+  u64 up_seid;
   ip46_address_t ue;
   u8 status;
 } upf_event_urr_hdr_t;
@@ -163,6 +179,8 @@ void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg);
 void upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t * n);
 void upf_pfcp_server_deferred_free_msgs_by_node (u32 node);
 
+void upf_pfcp_server_stop_request (pfcp_msg_t * req);
+
 int upf_pfcp_send_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg);
 
 int upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg);
@@ -173,14 +191,20 @@ void upf_pfcp_server_session_usage_report (upf_event_urr_data_t * uev);
 
 clib_error_t *pfcp_server_main_init (vlib_main_t * vm);
 
+UPF_LLIST_TEMPLATE_DEFINITIONS (upf_session_requests_list, pfcp_msg_t,
+				session.anchor);
+
 static inline void
 init_pfcp_msg (pfcp_msg_t * m)
 {
-  u8 is_valid_pool_item = m->is_valid_pool_item;
+  u8 is_valid_pool_item = m->flags.is_valid_pool_item;
 
   memset (m, 0, sizeof (*m));
-  m->is_valid_pool_item = is_valid_pool_item;
+  m->flags.is_valid_pool_item = is_valid_pool_item;
   m->node = ~0;
+  m->session.idx = ~0;
+  m->timer = ~0;
+  upf_session_requests_list_anchor_init (m);
 }
 
 static inline void
@@ -220,14 +244,14 @@ pfcp_msg_pool_get (pfcp_server_main_t * psm)
       u32 index = vec_pop (psm->msg_pool_cache);
 
       m = pool_elt_at_index (psm->msg_pool, index);
-      init_pfcp_msg (m);
     }
   else
     {
       pool_get_aligned_zero (psm->msg_pool, m, CLIB_CACHE_LINE_BYTES);
     }
 
-  m->is_valid_pool_item = 1;
+  init_pfcp_msg (m);
+  m->flags.is_valid_pool_item = 1;
   return m;
 }
 
@@ -238,7 +262,7 @@ pfcp_msg_pool_add (pfcp_server_main_t * psm, pfcp_msg_t * m)
 
   msg = pfcp_msg_pool_get (psm);
   clib_memcpy_fast (msg, m, sizeof (*m));
-  msg->is_valid_pool_item = 1;
+  msg->flags.is_valid_pool_item = 1;
 #if CLIB_DEBUG > 0
   msg->pool_put_loc[0] = 0;
 #endif
@@ -257,13 +281,18 @@ pfcp_msg_pool_add (pfcp_server_main_t * psm, pfcp_msg_t * m)
 static inline void
 _pfcp_msg_pool_put (pfcp_server_main_t * psm, pfcp_msg_t * m)
 {
-  ASSERT (m->is_valid_pool_item);
+  ASSERT (m->flags.is_valid_pool_item);
+
+  if (m->session.idx != ~0)
+    {
+      ASSERT (!upf_session_requests_list_el_is_part_of_list (m));
+    }
 
   vec_free (m->data);
 #if CLIB_DEBUG > 0
   clib_memset (m, 0xfa, sizeof (pfcp_msg_t));
 #endif
-  m->is_valid_pool_item = 0;
+  m->flags.is_valid_pool_item = 0;
   vec_add1 (psm->msg_pool_free, m - psm->msg_pool);
 }
 
@@ -273,7 +302,7 @@ pfcp_msg_pool_is_free_index (pfcp_server_main_t * psm, u32 index)
   if (!pool_is_free_index (psm->msg_pool, index))
     {
       pfcp_msg_t *m = pool_elt_at_index (psm->msg_pool, index);
-      return !m->is_valid_pool_item;
+      return !m->flags.is_valid_pool_item;
     }
   return 0;
 }
@@ -283,7 +312,7 @@ pfcp_msg_pool_elt_at_index (pfcp_server_main_t * psm, u32 index)
 {
   pfcp_msg_t *m = pool_elt_at_index (psm->msg_pool, index);
 #if CLIB_DEBUG > 0
-  if (!m->is_valid_pool_item)
+  if (!m->flags.is_valid_pool_item)
     {
       clib_warning ("ERROR: accessing a PFCP msg that was freed at: %s",
 		    m->pool_put_loc);

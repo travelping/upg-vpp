@@ -1746,7 +1746,7 @@ format_pfcpsrrsp_flags (u8 * s, va_list * args)
 #define decode_pdr_id decode_u16_ie
 #define encode_pdr_id encode_u16_ie
 
-static u8 *
+u8 *
 format_f_seid (u8 * s, va_list * args)
 {
   pfcp_f_seid_t *n = va_arg (*args, pfcp_f_seid_t *);
@@ -4744,6 +4744,46 @@ encode_alternative_smf_ip_address (void *p, u8 ** vec)
   return 0;
 }
 
+u8 *
+format_smf_set_id (u8 * s, va_list * args)
+{
+  pfcp_smf_set_id_t *n = va_arg (*args, pfcp_smf_set_id_t *);
+
+  return format (s, "%U", format_dns_labels, n->fqdn);
+}
+
+static int
+decode_smf_set_id (u8 * data, u16 length, void *p)
+{
+  pfcp_smf_set_id_t *v = p;
+
+  get_u8 (data);		// skip spare
+  length--;
+
+  get_vec (v->fqdn, length, data);
+
+  return 0;
+}
+
+static int
+encode_smf_set_id (void *p, u8 ** vec)
+{
+  pfcp_smf_set_id_t *v = p;
+
+  put_u8 (*vec, 0);		// spare
+  vec_append (*vec, v->fqdn);
+
+  return 0;
+}
+
+static void
+free_smf_set_id (void *p)
+{
+  pfcp_smf_set_id_t *v = p;
+
+  vec_free (v->fqdn);
+}
+
 #define format_quota_validity_time format_u32_ie
 #define decode_quota_validity_time decode_u32_ie
 #define encode_quota_validity_time encode_u32_ie
@@ -6956,6 +6996,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     },
     SIMPLE_IE(PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY, ue_ip_address_pool_identity, "UE IP address Pool Identity"),
     SIMPLE_IE(PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS, alternative_smf_ip_address, "Alternative SMF IP Address"),
+    SIMPLE_IE_FREE(PFCP_IE_SMF_SET_ID, smf_set_id, "SMF Set ID"),
     SIMPLE_IE(PFCP_IE_QUOTA_VALIDITY_TIME, quota_validity_time, "Quota Validity Time"),
     [PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION] =
     {
@@ -7127,6 +7168,10 @@ static struct pfcp_group_ie_def pfcp_association_setup_request_group[] =
       .is_array = true,
       .offset = offsetof(pfcp_association_setup_request_t, alternative_smf_ip_address)
     },
+    [ASSOCIATION_SETUP_REQUEST_SMF_SET_ID] = {
+      .type = PFCP_IE_SMF_SET_ID,
+      .offset = offsetof(pfcp_association_setup_request_t, smf_set_id)
+    },
   };
 
 static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
@@ -7176,6 +7221,10 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
       .is_array = true,
       .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_information)
     },
+    [ASSOCIATION_PROCEDURE_RESPONSE_SMF_SET_ID] = {
+      .type = PFCP_IE_SMF_SET_ID,
+      .offset = offsetof(pfcp_association_procedure_response_t, smf_set_id)
+    },
   };
 
 static struct pfcp_group_ie_def pfcp_association_update_request_group[] =
@@ -7218,6 +7267,10 @@ static struct pfcp_group_ie_def pfcp_association_update_request_group[] =
       .type = PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
       .is_array = true,
       .offset = offsetof(pfcp_association_update_request_t, alternative_smf_ip_address)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID] = {
+      .type = PFCP_IE_SMF_SET_ID,
+      .offset = offsetof(pfcp_association_update_request_t, smf_set_id)
     },
   };
 
@@ -7663,6 +7716,10 @@ static struct pfcp_group_ie_def pfcp_session_report_request_group[] =
     [SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS] = {
       .type = PFCP_IE_PFCPSRREQ_FLAGS,
       .offset = offsetof(pfcp_session_report_request_t, pfcpsrreq_flags)
+    },
+    [SESSION_REPORT_REQUEST_OLD_CP_F_SEID] = {
+      .type = PFCP_IE_F_SEID,
+      .offset = offsetof(pfcp_session_report_request_t, old_cp_f_seid)
     },
   };
 

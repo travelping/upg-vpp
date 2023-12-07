@@ -43,7 +43,7 @@ type pfcpState string
 type pfcpEventType string
 
 type eventResult struct {
-	seid    SEID
+	cp_seid SEID
 	payload interface{}
 	err     error
 }
@@ -53,10 +53,10 @@ type pfcpEvent struct {
 	eventType    pfcpEventType
 	resultCh     chan eventResult
 	attemptsLeft int
-	// seid is used in the requests that were not sent yet.  It's
+	// cp_seid is used in the requests that were not sent yet.  It's
 	// needed b/c SessionEstablishmentRequest doesn't have the
 	// session's SEID in it
-	seid    SEID
+	cp_seid SEID
 	timerID timerID
 }
 
@@ -132,6 +132,10 @@ const (
 
 	timerIDHeartbeatTimeout timerID = iota
 	timerIDRetransmit
+
+	// This is hack to perform and validate CP SEID change on session migration in SMFSet
+	// Session CP SEID will be increased on this value after migration
+	CP_SEID_CHANGE_ON_SMF_MIGRATION SEID = 0x1_0000_000
 )
 
 var (
@@ -196,8 +200,8 @@ func pfcpSessionResponse(et sessionEventType) pfcpTransitionFunc {
 		if reqEv, err := pc.acceptResponse(ev); err != nil {
 			if reqEv != nil {
 				reqEv.resultCh <- eventResult{
-					seid: reqEv.seid,
-					err:  err,
+					cp_seid: reqEv.cp_seid,
+					err:     err,
 				}
 			}
 			var serverErr *PFCPServerError
@@ -213,7 +217,7 @@ func pfcpSessionResponse(et sessionEventType) pfcpTransitionFunc {
 		} else if reqEv != nil {
 			result, err := pc.sessionEvent(et, ev)
 			reqEv.resultCh <- eventResult{
-				seid:    reqEv.seid,
+				cp_seid: reqEv.cp_seid,
 				payload: result,
 				err:     err,
 			}
@@ -319,7 +323,7 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 	},
 
 	{pfcpStateAssociated, pfcpEventActEstablishSession}: func(pc *PFCPConnection, ev pfcpEvent) error {
-		if err := pc.createSession(ev.seid); err != nil {
+		if err := pc.createSession(ev.cp_seid); err != nil {
 			return errors.Wrap(err, "error creating session")
 		}
 		return pc.sendRequest(ev)
@@ -345,6 +349,8 @@ var pfcpTransitions = map[pfcpTransitionKey]pfcpTransitionFunc{
 
 		if pc.FITHook.IsFaultInjected(util.FaultSessionForgot) {
 			return pc.sendSessionReportResponseFIT(ev.msg.(*message.SessionReportRequest))
+		} else if pc.FITHook.IsFaultInjected(util.FaultNoReportResponse) {
+			return nil
 		} else {
 			return pc.sendSessionReportResponse(ev.msg.(*message.SessionReportRequest))
 		}
@@ -388,6 +394,7 @@ type PFCPConfig struct {
 	MaxInFlight       int
 	InitialSeq        uint32
 	RecoveryTimestamp time.Time
+	SMFSet            string
 	FITHook           *util.FITHook
 }
 
@@ -487,6 +494,14 @@ func (pc *PFCPConnection) ReceivedHBRequestTimes() []time.Time {
 	return r
 }
 
+func (pc *PFCPConnection) ShareSession(conn *PFCPConnection, seid SEID) error {
+	if _, ok := conn.sessions[seid]; !ok {
+		return errors.Errorf("No session %x in %+#v", seid, conn.sessions)
+	}
+	pc.sessions[seid] = conn.sessions[seid]
+	return nil
+}
+
 func (pc *PFCPConnection) setState(newState pfcpState) {
 	pc.state = newState
 }
@@ -541,8 +556,8 @@ func (pc *PFCPConnection) event(event pfcpEvent) error {
 		pc.cleanAndDone()
 		if event.resultCh != nil {
 			event.resultCh <- eventResult{
-				err:  err,
-				seid: event.seid,
+				err:     err,
+				cp_seid: event.cp_seid,
 			}
 		}
 
@@ -635,15 +650,15 @@ LOOP:
 			}
 			// proceed to next iteration to handle the retransmits
 		case ev := <-pc.eventCh:
-			seid := ev.seid
-			if seid == 0 {
-				seid = SEID(ev.msg.SEID())
+			cp_seid := ev.cp_seid
+			if cp_seid == 0 {
+				cp_seid = SEID(ev.msg.SEID())
 			}
 			pc.log.WithFields(logrus.Fields{
 				"eventType":   ev.eventType,
 				"messageType": ev.msg.MessageTypeName(),
 				"seq":         ev.msg.Sequence(),
-				"SEID":        fmt.Sprintf("%016x", seid),
+				"SEID":        fmt.Sprintf("%016x", cp_seid),
 			}).Trace("incoming event")
 			if err = pc.event(ev); err != nil {
 				msgType := "<none>"
@@ -672,8 +687,8 @@ LOOP:
 		case ev := <-pc.eventCh:
 			if ev.resultCh != nil {
 				ev.resultCh <- eventResult{
-					err:  err,
-					seid: ev.seid,
+					err:     err,
+					cp_seid: ev.cp_seid,
 				}
 			}
 		default:
@@ -691,8 +706,8 @@ LOOP:
 		ev := e.(pfcpEvent)
 		if ev.resultCh != nil {
 			ev.resultCh <- eventResult{
-				err:  err,
-				seid: ev.seid,
+				err:     err,
+				cp_seid: ev.cp_seid,
 			}
 		}
 	}
@@ -847,10 +862,16 @@ func (pc *PFCPConnection) acceptResponse(ev pfcpEvent) (*pfcpEvent, error) {
 }
 
 func (pc *PFCPConnection) sendAssociationSetupRequest() error {
-	msg := message.NewAssociationSetupRequest(
-		0,
+	var ies []*ie.IE
+	ies = append(ies,
 		ie.NewRecoveryTimeStamp(pc.timestamp),
-		ie.NewNodeID("", "", pc.cfg.NodeID))
+		ie.NewNodeID("", "", pc.cfg.NodeID),
+	)
+	if pc.cfg.SMFSet != "" {
+		ies = append(ies, ie.NewSMFSetID(pc.cfg.SMFSet))
+	}
+
+	msg := message.NewAssociationSetupRequest(0, ies...)
 	if err := pc.sendRequest(pfcpEvent{
 		msg:          msg,
 		resultCh:     pc.startCh,
@@ -873,7 +894,35 @@ func (pc *PFCPConnection) sendHeartbeatResponse(hr *message.HeartbeatRequest) er
 }
 
 func (pc *PFCPConnection) sendSessionReportResponse(req *message.SessionReportRequest) error {
-	return pc.send(message.NewSessionReportResponse(0, 0, req.SEID(), req.SequenceNumber, 0, ie.NewRecoveryTimeStamp(pc.timestamp)))
+	var ies []*ie.IE
+	var ses *pfcpSession
+	var up_seid SEID
+
+	ies = append(ies, ie.NewCause(ie.CauseRequestAccepted))
+
+	// if migrated from old node
+	if req.OldCPFSEID != nil {
+		fseidFields, err := req.OldCPFSEID.FSEID()
+		if err != nil {
+			return err
+		}
+		ses = pc.sessions[SEID(fseidFields.SEID)]
+		if ses != nil {
+			// update CP SEID to validate change of node
+
+			delete(pc.sessions, SEID(fseidFields.SEID))
+			ses.cp_seid += CP_SEID_CHANGE_ON_SMF_MIGRATION
+			pc.sessions[ses.cp_seid] = ses
+
+			ies = append(ies, pc.NewIEFSEID(ses.cp_seid))
+
+			up_seid = ses.up_seid
+		}
+	} else {
+		up_seid = pc.sessions[SEID(req.SEID())].up_seid
+	}
+	ies = append(ies, ie.NewRecoveryTimeStamp(pc.timestamp))
+	return pc.send(message.NewSessionReportResponse(0, 0, uint64(up_seid), req.SequenceNumber, 0, ies...))
 }
 
 func (pc *PFCPConnection) sendSessionReportResponseFIT(req *message.SessionReportRequest) error {
@@ -894,9 +943,9 @@ func (pc *PFCPConnection) createSession(seid SEID) error {
 		return errors.Errorf("session with SEID 0x%016x already present", seid)
 	}
 	pc.sessions[seid] = &pfcpSession{
-		pc:    pc,
-		seid:  seid,
-		state: sessionStateEstablishing,
+		pc:      pc,
+		cp_seid: seid,
+		state:   sessionStateEstablishing,
 	}
 	return nil
 }
@@ -1142,21 +1191,21 @@ func (pc *PFCPConnection) pipelineRequests(
 			panic("pipelined request over timeout")
 		}
 
-		n, found := m[r.seid]
+		n, found := m[r.cp_seid]
 		if !found {
 			panic("Internal error: unexpected SEID in event response")
 		}
 
 		inFlight--
 		if r.err != nil {
-			errs[n] = errors.Wrapf(r.err, "SEID %016x", r.seid)
+			errs[n] = errors.Wrapf(r.err, "SEID %016x", r.cp_seid)
 		} else {
 			results[n] = r.payload
 		}
 		pc.log.WithFields(logrus.Fields{
 			"cur":      cur,
 			"inFlight": inFlight,
-			"SEID":     fmt.Sprintf("%016x", r.seid),
+			"SEID":     fmt.Sprintf("%016x", r.cp_seid),
 			"err":      r.err,
 			"seq":      reqs[n].Sequence(),
 		}).Trace("response for a pipelined request")
@@ -1165,14 +1214,16 @@ func (pc *PFCPConnection) pipelineRequests(
 	return results, errs
 }
 
-func (pc *PFCPConnection) sessionEstablishmentRequest(spec SessionOpSpec) message.Message {
-	var fseid *ie.IE
+func (pc *PFCPConnection) NewIEFSEID(seid SEID) *ie.IE {
 	if pc.cfg.CNodeIP.To4() == nil {
-		fseid = ie.NewFSEID(uint64(spec.SEID), nil, pc.cfg.CNodeIP)
+		return ie.NewFSEID(uint64(seid), nil, pc.cfg.CNodeIP)
 	} else {
-		fseid = ie.NewFSEID(uint64(spec.SEID), pc.cfg.CNodeIP.To4(), nil)
+		return ie.NewFSEID(uint64(seid), pc.cfg.CNodeIP.To4(), nil)
 	}
+}
 
+func (pc *PFCPConnection) sessionEstablishmentRequest(spec SessionOpSpec) message.Message {
+	fseid := pc.NewIEFSEID(spec.SEID)
 	ies := append(spec.IEs, fseid, ie.NewNodeID("", "", pc.cfg.NodeID))
 	return message.NewSessionEstablishmentRequest(0, 0, 0, 0, 0, ies...)
 }
@@ -1199,7 +1250,7 @@ func (pc *PFCPConnection) enqueueRequest(seid SEID, msg message.Message, resultC
 		msg:          msg,
 		resultCh:     resultCh,
 		attemptsLeft: maxRequestAttempts,
-		seid:         seid,
+		cp_seid:      seid,
 	}
 
 	return nil
@@ -1220,9 +1271,14 @@ type sessionTransitionKey struct {
 }
 
 var sessionTransitions = map[sessionTransitionKey]sessionTransitionFunc{
-	{sessionStateEstablishing, sessionEventEstablished}: sessionToState(sessionStateEstablished),
-	{sessionStateEstablished, sessionEventActDelete}:    sessionToState(sessionStateDeleting),
-	{sessionStateEstablished, sessionEventActModify}:    sessionToState(sessionStateModifying),
+	{sessionStateEstablishing, sessionEventEstablished}: func(s *pfcpSession, ev pfcpEvent) (*PFCPMeasurement, error) {
+		upFSEID, _ := ev.msg.(*message.SessionEstablishmentResponse).UPFSEID.FSEID()
+		s.up_seid = SEID(upFSEID.SEID)
+		s.setState(sessionStateEstablished)
+		return nil, nil
+	},
+	{sessionStateEstablished, sessionEventActDelete}: sessionToState(sessionStateDeleting),
+	{sessionStateEstablished, sessionEventActModify}: sessionToState(sessionStateModifying),
 	{sessionStateModifying, sessionEventModified}: func(s *pfcpSession, ev pfcpEvent) (*PFCPMeasurement, error) {
 		s.setState(sessionStateEstablished)
 		return s.getMeasurement(ev.msg)
@@ -1239,9 +1295,10 @@ var sessionTransitions = map[sessionTransitionKey]sessionTransitionFunc{
 }
 
 type pfcpSession struct {
-	pc    *PFCPConnection
-	seid  SEID
-	state sessionState
+	pc      *PFCPConnection
+	cp_seid SEID
+	up_seid SEID
+	state   sessionState
 }
 
 func (s *pfcpSession) setState(newState sessionState) {
@@ -1249,12 +1306,12 @@ func (s *pfcpSession) setState(newState sessionState) {
 }
 
 func (s *pfcpSession) removeSelf() {
-	s.pc.forgetSessionUnlocked(s.seid)
+	s.pc.forgetSessionUnlocked(s.cp_seid)
 }
 
 func (s *pfcpSession) error(err error) error {
 	s.pc.log.WithFields(logrus.Fields{
-		"SEID":  fmt.Sprintf("%016x", s.seid),
+		"SEID":  fmt.Sprintf("%016x", s.cp_seid),
 		"state": s.state,
 		"error": err,
 	}).Debug("session error")
@@ -1269,13 +1326,13 @@ func (s *pfcpSession) event(et sessionEventType, ev pfcpEvent) (*PFCPMeasurement
 	defer func() {
 		if oldState == s.state {
 			s.pc.log.WithFields(logrus.Fields{
-				"SEID":     fmt.Sprintf("%016x", s.seid),
+				"SEID":     fmt.Sprintf("%016x", s.cp_seid),
 				"oldState": oldState,
 				"event":    et,
 			}).Trace("session state machine event w/o transition")
 		} else {
 			s.pc.log.WithFields(logrus.Fields{
-				"SEID":     fmt.Sprintf("%016x", s.seid),
+				"SEID":     fmt.Sprintf("%016x", s.cp_seid),
 				"oldState": oldState,
 				"event":    et,
 				"newState": s.state,
@@ -1285,7 +1342,7 @@ func (s *pfcpSession) event(et sessionEventType, ev pfcpEvent) (*PFCPMeasurement
 	tk := sessionTransitionKey{state: s.state, event: et}
 	tf, found := sessionTransitions[tk]
 	if !found {
-		return nil, s.error(errors.Errorf("Session %016x: can't handle event %s in state %s", s.seid, et, s.state))
+		return nil, s.error(errors.Errorf("Session %016x: can't handle event %s in state %s", s.cp_seid, et, s.state))
 	}
 
 	result, err := tf(s, ev)

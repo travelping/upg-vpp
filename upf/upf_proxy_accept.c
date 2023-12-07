@@ -72,7 +72,7 @@ typedef enum
 typedef struct
 {
   u32 session_index;
-  u64 cp_seid;
+  u64 up_seid;
   u32 pdr_idx;
   u8 packet_data[64 - 1 * sizeof (u32)];
 }
@@ -88,8 +88,8 @@ format_upf_proxy_accept_trace (u8 * s, va_list * args)
 
   s =
     format (s,
-	    "upf_session%d cp-seid 0x%016" PRIx64
-	    " pdr %d\n%U%U", t->session_index, t->cp_seid,
+	    "upf_session%d up-seid 0x%016" PRIx64
+	    " pdr %d\n%U%U", t->session_index, t->up_seid,
 	    t->pdr_idx, format_white_space, indent,
 	    format_ip4_header, t->packet_data, sizeof (t->packet_data));
   return s;

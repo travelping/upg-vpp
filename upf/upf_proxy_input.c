@@ -72,7 +72,7 @@ typedef enum
 typedef struct
 {
   u32 session_index;
-  u64 cp_seid;
+  u64 up_seid;
   u8 packet_data[64 - 1 * sizeof (u32)];
 }
 upf_proxy_input_trace_t;
@@ -85,8 +85,8 @@ format_upf_proxy_input_trace (u8 * s, va_list * args)
   upf_proxy_input_trace_t *t = va_arg (*args, upf_proxy_input_trace_t *);
   u32 indent = format_get_indent (s);
 
-  s = format (s, "upf_session%d cp-seid 0x%016" PRIx64 "\n%U%U",
-	      t->session_index, t->cp_seid,
+  s = format (s, "upf_session%d up-seid 0x%016" PRIx64 "\n%U%U",
+	      t->session_index, t->up_seid,
 	      format_white_space, indent,
 	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
   return s;
@@ -495,7 +495,7 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      sidx = upf_buffer_opaque (b)->gtpu.session_index;
 	      sess = pool_elt_at_index (gtm->sessions, sidx);
 	      tr->session_index = sidx;
-	      tr->cp_seid = sess->cp_seid;
+	      tr->up_seid = sess->up_seid;
 	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
 			   sizeof (tr->packet_data));
 	    }

@@ -18,6 +18,7 @@
 #ifndef __included_upf_h__
 #define __included_upf_h__
 
+#include "vppinfra/mhash.h"
 #include <vppinfra/lock.h>
 #include <vppinfra/error.h>
 #include <vppinfra/hash.h>
@@ -45,6 +46,14 @@
 
 #include "pfcp.h"
 #include "flowtable.h"
+#include "llist.h"
+
+/* requests in flight for session */
+UPF_LLIST_TEMPLATE_TYPES (upf_session_requests_list);
+/* sessions for association */
+UPF_LLIST_TEMPLATE_TYPES (upf_node_sessions_list);
+/* associations for smfset */
+UPF_LLIST_TEMPLATE_TYPES (upf_smfset_nodes_list);
 
 /* #define UPF_TRAFFIC_LOG 1 */
 
@@ -735,22 +744,29 @@ typedef struct
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
 
   /* most updated fields first */
+#ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_t lock;
+#endif
+
   f64 last_ul_traffic;
 
-  ip46_address_t up_address;
+  /* up_seid assigned once */
+  u64 up_seid;
+
+  /* cp_seid can be chaged by SMF or be invalid and
+     should be reflected in f_seid hashmap */
   u64 cp_seid;
-  ip46_address_t cp_address;
 
   struct
   {
+    /* even in case of SMFSet node keeps pointing to valid association */
     u32 node;
-    u32 next;
-    u32 prev;
+    upf_node_sessions_list_anchor_t anchor;
   } assoc;
 
   uint32_t flags;
-#define PFCP_UPDATING    0x8000
+#define UPF_SESSION_LOST_CP         BIT(0)	/* remote cp peer is down, f_seid is invalid */
+#define UPF_SESSION_UPDATING        BIT(1)	/* TODO: remove, looks like not used */
 
   volatile int active;
 
@@ -800,6 +816,12 @@ typedef struct
   pfcp_user_id_t user_id;
 
   session_flows_list_t flows;
+
+  /* Cache f_seid ip addresses to save memory.
+     Contains index in upf_main mhash_cached_fseid_idx */
+  u32 cached_fseid_idx;
+
+  upf_session_requests_list_t requests;
 
   u16 generation;
 } upf_session_t;
@@ -888,11 +910,23 @@ typedef struct
   ip46_address_t rmt_addr;
   ip46_address_t lcl_addr;
 
-  u32 sessions;
+  upf_node_sessions_list_t sessions;
   u32 heartbeat_handle;
+
+  struct
+  {
+    u32 idx;
+    upf_smfset_nodes_list_anchor_t anchor;
+  } smf_set;
 
   u32 policer_idx;
 } upf_node_assoc_t;
+
+typedef struct
+{
+  u8 *fqdn;
+  upf_smfset_nodes_list_t nodes;
+} upf_smf_set_t;
 
 typedef u8 *regex_t;
 
@@ -925,6 +959,27 @@ typedef enum
   ADR_OK,
   ADR_NEED_MORE_DATA
 } adr_result_t;
+
+/* same as pfcp_f_seid_t, but without seid */
+typedef struct
+{
+  ip6_address_t ip6;
+  ip4_address_t ip4;
+  u8 flags;
+} upf_cached_f_seid_key_t;
+
+typedef struct
+{
+  upf_cached_f_seid_key_t key;
+  u32 refcount;
+} upf_cached_f_seid_t;
+
+/* same as pfcp_f_seid_t, but uses cached ip fields to save memory */
+typedef struct
+{
+  u64 seid;
+  u32 cached_f_seid_id;
+} upf_cp_fseid_key_t;
 
 /* bihash buckets are cheap, only 8 bytes per bucket */
 #define UPF_MAPPING_BUCKETS      (64 * 1024)
@@ -965,8 +1020,8 @@ typedef struct
   /* vector of encap tunnel instances */
   upf_session_t *sessions;
 
-  /* lookup session by id */
-  uword *session_by_id;		/* keyed session id */
+  /* lookup session by up seid */
+  uword *session_by_up_seid;	/* keyed session id */
 
   /* lookup tunnel by TEID */
   clib_bihash_8_8_t v4_tunnel_by_key;	/* keyed session id */
@@ -984,11 +1039,16 @@ typedef struct
   upf_peer_t *peers;
   clib_bihash_24_8_t peer_index_by_ip;	/* remote GTP-U peer keyed on it's ip addr and vrf */
 
-  /* vector of associated PFCP nodes */
+  /* pool of associated PFCP nodes */
   upf_node_assoc_t *nodes;
   /* lookup PFCP nodes */
   mhash_t node_index_by_ip;
   uword *node_index_by_fqdn;
+
+  /* pool of SMF sets */
+  upf_smf_set_t *smf_sets;
+  /* map fqdn to smf set index */
+  uword *smf_set_by_fqdn;
 
   /* upg-related counters */
   vlib_simple_counter_main_t *upf_simple_counters;
@@ -1026,6 +1086,14 @@ typedef struct
   uword *nat_pool_index_by_name;
   upf_ue_ip_pool_info_t *ueip_pools;
   uword *ue_ip_pool_index_by_identity;
+
+  /* cache fseid ip addresses, to reduce memory usage */
+  /* pool of cached fseid ip addresses */
+  upf_cached_f_seid_t *cached_fseid_pool;
+  /* map upf_cached_f_seid_key_t to index in cached_fseid_pool */
+  mhash_t mhash_cached_fseid_idx;
+  /* map upf_cp_fseid_key_t to session index */
+  mhash_t mhash_cp_fseid_to_session_idx;
 
   policer_t *pfcp_policers;
 
@@ -1111,6 +1179,12 @@ void upf_ip_lookup_tx (u32 bi, int is_ip4);
 void upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4);
 
 void upf_pfcp_policers_relalculate (qos_pol_cfg_params_st * cfg);
+
+UPF_LLIST_TEMPLATE_DEFINITIONS (upf_node_sessions_list, upf_session_t,
+				assoc.anchor);
+
+UPF_LLIST_TEMPLATE_DEFINITIONS (upf_smfset_nodes_list, upf_node_assoc_t,
+				smf_set.anchor);
 
 static_always_inline void
 upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)

@@ -608,6 +608,14 @@ upf_init (vlib_main_t * vm)
   sm->node_index_by_fqdn =
     hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
   mhash_init (&sm->node_index_by_ip, sizeof (uword), sizeof (ip46_address_t));
+  mhash_init (&sm->mhash_cp_fseid_to_session_idx, sizeof (uword),
+	      sizeof (upf_cp_fseid_key_t));
+  mhash_init (&sm->mhash_cached_fseid_idx, sizeof (uword),
+	      sizeof (upf_cached_f_seid_key_t));
+
+  sm->smf_sets = NULL;
+  sm->smf_set_by_fqdn =
+    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
 
 #if 0
   sm->vtep6 = hash_create_mem (0, sizeof (ip6_address_t), sizeof (uword));
@@ -856,7 +864,7 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
 	  pool_get (gtm->upf_forwarding_policies, fp_entry);
 	  fib_node_init (&fp_entry->fib_node, upf_policy_fib_node_type);
 	  fp_entry->policy_id = vec_dup (policy_id);
-	  fp_entry->rpaths = clib_mem_alloc (sizeof (fp_entry->rpaths));
+	  fp_entry->rpaths = clib_mem_alloc (sizeof (*fp_entry->rpaths));
 
 	  fib_path_list_create_and_child_add (fp_entry, rpaths);
 	  hash_set_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id,

@@ -471,6 +471,10 @@ typedef struct
 
   union
   {
+    /*
+       When set to an IP address, it indicates that the
+       CP/UP function only exposes one IP address for the PFCP Association signalling.
+     */
     ip46_address_t ip;
     u8 *fqdn;
   };
@@ -1147,6 +1151,12 @@ typedef struct
   ip4_address_t ip4;
   ip6_address_t ip6;
 } pfcp_alternative_smf_ip_address_t;
+
+#define PFCP_IE_SMF_SET_ID				180
+typedef struct
+{
+  u8 *fqdn;
+} pfcp_smf_set_id_t;
 
 #define PFCP_IE_QUOTA_VALIDITY_TIME			181
 typedef u32 pfcp_quota_validity_time_t;
@@ -2406,8 +2416,8 @@ enum
   ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION,
   ASSOCIATION_SETUP_REQUEST_TP_BUILD_ID,
   ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS,
-  ASSOCIATION_SETUP_REQUEST_LAST =
-    ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS
+  ASSOCIATION_SETUP_REQUEST_SMF_SET_ID,
+  ASSOCIATION_SETUP_REQUEST_LAST = ASSOCIATION_SETUP_REQUEST_SMF_SET_ID
 };
 
 typedef struct
@@ -2423,6 +2433,7 @@ typedef struct
     * user_plane_ip_resource_information;
   pfcp_tp_build_id_t tp_build_id;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
+  pfcp_smf_set_id_t smf_set_id;
 } pfcp_association_setup_request_t;
 
 enum
@@ -2437,8 +2448,8 @@ enum
   ASSOCIATION_UPDATE_REQUEST_PFCPAUREQ_FLAGS,
   ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_IDENTITY,
   ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS,
-  ASSOCIATION_UPDATE_REQUEST_LAST =
-    ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS
+  ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID,
+  ASSOCIATION_UPDATE_REQUEST_LAST = ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID
 };
 
 typedef struct
@@ -2455,6 +2466,7 @@ typedef struct
     * user_plane_ip_resource_information;
   pfcp_pfcpaureq_flags_t pfcpaureq_flags;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
+  pfcp_smf_set_id_t smf_set_id;
 } pfcp_association_update_request_t;
 
 enum
@@ -2480,6 +2492,7 @@ enum
   ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES,
   ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION,
   ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION,
+  ASSOCIATION_PROCEDURE_RESPONSE_SMF_SET_ID,
   ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT,
   ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID,
   ASSOCIATION_PROCEDURE_RESPONSE_LAST =
@@ -2501,6 +2514,7 @@ typedef struct
     * user_plane_ip_resource_information;
   pfcp_bbf_up_function_features_t bbf_up_function_features;
   pfcp_tp_build_id_t tp_build_id;
+  pfcp_smf_set_id_t smf_set_id;
 } pfcp_association_procedure_response_t;
 
 enum
@@ -2701,7 +2715,8 @@ enum
   SESSION_REPORT_REQUEST_OVERLOAD_CONTROL_INFORMATION,
   SESSION_REPORT_REQUEST_ADDITIONAL_USAGE_REPORTS_INFORMATION,
   SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS,
-  SESSION_REPORT_REQUEST_LAST = SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS
+  SESSION_REPORT_REQUEST_OLD_CP_F_SEID,
+  SESSION_REPORT_REQUEST_LAST = SESSION_REPORT_REQUEST_OLD_CP_F_SEID
 };
 
 typedef struct
@@ -2717,6 +2732,7 @@ typedef struct
     pfcp_additional_usage_reports_information_t
     additional_usage_reports_information;
   pfcp_pfcpsrreq_flags_t pfcpsrreq_flags;
+  pfcp_f_seid_t old_cp_f_seid;
 } pfcp_session_report_request_t;
 
 enum
@@ -2812,6 +2828,8 @@ u8 *format_user_plane_ip_resource_information (u8 * s, va_list * args);
 u8 *format_redirect_information (u8 * s, va_list * args);
 u8 *format_ue_ip_address (u8 * s, va_list * args);
 u8 *format_node_id (u8 * s, va_list * args);
+u8 *format_f_seid (u8 * s, va_list * args);
+u8 *format_smf_set_id (u8 * s, va_list * args);
 u8 *format_outer_header_creation (u8 * s, va_list * args);
 uword tbcd_len (u8 * in, uword n_bytes);
 uword decode_tbcd (u8 * in, uword n_bytes, u8 * out, uword n_out);

@@ -4,6 +4,9 @@
 #include "vppinfra/pool.h"
 #include <stdbool.h>
 
+#ifndef __included_upf_llist_h__
+#define __included_upf_llist_h__
+
 /*
 This is analog of vpp dlist, but intrusive version with anchor.
 Also this implementation can create typed helpers.
@@ -207,3 +210,5 @@ static void __clib_unused \
 NAME ## _remove(TYPE *pool, NAME ## _t *list, TYPE *el) { \
   upf_llist_remove(pool, ANCHOR, list, el); \
 }
+
+#endif

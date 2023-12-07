@@ -1122,7 +1122,7 @@ upf_flows_out_cb (clib_bihash_kv_48_8_t * kvp, void *arg)
   flow_entry_t *flow;
 
   flow = pool_elt_at_index (fm->flows, kvp->value);
-  if (!arg_value->filtered || arg_value->seid == key->seid)
+  if (!arg_value->filtered || arg_value->seid == key->up_seid)
     vlib_cli_output (arg_value->vm, "%U", format_flow, flow);
 
   return arg_value->limit != ~0 && !--arg_value->limit ?
@@ -1200,7 +1200,7 @@ upf_show_session_command_fn (vlib_main_t * vm,
 	.limit = limit
       };
 
-      if (!(sess = pfcp_lookup (up_seid)))
+      if (!(sess = pfcp_lookup_up_seid (up_seid)))
 	{
 	  error = clib_error_return (0, "Sessions 0x%lx not found", up_seid);
 	  goto done;
@@ -1224,7 +1224,7 @@ upf_show_session_command_fn (vlib_main_t * vm,
 
   if (has_up_seid && !has_flows)
     {
-      if (!(sess = pfcp_lookup (up_seid)))
+      if (!(sess = pfcp_lookup_up_seid (up_seid)))
 	{
 	  error = clib_error_return (0, "Sessions %d not found", up_seid);
 	  goto done;
@@ -1759,7 +1759,7 @@ upf_pfcp_heartbeat_config_command_fn (vlib_main_t * vm,
 
   rv = vnet_upf_pfcp_heartbeat_config (timeout, retries);
   if (rv)
-    error = clib_return_error ("Invalid parameters");
+    error = (clib_error_return (0, "invalid parameters"));
   return error;
 }
 

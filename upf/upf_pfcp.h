@@ -29,10 +29,13 @@ upf_node_assoc_t *pfcp_new_association (session_handle_t session_handle,
 					pfcp_node_id_t * node_id);
 void pfcp_release_association (upf_node_assoc_t * n);
 
+void pfcp_session_set_cp_fseid (upf_session_t * sx, pfcp_f_seid_t * f_seid);
+
+void pfcp_node_enter_smf_set (upf_node_assoc_t * n, u8 * fqdn);
+u32 *pfcp_node_exit_smf_set (upf_node_assoc_t * n);
+
 upf_session_t *pfcp_create_session (upf_node_assoc_t * assoc,
-				    const ip46_address_t * up_address,
-				    uint64_t cp_seid,
-				    const ip46_address_t * cp_address);
+				    pfcp_f_seid_t * cp_f_seid, u64 up_seid);
 void pfcp_update_session (upf_session_t * sx);
 void pfcp_disable_session (upf_session_t * sx);
 void pfcp_free_session (upf_session_t * sx);
@@ -65,7 +68,10 @@ void pfcp_send_end_marker (upf_session_t * sx, u16 far_id);
 int pfcp_update_apply (upf_session_t * sx);
 void pfcp_update_finish (upf_session_t * sx);
 
-upf_session_t *pfcp_lookup (uint64_t sess_id);
+upf_session_t *pfcp_lookup_up_seid (u64 up_seid);
+upf_session_t *pfcp_lookup_cp_cached_f_seid (u32 cached_f_seid_idx,
+					     u64 cp_seid);
+upf_session_t *pfcp_lookup_cp_f_seid (pfcp_f_seid_t * f_seid);
 
 static inline struct rules *
 pfcp_get_rules (upf_session_t * sx, int rules)

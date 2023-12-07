@@ -40,6 +40,7 @@
 #include <vnet/fib/fib_path_list.h>
 
 #include "pfcp.h"
+#include "upf.h"
 #include "upf_pfcp.h"
 #include "upf_pfcp_server.h"
 #include "upf_pfcp_api.h"
@@ -52,7 +53,7 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
+#define upf_debug(...)                         \
   do { } while (0)
 #endif
 
@@ -104,6 +105,22 @@ init_response_node_id (pfcp_node_id_t * node_id)
   if (gtm->node_id.type == NID_FQDN)
     {
       node_id->fqdn = vec_dup (gtm->node_id.fqdn);
+    }
+}
+
+static void
+init_response_up_f_seid (pfcp_f_seid_t * up_f_seid, ip46_address_t * address,
+			 bool is_ip4)
+{
+  if (is_ip4)
+    {
+      up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V4;
+      up_f_seid->ip4 = address->ip4;
+    }
+  else
+    {
+      up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V6;
+      up_f_seid->ip6 = address->ip6;
     }
 }
 
@@ -370,9 +387,13 @@ handle_association_setup_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 			  &req->request.node_id);
   n->recovery_time_stamp = req->recovery_time_stamp;
 
+  if (ISSET_BIT (req->grp.fields, ASSOCIATION_SETUP_REQUEST_SMF_SET_ID))
+    pfcp_node_enter_smf_set (n, req->smf_set_id.fqdn);
+
   UPF_SET_BIT (resp->grp.fields,
 	       ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES);
   resp->up_function_features |= F_UPFF_EMPU;
+  resp->up_function_features |= F_UPFF_MPAS;
   if (gtm->pfcp_spec_version >= 16)
     {
       resp->up_function_features |= F_UPFF_VTIME;
@@ -462,14 +483,14 @@ handle_node_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   return -1;
 }
 
+/* this methods used for cases when incoming message decode is failed */
 static void
-send_simple_response (pfcp_msg_t * req, u64 seid, u8 type,
+send_simple_response (pfcp_msg_t * req, u8 type,
 		      pfcp_cause_t cause, pfcp_offending_ie_t * err)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t resp_dmsg = {
     .type = type,
-    .seid = seid
   };
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
 
@@ -2496,9 +2517,8 @@ static int
 handle_session_establishment_request (pfcp_msg_t * msg,
 				      pfcp_decoded_msg_t * dmsg)
 {
-  ip46_address_t up_address = ip46_address_initializer;
-  ip46_address_t cp_address = ip46_address_initializer;
   pfcp_server_main_t *psm = &pfcp_server_main;
+  upf_main_t *gtm = &upf_main;
   pfcp_session_establishment_request_t *req =
     &dmsg->session_establishment_request;
   pfcp_decoded_msg_t resp_dmsg = {
@@ -2511,7 +2531,7 @@ handle_session_establishment_request (pfcp_msg_t * msg,
   f64 now = psm->now;
   int r = 0;
   int is_ip4;
-  u64 seid;
+  u64 cp_seid;
 
   memset (resp, 0, sizeof (*resp));
   UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
@@ -2520,8 +2540,8 @@ handle_session_establishment_request (pfcp_msg_t * msg,
   UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_NODE_ID);
   init_response_node_id (&resp->node_id);
 
-  seid = req->f_seid.seid;
-  resp_dmsg.seid = seid;
+  cp_seid = req->f_seid.seid;
+  resp_dmsg.seid = cp_seid;
 
   assoc = pfcp_get_association (&req->request.node_id);
   if (!assoc)
@@ -2534,40 +2554,69 @@ handle_session_establishment_request (pfcp_msg_t * msg,
       return -1;
     }
 
-  UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
-  resp->up_f_seid.seid = req->f_seid.seid;
-
-  /*
-   * TODO: unique CP-provided SEIDs here don't follow the spec.  The
-   * SEIDs need to be unique per-SMC / SMF Set and UPG should provide
-   * it's UP SEID instead of just reusing CP SEID.
-   */
-  if (pfcp_lookup (seid))
+  if (pfcp_lookup_cp_f_seid (&req->f_seid))
     {
-      tp_session_error_report (resp, "Duplicate SEID");
+      tp_session_error_report (resp, "Duplicate F-SEID");
       r = -1;
       goto out_send_resp;
     }
 
+  /*
+     Generate up_seid
+     Try to reuse cp seid for up seid to simplify debugging (search in wireshark)
+   */
+  u64 up_seid = cp_seid;
+  if (PREDICT_FALSE (pfcp_lookup_up_seid (up_seid) != NULL))
+    {
+      u64 seed = unix_time_now_nsec () ^ cp_seid;
+      u8 retry_cnt = 10;
+
+      do
+	{
+	  /* try to generate random seid */
+	  up_seid = random_u64 (&seed);
+	  if (up_seid == 0 || up_seid == ~0)
+	    {
+	      continue;
+	    }
+
+	  if (!pfcp_lookup_up_seid (up_seid))
+	    {
+	      break;
+	    }
+	}
+      while (retry_cnt--);
+
+      if (retry_cnt == 0)
+	{
+	  tp_session_error_report (resp, "Out of attempts to generate SEID");
+	  r = -1;
+	  goto out_send_resp;
+	}
+    }
+
   is_ip4 = ip46_address_is_ip4 (&msg->rmt.address);
-  if (is_ip4)
-    {
-      resp->up_f_seid.flags |= IE_F_SEID_IP_ADDRESS_V4;
-      resp->up_f_seid.ip4 = msg->lcl.address.ip4;
 
-      ip_set (&up_address, &msg->lcl.address.ip4, 1);
-      ip_set (&cp_address, &req->f_seid.ip4, 1);
-    }
-  else
-    {
-      resp->up_f_seid.flags |= IE_F_SEID_IP_ADDRESS_V6;
-      resp->up_f_seid.ip6 = msg->lcl.address.ip6;
+  UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_UP_F_SEID);
+  init_response_up_f_seid (&resp->up_f_seid, &msg->lcl.address, is_ip4);
+  resp->up_f_seid.seid = up_seid;
 
-      ip_set (&up_address, &msg->lcl.address.ip6, 0);
-      ip_set (&cp_address, &req->f_seid.ip6, 0);
-    }
+#if CLIB_DEBUG > 1
+  ip46_address_t up_address = ip46_address_initializer;
+  ip46_address_t cp_address = ip46_address_initializer;
 
-  sess = pfcp_create_session (assoc, &up_address, seid, &cp_address);
+  ip_set (&up_address, &msg->lcl.address.ip4, is_ip4);
+  ip_set (&cp_address, &req->f_seid.ip4, is_ip4);
+
+  upf_debug ("CP F-SEID: 0x%016" PRIx64 " @ %U %U\n"
+	     "UP F-SEID: 0x%016" PRIx64 " @ %U\n",
+	     req->f_seid.seid,
+	     format_ip4_address, &req->f_seid.ip4,
+	     format_ip6_address, &req->f_seid.ip6,
+	     up_seid, format_ip46_address, &up_address, IP46_TYPE_ANY);
+#endif
+
+  sess = pfcp_create_session (assoc, &req->f_seid, up_seid);
 
   if (ISSET_BIT
       (req->grp.fields,
@@ -2651,7 +2700,7 @@ handle_session_modification_request (pfcp_msg_t * msg,
   UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp->cause = PFCP_CAUSE_REQUEST_REJECTED;
 
-  if (!(sess = pfcp_lookup (dmsg->seid)))
+  if (!(sess = pfcp_lookup_up_seid (dmsg->seid)))
     {
       upf_debug ("PFCP Session %" PRIu64 " not found.\n", dmsg->seid);
       resp->cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
@@ -2854,7 +2903,7 @@ handle_session_deletion_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
   UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_CAUSE);
   resp->cause = PFCP_CAUSE_REQUEST_REJECTED;
 
-  if (!(sess = pfcp_lookup (dmsg->seid)))
+  if (!(sess = pfcp_lookup_up_seid (dmsg->seid)))
     {
       upf_debug ("PFCP Session %" PRIu64 " not found.\n", dmsg->seid);
       resp->cause = PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
@@ -2914,32 +2963,60 @@ handle_session_report_request (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 static int
 handle_session_report_response (pfcp_msg_t * msg, pfcp_decoded_msg_t * dmsg)
 {
-  if (dmsg->session_report_response.response.cause ==
-      PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND)
+  upf_main_t *gtm = &upf_main;
+  pfcp_session_report_response_t *resp = &dmsg->session_report_response;
+
+  if (msg->session.idx == ~0)
     {
-      /* control plane does not know about the session. drop it */
-      upf_main_t *gtm = &upf_main;
-      upf_session_t *sess;
+      /* related session was removed previously, nothing to do */
+      return -1;
+    }
 
-      if (pool_is_free_index (gtm->sessions, msg->session_index))
-	{
-	  upf_debug ("PFCP Session not found.\n");
-	  return -1;
-	}
+  upf_session_t *sx = pool_elt_at_index (gtm->sessions, msg->session.idx);
 
-      sess = pool_elt_at_index (gtm->sessions, msg->session_index);
+  if (msg->up_seid != sx->up_seid)
+    {
+      /*
+         TODO: this check is not needed anymore since now we detach request
+         from session on session removal, but keeping it for safety
+       */
+      /*
+         since this is a response, and some time passed since the request
+         make sure that session index still matches the original session
+       */
+      upf_debug ("PFCP Session seid not matching (deleted already?).\n");
+      ASSERT (msg->up_seid != sx->up_seid);
+      return -1;
+    }
 
-      /* since this is a response, and some time passed since the request
-         make sure that session index still matches the original session */
-      if (sess->cp_seid != msg->seid)
-	{
-	  upf_debug ("PFCP Session seid not matching (deleted already?).\n");
-	  return -1;
-	}
-
+  upf_debug ("session report response cause %d", resp->response.cause);
+  if (resp->response.cause == PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND)
+    {
       /* TODO: count those drops */
-      pfcp_disable_session (sess);
-      pfcp_free_session (sess);
+      pfcp_disable_session (sx);
+      pfcp_free_session (sx);
+    }
+  else if (resp->response.cause == PFCP_CAUSE_REQUEST_ACCEPTED)
+    {
+      upf_debug ("session report response session flags 0x%x", sx->flags);
+
+      /*
+         This is first response since we lost smf peer
+         So we have to use new cp_f_seid
+       */
+      if ((sx->flags & UPF_SESSION_LOST_CP)
+	  && (resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID))
+	{
+	  pfcp_f_seid_t *cp_f_seid = &dmsg->session_report_response.cp_f_seid;
+
+	  sx->flags &= ~(UPF_SESSION_LOST_CP);
+	  pfcp_session_set_cp_fseid (sx, cp_f_seid);
+
+	  upf_debug
+	    ("updated session cp_seid 0x%x (%U,%U) session flags 0x%x",
+	     sx->cp_seid, format_ip4_address, &cp_f_seid->ip4,
+	     format_ip6_address, &cp_f_seid->ip6, sx->flags);
+	}
     }
 
   return -1;
@@ -3024,6 +3101,9 @@ upf_pfcp_handle_msg (pfcp_msg_t * msg)
   u8 type = pfcp_msg_type (msg->data);
   int r;
 
+  upf_debug ("received message %U", format_pfcp_msg_type,
+	     pfcp_msg_type (msg->data));
+
   if (type >= ARRAY_LEN (msg_handlers) || !msg_handlers[type])
     {
       /* probably non-PFCP datagram, nothing to reply */
@@ -3039,8 +3119,9 @@ upf_pfcp_handle_msg (pfcp_msg_t * msg)
       return -1;
     }
 
-  if (r != 0)
+  if (r != 0)			/* if cause != 0 */
     {
+      upf_debug ("PFCP: error response %d", r);
       switch (dmsg.type)
 	{
 	case PFCP_HEARTBEAT_REQUEST:
@@ -3053,7 +3134,7 @@ upf_pfcp_handle_msg (pfcp_msg_t * msg)
 	case PFCP_SESSION_MODIFICATION_REQUEST:
 	case PFCP_SESSION_DELETION_REQUEST:
 	case PFCP_SESSION_REPORT_REQUEST:
-	  send_simple_response (msg, 0, dmsg.type + 1, r, err);
+	  send_simple_response (msg, dmsg.type + 1, r, err);
 	  break;
 
 	default:

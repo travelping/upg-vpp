@@ -300,7 +300,7 @@ upf_adf_app_add_command_fn (vlib_main_t * vm,
 	}
     }
 
-  sess = pfcp_lookup (up_seid);
+  sess = pfcp_lookup_up_seid (up_seid);
   if (sess == NULL)
     {
       error = clib_error_return (0, "could not find a session");
@@ -748,8 +748,7 @@ upf_application_rule_add_del_command_fn (vlib_main_t * vm,
 		{
 		  break;
 		}
-	      else
-		if (unformat
+	      else if (unformat
 		    (line_input, "ipfilter %_%U%_", unformat_ipfilter, &rule))
 		{
 		  break;
