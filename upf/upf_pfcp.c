@@ -2598,8 +2598,9 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
     if (!urr)
       continue;
 
-#if CLIB_DEBUG > 2
+    // TMP: move this under #if
     f64 unow = unix_time_now ();
+#if CLIB_DEBUG > 2
     upf_debug
       ("Monitoring Time: %12.4f - %12.4f : %12.4f Unix: %U - %U : %12.4f",
        urr->monitoring_time.vlib_time, now,
@@ -2674,7 +2675,12 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
 #endif
 
 	if (PREDICT_FALSE (r & URR_QUOTA_EXHAUSTED))
-	  urr->status |= URR_OVER_QUOTA;
+	  {
+	    clib_warning ("TMP: %U: SEID Session 0x%016" PRIx64
+			  "Over volume quota", format_time_float,
+			  NULL, unow, sess->cp_seid);
+	    urr->status |= URR_OVER_QUOTA;
+	  }
       }
 
     if ((urr->methods & PFCP_URR_EVENT) &&
@@ -2873,6 +2879,11 @@ static const char *urr_trigger_flags[] = {
   "VOLUME QUOTA",
   "TIME QUOTA",
   "ENVELOPE CLOSURE",
+  "MAC ADDRESSES REPORTING",
+  "EVENT THRESHOLD",
+  "EVENT QUOTA",
+  "IP MULTICAST JOIN LEAVE",
+  "QUOTA VALIDITY TIME",
   NULL
 };
 
@@ -3233,6 +3244,11 @@ format_pfcp_session (u8 * s, va_list * args)
 	s = format (s, "  Time\n    Quota:     %U\n    Threshold: %U\n",
 		    format_urr_time, &urr->time_quota,
 		    format_urr_time, &urr->time_threshold);
+      }
+    if (urr->quota_validity_time.base != 0)
+      {
+	s = format (s, "  Quota Validity Time: %U\n",
+		    format_urr_time, &urr->quota_validity_time);
       }
     if (urr->monitoring_time.vlib_time != INFINITY)
       {

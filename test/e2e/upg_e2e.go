@@ -1591,8 +1591,58 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 				VTime:  10 * time.Second,
 			}
 			reportCh := f.PFCP.AcquireReportCh()
+			ts := time.Now()
 			_, err := f.PFCP.EstablishSession(f.Context, 0, sessionCfg.SessionIEs()...)
 			framework.ExpectNoError(err)
+
+			quotaInfo := func() (duration int, startTS time.Time, rem float64, handle uint32, foundTrigger, overQuota bool) {
+				// Quota Validity Time:                   10 secs @ 2022/11/16 17:48:27:171, in     9.998 secs, handle 0x00000c03
+				out, err := f.VPP.Ctl("show upf session")
+				framework.ExpectNoError(err, "show upf session")
+				foundQuota := false
+				quotaRx := regexp.MustCompile(
+					`.*Quota\s+Validity\s+Time:\s*(-?\d+)\s+secs\s+@` +
+						`\s+(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}):(\d+),` +
+						`\s+in\s+(\d*.\d*)\s+secs,\s+handle\s+0x([0-9A-Fa-f]+)`)
+				for _, l := range strings.Split(out, "\n") {
+					if strings.Contains(l, "Reporting Triggers: 8000 == [QUOTA VALIDITY TIME]") {
+						foundTrigger = true
+						continue
+					}
+					if strings.Contains(l, "Status: 1 == [OVER QUOTA]") {
+						overQuota = true
+						continue
+					}
+					m := quotaRx.FindStringSubmatch(l)
+					if m == nil {
+						continue
+					}
+					duration, err = strconv.Atoi(m[1])
+					framework.ExpectNoError(err)
+					// time.Parse can't parse milliseconds after ':', need d dot
+					startTS, err = time.Parse("2006/01/02 15:04:05.000", m[2]+"."+m[3])
+					framework.ExpectNoError(err)
+					rem, err = strconv.ParseFloat(m[4], 64)
+					framework.ExpectNoError(err)
+					hnd, err := strconv.ParseUint(m[5], 16, 32)
+					framework.ExpectNoError(err)
+					handle = uint32(hnd)
+					foundQuota = true
+				}
+				gomega.Expect(foundQuota).To(gomega.BeTrue(), "Quota Validity Time not found in 'show upf session' output")
+				return duration, startTS, rem, handle, foundTrigger, overQuota
+			}
+
+			duration, startTS, rem, handle, foundTrigger, overQuota := quotaInfo()
+			gomega.Expect(duration).To(gomega.Equal(10))
+			calcDuration := startTS.Sub(ts)
+			gomega.Expect(calcDuration).To(gomega.BeNumerically(">=", time.Duration(10)))
+			gomega.Expect(calcDuration).To(gomega.BeNumerically("<", 13*time.Second))
+			gomega.Expect(rem).To(gomega.BeNumerically(">", 7))
+			gomega.Expect(rem).To(gomega.BeNumerically("<", 10))
+			framework.ExpectNotEqual(handle, uint32(0xffffffff))
+			gomega.Expect(foundTrigger).To(gomega.BeTrue())
+			gomega.Expect(overQuota).To(gomega.BeFalse())
 
 			var m message.Message
 			gomega.Eventually(reportCh, 12*time.Second, 50*time.Millisecond).Should(gomega.Receive(&m))
@@ -1614,6 +1664,19 @@ var _ = ginkgo.Describe("[Reporting]", func() {
 				gomega.Expect(len(urt.Payload)).To(gomega.BeNumerically(">=", 3))
 				gomega.Expect(urt.Payload[2] & 8).NotTo(gomega.BeZero()) // QUVTI bit is set
 			}
+
+			// Quota Validity Time:                    0 secs @ 2022/11/16 18:13:28:101, in -16686224 secs, handle 0xffffffff  pid=7608
+			duration, newStartTS, rem, handle, foundTrigger, overQuota := quotaInfo()
+			gomega.Expect(duration).To(gomega.Equal(0))
+			diff := newStartTS.Sub(startTS)
+			if diff < 0 {
+				diff = -diff
+			}
+			gomega.Expect(diff).To(gomega.BeNumerically("<", time.Second))
+			gomega.Expect(rem).To(gomega.BeNumerically("<", 0))
+			framework.ExpectEqual(handle, uint32(0xffffffff))
+			gomega.Expect(foundTrigger).To(gomega.BeFalse())
+			gomega.Expect(overQuota).To(gomega.BeTrue())
 		})
 	})
 
