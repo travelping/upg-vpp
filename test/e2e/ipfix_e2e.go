@@ -210,6 +210,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				f := framework.NewDefaultFramework(mode, ipMode)
 				v := &ipfixVerifier{f: f}
 				v.withNWIIPFIXPolicy("default")
+				v.withReportingInterval(5)
 				v.withIPFIXHandler()
 
 				ginkgo.BeforeEach(func() {
