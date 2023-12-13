@@ -38,6 +38,8 @@ import (
 	"git.fd.io/govpp.git"
 	"git.fd.io/govpp.git/adapter/socketclient"
 	"git.fd.io/govpp.git/api"
+	interfaces "git.fd.io/govpp.git/binapi/interface"
+	"git.fd.io/govpp.git/binapi/interface_types"
 	"git.fd.io/govpp.git/binapi/vpe"
 	"git.fd.io/govpp.git/core"
 	ps "github.com/mitchellh/go-ps"
@@ -571,6 +573,34 @@ func (vi *VPPInstance) StartCapture() error {
 	}
 
 	return nil
+}
+
+func (vi *VPPInstance) DumpInterfaces() (map[string]*interfaces.SwInterfaceDetails, error) {
+	ifaces := make(map[string]*interfaces.SwInterfaceDetails)
+	req := &interfaces.SwInterfaceDump{}
+	reqCtx := vi.ApiChannel.SendMultiRequest(req)
+	for {
+		reply := &interfaces.SwInterfaceDetails{}
+		if stop, err := reqCtx.ReceiveReply(reply); err != nil {
+			return nil, err
+		} else if stop {
+			break
+		}
+		ifaces[reply.InterfaceName] = reply
+	}
+	return ifaces, nil
+}
+
+func (vi *VPPInstance) GetInterfaceVRF(swIfIndex uint32, ipv6 bool) (uint32, error) {
+	req := &interfaces.SwInterfaceGetTable{
+		SwIfIndex: interface_types.InterfaceIndex(swIfIndex),
+		IsIPv6:    ipv6,
+	}
+	reply := &interfaces.SwInterfaceGetTableReply{}
+	if err := vi.ApiChannel.SendRequest(req).ReceiveReply(reply); err != nil {
+		return 0, err
+	}
+	return reply.VrfID, nil
 }
 
 func (vi *VPPInstance) runCmds(cmds ...string) error {

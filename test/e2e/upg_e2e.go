@@ -797,35 +797,12 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 		var interfaceVRF uint32
 
 		ginkgo.BeforeEach(func() {
-			// get list of interfaces to get interface index
-			ifaces = make(map[string]*interfaces.SwInterfaceDetails)
-			req := &interfaces.SwInterfaceDump{}
-			reqCtx := f.VPP.ApiChannel.SendMultiRequest(req)
-			for {
-				reply := &interfaces.SwInterfaceDetails{}
-				stop, err := reqCtx.ReceiveReply(reply)
-				gomega.Expect(err).ToNot(gomega.HaveOccurred())
-				if stop {
-					break
-				}
+			var err error
+			ifaces, err = f.VPP.DumpInterfaces()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-				ifaces[reply.InterfaceName] = reply
-			}
-
-			log.Printf("using interface %+#v", ifaces[INTERFACE_NAME])
-		})
-
-		ginkgo.BeforeEach(func() {
-			req := &interfaces.SwInterfaceGetTable{
-				SwIfIndex: ifaces[INTERFACE_NAME].SwIfIndex,
-			}
-			reply := &interfaces.SwInterfaceGetTableReply{}
-			gomega.Expect(
-				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
-			).To(gomega.Succeed())
-			interfaceVRF = reply.VrfID
-
-			log.Printf("using VRF %v", interfaceVRF)
+			interfaceVRF, err = f.VPP.GetInterfaceVRF(uint32(ifaces[INTERFACE_NAME].SwIfIndex), false)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		})
 
 		ginkgo.BeforeEach(func() {
@@ -880,6 +857,7 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
 
 			{
+				// verify that VRF was updated with provided prefixes
 				out, err := f.VPP.Ctl("show ip fib table %d", interfaceVRF)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				log.Printf("OUT:\n\n%s\n", out)
