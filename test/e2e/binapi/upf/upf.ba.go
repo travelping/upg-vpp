@@ -28,7 +28,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0x37ca18c2
+	VersionCrc = 0x65a11c12
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -2181,14 +2181,16 @@ func (m *UpfSetNodeIDReply) Unmarshal(b []byte) error {
 
 // UpfTdfUlEnableDisable defines message 'upf_tdf_ul_enable_disable'.
 type UpfTdfUlEnableDisable struct {
-	Enable    bool                           `binapi:"bool,name=enable" json:"enable,omitempty"`
-	Interface interface_types.InterfaceIndex `binapi:"interface_index,name=interface" json:"interface,omitempty"`
-	IsIPv6    bool                           `binapi:"bool,name=is_ipv6" json:"is_ipv6,omitempty"`
+	Enable      bool                           `binapi:"bool,name=enable" json:"enable,omitempty"`
+	Interface   interface_types.InterfaceIndex `binapi:"interface_index,name=interface" json:"interface,omitempty"`
+	IsIPv6      bool                           `binapi:"bool,name=is_ipv6" json:"is_ipv6,omitempty"`
+	PrefixesLen uint16                         `binapi:"u16,name=prefixes_len" json:"-"`
+	Prefixes    []ip_types.Prefix              `binapi:"prefix[prefixes_len],name=prefixes" json:"prefixes,omitempty"`
 }
 
 func (m *UpfTdfUlEnableDisable) Reset()               { *m = UpfTdfUlEnableDisable{} }
 func (*UpfTdfUlEnableDisable) GetMessageName() string { return "upf_tdf_ul_enable_disable" }
-func (*UpfTdfUlEnableDisable) GetCrcString() string   { return "53c1a78f" }
+func (*UpfTdfUlEnableDisable) GetCrcString() string   { return "67d28443" }
 func (*UpfTdfUlEnableDisable) GetMessageType() api.MessageType {
 	return api.RequestMessage
 }
@@ -2200,6 +2202,17 @@ func (m *UpfTdfUlEnableDisable) Size() (size int) {
 	size += 1 // m.Enable
 	size += 4 // m.Interface
 	size += 1 // m.IsIPv6
+	size += 2 // m.PrefixesLen
+	for j1 := 0; j1 < len(m.Prefixes); j1++ {
+		var s1 ip_types.Prefix
+		_ = s1
+		if j1 < len(m.Prefixes) {
+			s1 = m.Prefixes[j1]
+		}
+		size += 1      // s1.Address.Af
+		size += 1 * 16 // s1.Address.Un
+		size += 1      // s1.Len
+	}
 	return size
 }
 func (m *UpfTdfUlEnableDisable) Marshal(b []byte) ([]byte, error) {
@@ -2210,6 +2223,16 @@ func (m *UpfTdfUlEnableDisable) Marshal(b []byte) ([]byte, error) {
 	buf.EncodeBool(m.Enable)
 	buf.EncodeUint32(uint32(m.Interface))
 	buf.EncodeBool(m.IsIPv6)
+	buf.EncodeUint16(uint16(len(m.Prefixes)))
+	for j0 := 0; j0 < len(m.Prefixes); j0++ {
+		var v0 ip_types.Prefix // Prefixes
+		if j0 < len(m.Prefixes) {
+			v0 = m.Prefixes[j0]
+		}
+		buf.EncodeUint8(uint8(v0.Address.Af))
+		buf.EncodeBytes(v0.Address.Un.XXX_UnionData[:], 16)
+		buf.EncodeUint8(v0.Len)
+	}
 	return buf.Bytes(), nil
 }
 func (m *UpfTdfUlEnableDisable) Unmarshal(b []byte) error {
@@ -2217,6 +2240,13 @@ func (m *UpfTdfUlEnableDisable) Unmarshal(b []byte) error {
 	m.Enable = buf.DecodeBool()
 	m.Interface = interface_types.InterfaceIndex(buf.DecodeUint32())
 	m.IsIPv6 = buf.DecodeBool()
+	m.PrefixesLen = buf.DecodeUint16()
+	m.Prefixes = make([]ip_types.Prefix, m.PrefixesLen)
+	for j0 := 0; j0 < len(m.Prefixes); j0++ {
+		m.Prefixes[j0].Address.Af = ip_types.AddressFamily(buf.DecodeUint8())
+		copy(m.Prefixes[j0].Address.Un.XXX_UnionData[:], buf.DecodeBytes(16))
+		m.Prefixes[j0].Len = buf.DecodeUint8()
+	}
 	return nil
 }
 
@@ -2716,7 +2746,7 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*UpfPolicyDump)(nil), "upf_policy_dump_51077d14")
 	api.RegisterMessage((*UpfSetNodeID)(nil), "upf_set_node_id_d2f43a0a")
 	api.RegisterMessage((*UpfSetNodeIDReply)(nil), "upf_set_node_id_reply_e8d4e804")
-	api.RegisterMessage((*UpfTdfUlEnableDisable)(nil), "upf_tdf_ul_enable_disable_53c1a78f")
+	api.RegisterMessage((*UpfTdfUlEnableDisable)(nil), "upf_tdf_ul_enable_disable_67d28443")
 	api.RegisterMessage((*UpfTdfUlEnableDisableReply)(nil), "upf_tdf_ul_enable_disable_reply_e8d4e804")
 	api.RegisterMessage((*UpfTdfUlTable)(nil), "upf_tdf_ul_table_98d231ca")
 	api.RegisterMessage((*UpfTdfUlTableAdd)(nil), "upf_tdf_ul_table_add_040a316b")

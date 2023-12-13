@@ -988,11 +988,29 @@ vl_api_upf_tdf_ul_enable_disable_t_handler (vl_api_upf_tdf_ul_enable_disable_t
 
   fib_protocol_t fproto = mp->is_ipv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4;
 
-  if (!mp->enable)
-    rv = VNET_API_ERROR_UNIMPLEMENTED;
+  ip_prefix_t *decoded_prefixes = NULL;
 
-  if (rv == 0)
-    vnet_upf_tdf_ul_enable_disable (fproto, mp->interface, mp->enable);
+  if (mp->prefixes_len) {
+    vec_alloc(decoded_prefixes, mp->prefixes_len);
+
+    int i;
+    vec_foreach_index(i, decoded_prefixes) {
+      rv = ip_prefix_decode2(mp->prefixes + i, decoded_prefixes + i);
+      if (rv != 0) {
+        goto reply;
+      }
+    }
+  }
+
+  if (!mp->enable) {
+    rv = VNET_API_ERROR_UNIMPLEMENTED;
+    goto reply;
+  }
+
+  rv = vnet_upf_tdf_ul_enable_disable (fproto, mp->interface, decoded_prefixes, mp->enable);
+
+reply:
+  vec_free(decoded_prefixes);
 
   REPLY_MACRO (VL_API_UPF_TDF_UL_ENABLE_DISABLE_REPLY);
 }

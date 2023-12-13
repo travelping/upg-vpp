@@ -333,7 +333,7 @@ vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto, u32 table_id,
 }
 
 static int
-upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t * pfx,
+upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t * pfx, const uword pfx_n,
 			 u32 ue_fib_index)
 {
   dpo_id_t dpo = DPO_INVALID;
@@ -349,12 +349,13 @@ upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t * pfx,
 				      LOOKUP_TABLE_FROM_CONFIG, &dpo);
 
   /*
-   * add the entry to the destination FIB that uses the lookup DPO
+   * add the entries to the destination FIB that uses the lookup DPO
    */
-  fib_table_entry_special_dpo_add (ue_fib_index, pfx,
-				   upf_fib_source,
-				   FIB_ENTRY_FLAG_EXCLUSIVE, &dpo);
-
+  for (uword i = 0; i < pfx_n; i++) {
+    fib_table_entry_special_dpo_add (ue_fib_index, pfx + i,
+                                    upf_fib_source,
+				    FIB_ENTRY_FLAG_EXCLUSIVE, &dpo);
+  }
   /*
    * the DPO is locked by the FIB entry, and we have no further
    * need for it.
@@ -410,12 +411,9 @@ upf_tdf_ul_lookup_delete (u32 tdf_ul_fib_index, const fib_prefix_t * pfx)
 
 int
 vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
-				int is_en)
+                                ip_prefix_t *prefixes, int is_en)
 {
   upf_main_t *gtm = &upf_main;
-  fib_prefix_t pfx = {
-    .fp_proto = fproto,
-  };
   u32 fib_index;
 
   fib_index = fib_table_get_index_for_sw_if_index (fproto, sw_if_index);
@@ -432,9 +430,38 @@ vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
        * now we know which interface the table will serve, we can add the default
        * route to use the table that the interface is bound to.
        */
-      upf_tdf_ul_lookup_add_i (vec_elt (gtm->tdf_ul_table[fproto],
-					fib_index), &pfx, fib_index);
 
+      if (vec_len(prefixes)) {
+        ip_prefix_t *cur = NULL;
+        fib_prefix_t *fpfxs = NULL;
+
+        vec_foreach(cur, prefixes) {
+          if (fproto != ip_address_family_to_fib_proto(cur->addr.version))
+            return VNET_API_ERROR_INVALID_ADDRESS_FAMILY;
+        }
+
+        vec_foreach(cur, prefixes) {
+          fib_prefix_t fpfx = {
+            .fp_addr = cur->addr.ip,
+            .fp_proto = ip_address_family_to_fib_proto(cur->addr.version),
+            .fp_len = cur->len,
+          };
+          vec_add1(fpfxs, fpfx);
+        }
+
+        upf_tdf_ul_lookup_add_i (vec_elt (gtm->tdf_ul_table[fproto],
+                                          fib_index), fpfxs, vec_len(fpfxs), fib_index);
+
+        vec_free(fpfxs);
+      } else {
+        /* No specific prefixes been defined, catch all */
+
+        fib_prefix_t fpfx = {
+          .fp_proto = fproto,
+        };
+        upf_tdf_ul_lookup_add_i (vec_elt (gtm->tdf_ul_table[fproto],
+                                          fib_index), &fpfx, 1, fib_index);
+      }
 
       /*
          vnet_feature_enable_disable ((FIB_PROTOCOL_IP4 == fproto ?

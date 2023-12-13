@@ -767,6 +767,9 @@ upf_tdf_ul_enable_command_fn (vlib_main_t * vm,
   vnet_main_t *vnm = vnet_get_main ();
   u32 sw_if_index = ~0;
   u8 enable = 1;
+  ip_prefix_t *prefixes = NULL;
+  ip_prefix_t curpfx;
+  clib_error_t *error = NULL;
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
     return 0;
@@ -784,19 +787,37 @@ upf_tdf_ul_enable_command_fn (vlib_main_t * vm,
 	fproto = FIB_PROTOCOL_IP4;
       else if (unformat (line_input, "ip6"))
 	fproto = FIB_PROTOCOL_IP6;
+      else if (unformat (line_input, "prefix %U", unformat_ip_prefix, &curpfx))
+        vec_add1(prefixes, curpfx);
       else
-	break;
+        {
+	  error = unformat_parse_error (line_input);
+	  goto done;
+	}
     }
 
-  if (!enable)
-    return clib_error_return (0, "not implemented");
+  if (!enable) {
+    error = clib_error_return (0, "not implemented");
+    goto done;
+  }
 
-  if (~0 == sw_if_index)
-    return clib_error_return (0, "interface must be specified");
+  if (~0 == sw_if_index) {
+    error = clib_error_return (0, "interface must be specified");
+    goto done;
+  }
 
-  vnet_upf_tdf_ul_enable_disable (fproto, sw_if_index, enable);
+  int rv = vnet_upf_tdf_ul_enable_disable (fproto, sw_if_index, prefixes, enable);
+  if (rv) {
+    error = clib_error_return(0, "vnet_upf_tdf_ul_enable_disable returned %U (%d)",
+              format_vnet_api_errno, rv,
+              rv);
+    goto done;
+  }
 
-  return NULL;
+done:
+  vec_free(prefixes);
+
+  return error;
 }
 
 /* *INDENT-OFF* */
