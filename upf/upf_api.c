@@ -988,22 +988,23 @@ vl_api_upf_tdf_ul_enable_disable_t_handler (vl_api_upf_tdf_ul_enable_disable_t
   ip_prefix_t *decoded_prefixes = NULL;
   fib_protocol_t fproto = mp->is_ipv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4;
 
-  u32 interface = clib_net_to_host_u32(mp->interface);
-  u16 prefixes_len = clib_net_to_host_u16(mp->prefixes_len);
+  u32 interface = clib_net_to_host_u32 (mp->interface);
+  u16 prefixes_len = clib_net_to_host_u16 (mp->prefixes_len);
 
   if (prefixes_len)
     {
       vec_alloc (decoded_prefixes, prefixes_len);
 
-      for (int i = 0; i < prefixes_len; i++) {
-        ip_prefix_t pfx;
+      for (int i = 0; i < prefixes_len; i++)
+	{
+	  ip_prefix_t pfx;
 
-	rv = ip_prefix_decode2 (mp->prefixes + i, &pfx);
-	if (rv != 0)
+	  rv = ip_prefix_decode2 (mp->prefixes + i, &pfx);
+	  if (rv != 0)
 	    goto reply;
 
-        vec_add1(decoded_prefixes, pfx);
-      }
+	  vec_add1 (decoded_prefixes, pfx);
+	}
     }
 
   if (!mp->enable)
