@@ -985,23 +985,24 @@ vl_api_upf_tdf_ul_enable_disable_t_handler (vl_api_upf_tdf_ul_enable_disable_t
   int rv = 0;
   upf_main_t *sm = &upf_main;
   vl_api_upf_tdf_ul_enable_disable_reply_t *rmp = NULL;
-
+  ip_prefix_t *decoded_prefixes = NULL;
   fib_protocol_t fproto = mp->is_ipv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4;
 
-  ip_prefix_t *decoded_prefixes = NULL;
+  u32 interface = clib_net_to_host_u32(mp->interface);
+  u16 prefixes_len = clib_net_to_host_u16(mp->prefixes_len);
 
-  if (mp->prefixes_len)
+  if (prefixes_len)
     {
-      vec_alloc (decoded_prefixes, mp->prefixes_len);
+      vec_alloc (decoded_prefixes, prefixes_len);
 
-      int i;
-      vec_foreach_index (i, decoded_prefixes)
-      {
-	rv = ip_prefix_decode2 (mp->prefixes + i, decoded_prefixes + i);
+      for (int i = 0; i < prefixes_len; i++) {
+        ip_prefix_t pfx;
+
+	rv = ip_prefix_decode2 (mp->prefixes + i, &pfx);
 	if (rv != 0)
-	  {
 	    goto reply;
-	  }
+
+        vec_add1(decoded_prefixes, pfx);
       }
     }
 
@@ -1012,7 +1013,7 @@ vl_api_upf_tdf_ul_enable_disable_t_handler (vl_api_upf_tdf_ul_enable_disable_t
     }
 
   rv =
-    vnet_upf_tdf_ul_enable_disable (fproto, mp->interface, decoded_prefixes,
+    vnet_upf_tdf_ul_enable_disable (fproto, interface, decoded_prefixes,
 				    mp->enable);
 
 reply:

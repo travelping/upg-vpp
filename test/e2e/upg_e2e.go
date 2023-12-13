@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"regexp"
 	"sort"
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	"git.fd.io/govpp.git/api"
+	interfaces "git.fd.io/govpp.git/binapi/interface"
 	"github.com/google/gopacket/layers"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -38,6 +40,7 @@ import (
 	"github.com/wmnsk/go-pfcp/message"
 
 	"github.com/travelping/upg-vpp/test/e2e/binapi/fib_types"
+	"github.com/travelping/upg-vpp/test/e2e/binapi/interface_types"
 	"github.com/travelping/upg-vpp/test/e2e/binapi/ip_types"
 	"github.com/travelping/upg-vpp/test/e2e/binapi/upf"
 	"github.com/travelping/upg-vpp/test/e2e/framework"
@@ -789,10 +792,60 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 	ginkgo.Context("for upf tdf ul enable", func() {
 		f := framework.NewDefaultFramework(framework.UPGModeTDF, framework.UPGIPModeV4)
 
+		const INTERFACE_NAME = "sgi0"
+		var ifaces map[string]*interfaces.SwInterfaceDetails
+		var interfaceVRF uint32
+
+		ginkgo.BeforeEach(func() {
+			// get list of interfaces to get interface index
+			ifaces = make(map[string]*interfaces.SwInterfaceDetails)
+			req := &interfaces.SwInterfaceDump{}
+			reqCtx := f.VPP.ApiChannel.SendMultiRequest(req)
+			for {
+				reply := &interfaces.SwInterfaceDetails{}
+				stop, err := reqCtx.ReceiveReply(reply)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				if stop {
+					break
+				}
+
+				ifaces[reply.InterfaceName] = reply
+			}
+
+			log.Printf("using interface %+#v", ifaces[INTERFACE_NAME])
+		})
+
+		ginkgo.BeforeEach(func() {
+			req := &interfaces.SwInterfaceGetTable{
+				SwIfIndex: ifaces[INTERFACE_NAME].SwIfIndex,
+			}
+			reply := &interfaces.SwInterfaceGetTableReply{}
+			gomega.Expect(
+				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
+			).To(gomega.Succeed())
+			interfaceVRF = reply.VrfID
+
+			log.Printf("using VRF %v", interfaceVRF)
+		})
+
+		ginkgo.BeforeEach(func() {
+			// Create required mapping
+			req := &upf.UpfTdfUlTableAdd{
+				IsAdd:            true,
+				IsIPv6:           false,
+				TableID:          interfaceVRF,
+				SrcLookupTableID: 99,
+			}
+			reply := &upf.UpfTdfUlTableAddReply{}
+			gomega.Expect(
+				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
+			).To(gomega.Succeed())
+		})
+
 		ginkgo.It("enables the interface", func() {
 			req := &upf.UpfTdfUlEnableDisable{
 				Enable:    true,
-				Interface: 0,
+				Interface: interface_types.InterfaceIndex(ifaces[INTERFACE_NAME].SwIfIndex),
 				IsIPv6:    false,
 			}
 			reply := &upf.UpfTdfUlEnableDisableReply{}
@@ -803,23 +856,38 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 		})
 
 		ginkgo.It("enables the interface with prefix", func() {
-			prefix0, err := ip_types.ParsePrefix("10.0.0.0/8")
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			prefixStrings := []string{
+				"2.0.0.0/12", "5.0.0.0/8", "200.0.0.0/20", "220.0.0.0/22",
+			}
 
-			prefix1, err := ip_types.ParsePrefix("200.0.0.0/8")
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			var prefixes []ip_types.Prefix
+			for _, str := range prefixStrings {
+				prefix, err := ip_types.ParsePrefix(str)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				prefixes = append(prefixes, prefix)
+			}
 
 			req := &upf.UpfTdfUlEnableDisable{
 				Enable:    true,
-				Interface: 0,
+				Interface: interface_types.InterfaceIndex(ifaces[INTERFACE_NAME].SwIfIndex),
 				IsIPv6:    false,
-				Prefixes:  []ip_types.Prefix{prefix0, prefix1},
+				Prefixes:  prefixes,
 			}
 			reply := &upf.UpfTdfUlEnableDisableReply{}
 
 			gomega.Expect(
 				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
 			).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
+
+			{
+				out, err := f.VPP.Ctl("show ip fib table %d", interfaceVRF)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				log.Printf("OUT:\n\n%s\n", out)
+
+				for _, prefixString := range prefixStrings {
+					gomega.Expect(out).To(gomega.ContainSubstring(prefixString))
+				}
+			}
 		})
 		// TODO: tdf tests are non-exhaustive
 	})

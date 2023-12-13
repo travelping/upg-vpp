@@ -351,10 +351,11 @@ upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t * pfx,
   /*
    * add the entries to the destination FIB that uses the lookup DPO
    */
-  for (uword i = 0; i < pfx_n; i++)
+  for (uword i = 0; i < pfx_n; i++) {
     fib_table_entry_special_dpo_add (ue_fib_index, pfx + i,
 				     upf_fib_source,
 				     FIB_ENTRY_FLAG_EXCLUSIVE, &dpo);
+  }
 
   /*
    * the DPO is locked by the FIB entry, and we have no further
@@ -442,7 +443,8 @@ vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
 	      return VNET_API_ERROR_INVALID_ADDRESS_FAMILY;
 	  }
 
-	  vec_foreach (cur, prefixes)
+          vec_alloc(fpfxs, vec_len(prefixes));
+          vec_foreach (cur, prefixes)
 	  {
 	    fib_prefix_t fpfx = {
 	      .fp_addr = cur->addr.ip,
@@ -461,7 +463,6 @@ vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
       else
 	{
 	  /* No specific prefixes been defined, catch all */
-
 	  fib_prefix_t fpfx = {
 	    .fp_proto = fproto,
 	  };

@@ -829,7 +829,7 @@ done:
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND (upf_tdf_ul_enable_command, static) = {
     .path = "upf tdf ul enable",
-    .short_help = "UPF TDF UpLink [enable|disable] [ip4|ip6] <interface>",
+    .short_help = "UPF TDF UpLink [enable|disable] [ip4|ip6] <interface> [prefix ip/mask]",
     .function = upf_tdf_ul_enable_command_fn,
 };
 /* *INDENT-ON* */
