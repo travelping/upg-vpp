@@ -801,6 +801,26 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
 			).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
 		})
+
+		ginkgo.It("enables the interface with prefix", func() {
+			prefix0, err := ip_types.ParsePrefix("10.0.0.0/8")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			prefix1, err := ip_types.ParsePrefix("200.0.0.0/8")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			req := &upf.UpfTdfUlEnableDisable{
+				Enable:    true,
+				Interface: 0,
+				IsIPv6:    false,
+				Prefixes:  []ip_types.Prefix{prefix0, prefix1},
+			}
+			reply := &upf.UpfTdfUlEnableDisableReply{}
+
+			gomega.Expect(
+				f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply),
+			).To(gomega.Succeed(), "upf_tdf_ul_enable_disable")
+		})
 		// TODO: tdf tests are non-exhaustive
 	})
 
