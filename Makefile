@@ -24,7 +24,8 @@ version:
 	fi
 
 checkstyle:
-	find . -name "*.c" -or -name "*.h" | xargs clang-format-11 -n --Werror
+	# find . -name "*.c" -or -name "*.h" | xargs clang-format-11 -n --Werror
+	find . -name "*.c" -or -name "*.h" | xargs /usr/bin/clang-format -n --Werror
 
 ci-build: version
 	hack/ci-build.sh
