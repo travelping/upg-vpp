@@ -12,3 +12,4 @@ upf/version.h
 build-root
 test/e2e/bin
 .cache
+compile_commands.json
