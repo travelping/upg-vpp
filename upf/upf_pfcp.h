@@ -19,104 +19,100 @@
 
 #define MAX_LEN 128
 
-#define upf_pfcp_associnfo(gtm, ...) \
-  vlib_log_info((gtm)->log_class, __VA_ARGS__)
+#define upf_pfcp_associnfo(gtm, ...)                                          \
+  vlib_log_info ((gtm)->log_class, __VA_ARGS__)
 
-upf_node_assoc_t *pfcp_get_association (pfcp_node_id_t * node_id);
+upf_node_assoc_t *pfcp_get_association (pfcp_node_id_t *node_id);
 upf_node_assoc_t *pfcp_new_association (session_handle_t session_handle,
-					ip46_address_t * lcl_addr,
-					ip46_address_t * rmt_addr,
-					pfcp_node_id_t * node_id);
-void pfcp_release_association (upf_node_assoc_t * n);
+                                        ip46_address_t *lcl_addr,
+                                        ip46_address_t *rmt_addr,
+                                        pfcp_node_id_t *node_id);
+void pfcp_release_association (upf_node_assoc_t *n);
 
-void pfcp_session_set_cp_fseid (upf_session_t * sx, pfcp_f_seid_t * f_seid);
+void pfcp_session_set_cp_fseid (upf_session_t *sx, pfcp_f_seid_t *f_seid);
 
-void pfcp_node_enter_smf_set (upf_node_assoc_t * n, u8 * fqdn);
-u32 *pfcp_node_exit_smf_set (upf_node_assoc_t * n);
+void pfcp_node_enter_smf_set (upf_node_assoc_t *n, u8 *fqdn);
+u32 *pfcp_node_exit_smf_set (upf_node_assoc_t *n);
 
-upf_session_t *pfcp_create_session (upf_node_assoc_t * assoc,
-				    pfcp_f_seid_t * cp_f_seid, u64 up_seid);
-void pfcp_update_session (upf_session_t * sx);
-void pfcp_disable_session (upf_session_t * sx);
-void pfcp_free_session (upf_session_t * sx);
-int session_flow_unlink_handler (flowtable_main_t * fm, flow_entry_t * flow,
-				 flow_direction_t direction, u32 now);
+upf_session_t *pfcp_create_session (upf_node_assoc_t *assoc,
+                                    pfcp_f_seid_t *cp_f_seid, u64 up_seid);
+void pfcp_update_session (upf_session_t *sx);
+void pfcp_disable_session (upf_session_t *sx);
+void pfcp_free_session (upf_session_t *sx);
+int session_flow_unlink_handler (flowtable_main_t *fm, flow_entry_t *flow,
+                                 flow_direction_t direction, u32 now);
 
-#define pfcp_rule_vector_fns(t)						\
-upf_##t##_t * pfcp_get_##t##_by_id(struct rules *,			\
-				   typeof (((upf_##t##_t *)0)->id) t##_id);	\
-upf_##t##_t *pfcp_get_##t(upf_session_t *sx, int rule,			\
-			  typeof (((upf_##t##_t *)0)->id) t##_id);	\
-int pfcp_create_##t(upf_session_t *sx, upf_##t##_t *t);			\
-int pfcp_make_pending_##t(upf_session_t *sx);				\
-int pfcp_sort_##t##s(struct rules *rules);				\
-int pfcp_delete_##t(upf_session_t *sx, u32 t##_id);			\
+#define pfcp_rule_vector_fns(t)                                               \
+  upf_##t##_t *pfcp_get_##t##_by_id (                                         \
+    struct rules *, typeof (((upf_##t##_t *) 0)->id) t##_id);                 \
+  upf_##t##_t *pfcp_get_##t (upf_session_t *sx, int rule,                     \
+                             typeof (((upf_##t##_t *) 0)->id) t##_id);        \
+  int pfcp_create_##t (upf_session_t *sx, upf_##t##_t *t);                    \
+  int pfcp_make_pending_##t (upf_session_t *sx);                              \
+  int pfcp_sort_##t##s (struct rules *rules);                                 \
+  int pfcp_delete_##t (upf_session_t *sx, u32 t##_id);
 
 /* *INDENT-OFF* */
-pfcp_rule_vector_fns (pdr)
-pfcp_rule_vector_fns (far)
-pfcp_rule_vector_fns (urr)
-pfcp_rule_vector_fns (qer)
+pfcp_rule_vector_fns (pdr) pfcp_rule_vector_fns (far)
+  pfcp_rule_vector_fns (urr) pfcp_rule_vector_fns (qer)
 /* *INDENT-ON* */
 
 #undef pfcp_rule_vector_fns
-#define vec_bsearch(k, v, compar)                               \
-        bsearch((k), (v), vec_len((v)), sizeof((v)[0]), compar)
+#define vec_bsearch(k, v, compar)                                             \
+  bsearch ((k), (v), vec_len ((v)), sizeof ((v)[0]), compar)
 
-void pfcp_send_end_marker (upf_session_t * sx, u16 far_id);
+    void pfcp_send_end_marker (upf_session_t *sx, u16 far_id);
 
-int pfcp_update_apply (upf_session_t * sx);
-void pfcp_update_finish (upf_session_t * sx);
+int pfcp_update_apply (upf_session_t *sx);
+void pfcp_update_finish (upf_session_t *sx);
 
 upf_session_t *pfcp_lookup_up_seid (u64 up_seid);
 upf_session_t *pfcp_lookup_cp_cached_f_seid (u32 cached_f_seid_idx,
-					     u64 cp_seid);
-upf_session_t *pfcp_lookup_cp_f_seid (pfcp_f_seid_t * f_seid);
+                                             u64 cp_seid);
+upf_session_t *pfcp_lookup_cp_f_seid (pfcp_f_seid_t *f_seid);
 
 static inline struct rules *
-pfcp_get_rules (upf_session_t * sx, int rules)
+pfcp_get_rules (upf_session_t *sx, int rules)
 {
   return &sx->rules[sx->active ^ rules];
 }
 
-void vlib_free_combined_counter (vlib_combined_counter_main_t * cm);
+void vlib_free_combined_counter (vlib_combined_counter_main_t *cm);
 
-bool process_urrs (vlib_main_t * vm, upf_session_t * sess,
-		   const char *node_name,
-		   struct rules *active,
-		   upf_pdr_t * pdr, vlib_buffer_t * b, u8 is_dl, u8 is_ul);
-bool process_qers (vlib_main_t * vm, upf_session_t * sess,
-		   struct rules *r,
-		   upf_pdr_t * pdr, vlib_buffer_t * b, u8 is_dl, u8 is_ul);
+bool process_urrs (vlib_main_t *vm, upf_session_t *sess, const char *node_name,
+                   struct rules *active, upf_pdr_t *pdr, vlib_buffer_t *b,
+                   u8 is_dl, u8 is_ul);
+bool process_qers (vlib_main_t *vm, upf_session_t *sess, struct rules *r,
+                   upf_pdr_t *pdr, vlib_buffer_t *b, u8 is_dl, u8 is_ul);
 
-void upf_pfcp_error_report (upf_session_t * sx, gtp_error_ind_t * error);
-void upf_ref_forwarding_policies (upf_far_t * far, u8 is_del);
+void upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error);
+void upf_ref_forwarding_policies (upf_far_t *far, u8 is_del);
 int pfcp_session_server_apply_config (u64 segment_size, u32 prealloc_fifos,
-				      u32 fifo_size);
-void pfcp_session_server_get_config (u64 * segment_size, u32 * prealloc_fifos,
-				     u32 * fifo_size);
+                                      u32 fifo_size);
+void pfcp_session_server_get_config (u64 *segment_size, u32 *prealloc_fifos,
+                                     u32 *fifo_size);
 
 /* format functions */
-u8 *format_pfcp_node_association (u8 * s, va_list * args);
-u8 *format_upf_far (u8 * s, va_list * args);
-u8 *format_pfcp_session (u8 * s, va_list * args);
-u8 *format_pfcp_endpoint_key (u8 * s, va_list * args);
-u8 *format_network_instance_index (u8 * s, va_list * args);
-u8 *format_gtpu_endpoint (u8 * s, va_list * args);
+u8 *format_pfcp_node_association (u8 *s, va_list *args);
+u8 *format_upf_far (u8 *s, va_list *args);
+u8 *format_pfcp_session (u8 *s, va_list *args);
+u8 *format_pfcp_endpoint_key (u8 *s, va_list *args);
+u8 *format_network_instance_index (u8 *s, va_list *args);
+u8 *format_gtpu_endpoint (u8 *s, va_list *args);
 
 /**
  * Compare integer ids.
  */
-#define intcmp(a, b)                                    \
-	({                                              \
-		typeof (a) a_ = (a);                    \
-		typeof (b) b_ = (b);                    \
-		(a_) < (b_) ? -1 : (a_) > (b_) ? 1 : 0; \
-	})
+#define intcmp(a, b)                                                          \
+  ({                                                                          \
+    typeof (a) a_ = (a);                                                      \
+    typeof (b) b_ = (b);                                                      \
+    (a_)<(b_) ? -1 : (a_)> (b_) ? 1 : 0;                                      \
+  })
 
 static inline int
-ipfilter_address_cmp_const (const ipfilter_address_t * a,
-			    const ipfilter_address_t b)
+ipfilter_address_cmp_const (const ipfilter_address_t *a,
+                            const ipfilter_address_t b)
 {
   int r;
 
@@ -128,8 +124,8 @@ ipfilter_address_cmp_const (const ipfilter_address_t * a,
 };
 
 static inline void
-upf_nwi_if_and_fib_index (upf_main_t * gtm, fib_protocol_t proto,
-			  u32 nwi_index, u32 * sw_if_index, u32 * fib_index)
+upf_nwi_if_and_fib_index (upf_main_t *gtm, fib_protocol_t proto, u32 nwi_index,
+                          u32 *sw_if_index, u32 *fib_index)
 {
   if (!pool_is_free_index (gtm->nwis, nwi_index))
     {
@@ -160,8 +156,7 @@ upf_nwi_fib_index (fib_protocol_t proto, u32 nwi_index)
 }
 
 static_always_inline u32
-flow_pdr_idx (flow_entry_t * flow, flow_direction_t direction,
-	      struct rules *r)
+flow_pdr_idx (flow_entry_t *flow, flow_direction_t direction, struct rules *r)
 {
   upf_pdr_t *pdr;
   u32 pdr_id = flow_pdr_id (flow, direction);

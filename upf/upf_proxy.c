@@ -1,18 +1,18 @@
 /*
-* Copyright (c) 2018,2019 Travelping GmbH
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at:
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2018,2019 Travelping GmbH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <assert.h>
 #include <vnet/vnet.h>
@@ -30,8 +30,11 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 #define TCP_MSS 1460
@@ -44,22 +47,21 @@ typedef enum
 upf_proxy_main_t upf_proxy_main;
 
 static inline u32
-proxy_session_index (upf_proxy_session_t * ps)
+proxy_session_index (upf_proxy_session_t *ps)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   return ps ? ps - pm->sessions : ~0;
 }
 
-static void proxy_session_try_close_unlocked (upf_proxy_session_t * ps);
-static void
-proxy_session_try_close_vpp_session (session_t * s, int is_active_open);
-static session_t *session_from_proxy_session_get_if_valid (upf_proxy_session_t
-							   * ps,
-							   int
-							   is_active_open);
+static void proxy_session_try_close_unlocked (upf_proxy_session_t *ps);
+static void proxy_session_try_close_vpp_session (session_t *s,
+                                                 int is_active_open);
+static session_t *
+session_from_proxy_session_get_if_valid (upf_proxy_session_t *ps,
+                                         int is_active_open);
 
 u8 *
-format_upf_proxy_session (u8 * s, va_list * args)
+format_upf_proxy_session (u8 *s, va_list *args)
 {
   upf_proxy_session_t *ps = va_arg (*args, upf_proxy_session_t *);
   session_t *ao, *p;
@@ -71,9 +73,9 @@ format_upf_proxy_session (u8 * s, va_list * args)
   ao = session_from_proxy_session_get_if_valid (ps, 1);
 
   s = format (s, "Idx %u @ %p, Clnt: [%u:%u], Srv: [%u:%u], Flow Idx: %u\n",
-	      ps->session_index, ps, ps->proxy_thread_index,
-	      ps->proxy_session_index, ps->active_open_thread_index,
-	      ps->active_open_session_index, ps->flow_index);
+              ps->session_index, ps, ps->proxy_thread_index,
+              ps->proxy_session_index, ps->active_open_thread_index,
+              ps->active_open_session_index, ps->flow_index);
   if (p)
     s = format (s, "Clnt: %U\n", format_session, p, 0);
   if (ao)
@@ -83,7 +85,7 @@ format_upf_proxy_session (u8 * s, va_list * args)
 }
 
 static inline u32
-proxy_app_index (upf_proxy_main_t * pm, u8 is_active_open)
+proxy_app_index (upf_proxy_main_t *pm, u8 is_active_open)
 {
   return is_active_open ? pm->active_open_app_index : pm->server_app_index;
 }
@@ -106,7 +108,7 @@ proxy_session_alloc (u32 thread_index)
 }
 
 static void
-proxy_session_free (upf_proxy_session_t * ps)
+proxy_session_free (upf_proxy_session_t *ps)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   flowtable_main_t *fm = &flowtable_main;
@@ -123,7 +125,7 @@ proxy_session_free (upf_proxy_session_t * ps)
 }
 
 static void
-proxy_session_put (upf_proxy_session_t * ps)
+proxy_session_put (upf_proxy_session_t *ps)
 {
   ASSERT (ps);
 
@@ -132,26 +134,26 @@ proxy_session_put (upf_proxy_session_t * ps)
 }
 
 static void
-proxy_session_lookup_add (session_t * s, upf_proxy_session_t * ps)
+proxy_session_lookup_add (session_t *s, upf_proxy_session_t *ps)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
 
   vec_validate_init_empty (pm->session_to_proxy_session[s->thread_index],
-			   s->session_index, ~0);
+                           s->session_index, ~0);
   pm->session_to_proxy_session[s->thread_index][s->session_index] =
     ps->session_index;
   ps->refcnt++;
 }
 
 static void
-proxy_session_lookup_del (session_t * s)
+proxy_session_lookup_del (session_t *s)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   upf_proxy_session_t *ps;
   u32 ps_index;
 
   ASSERT (s->session_index <
-	  vec_len (pm->session_to_proxy_session[s->thread_index]));
+          vec_len (pm->session_to_proxy_session[s->thread_index]));
 
   ps_index = pm->session_to_proxy_session[s->thread_index][s->session_index];
   ps = proxy_session_get (ps_index);
@@ -163,7 +165,7 @@ proxy_session_lookup_del (session_t * s)
 }
 
 static upf_proxy_session_t *
-proxy_session_lookup (session_t * s)
+proxy_session_lookup (session_t *s)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   u32 ps_index;
@@ -172,19 +174,19 @@ proxy_session_lookup (session_t * s)
       vec_len (pm->session_to_proxy_session[s->thread_index]))
     {
       ps_index =
-	pm->session_to_proxy_session[s->thread_index][s->session_index];
+        pm->session_to_proxy_session[s->thread_index][s->session_index];
       return proxy_session_get (ps_index);
     }
   return 0;
 }
 
 static void
-active_open_session_lookup_add (session_t * s, upf_proxy_session_t * ps)
+active_open_session_lookup_add (session_t *s, upf_proxy_session_t *ps)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
 
-  vec_validate_init_empty (pm->session_to_active_open_session
-			   [s->thread_index], s->session_index, ~0);
+  vec_validate_init_empty (pm->session_to_active_open_session[s->thread_index],
+                           s->session_index, ~0);
   pm->session_to_active_open_session[s->thread_index][s->session_index] =
     ps->session_index;
   /*
@@ -194,14 +196,14 @@ active_open_session_lookup_add (session_t * s, upf_proxy_session_t * ps)
 }
 
 static void
-active_open_session_lookup_del (session_t * s)
+active_open_session_lookup_del (session_t *s)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   upf_proxy_session_t *ps;
   u32 ps_index;
 
   ASSERT (s->session_index <
-	  vec_len (pm->session_to_active_open_session[s->thread_index]));
+          vec_len (pm->session_to_active_open_session[s->thread_index]));
 
   ps_index =
     pm->session_to_active_open_session[s->thread_index][s->session_index];
@@ -209,13 +211,13 @@ active_open_session_lookup_del (session_t * s)
   if (ps)
     {
       pm->session_to_active_open_session[s->thread_index][s->session_index] =
-	~0;
+        ~0;
       proxy_session_put (ps);
     }
 }
 
 static upf_proxy_session_t *
-active_open_session_lookup (session_t * s)
+active_open_session_lookup (session_t *s)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   u32 ps_index;
@@ -224,14 +226,14 @@ active_open_session_lookup (session_t * s)
       vec_len (pm->session_to_active_open_session[s->thread_index]))
     {
       ps_index =
-	pm->session_to_active_open_session[s->thread_index][s->session_index];
+        pm->session_to_active_open_session[s->thread_index][s->session_index];
       return proxy_session_get (ps_index);
     }
   return 0;
 }
 
 static upf_proxy_session_t *
-ps_session_lookup (session_t * s, int is_active_open)
+ps_session_lookup (session_t *s, int is_active_open)
 {
   if (!is_active_open)
     return proxy_session_lookup (s);
@@ -240,7 +242,7 @@ ps_session_lookup (session_t * s, int is_active_open)
 }
 
 static void
-ps_session_lookup_del (session_t * s, int is_active_open)
+ps_session_lookup_del (session_t *s, int is_active_open)
 {
   if (!is_active_open)
     proxy_session_lookup_del (s);
@@ -249,23 +251,26 @@ ps_session_lookup_del (session_t * s, int is_active_open)
 }
 
 static session_t *
-session_from_proxy_session_get_if_valid (upf_proxy_session_t * ps,
-					 int is_active_open)
+session_from_proxy_session_get_if_valid (upf_proxy_session_t *ps,
+                                         int is_active_open)
 {
   if (!ps)
     return 0;
 
   if (!is_active_open)
-    return ps->proxy_session_index == ~0 ? 0 :
-      session_get_if_valid (ps->proxy_session_index, ps->proxy_thread_index);
+    return ps->proxy_session_index == ~0 ?
+             0 :
+             session_get_if_valid (ps->proxy_session_index,
+                                   ps->proxy_thread_index);
   else
-    return ps->active_open_session_index == ~0 ? 0 :
-      session_get_if_valid (ps->active_open_session_index,
-			    ps->active_open_thread_index);
+    return ps->active_open_session_index == ~0 ?
+             0 :
+             session_get_if_valid (ps->active_open_session_index,
+                                   ps->active_open_thread_index);
 }
 
 static_always_inline void
-rx_callback_inline (svm_fifo_t * tx_fifo)
+rx_callback_inline (svm_fifo_t *tx_fifo)
 {
   /*
    * Send event for server tx fifo
@@ -274,10 +279,9 @@ rx_callback_inline (svm_fifo_t * tx_fifo)
     {
       u8 thread_index = tx_fifo->master_thread_index;
       u32 session_index = tx_fifo->shr->master_session_index;
-      if (session_send_io_evt_to_thread_custom (&session_index,
-						thread_index,
-						SESSION_IO_EVT_TX))
-	clib_warning ("failed to enqueue tx evt");
+      if (session_send_io_evt_to_thread_custom (&session_index, thread_index,
+                                                SESSION_IO_EVT_TX))
+        clib_warning ("failed to enqueue tx evt");
     }
 
   if (svm_fifo_max_enqueue (tx_fifo) <= TCP_MSS)
@@ -285,7 +289,7 @@ rx_callback_inline (svm_fifo_t * tx_fifo)
 }
 
 static_always_inline int
-tx_callback_inline (session_t * s, int is_active_open)
+tx_callback_inline (session_t *s, int is_active_open)
 {
   transport_connection_t *tc;
   upf_proxy_session_t *ps;
@@ -329,7 +333,7 @@ out_unlock:
 }
 
 static void
-proxy_start_connect_fn (const u32 * session_index)
+proxy_start_connect_fn (const u32 *session_index)
 {
   upf_main_t *gtm = &upf_main;
   upf_proxy_main_t *pm = &upf_proxy_main;
@@ -387,15 +391,15 @@ proxy_start_connect_fn (const u32 * session_index)
   a->app_index = pm->active_open_app_index;
   a->sep_ext = (session_endpoint_cfg_t) SESSION_ENDPOINT_CFG_NULL;
   upf_nwi_if_and_fib_index (gtm, is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
-			    far->forward.nwi_index,
-			    &a->sep_ext.sw_if_index, &a->sep_ext.fib_index);
+                            far->forward.nwi_index, &a->sep_ext.sw_if_index,
+                            &a->sep_ext.fib_index);
   a->sep_ext.transport_proto = TRANSPORT_PROTO_TCP;
   a->sep_ext.mss = pm->mss;
   a->sep_ext.is_ip4 = is_ip4;
   a->sep_ext.ip = *dst;
   a->sep_ext.port = flow->key.port[FT_REVERSE ^ flow->is_reverse];
-  a->sep_ext.next_node_index = is_ip4 ?
-    pm->tcp4_server_output_next_active : pm->tcp6_server_output_next_active;
+  a->sep_ext.next_node_index = is_ip4 ? pm->tcp4_server_output_next_active :
+                                        pm->tcp6_server_output_next_active;
   a->sep_ext.next_node_opaque = ps->flow_index + 1;
   a->sep_ext.peer.fib_index = a->sep_ext.fib_index;
   a->sep_ext.peer.sw_if_index = a->sep_ext.sw_if_index;
@@ -415,7 +419,7 @@ out:
 }
 
 static void
-proxy_start_connect (upf_proxy_session_t * ps)
+proxy_start_connect (upf_proxy_session_t *ps)
 {
   upf_debug ("psidx %d", proxy_session_index (ps));
 
@@ -432,8 +436,8 @@ proxy_start_connect (upf_proxy_session_t * ps)
   else
     {
       vl_api_rpc_call_main_thread (proxy_start_connect_fn,
-				   (u8 *) & ps->session_index,
-				   sizeof (ps->session_index));
+                                   (u8 *) &ps->session_index,
+                                   sizeof (ps->session_index));
     }
 }
 
@@ -444,25 +448,32 @@ static const char *upf_proxy_template =
   "Cache-Control: private, no-cache, must-revalidate\r\n"
   "Expires: Mon, 11 Jan 1970 10:10:10 GMT\r\n"
   "Connection: close\r\n"
-  "Pragma: no-cache\r\n" "Content-Length: %d\r\n\r\n%v";
+  "Pragma: no-cache\r\n"
+  "Content-Length: %d\r\n\r\n%v";
 
 static const char *http_error_template =
   "HTTP/1.1 %s\r\n"
   "Content-Type: text/html\r\n"
   "Cache-Control: private, no-cache, must-revalidate\r\n"
   "Expires: Mon, 11 Jan 1970 10:10:10 GMT\r\n"
-  "Connection: close\r\n" "Pragma: no-cache\r\n" "Content-Length: 0\r\n\r\n";
+  "Connection: close\r\n"
+  "Pragma: no-cache\r\n"
+  "Content-Length: 0\r\n\r\n";
 
 static const char *wispr_proxy_template =
   "<!--\n"
   "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
   "<WISPAccessGatewayParam"
   " xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
-  " xsi:noNamespaceSchemaLocation=\"http://www.acmewisp.com/WISPAccessGatewayParam.xsd\">"
+  " xsi:noNamespaceSchemaLocation=\"http://www.acmewisp.com/"
+  "WISPAccessGatewayParam.xsd\">"
   "<Proxy>"
   "<MessageType>110</MessageType>"
   "<ResponseCode>200</ResponseCode>"
-  "<NextURL>%v</NextURL>" "</Proxy>" "</WISPAccessGatewayParam>\n" "-->\n";
+  "<NextURL>%v</NextURL>"
+  "</Proxy>"
+  "</WISPAccessGatewayParam>\n"
+  "-->\n";
 
 static const char *html_redirect_template =
   "<!DOCTYPE html>\n"
@@ -474,10 +485,11 @@ static const char *html_redirect_template =
   "   </head>\n"
   "   <body>\n"
   "      Please <a href='%v'>click here</a> to continue\n"
-  "   </body>\n" "</html>\n";
+  "   </body>\n"
+  "</html>\n";
 
 static void
-http_redir_send_data (upf_proxy_session_t * ps, session_t * s, u8 * data)
+http_redir_send_data (upf_proxy_session_t *ps, session_t *s, u8 *data)
 {
   vlib_main_t *vm = vlib_get_main ();
   f64 last_sent_timer = vlib_time_now (vm);
@@ -491,39 +503,39 @@ http_redir_send_data (upf_proxy_session_t * ps, session_t * s, u8 * data)
     {
       int actual_transfer;
 
-      actual_transfer = svm_fifo_enqueue
-	(s->tx_fifo, bytes_to_send, data + offset);
+      actual_transfer =
+        svm_fifo_enqueue (s->tx_fifo, bytes_to_send, data + offset);
 
       /* Made any progress? */
       if (actual_transfer <= 0)
-	{
-	  vlib_process_suspend (vm, delay);
-	  /* 10s deadman timer */
-	  if (vlib_time_now (vm) > last_sent_timer + 10.0)
-	    {
-	      proxy_session_try_close_unlocked (ps);
-	      break;
-	    }
-	  /* Exponential backoff, within reason */
-	  if (delay < 1.0)
-	    delay = delay * 2.0;
-	}
+        {
+          vlib_process_suspend (vm, delay);
+          /* 10s deadman timer */
+          if (vlib_time_now (vm) > last_sent_timer + 10.0)
+            {
+              proxy_session_try_close_unlocked (ps);
+              break;
+            }
+          /* Exponential backoff, within reason */
+          if (delay < 1.0)
+            delay = delay * 2.0;
+        }
       else
-	{
-	  last_sent_timer = vlib_time_now (vm);
-	  offset += actual_transfer;
-	  bytes_to_send -= actual_transfer;
+        {
+          last_sent_timer = vlib_time_now (vm);
+          offset += actual_transfer;
+          bytes_to_send -= actual_transfer;
 
-	  if (svm_fifo_set_event (s->tx_fifo))
-	    session_send_io_evt_to_thread (s->tx_fifo,
-					   SESSION_IO_EVT_TX_FLUSH);
-	  delay = 10e-3;
-	}
+          if (svm_fifo_set_event (s->tx_fifo))
+            session_send_io_evt_to_thread (s->tx_fifo,
+                                           SESSION_IO_EVT_TX_FLUSH);
+          delay = 10e-3;
+        }
     }
 }
 
 static void
-send_error (upf_proxy_session_t * ps, session_t * s, char *str)
+send_error (upf_proxy_session_t *ps, session_t *s, char *str)
 {
   u8 *data;
 
@@ -533,7 +545,7 @@ send_error (upf_proxy_session_t * ps, session_t * s, char *str)
 }
 
 static void
-proxy_session_try_close_unlocked (upf_proxy_session_t * ps)
+proxy_session_try_close_unlocked (upf_proxy_session_t *ps)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   vnet_disconnect_args_t _a, *a = &_a;
@@ -548,19 +560,19 @@ proxy_session_try_close_unlocked (upf_proxy_session_t * ps)
       s = session_from_proxy_session_get_if_valid (ps, 1);
       /* it can be that active open session is not initiated yet */
       if (s)
-	{
-	  upf_debug ("closing active open: sidx %d psidx %d",
-		     s->session_index, proxy_session_index (ps));
-	  a->handle = session_handle (s);
-	  a->app_index = proxy_app_index (pm, 1);
-	  if ((rv = vnet_disconnect_session (a)) != 0)
-	    {
-	      clib_warning
-		("vnet_disconnect_session() failed for active open: %d", rv);
-	      ASSERT (0);	// TODO: rm
-	    }
-	  ps->ao_disconnected = 1;
-	}
+        {
+          upf_debug ("closing active open: sidx %d psidx %d", s->session_index,
+                     proxy_session_index (ps));
+          a->handle = session_handle (s);
+          a->app_index = proxy_app_index (pm, 1);
+          if ((rv = vnet_disconnect_session (a)) != 0)
+            {
+              clib_warning (
+                "vnet_disconnect_session() failed for active open: %d", rv);
+              ASSERT (0); // TODO: rm
+            }
+          ps->ao_disconnected = 1;
+        }
     }
 
   if (!ps->po_disconnected)
@@ -569,21 +581,21 @@ proxy_session_try_close_unlocked (upf_proxy_session_t * ps)
       /* passive side must always be there */
       ASSERT (s);
       upf_debug ("closing passive: sidx %d psidx %d", s->session_index,
-		 proxy_session_index (ps));
+                 proxy_session_index (ps));
       a->handle = session_handle (s);
       a->app_index = proxy_app_index (pm, 0);
       if ((rv = vnet_disconnect_session (a)) != 0)
-	{
-	  clib_warning ("vnet_disconnect_session() failed for passive: %d",
-			rv);
-	  ASSERT (0);		// TODO: rm
-	}
+        {
+          clib_warning ("vnet_disconnect_session() failed for passive: %d",
+                        rv);
+          ASSERT (0); // TODO: rm
+        }
       ps->po_disconnected = 1;
     }
 }
 
 static void
-proxy_session_try_close_vpp_session (session_t * s, int is_active_open)
+proxy_session_try_close_vpp_session (session_t *s, int is_active_open)
 {
   upf_proxy_session_t *ps = 0;
 
@@ -596,7 +608,7 @@ proxy_session_try_close_vpp_session (session_t * s, int is_active_open)
 }
 
 static void
-session_cleanup (session_t * s, session_cleanup_ntf_t ntf, int is_active_open)
+session_cleanup (session_t *s, session_cleanup_ntf_t ntf, int is_active_open)
 {
   flowtable_main_t *fm = &flowtable_main;
   upf_proxy_session_t *ps;
@@ -643,8 +655,8 @@ out_unlock:
 }
 
 static int
-common_fifo_tuning_callback (session_t * s, svm_fifo_t * f,
-			     session_ft_action_t act, u32 bytes)
+common_fifo_tuning_callback (session_t *s, svm_fifo_t *f,
+                             session_ft_action_t act, u32 bytes)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
 
@@ -664,32 +676,32 @@ common_fifo_tuning_callback (session_t * s, svm_fifo_t * f,
   if (act == SESSION_FT_ACTION_ENQUEUED)
     {
       if (seg_usage < pm->low_watermark && fifo_usage > 50)
-	update_size = fifo_in_use;
+        update_size = fifo_in_use;
       else if (seg_usage < pm->high_watermark && fifo_usage > 80)
-	update_size = fifo_in_use;
+        update_size = fifo_in_use;
 
       update_size = clib_min (update_size, sm->max_fifo_size - fifo_size);
       if (update_size)
-	svm_fifo_set_size (f, fifo_size + update_size);
+        svm_fifo_set_size (f, fifo_size + update_size);
     }
-  else				/* dequeued */
+  else /* dequeued */
     {
       if (seg_usage > pm->high_watermark || fifo_usage < 20)
-	update_size = bytes;
+        update_size = bytes;
       else if (seg_usage > pm->low_watermark && fifo_usage < 50)
-	update_size = (bytes / 2);
+        update_size = (bytes / 2);
 
       ASSERT (fifo_size >= 4096);
       update_size = clib_min (update_size, fifo_size - 4096);
       if (update_size)
-	svm_fifo_set_size (f, fifo_size - update_size);
+        svm_fifo_set_size (f, fifo_size - update_size);
     }
 
   return 0;
 }
 
 static int
-proxy_accept_callback (session_t * s)
+proxy_accept_callback (session_t *s)
 {
   flowtable_main_t *fm = &flowtable_main;
   upf_proxy_session_t *ps;
@@ -700,7 +712,7 @@ proxy_accept_callback (session_t * s)
   if ((ps = proxy_session_lookup (s)))
     {
       upf_debug ("DUP accept: sidx %d psidx %d", s->session_index,
-		 proxy_session_index (ps));
+                 proxy_session_index (ps));
       ASSERT (ps->flow_index == s->opaque);
       goto out_unlock;
     }
@@ -708,7 +720,7 @@ proxy_accept_callback (session_t * s)
   ps = proxy_session_alloc (s->thread_index);
   proxy_session_lookup_add (s, ps);
   upf_debug ("NEW: sidx %d psidx %d", s->session_index,
-	     proxy_session_index (ps));
+             proxy_session_index (ps));
 
   ps->rx_fifo = s->rx_fifo;
   ps->tx_fifo = s->tx_fifo;
@@ -719,8 +731,8 @@ proxy_accept_callback (session_t * s)
   flow = flowtable_get_flow (fm, ps->flow_index);
   flow->ps_index = proxy_session_index (ps);
 
-  //TBD ps->session_state = PROXY_STATE_ESTABLISHED;
-  //TBD proxy_server_session_timer_start (ps);
+  // TBD ps->session_state = PROXY_STATE_ESTABLISHED;
+  // TBD proxy_server_session_timer_start (ps);
 
 out_unlock:
   proxy_server_sessions_writer_unlock ();
@@ -730,30 +742,30 @@ out_unlock:
 }
 
 static void
-proxy_disconnect_callback (session_t * s)
+proxy_disconnect_callback (session_t *s)
 {
   upf_debug ("sidx %d", s->session_index);
-  proxy_session_try_close_vpp_session (s, 0 /* is_active_open */ );
+  proxy_session_try_close_vpp_session (s, 0 /* is_active_open */);
 }
 
 static void
-proxy_reset_callback (session_t * s)
+proxy_reset_callback (session_t *s)
 {
   upf_debug ("sidx %d", s->session_index);
   upf_debug ("Reset session %U", format_session, s, 2);
-  proxy_session_try_close_vpp_session (s, 0 /* is_active_open */ );
+  proxy_session_try_close_vpp_session (s, 0 /* is_active_open */);
 }
 
 static void
-proxy_session_cleanup_callback (session_t * s, session_cleanup_ntf_t ntf)
+proxy_session_cleanup_callback (session_t *s, session_cleanup_ntf_t ntf)
 {
   upf_debug ("sidx %d", s->session_index);
-  session_cleanup (s, ntf, 0 /* is_active_open */ );
+  session_cleanup (s, ntf, 0 /* is_active_open */);
 }
 
 static int
-proxy_connected_callback (u32 app_index, u32 api_context,
-			  session_t * s, session_error_t err)
+proxy_connected_callback (u32 app_index, u32 api_context, session_t *s,
+                          session_error_t err)
 {
   upf_debug ("called...");
   return -1;
@@ -767,7 +779,7 @@ proxy_add_segment_callback (u32 client_index, u64 segment_handle)
 }
 
 static int
-proxy_rx_request (upf_proxy_session_t * ps)
+proxy_rx_request (upf_proxy_session_t *ps)
 {
   u32 max_dequeue;
   int n_read;
@@ -779,8 +791,8 @@ proxy_rx_request (upf_proxy_session_t * ps)
     return -1;
 
   vec_validate (ps->rx_buf, max_dequeue);
-  n_read = app_recv_stream_raw (ps->rx_fifo, ps->rx_buf,
-				max_dequeue, 0, 1 /* peek */ );
+  n_read = app_recv_stream_raw (ps->rx_fifo, ps->rx_buf, max_dequeue, 0,
+                                1 /* peek */);
   ASSERT (n_read == max_dequeue);
 
   _vec_find (ps->rx_buf)->len = n_read;
@@ -788,9 +800,8 @@ proxy_rx_request (upf_proxy_session_t * ps)
 }
 
 static int
-proxy_send_redir (session_t * s, upf_proxy_session_t * ps,
-		  flow_entry_t * flow, upf_session_t * sx,
-		  struct rules *active)
+proxy_send_redir (session_t *s, upf_proxy_session_t *ps, flow_entry_t *flow,
+                  upf_session_t *sx, struct rules *active)
 {
   upf_pdr_t *pdr;
   upf_far_t *far;
@@ -819,10 +830,9 @@ proxy_send_redir (session_t * s, upf_proxy_session_t * ps,
 
   for (i = 0; i < vec_len (request) - 4; i++)
     {
-      if (request[i] == 'G' &&
-	  request[i + 1] == 'E' &&
-	  request[i + 2] == 'T' && request[i + 3] == ' ')
-	goto found;
+      if (request[i] == 'G' && request[i + 1] == 'E' &&
+          request[i + 2] == 'T' && request[i + 3] == ' ')
+        goto found;
     }
   send_error (ps, s, "400 Bad Request");
   goto out;
@@ -846,7 +856,7 @@ out:
 }
 
 static int
-proxy_rx_callback_static (session_t * s, upf_proxy_session_t * ps)
+proxy_rx_callback_static (session_t *s, upf_proxy_session_t *ps)
 {
   upf_main_t *gtm = &upf_main;
   flowtable_main_t *fm = &flowtable_main;
@@ -891,8 +901,8 @@ proxy_rx_callback_static (session_t * s, upf_proxy_session_t * ps)
     {
       /* if we get here, it has to be (a) or (c) */
       if (!proxy_send_redir (s, ps, flow, sx, active))
-	return 0;
-      flow->is_redirect = 0;	/* (c), but maybe now it needs app detection? */
+        return 0;
+      flow->is_redirect = 0; /* (c), but maybe now it needs app detection? */
     }
 
   if (!(active->flags & PFCP_ADR))
@@ -903,8 +913,8 @@ proxy_rx_callback_static (session_t * s, upf_proxy_session_t * ps)
        */
       upf_debug ("connect outgoing session");
 
-      flow_next (flow, FT_ORIGIN) =
-	flow_next (flow, FT_REVERSE) = FT_NEXT_PROXY;
+      flow_next (flow, FT_ORIGIN) = flow_next (flow, FT_REVERSE) =
+        FT_NEXT_PROXY;
 
       /* start outgoing connect to server */
       proxy_start_connect (ps);
@@ -923,7 +933,7 @@ proxy_rx_callback_static (session_t * s, upf_proxy_session_t * ps)
 
       /* abort ADR scan after 4k of data */
       if (svm_fifo_max_dequeue_cons (ps->rx_fifo) < 4096)
-	break;
+        break;
 
       /* FALL-THRU */
 
@@ -936,8 +946,8 @@ proxy_rx_callback_static (session_t * s, upf_proxy_session_t * ps)
       upf_debug ("connect outgoing session");
 
       /* we are done with scanning for PDRs */
-      flow_next (flow, FT_ORIGIN) =
-	flow_next (flow, FT_REVERSE) = FT_NEXT_PROXY;
+      flow_next (flow, FT_ORIGIN) = flow_next (flow, FT_REVERSE) =
+        FT_NEXT_PROXY;
 
       /* start outgoing connect to server */
       proxy_start_connect (ps);
@@ -949,7 +959,7 @@ proxy_rx_callback_static (session_t * s, upf_proxy_session_t * ps)
 }
 
 static int
-proxy_rx_callback (session_t * s)
+proxy_rx_callback (session_t *s)
 {
   u32 thread_index = vlib_get_thread_index ();
   upf_proxy_session_t *ps;
@@ -969,7 +979,7 @@ proxy_rx_callback (session_t * s)
   if (ps->po_disconnected || ps->ao_disconnected)
     {
       upf_debug ("late rx callback: sidx %d psidx %d", s->session_index,
-		 proxy_session_index (ps));
+                 proxy_session_index (ps));
       proxy_server_sessions_reader_unlock ();
       return -1;
     }
@@ -992,7 +1002,7 @@ proxy_rx_callback (session_t * s)
 }
 
 static int
-proxy_tx_callback (session_t * s)
+proxy_tx_callback (session_t *s)
 {
   upf_debug ("sidx %d", s->session_index);
   return tx_callback_inline (s, 0);
@@ -1011,8 +1021,8 @@ static session_cb_vft_t proxy_session_cb_vft = {
 };
 
 static int
-active_open_connected_callback (u32 app_index, u32 opaque,
-				session_t * s, session_error_t err)
+active_open_connected_callback (u32 app_index, u32 opaque, session_t *s,
+                                session_error_t err)
 {
   u8 thread_index = vlib_get_thread_index ();
   upf_proxy_main_t *pm = &upf_proxy_main;
@@ -1039,7 +1049,7 @@ active_open_connected_callback (u32 app_index, u32 opaque,
        * side, too
        */
       upf_debug ("sidx %d psidx %d: connection failed!",
-		 s ? s->session_index : -1, opaque);
+                 s ? s->session_index : -1, opaque);
       ps->ao_disconnected = 1;
       proxy_session_try_close_unlocked (ps);
       ASSERT (ps->po_disconnected);
@@ -1055,9 +1065,9 @@ active_open_connected_callback (u32 app_index, u32 opaque,
 
   if (ps->po_disconnected)
     {
-      upf_debug
-	("sidx %d psidx %d: passive open side disconnected / flow removed, closing active open connection",
-	 s ? s->session_index : -1, opaque);
+      upf_debug ("sidx %d psidx %d: passive open side disconnected / flow "
+                 "removed, closing active open connection",
+                 s ? s->session_index : -1, opaque);
       ps->ao_disconnected = 1;
       proxy_server_sessions_writer_unlock ();
       proxy_session_put (ps);
@@ -1109,8 +1119,8 @@ active_open_connected_callback (u32 app_index, u32 opaque,
 
   proxy_server_sessions_writer_unlock ();
 
-  upf_debug ("sidx %d psidx %d: max tx dequeue %d",
-	     s->session_index, opaque, svm_fifo_max_dequeue (s->tx_fifo));
+  upf_debug ("sidx %d psidx %d: max tx dequeue %d", s->session_index, opaque,
+             svm_fifo_max_dequeue (s->tx_fifo));
   /*
    * Send event for active open tx fifo
    *  ... we left the so far received data in rx fifo,
@@ -1119,46 +1129,45 @@ active_open_connected_callback (u32 app_index, u32 opaque,
   ASSERT (s->thread_index == thread_index);
   if (svm_fifo_set_event (s->tx_fifo))
     {
-      upf_debug ("sidx %d psidx %d: sending TX event",
-		 s->session_index, opaque);
+      upf_debug ("sidx %d psidx %d: sending TX event", s->session_index,
+                 opaque);
       session_send_io_evt_to_thread (s->tx_fifo, SESSION_IO_EVT_TX);
     }
   else
     {
-      upf_debug ("sidx %d psidx %d: NOT sending TX event",
-		 s->session_index, opaque);
+      upf_debug ("sidx %d psidx %d: NOT sending TX event", s->session_index,
+                 opaque);
     }
 
   return 0;
 }
 
 static void
-active_open_reset_callback (session_t * s)
+active_open_reset_callback (session_t *s)
 {
   upf_debug ("sidx %d", s->session_index);
-  proxy_session_try_close_vpp_session (s, 1 /* is_active_open */ );
+  proxy_session_try_close_vpp_session (s, 1 /* is_active_open */);
 }
 
 static void
-active_open_session_cleanup_callback (session_t * s,
-				      session_cleanup_ntf_t ntf)
+active_open_session_cleanup_callback (session_t *s, session_cleanup_ntf_t ntf)
 {
   upf_debug ("sidx %d", s->session_index);
-  session_cleanup (s, ntf, 1 /* is_active_open */ );
+  session_cleanup (s, ntf, 1 /* is_active_open */);
 }
 
 static int
-active_open_create_callback (session_t * s)
+active_open_create_callback (session_t *s)
 {
   upf_debug ("sidx %d", s->session_index);
   return 0;
 }
 
 static void
-active_open_disconnect_callback (session_t * s)
+active_open_disconnect_callback (session_t *s)
 {
   upf_debug ("sidx %d", s->session_index);
-  proxy_session_try_close_vpp_session (s, 1 /* is_active_open */ );
+  proxy_session_try_close_vpp_session (s, 1 /* is_active_open */);
 }
 
 static int
@@ -1169,7 +1178,7 @@ active_open_add_segment_callback (u32 client_index, u64 segment_handle)
 }
 
 static int
-active_open_rx_callback (session_t * s)
+active_open_rx_callback (session_t *s)
 {
   upf_proxy_session_t *ps;
 
@@ -1187,7 +1196,7 @@ active_open_rx_callback (session_t * s)
   if (ps->ao_disconnected || ps->po_disconnected)
     {
       upf_debug ("late tx callback: sidx %d psidx %d", s->session_index,
-		 proxy_session_index (ps));
+                 proxy_session_index (ps));
       proxy_server_sessions_reader_unlock ();
       return 0;
     }
@@ -1200,7 +1209,7 @@ active_open_rx_callback (session_t * s)
 }
 
 static int
-active_open_tx_callback (session_t * s)
+active_open_tx_callback (session_t *s)
 {
   upf_debug ("sidx %d", s->session_index);
   return tx_callback_inline (s, 1);
@@ -1291,8 +1300,8 @@ active_open_attach (void)
   options[APP_OPTIONS_PREALLOC_FIFO_PAIRS] =
     pm->prealloc_fifos ? pm->prealloc_fifos : 0;
 
-  options[APP_OPTIONS_FLAGS] = APP_OPTIONS_FLAGS_IS_BUILTIN
-    | APP_OPTIONS_FLAGS_IS_PROXY;
+  options[APP_OPTIONS_FLAGS] =
+    APP_OPTIONS_FLAGS_IS_BUILTIN | APP_OPTIONS_FLAGS_IS_PROXY;
 
   a->options = options;
 
@@ -1310,16 +1319,16 @@ out_free:
 }
 
 static int
-proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
+proxy_create (vlib_main_t *vm, u32 fib_index, int is_ip4)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   vlib_thread_main_t *vtm = vlib_get_thread_main ();
   u32 num_threads;
   int i, rv;
 
-  if (PREDICT_FALSE (pm->server_client_index == (u32) ~ 0))
+  if (PREDICT_FALSE (pm->server_client_index == (u32) ~0))
     {
-      num_threads = 1 /* main thread */  + vtm->n_threads;
+      num_threads = 1 /* main thread */ + vtm->n_threads;
       vec_validate (pm->server_event_queue, num_threads - 1);
       vec_validate (pm->active_open_event_queue, num_threads - 1);
       vec_validate (pm->session_to_proxy_session, num_threads - 1);
@@ -1328,50 +1337,50 @@ proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
       clib_rwlock_init (&pm->sessions_lock);
 
       if ((rv = proxy_server_attach ()))
-	{
-	  assert (rv == 0);
-	  upf_debug ("failed to attach server app");
-	  return -1;
-	}
+        {
+          assert (rv == 0);
+          upf_debug ("failed to attach server app");
+          return -1;
+        }
       if ((rv = active_open_attach ()))
-	{
-	  assert (rv == 0);
-	  upf_debug ("failed to attach active open app");
-	  return -1;
-	}
+        {
+          assert (rv == 0);
+          upf_debug ("failed to attach active open app");
+          return -1;
+        }
 
       for (i = 0; i < num_threads; i++)
-	{
-	  pm->active_open_event_queue[i] =
-	    session_main_get_vpp_event_queue (i);
+        {
+          pm->active_open_event_queue[i] =
+            session_main_get_vpp_event_queue (i);
 
-	  ASSERT (pm->active_open_event_queue[i]);
+          ASSERT (pm->active_open_event_queue[i]);
 
-	  pm->server_event_queue[i] = session_main_get_vpp_event_queue (i);
-	}
+          pm->server_event_queue[i] = session_main_get_vpp_event_queue (i);
+        }
     }
 
   return 0;
 }
 
 static void
-upf_proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
+upf_proxy_create (vlib_main_t *vm, u32 fib_index, int is_ip4)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   tcp_main_t *tm = vnet_get_tcp_main ();
   int rv;
 
-  if (pm->server_client_index == (u32) ~ 0)
-    vnet_session_enable_disable (vm, 1 /* turn on TCP, etc. */ );
+  if (pm->server_client_index == (u32) ~0)
+    vnet_session_enable_disable (vm, 1 /* turn on TCP, etc. */);
 
   /* Set next nodes for non-connection-bound packets */
   /* TODO: this is broken in VPP 22.02, these values are ignored */
   tm->ipl_next_node[0] =
     vlib_node_add_next (vm, session_queue_node.index,
-			upf_ip4_proxy_server_no_conn_output_node.index);
+                        upf_ip4_proxy_server_no_conn_output_node.index);
   tm->ipl_next_node[1] =
     vlib_node_add_next (vm, session_queue_node.index,
-			upf_ip6_proxy_server_no_conn_output_node.index);
+                        upf_ip6_proxy_server_no_conn_output_node.index);
 
   rv = proxy_create (vm, fib_index, is_ip4);
   if (rv != 0)
@@ -1379,9 +1388,8 @@ upf_proxy_create (vlib_main_t * vm, u32 fib_index, int is_ip4)
 }
 
 static int
-upf_proxy_flow_expire_event_handler (flowtable_main_t * fm,
-				     flow_entry_t * flow,
-				     flow_direction_t direction, u32 now)
+upf_proxy_flow_expire_event_handler (flowtable_main_t *fm, flow_entry_t *flow,
+                                     flow_direction_t direction, u32 now)
 {
   upf_proxy_session_t *ps;
   if (flow->ps_index == ~0)
@@ -1400,8 +1408,8 @@ upf_proxy_flow_expire_event_handler (flowtable_main_t * fm,
 }
 
 static int
-upf_proxy_flow_remove_handler (flowtable_main_t * fm, flow_entry_t * flow,
-			       flow_direction_t direction, u32 now)
+upf_proxy_flow_remove_handler (flowtable_main_t *fm, flow_entry_t *flow,
+                               flow_direction_t direction, u32 now)
 {
   int is_active_open;
   session_t *sess;
@@ -1418,20 +1426,20 @@ upf_proxy_flow_remove_handler (flowtable_main_t * fm, flow_entry_t * flow,
     {
       sess = session_from_proxy_session_get_if_valid (ps, is_active_open);
       if (sess)
-	{
-	  tc = session_get_transport (sess);
-	  /*
-	   * Calling upf_kill_connection_hard() will cause session
-	   * cleanup callback to be called for the corresponding side
-	   * of the proxy connection. In case if both sides were open
-	   * at some point, this will cause the proxy connection to be
-	   * removed. If there's an active open connection in
-	   * half-open state (establishing), the proxy session will be
-	   * kept, but after this loop we unlink it from the flow so
-	   * that it will be freed upon active_open_connected_callback()
-	   */
-	  upf_kill_connection_hard ((tcp_connection_t *) tc);
-	}
+        {
+          tc = session_get_transport (sess);
+          /*
+           * Calling upf_kill_connection_hard() will cause session
+           * cleanup callback to be called for the corresponding side
+           * of the proxy connection. In case if both sides were open
+           * at some point, this will cause the proxy connection to be
+           * removed. If there's an active open connection in
+           * half-open state (establishing), the proxy session will be
+           * kept, but after this loop we unlink it from the flow so
+           * that it will be freed upon active_open_connected_callback()
+           */
+          upf_kill_connection_hard ((tcp_connection_t *) tc);
+        }
     }
 
   /*
@@ -1447,7 +1455,7 @@ upf_proxy_flow_remove_handler (flowtable_main_t * fm, flow_entry_t * flow,
 }
 
 clib_error_t *
-upf_proxy_main_init (vlib_main_t * vm)
+upf_proxy_main_init (vlib_main_t *vm)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   tcp_main_t *tm = vnet_get_tcp_main ();
@@ -1470,31 +1478,29 @@ upf_proxy_main_init (vlib_main_t * vm)
    * We have to do that because UPF proxy doesn't use listeners.
    */
   tm->dispatch_table[TCP_STATE_TIME_WAIT][TCP_FLAG_SYN].next =
-    0 /* TCP_INPUT_NEXT_DROP */ ;
+    0 /* TCP_INPUT_NEXT_DROP */;
   tm->dispatch_table[TCP_STATE_TIME_WAIT][TCP_FLAG_SYN].error =
     TCP_ERROR_DISPATCH;
 
   upf_debug ("TCP4 Output Node Index %u, IP4 Proxy Output Node Index %u",
-	     tcp4_output_node.index, upf_ip4_proxy_server_output_node.index);
+             tcp4_output_node.index, upf_ip4_proxy_server_output_node.index);
   upf_debug ("TCP6 Output Node Index %u, IP6 Proxy Output Node Index %u",
-	     tcp6_output_node.index, upf_ip6_proxy_server_output_node.index);
-  pm->tcp4_server_output_next =
-    vlib_node_add_next (vm, tcp4_output_node.index,
-			upf_ip4_proxy_server_output_node.index);
-  pm->tcp6_server_output_next =
-    vlib_node_add_next (vm, tcp6_output_node.index,
-			upf_ip6_proxy_server_output_node.index);
+             tcp6_output_node.index, upf_ip6_proxy_server_output_node.index);
+  pm->tcp4_server_output_next = vlib_node_add_next (
+    vm, tcp4_output_node.index, upf_ip4_proxy_server_output_node.index);
+  pm->tcp6_server_output_next = vlib_node_add_next (
+    vm, tcp6_output_node.index, upf_ip6_proxy_server_output_node.index);
   pm->tcp4_server_output_next_active =
     vlib_node_add_next (vm, tcp4_output_node.index,
-			upf_ip4_proxy_server_far_only_output_node.index);
+                        upf_ip4_proxy_server_far_only_output_node.index);
   pm->tcp6_server_output_next_active =
     vlib_node_add_next (vm, tcp6_output_node.index,
-			upf_ip6_proxy_server_far_only_output_node.index);
+                        upf_ip6_proxy_server_far_only_output_node.index);
 
   flowtable_add_event_handler (fm, FLOW_EVENT_EXPIRE,
-			       upf_proxy_flow_expire_event_handler);
+                               upf_proxy_flow_expire_event_handler);
   flowtable_add_event_handler (fm, FLOW_EVENT_REMOVE,
-			       upf_proxy_flow_remove_handler);
+                               upf_proxy_flow_remove_handler);
 
   return 0;
 }
@@ -1508,7 +1514,7 @@ static int upf_proxy_is_initialized = 0;
  * src/vnet/session/session.c
  */
 static clib_error_t *
-upf_proxy_main_loop_init (vlib_main_t * vm)
+upf_proxy_main_loop_init (vlib_main_t *vm)
 {
   vlib_worker_thread_barrier_sync (vm);
   if (!upf_proxy_is_initialized)
@@ -1525,9 +1531,9 @@ VLIB_INIT_FUNCTION (upf_proxy_main_init);
 VLIB_MAIN_LOOP_ENTER_FUNCTION (upf_proxy_main_loop_init);
 
 /*
-* fd.io coding-style-patch-verification: ON
-*
-* Local Variables:
-* eval: (c-set-style "gnu")
-* End:
-*/
+ * fd.io coding-style-patch-verification: ON
+ *
+ * Local Variables:
+ * eval: (c-set-style "gnu")
+ * End:
+ */

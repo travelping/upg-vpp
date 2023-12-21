@@ -29,7 +29,7 @@ extern vlib_node_registration_t upf_ip6_proxy_server_no_conn_output_node;
 extern vlib_node_registration_t upf_ip4_proxy_server_far_only_output_node;
 extern vlib_node_registration_t upf_ip6_proxy_server_far_only_output_node;
 
-u8 *format_upf_proxy_session (u8 * s, va_list * args);
+u8 *format_upf_proxy_session (u8 *s, va_list *args);
 
 typedef struct
 {
@@ -46,22 +46,22 @@ typedef struct
   u32 flow_index;
 
   int refcnt;
-  u8 *rx_buf;				/**< intermediate rx buffers */
+  u8 *rx_buf; /**< intermediate rx buffers */
 
   volatile u8 active_open_establishing;
   volatile u8 po_disconnected;
   volatile u8 ao_disconnected;
 } upf_proxy_session_t;
 
-#define foreach_upf_proxy_config_fields						\
-  _(u16, mss)				/**< TCP MSS */				\
-  _(uword, fifo_size)			/**< initial fifo size */		\
-  _(uword, max_fifo_size)			/**< max fifo size */			\
-  _(u8, high_watermark)			/**< high watermark (%) */		\
-  _(u8, low_watermark)			/**< low watermark (%) */		\
-  _(u32, private_segment_count)		/**< Number of private fifo segs */	\
-  _(uword, private_segment_size)		/**< size of private fifo segs */	\
-  _(u8, prealloc_fifos)			/**< Request fifo preallocation */	\
+#define foreach_upf_proxy_config_fields                                       \
+  _ (u16, mss)                    /**< TCP MSS */                             \
+  _ (uword, fifo_size)            /**< initial fifo size */                   \
+  _ (uword, max_fifo_size)        /**< max fifo size */                       \
+  _ (u8, high_watermark)          /**< high watermark (%) */                  \
+  _ (u8, low_watermark)           /**< low watermark (%) */                   \
+  _ (u32, private_segment_count)  /**< Number of private fifo segs */         \
+  _ (uword, private_segment_size) /**< size of private fifo segs */           \
+  _ (u8, prealloc_fifos)          /**< Request fifo preallocation */
 
 typedef struct
 {
@@ -70,16 +70,16 @@ typedef struct
   u16 tcp4_server_output_next_active;
   u16 tcp6_server_output_next_active;
 
-  svm_queue_t *vl_input_queue;	/**< vpe input queue */
+  svm_queue_t *vl_input_queue; /**< vpe input queue */
   /** per-thread vectors */
   svm_msg_q_t **server_event_queue;
   svm_msg_q_t **active_open_event_queue;
 
-  u32 cli_node_index;			/**< cli process node index */
-  u32 server_client_index;		/**< server API client handle */
-  u32 server_app_index;			/**< server app index */
-  u32 active_open_client_index;		/**< active open API client handle */
-  u32 active_open_app_index;		/**< active open index after attach */
+  u32 cli_node_index;           /**< cli process node index */
+  u32 server_client_index;      /**< server API client handle */
+  u32 server_app_index;         /**< server app index */
+  u32 active_open_client_index; /**< active open API client handle */
+  u32 active_open_app_index;    /**< active open index after attach */
 
   u32 **session_to_proxy_session;
   u32 **session_to_active_open_session;
@@ -88,12 +88,12 @@ typedef struct
    * Configuration params
    */
 #define _(type, name) type name;
-    foreach_upf_proxy_config_fields
+  foreach_upf_proxy_config_fields
 #undef _
     /*
      * Test state variables
      */
-    upf_proxy_session_t * sessions;	/**< Session pool, shared */
+    upf_proxy_session_t *sessions; /**< Session pool, shared */
   clib_rwlock_t sessions_lock;
   u32 **connection_index_by_thread;
   pthread_t client_thread_handle;
@@ -154,11 +154,11 @@ proxy_session_lookup_by_index (u32 session_index, u32 thread_index)
   return 0;
 }
 
-void upf_kill_connection_hard (tcp_connection_t * tc);
+void upf_kill_connection_hard (tcp_connection_t *tc);
 
-tcp_connection_t *upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b,
-					     u8 thread_index, u8 is_ip4,
-					     u8 is_reverse);
+tcp_connection_t *upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t *b,
+                                             u8 thread_index, u8 is_ip4,
+                                             u8 is_reverse);
 
 #endif
 

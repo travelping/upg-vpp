@@ -43,14 +43,17 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)                          \
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 static clib_error_t *
-upf_pfcp_endpoint_ip_add_del_command_fn (vlib_main_t * vm,
-					 unformat_input_t * main_input,
-					 vlib_cli_command_t * cmd)
+upf_pfcp_endpoint_ip_add_del_command_fn (vlib_main_t *vm,
+                                         unformat_input_t *main_input,
+                                         vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -67,20 +70,19 @@ upf_pfcp_endpoint_ip_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "del"))
-	add = 0;
+        add = 0;
       else if (unformat (line_input, "add"))
-	add = 1;
-      else
-	if (unformat
-	    (line_input, "%U", unformat_ip46_address, &ip, IP46_TYPE_ANY))
-	addr_set = 1;
+        add = 1;
+      else if (unformat (line_input, "%U", unformat_ip46_address, &ip,
+                         IP46_TYPE_ANY))
+        addr_set = 1;
       else if (unformat (line_input, "vrf %u", &vrf))
-	;
+        ;
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   if (!addr_set)
@@ -92,12 +94,12 @@ upf_pfcp_endpoint_ip_add_del_command_fn (vlib_main_t * vm,
   if (vrf != ~0)
     {
       fib_index =
-	fib_table_find (fib_ip_proto (!ip46_address_is_ip4 (&ip)), vrf);
+        fib_table_find (fib_ip_proto (!ip46_address_is_ip4 (&ip)), vrf);
       if (fib_index == ~0)
-	{
-	  error = clib_error_return (0, "nonexistent vrf %d", vrf);
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "nonexistent vrf %d", vrf);
+          goto done;
+        }
     }
 
   rv = vnet_upf_pfcp_endpoint_add_del (&ip, fib_index, add);
@@ -122,19 +124,17 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_pfcp_endpoint_ip_add_del_command, static) =
-{
+VLIB_CLI_COMMAND (upf_pfcp_endpoint_ip_add_del_command, static) = {
   .path = "upf pfcp endpoint ip",
-  .short_help =
-  "upf pfcp endpoint ip <address> [vrf <table-id>] [del]",
+  .short_help = "upf pfcp endpoint ip <address> [vrf <table-id>] [del]",
   .function = upf_pfcp_endpoint_ip_add_del_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_pfcp_show_endpoint_command_fn (vlib_main_t * vm,
-				   unformat_input_t * main_input,
-				   vlib_cli_command_t * cmd)
+upf_pfcp_show_endpoint_command_fn (vlib_main_t *vm,
+                                   unformat_input_t *main_input,
+                                   vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_main_t *gtm = &upf_main;
@@ -145,23 +145,23 @@ upf_pfcp_show_endpoint_command_fn (vlib_main_t * vm,
   if (unformat_user (main_input, unformat_line_input, line_input))
     {
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-	{
-	  error = unformat_parse_error (line_input);
-	  unformat_free (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          unformat_free (line_input);
+          goto done;
+        }
 
       unformat_free (line_input);
     }
 
   vlib_cli_output (vm, "Endpoints: %d\n",
-		   mhash_elts (&gtm->pfcp_endpoint_index));
+                   mhash_elts (&gtm->pfcp_endpoint_index));
 
   /* *INDENT-OFF* */
-  mhash_foreach(key, v, &gtm->pfcp_endpoint_index,
-  ({
-    vlib_cli_output (vm, "  %U: %u\n", format_pfcp_endpoint_key, key, *v);
-  }));
+  mhash_foreach (key, v, &gtm->pfcp_endpoint_index, ({
+                   vlib_cli_output (vm, "  %U: %u\n", format_pfcp_endpoint_key,
+                                    key, *v);
+                 }));
   /* *INDENT-ON* */
 
 done:
@@ -169,19 +169,16 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_pfcp_show_endpoint_command, static) =
-{
+VLIB_CLI_COMMAND (upf_pfcp_show_endpoint_command, static) = {
   .path = "show upf pfcp endpoint",
-  .short_help =
-  "show upf pfcp endpoint",
+  .short_help = "show upf pfcp endpoint",
   .function = upf_pfcp_show_endpoint_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_pfcp_policer_set_fn (vlib_main_t * vm,
-			 unformat_input_t * main_input,
-			 vlib_cli_command_t * cmd)
+upf_pfcp_policer_set_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                         vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -195,14 +192,14 @@ upf_pfcp_policer_set_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "cir-pps %u", &cir_pps))
-	cfg->rb.pps.cir_pps = cir_pps;
+        cfg->rb.pps.cir_pps = cir_pps;
       else if (unformat (line_input, "cb-ms %u", &cb_ms))
-	cfg->rb.pps.cb_ms = cb_ms;
+        cfg->rb.pps.cb_ms = cb_ms;
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  return error;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          return error;
+        }
     }
 
   upf_pfcp_policers_recalculate (cfg);
@@ -211,19 +208,18 @@ upf_pfcp_policer_set_fn (vlib_main_t * vm,
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_pfcp_policer_set, static) =
-{
+VLIB_CLI_COMMAND (upf_pfcp_policer_set, static) = {
   .path = "upf pfcp policer set",
   .short_help =
-  "upf pfcp policer set cir-pps <packet-per-second> cb-ms <burst-ms>",
+    "upf pfcp policer set cir-pps <packet-per-second> cb-ms <burst-ms>",
   .function = upf_pfcp_policer_set_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
-				  unformat_input_t * main_input,
-				  vlib_cli_command_t * cmd)
+upf_ueip_pool_add_del_command_fn (vlib_main_t *vm,
+                                  unformat_input_t *main_input,
+                                  vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -239,24 +235,24 @@ upf_ueip_pool_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "id %_%v%_", &identity))
-	;
+        ;
       else if (unformat (line_input, "del"))
-	is_add = 0;
+        is_add = 0;
       else if (unformat (line_input, "nwi %_%v%_", &nwi_s))
-	;
+        ;
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   nwi_name = upf_name_to_labels (nwi_s);
 
   if (vec_len (nwi_name) > 64)
     {
-      error = clib_error_return (0,
-				 "NWI name(encoded) has to fit in 64 bytes");
+      error =
+        clib_error_return (0, "NWI name(encoded) has to fit in 64 bytes");
       goto done;
     }
   if (vec_len (identity) > 64)
@@ -295,19 +291,16 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_ueip_pool_add_del_command, static) =
-{
+VLIB_CLI_COMMAND (upf_ueip_pool_add_del_command, static) = {
   .path = "upf ueip pool",
-  .short_help =
-  "upf ueip pool nwi <nwi-name> id <identity> [del]",
+  .short_help = "upf ueip pool nwi <nwi-name> id <identity> [del]",
   .function = upf_ueip_pool_add_del_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
-				 unformat_input_t * main_input,
-				 vlib_cli_command_t * cmd)
+upf_nat_pool_add_del_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                                 vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -326,46 +319,45 @@ upf_nat_pool_add_del_command_fn (vlib_main_t * vm,
 
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
-      if (unformat (line_input, "%U - %U",
-		    unformat_ip4_address, &start, unformat_ip4_address, &end))
-	;
+      if (unformat (line_input, "%U - %U", unformat_ip4_address, &start,
+                    unformat_ip4_address, &end))
+        ;
       else if (unformat (line_input, "block_size %u", &port_block_size))
-	;
+        ;
       else if (unformat (line_input, "min_port %u", &min_port))
-	;
+        ;
       else if (unformat (line_input, "max_port %u", &max_port))
-	;
+        ;
       else if (unformat (line_input, "nwi %_%v%_", &nwi_s))
-	;
+        ;
       else if (unformat (line_input, "name %_%v%_", &name))
-	;
+        ;
       else if (unformat (line_input, "del"))
-	is_add = 0;
+        is_add = 0;
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   /*
    * Extra port range check here because port values are parsed into
    * u32 instead of u16
    */
-  if (min_port < UPF_NAT_MIN_PORT ||
-      max_port > UPF_NAT_MAX_PORT || min_port > max_port)
+  if (min_port < UPF_NAT_MIN_PORT || max_port > UPF_NAT_MAX_PORT ||
+      min_port > max_port)
     error = clib_error_return (0, "Invalid port range");
   else
     {
       nwi_name = upf_name_to_labels (nwi_s);
 
       rv =
-	vnet_upf_nat_pool_add_del (nwi_name, start, end, name,
-				   port_block_size, min_port, max_port,
-				   is_add);
+        vnet_upf_nat_pool_add_del (nwi_name, start, end, name, port_block_size,
+                                   min_port, max_port, is_add);
 
       if (rv)
-	error = clib_error_return (0, "Unable to create NAT Pool");
+        error = clib_error_return (0, "Unable to create NAT Pool");
     }
 
 done:
@@ -378,19 +370,18 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_nat_pool_add_del_command, static) =
-{
+VLIB_CLI_COMMAND (upf_nat_pool_add_del_command, static) = {
   .path = "upf nat pool",
-  .short_help =
-  "upf nat pool nwi <nwi-name> <ip4-addr-start> - <ip4-addr-end> min_port <min-port> max_port <max-port> block_size <port-block-size> name <name> [del]",
+  .short_help = "upf nat pool nwi <nwi-name> <ip4-addr-start> - "
+                "<ip4-addr-end> min_port <min-port> max_port <max-port> "
+                "block_size <port-block-size> name <name> [del]",
   .function = upf_nat_pool_add_del_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_nwi_add_del_command_fn (vlib_main_t * vm,
-			    unformat_input_t * main_input,
-			    vlib_cli_command_t * cmd)
+upf_nwi_add_del_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                            vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -412,45 +403,41 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "del"))
-	add = 0;
+        add = 0;
       else if (unformat (line_input, "add"))
-	add = 1;
+        add = 1;
       else if (unformat (line_input, "name %_%v%_", &s))
-	{
-	  name = upf_name_to_labels (s);
-	  vec_free (s);
-	}
+        {
+          name = upf_name_to_labels (s);
+          vec_free (s);
+        }
       else if (unformat (line_input, "table %u", &table_id))
-	;
+        ;
       else if (unformat (line_input, "vrf %u", &table_id))
-	;
-      else if (unformat (line_input, "ipfix-policy %U",
-			 unformat_ipfix_policy, &ipfix_policy))
-	;
+        ;
+      else if (unformat (line_input, "ipfix-policy %U", unformat_ipfix_policy,
+                         &ipfix_policy))
+        ;
       else if (unformat (line_input, "ipfix-collector-ip %U",
-			 unformat_ip_address, &ipfix_collector_ip))
-	;
+                         unformat_ip_address, &ipfix_collector_ip))
+        ;
       else if (unformat (line_input, "ipfix-report-interval %u",
-			 &ipfix_report_interval))
-	;
+                         &ipfix_report_interval))
+        ;
+      else if (unformat (line_input, "observation-domain-id %u",
+                         &observation_domain_id))
+        ;
+      else if (unformat (line_input, "observation-domain-name %_%v%_",
+                         &observation_domain_name))
+        ;
+      else if (unformat (line_input, "observation-point-id %lu",
+                         &observation_point_id))
+        ;
       else
-	if (unformat
-	    (line_input, "observation-domain-id %u", &observation_domain_id))
-	;
-      else
-	if (unformat
-	    (line_input, "observation-domain-name %_%v%_",
-	     &observation_domain_name))
-	;
-      else
-	if (unformat
-	    (line_input, "observation-point-id %lu", &observation_point_id))
-	;
-      else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   if (!name)
@@ -465,11 +452,9 @@ upf_nwi_add_del_command_fn (vlib_main_t * vm,
     clib_warning ("table %d not (yet) defined for IPv6", table_id);
 
   rv = vnet_upf_nwi_add_del (name, table_id, table_id, ipfix_policy,
-			     &ipfix_collector_ip,
-			     ipfix_report_interval,
-			     observation_domain_id,
-			     observation_domain_name,
-			     observation_point_id, add);
+                             &ipfix_collector_ip, ipfix_report_interval,
+                             observation_domain_id, observation_domain_name,
+                             observation_point_id, add);
 
   switch (rv)
     {
@@ -497,26 +482,23 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_nwi_add_del_command, static) =
-{
+VLIB_CLI_COMMAND (upf_nwi_add_del_command, static) = {
   .path = "upf nwi",
-  .short_help =
-  "upf nwi name <name> [table <table-id>] [vrf <vrf-id>] "
-  "[ipfix-policy <name>] "
-  "[ipfix-collector-ip <ip>] "
-  "[ipfix-report-interval <secs>] "
-  "[observation-domain-id <id>] "
-  "[observation-domain-name <name>] "
-  "[observation-point-id <id>] "
-  "[del]",
+  .short_help = "upf nwi name <name> [table <table-id>] [vrf <vrf-id>] "
+                "[ipfix-policy <name>] "
+                "[ipfix-collector-ip <ip>] "
+                "[ipfix-report-interval <secs>] "
+                "[observation-domain-id <id>] "
+                "[observation-domain-name <name>] "
+                "[observation-point-id <id>] "
+                "[del]",
   .function = upf_nwi_add_del_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_nwi_command_fn (vlib_main_t * vm,
-			 unformat_input_t * main_input,
-			 vlib_cli_command_t * cmd)
+upf_show_nwi_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                         vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_main_t *gtm = &upf_main;
@@ -528,41 +510,41 @@ upf_show_nwi_command_fn (vlib_main_t * vm,
   if (unformat_user (main_input, unformat_line_input, line_input))
     {
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-	{
-	  if (unformat (line_input, "name %_%v%_", &s))
-	    {
-	      name = upf_name_to_labels (s);
-	      vec_free (s);
-	    }
-	  else
-	    {
-	      error = unformat_parse_error (line_input);
-	      unformat_free (line_input);
-	      goto done;
-	    }
-	}
+        {
+          if (unformat (line_input, "name %_%v%_", &s))
+            {
+              name = upf_name_to_labels (s);
+              vec_free (s);
+            }
+          else
+            {
+              error = unformat_parse_error (line_input);
+              unformat_free (line_input);
+              goto done;
+            }
+        }
 
       unformat_free (line_input);
     }
 
   pool_foreach (nwi, gtm->nwis)
-  {
-    ip4_fib_t *fib4;
-    ip6_fib_t *fib6;
-    if (name && !vec_is_equal (name, nwi->name))
-      continue;
+    {
+      ip4_fib_t *fib4;
+      ip6_fib_t *fib6;
+      if (name && !vec_is_equal (name, nwi->name))
+        continue;
 
-    fib4 = ip4_fib_get (nwi->fib_index[FIB_PROTOCOL_IP4]);
-    fib6 = ip6_fib_get (nwi->fib_index[FIB_PROTOCOL_IP6]);
+      fib4 = ip4_fib_get (nwi->fib_index[FIB_PROTOCOL_IP4]);
+      fib6 = ip6_fib_get (nwi->fib_index[FIB_PROTOCOL_IP6]);
 
-    vlib_cli_output (vm,
-		     "%U, ip4-table-id %u, ip6-table-id %u, ipfix-policy %U, ipfix-collector-ip %U\n",
-		     format_dns_labels, nwi->name,
-		     fib4->hash.table_id,
-		     fib6->table_id,
-		     format_upf_ipfix_policy, nwi->ipfix_policy,
-		     format_ip_address, &nwi->ipfix_collector_ip);
-  }
+      vlib_cli_output (vm,
+                       "%U, ip4-table-id %u, ip6-table-id %u, ipfix-policy "
+                       "%U, ipfix-collector-ip %U\n",
+                       format_dns_labels, nwi->name, fib4->hash.table_id,
+                       fib6->table_id, format_upf_ipfix_policy,
+                       nwi->ipfix_policy, format_ip_address,
+                       &nwi->ipfix_collector_ip);
+    }
 
 done:
   vec_free (name);
@@ -570,11 +552,9 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_nwi_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_nwi_command, static) = {
   .path = "show upf nwi",
-  .short_help =
-  "show upf nwi",
+  .short_help = "show upf nwi",
   .function = upf_show_nwi_command_fn,
 };
 /* *INDENT-ON* */
@@ -647,9 +627,9 @@ vtep_if_address_add_del (u32 sw_if_index, u8 add)
 #endif
 
 static clib_error_t *
-upf_tdf_ul_table_add_del_command_fn (vlib_main_t * vm,
-				     unformat_input_t * main_input,
-				     vlib_cli_command_t * cmd)
+upf_tdf_ul_table_add_del_command_fn (vlib_main_t *vm,
+                                     unformat_input_t *main_input,
+                                     vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -665,22 +645,22 @@ upf_tdf_ul_table_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "del"))
-	add = 0;
+        add = 0;
       else if (unformat (line_input, "add"))
-	add = 1;
+        add = 1;
       else if (unformat (line_input, "vrf %u", &vrf))
-	;
+        ;
       else if (unformat (line_input, "ip4"))
-	fproto = FIB_PROTOCOL_IP4;
+        fproto = FIB_PROTOCOL_IP4;
       else if (unformat (line_input, "ip6"))
-	fproto = FIB_PROTOCOL_IP6;
+        fproto = FIB_PROTOCOL_IP6;
       else if (unformat (line_input, "table-id %u", &table_id))
-	;
+        ;
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   if (table_id == ~0)
@@ -712,18 +692,17 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_tdf_ul_table_add_del_command, static) =
-{
+VLIB_CLI_COMMAND (upf_tdf_ul_table_add_del_command, static) = {
   .path = "upf tdf ul table",
-  .short_help =
-  "upf tdf ul table vrf <table-id> [ip4|ip6] table-id <src-lookup-table-id> [del]",
+  .short_help = "upf tdf ul table vrf <table-id> [ip4|ip6] table-id "
+                "<src-lookup-table-id> [del]",
   .function = upf_tdf_ul_table_add_del_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_tdf_ul_table_show_fn (vlib_main_t * vm,
-			  unformat_input_t * input, vlib_cli_command_t * cmd)
+upf_tdf_ul_table_show_fn (vlib_main_t *vm, unformat_input_t *input,
+                          vlib_cli_command_t *cmd)
 {
   upf_main_t *gtm = &upf_main;
   fib_protocol_t fproto;
@@ -734,17 +713,16 @@ upf_tdf_ul_table_show_fn (vlib_main_t * vm,
   {
     vlib_cli_output (vm, " %U", format_fib_protocol, fproto);
     vec_foreach_index (ii, gtm->tdf_ul_table[fproto])
-    {
-      if (~0 != vec_elt (gtm->tdf_ul_table[fproto], ii))
-	{
-	  u32 vrf_table_id = fib_table_get_table_id (ii, fproto);
-	  u32 fib_table_id =
-	    fib_table_get_table_id (vec_elt (gtm->tdf_ul_table[fproto], ii),
-				    fproto);
+      {
+        if (~0 != vec_elt (gtm->tdf_ul_table[fproto], ii))
+          {
+            u32 vrf_table_id = fib_table_get_table_id (ii, fproto);
+            u32 fib_table_id = fib_table_get_table_id (
+              vec_elt (gtm->tdf_ul_table[fproto], ii), fproto);
 
-	  vlib_cli_output (vm, "  %u -> %u", vrf_table_id, fib_table_id);
-	}
-    }
+            vlib_cli_output (vm, "  %u -> %u", vrf_table_id, fib_table_id);
+          }
+      }
   }
   return (NULL);
 }
@@ -758,9 +736,8 @@ VLIB_CLI_COMMAND (upf_tdf_ul_table_show_command, static) = {
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_tdf_ul_enable_command_fn (vlib_main_t * vm,
-			      unformat_input_t * main_input,
-			      vlib_cli_command_t * cmd)
+upf_tdf_ul_enable_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                              vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   fib_protocol_t fproto = FIB_PROTOCOL_IP4;
@@ -773,19 +750,19 @@ upf_tdf_ul_enable_command_fn (vlib_main_t * vm,
 
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
-      if (unformat (line_input, "%U", unformat_vnet_sw_interface,
-		    vnm, &sw_if_index))
-	;
+      if (unformat (line_input, "%U", unformat_vnet_sw_interface, vnm,
+                    &sw_if_index))
+        ;
       else if (unformat (line_input, "enable"))
-	enable = 1;
+        enable = 1;
       else if (unformat (line_input, "disable"))
-	enable = 0;
+        enable = 0;
       else if (unformat (line_input, "ip4"))
-	fproto = FIB_PROTOCOL_IP4;
+        fproto = FIB_PROTOCOL_IP4;
       else if (unformat (line_input, "ip6"))
-	fproto = FIB_PROTOCOL_IP6;
+        fproto = FIB_PROTOCOL_IP6;
       else
-	break;
+        break;
     }
 
   if (!enable)
@@ -801,16 +778,15 @@ upf_tdf_ul_enable_command_fn (vlib_main_t * vm,
 
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND (upf_tdf_ul_enable_command, static) = {
-    .path = "upf tdf ul enable",
-    .short_help = "UPF TDF UpLink [enable|disable] [ip4|ip6] <interface>",
-    .function = upf_tdf_ul_enable_command_fn,
+  .path = "upf tdf ul enable",
+  .short_help = "UPF TDF UpLink [enable|disable] [ip4|ip6] <interface>",
+  .function = upf_tdf_ul_enable_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_spec_release_command_fn (vlib_main_t * vm,
-			     unformat_input_t * main_input,
-			     vlib_cli_command_t * cmd)
+upf_spec_release_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                             vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_main_t *gtm = &upf_main;
@@ -822,9 +798,9 @@ upf_spec_release_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "release %u", &spec_version))
-	break;
+        break;
       else
-	return 0;
+        return 0;
     }
 
   gtm->pfcp_spec_version = spec_version;
@@ -833,16 +809,16 @@ upf_spec_release_command_fn (vlib_main_t * vm,
 
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND (upf_spec_release_command, static) = {
-    .path = "upf specification",
-    .short_help = "upf specification release [MAJOR.MINOR.PATCH]",
-    .function = upf_spec_release_command_fn,
+  .path = "upf specification",
+  .short_help = "upf specification release [MAJOR.MINOR.PATCH]",
+  .function = upf_spec_release_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_spec_release_command_fn (vlib_main_t * vm,
-				  unformat_input_t * main_input,
-				  vlib_cli_command_t * cmd)
+upf_show_spec_release_command_fn (vlib_main_t *vm,
+                                  unformat_input_t *main_input,
+                                  vlib_cli_command_t *cmd)
 {
   upf_main_t *gtm = &upf_main;
   vlib_cli_output (vm, "PFCP version: %u", gtm->pfcp_spec_version);
@@ -850,24 +826,21 @@ upf_show_spec_release_command_fn (vlib_main_t * vm,
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_spec_release_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_spec_release_command, static) = {
   .path = "show upf specification release",
-  .short_help =
-  "show upf specification release",
+  .short_help = "show upf specification release",
   .function = upf_show_spec_release_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_node_id_command_fn (vlib_main_t * vm,
-			unformat_input_t * main_input,
-			vlib_cli_command_t * cmd)
+upf_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                        vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
   u8 *fqdn = 0;
-  pfcp_node_id_t node_id = {.type = (u8) ~ 0 };
+  pfcp_node_id_t node_id = { .type = (u8) ~0 };
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
     return 0;
@@ -875,49 +848,48 @@ upf_node_id_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "fqdn %_%v%_", &fqdn))
-	{
-	  node_id.type = NID_FQDN;
-	  node_id.fqdn = upf_name_to_labels (fqdn);
-	  vec_free (fqdn);
-	}
-      else if (unformat (line_input, "ip4 %U",
-			 unformat_ip46_address, &node_id.ip, IP46_TYPE_ANY))
-	{
-	  node_id.type = NID_IPv4;
-	}
-      else if (unformat (line_input, "ip6 %U",
-			 unformat_ip46_address, &node_id.ip, IP46_TYPE_ANY))
-	{
-	  node_id.type = NID_IPv6;
-	}
+        {
+          node_id.type = NID_FQDN;
+          node_id.fqdn = upf_name_to_labels (fqdn);
+          vec_free (fqdn);
+        }
+      else if (unformat (line_input, "ip4 %U", unformat_ip46_address,
+                         &node_id.ip, IP46_TYPE_ANY))
+        {
+          node_id.type = NID_IPv4;
+        }
+      else if (unformat (line_input, "ip6 %U", unformat_ip46_address,
+                         &node_id.ip, IP46_TYPE_ANY))
+        {
+          node_id.type = NID_IPv6;
+        }
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  return error;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          return error;
+        }
     }
 
-  if ((u8) ~ 0 == node_id.type)
+  if ((u8) ~0 == node_id.type)
     return clib_error_return (0, "A valid node id must be specified");
 
   vnet_upf_node_id_set (&node_id);
 
   return NULL;
-
 }
 
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND (upf_node_id_command, static) = {
-    .path = "upf node-id",
-    .short_help = "upf node-id ( fqdn <fqdn> | ip4 <ip4-addr> | ip6 <ip6-addr> )",
-    .function = upf_node_id_command_fn,
+  .path = "upf node-id",
+  .short_help =
+    "upf node-id ( fqdn <fqdn> | ip4 <ip4-addr> | ip6 <ip6-addr> )",
+  .function = upf_node_id_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_node_id_command_fn (vlib_main_t * vm,
-			     unformat_input_t * main_input,
-			     vlib_cli_command_t * cmd)
+upf_show_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                             vlib_cli_command_t *cmd)
 {
   upf_main_t *gtm = &upf_main;
   vlib_cli_output (vm, "Node ID: %U", format_node_id, &gtm->node_id);
@@ -925,19 +897,17 @@ upf_show_node_id_command_fn (vlib_main_t * vm,
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_node_id_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_node_id_command, static) = {
   .path = "show upf node-id",
-  .short_help =
-  "show upf node-id",
+  .short_help = "show upf node-id",
   .function = upf_show_node_id_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_gtpu_endpoint_add_del_command_fn (vlib_main_t * vm,
-				      unformat_input_t * main_input,
-				      vlib_cli_command_t * cmd)
+upf_gtpu_endpoint_add_del_command_fn (vlib_main_t *vm,
+                                      unformat_input_t *main_input,
+                                      vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   u32 teid = 0, mask = 0, teidri = 0;
@@ -957,60 +927,56 @@ upf_gtpu_endpoint_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "del"))
-	add = 0;
+        add = 0;
       else if (unformat (line_input, "add"))
-	add = 1;
+        add = 1;
       else if (unformat (line_input, "ip %U", unformat_ip4_address, &ip4))
-	ip_set |= 1;
+        ip_set |= 1;
       else if (unformat (line_input, "ip6 %U", unformat_ip6_address, &ip6))
-	ip_set |= 2;
+        ip_set |= 2;
       else if (unformat (line_input, "nwi %_%v%_", &s))
-	{
-	  name = upf_name_to_labels (s);
-	  vec_free (s);
-	}
+        {
+          name = upf_name_to_labels (s);
+          vec_free (s);
+        }
       else if (unformat (line_input, "intf access"))
-	intf = SRC_INTF_ACCESS;
+        intf = SRC_INTF_ACCESS;
       else if (unformat (line_input, "intf core"))
-	intf = SRC_INTF_CORE;
+        intf = SRC_INTF_CORE;
       else if (unformat (line_input, "intf sgi"))
-	/*
-	 * WTF: the specification does permit that,
-	 *      but what does that mean in terms
-	 *      of the UPIP IE?
-	 */
-	intf = SRC_INTF_SGI_LAN;
+        /*
+         * WTF: the specification does permit that,
+         *      but what does that mean in terms
+         *      of the UPIP IE?
+         */
+        intf = SRC_INTF_SGI_LAN;
       else if (unformat (line_input, "intf cp"))
-	intf = SRC_INTF_CP;
+        intf = SRC_INTF_CP;
       else if (unformat (line_input, "teid %u/%u", &teid, &teidri))
-	{
-	  if (teidri > 7)
-	    {
-	      error =
-		clib_error_return (0,
-				   "TEID Range Indication to large (%d > 7)",
-				   teidri);
-	      goto done;
-	    }
-	  mask = 0xfe000000 << (7 - teidri);
-	}
+        {
+          if (teidri > 7)
+            {
+              error = clib_error_return (
+                0, "TEID Range Indication to large (%d > 7)", teidri);
+              goto done;
+            }
+          mask = 0xfe000000 << (7 - teidri);
+        }
       else if (unformat (line_input, "teid 0x%x/%u", &teid, &teidri))
-	{
-	  if (teidri > 7)
-	    {
-	      error =
-		clib_error_return (0,
-				   "TEID Range Indication to large (%d > 7)",
-				   teidri);
-	      goto done;
-	    }
-	  mask = 0xfe000000 << (7 - teidri);
-	}
+        {
+          if (teidri > 7)
+            {
+              error = clib_error_return (
+                0, "TEID Range Indication to large (%d > 7)", teidri);
+              goto done;
+            }
+          mask = 0xfe000000 << (7 - teidri);
+        }
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   if (!ip_set)
@@ -1028,12 +994,12 @@ upf_gtpu_endpoint_add_del_command_fn (vlib_main_t * vm,
 
     case VNET_API_ERROR_NO_SUCH_ENTRY:
       error =
-	clib_error_return (0, "network instance or entry does not exist...");
+        clib_error_return (0, "network instance or entry does not exist...");
       break;
 
     default:
-      error = clib_error_return
-	(0, "vnet_upf_nwi_set_intf_role returned %d", rv);
+      error =
+        clib_error_return (0, "vnet_upf_nwi_set_intf_role returned %d", rv);
       break;
     }
 
@@ -1044,20 +1010,19 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_gtpu_endpoint_command, static) =
-{
+VLIB_CLI_COMMAND (upf_gtpu_endpoint_command, static) = {
   .path = "upf gtpu endpoint",
   .short_help =
-  "upf gtpu endpoint [ip <v4 address>] [ip6 <v6 address>] [nwi <name>]"
-  " [src access | core | sgi | cp] [teid <teid>/<mask>] [del]",
+    "upf gtpu endpoint [ip <v4 address>] [ip6 <v6 address>] [nwi <name>]"
+    " [src access | core | sgi | cp] [teid <teid>/<mask>] [del]",
   .function = upf_gtpu_endpoint_add_del_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_gtpu_endpoint_command_fn (vlib_main_t * vm,
-				   unformat_input_t * main_input,
-				   vlib_cli_command_t * cmd)
+upf_show_gtpu_endpoint_command_fn (vlib_main_t *vm,
+                                   unformat_input_t *main_input,
+                                   vlib_cli_command_t *cmd)
 {
   upf_main_t *gtm = &upf_main;
   clib_error_t *error = NULL;
@@ -1086,21 +1051,19 @@ upf_show_gtpu_endpoint_command_fn (vlib_main_t * vm,
    */
 
   pool_foreach (res, gtm->upip_res)
-  {
-    vlib_cli_output (vm, "[%d]: %U", res - gtm->upip_res,
-		     format_gtpu_endpoint, res);
-  }
+    {
+      vlib_cli_output (vm, "[%d]: %U", res - gtm->upip_res,
+                       format_gtpu_endpoint, res);
+    }
 
-  //done:
+  // done:
   return error;
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_gtpu_endpoint_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_gtpu_endpoint_command, static) = {
   .path = "show upf gtpu endpoint",
-  .short_help =
-  "show upf gtpu endpoint",
+  .short_help = "show upf gtpu endpoint",
   .function = upf_show_gtpu_endpoint_command_fn,
 };
 /* *INDENT-ON* */
@@ -1114,25 +1077,24 @@ typedef struct
 } flows_out_arg_t;
 
 static int
-upf_flows_out_cb (clib_bihash_kv_48_8_t * kvp, void *arg)
+upf_flows_out_cb (clib_bihash_kv_48_8_t *kvp, void *arg)
 {
   flowtable_main_t *fm = &flowtable_main;
   flows_out_arg_t *arg_value = (flows_out_arg_t *) arg;
-  flow_key_t *key = (flow_key_t *) & kvp->key;
+  flow_key_t *key = (flow_key_t *) &kvp->key;
   flow_entry_t *flow;
 
   flow = pool_elt_at_index (fm->flows, kvp->value);
   if (!arg_value->filtered || arg_value->seid == key->up_seid)
     vlib_cli_output (arg_value->vm, "%U", format_flow, flow);
 
-  return arg_value->limit != ~0 && !--arg_value->limit ?
-    BIHASH_WALK_STOP : BIHASH_WALK_CONTINUE;
+  return arg_value->limit != ~0 && !--arg_value->limit ? BIHASH_WALK_STOP :
+                                                         BIHASH_WALK_CONTINUE;
 }
 
 static clib_error_t *
-upf_show_session_command_fn (vlib_main_t * vm,
-			     unformat_input_t * main_input,
-			     vlib_cli_command_t * cmd)
+upf_show_session_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                             vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_main_t *gtm = &upf_main;
@@ -1148,32 +1110,31 @@ upf_show_session_command_fn (vlib_main_t * vm,
   if (unformat_user (main_input, unformat_line_input, line_input))
     {
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-	{
-	  if (unformat (line_input, "cp %U seid 0x%llx",
-			unformat_ip46_address, &cp_ip, IP46_TYPE_ANY,
-			&cp_seid))
-	    has_cp_f_seid = 1;
-	  else if (unformat (line_input, "cp %U seid %llu",
-			     unformat_ip46_address, &cp_ip, IP46_TYPE_ANY,
-			     &cp_seid))
-	    has_cp_f_seid = 1;
-	  else if (unformat (line_input, "up seid 0x%llx", &up_seid))
-	    has_up_seid = 1;
-	  else if (unformat (line_input, "up seid %lu", &up_seid))
-	    has_up_seid = 1;
-	  else if (unformat (line_input, "debug"))
-	    debug = 1;
-	  else if (unformat (line_input, "flows"))
-	    has_flows = 1;
-	  else if (unformat (line_input, "limit %u", &limit))
-	    ;
-	  else
-	    {
-	      error = unformat_parse_error (line_input);
-	      unformat_free (line_input);
-	      goto done;
-	    }
-	}
+        {
+          if (unformat (line_input, "cp %U seid 0x%llx", unformat_ip46_address,
+                        &cp_ip, IP46_TYPE_ANY, &cp_seid))
+            has_cp_f_seid = 1;
+          else if (unformat (line_input, "cp %U seid %llu",
+                             unformat_ip46_address, &cp_ip, IP46_TYPE_ANY,
+                             &cp_seid))
+            has_cp_f_seid = 1;
+          else if (unformat (line_input, "up seid 0x%llx", &up_seid))
+            has_up_seid = 1;
+          else if (unformat (line_input, "up seid %lu", &up_seid))
+            has_up_seid = 1;
+          else if (unformat (line_input, "debug"))
+            debug = 1;
+          else if (unformat (line_input, "flows"))
+            has_flows = 1;
+          else if (unformat (line_input, "limit %u", &limit))
+            ;
+          else
+            {
+              error = unformat_parse_error (line_input);
+              unformat_free (line_input);
+              goto done;
+            }
+        }
 
       unformat_free (line_input);
     }
@@ -1184,7 +1145,7 @@ upf_show_session_command_fn (vlib_main_t * vm,
   if (has_flows && !has_up_seid)
     {
       error =
-	clib_error_return (0, "must specify UP F-SEID to show session flows");
+        clib_error_return (0, "must specify UP F-SEID to show session flows");
       goto done;
     }
 
@@ -1194,24 +1155,21 @@ upf_show_session_command_fn (vlib_main_t * vm,
       flowtable_main_t *fm = &flowtable_main;
       vlib_thread_main_t *tm = vlib_get_thread_main ();
       flows_out_arg_t arg = {
-	.vm = vm,
-	.seid = up_seid,
-	.filtered = true,
-	.limit = limit
+        .vm = vm, .seid = up_seid, .filtered = true, .limit = limit
       };
 
       if (!(sess = pfcp_lookup_up_seid (up_seid)))
-	{
-	  error = clib_error_return (0, "Sessions 0x%lx not found", up_seid);
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "Sessions 0x%lx not found", up_seid);
+          goto done;
+        }
 
       for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)
-	{
-	  flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
-	  clib_bihash_foreach_key_value_pair_48_8
-	    (&fmt->flows_ht, upf_flows_out_cb, &arg);
-	}
+        {
+          flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
+          clib_bihash_foreach_key_value_pair_48_8 (&fmt->flows_ht,
+                                                   upf_flows_out_cb, &arg);
+        }
 
       goto done;
     }
@@ -1225,27 +1183,27 @@ upf_show_session_command_fn (vlib_main_t * vm,
   if (has_up_seid && !has_flows)
     {
       if (!(sess = pfcp_lookup_up_seid (up_seid)))
-	{
-	  error = clib_error_return (0, "Sessions %d not found", up_seid);
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "Sessions %d not found", up_seid);
+          goto done;
+        }
 
       vlib_cli_output (vm, "%U", format_pfcp_session, sess, PFCP_ACTIVE,
-		       debug);
+                       debug);
     }
   else
     {
       pool_foreach (sess, gtm->sessions)
-      {
-	if (limit != 0 && sess - gtm->sessions >= limit)
-	  {
-	    vlib_cli_output (vm, "Max number of sessions displayed: %u",
-			     limit);
-	    break;
-	  }
-	vlib_cli_output (vm, "%U", format_pfcp_session, sess, PFCP_ACTIVE,
-			 debug);
-      }
+        {
+          if (limit != 0 && sess - gtm->sessions >= limit)
+            {
+              vlib_cli_output (vm, "Max number of sessions displayed: %u",
+                               limit);
+              break;
+            }
+          vlib_cli_output (vm, "%U", format_pfcp_session, sess, PFCP_ACTIVE,
+                           debug);
+        }
     }
 
 done:
@@ -1253,19 +1211,16 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_session_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_session_command, static) = {
   .path = "show upf session",
-  .short_help =
-  "show upf session [up seid 0x... [flows]] [limit N]",
+  .short_help = "show upf session [up seid 0x... [flows]] [limit N]",
   .function = upf_show_session_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_assoc_command_fn (vlib_main_t * vm,
-			   unformat_input_t * main_input,
-			   vlib_cli_command_t * cmd)
+upf_show_assoc_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                           vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_main_t *gtm = &upf_main;
@@ -1279,21 +1234,21 @@ upf_show_assoc_command_fn (vlib_main_t * vm,
   if (unformat_user (main_input, unformat_line_input, line_input))
     {
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-	{
-	  if (unformat (line_input, "ip %U",
-			unformat_ip46_address, &node_ip, IP46_TYPE_ANY))
-	    has_ip = 1;
-	  else if (unformat (line_input, "fqdn %_%v%_", &fqdn))
-	    has_fqdn = 1;
-	  if (unformat (line_input, "verbose"))
-	    verbose = 1;
-	  else
-	    {
-	      error = unformat_parse_error (line_input);
-	      unformat_free (line_input);
-	      goto done;
-	    }
-	}
+        {
+          if (unformat (line_input, "ip %U", unformat_ip46_address, &node_ip,
+                        IP46_TYPE_ANY))
+            has_ip = 1;
+          else if (unformat (line_input, "fqdn %_%v%_", &fqdn))
+            has_fqdn = 1;
+          if (unformat (line_input, "verbose"))
+            verbose = 1;
+          else
+            {
+              error = unformat_parse_error (line_input);
+              unformat_free (line_input);
+              goto done;
+            }
+        }
 
       unformat_free (line_input);
     }
@@ -1301,8 +1256,7 @@ upf_show_assoc_command_fn (vlib_main_t * vm,
   if (has_ip && has_fqdn)
     {
       error =
-	clib_error_return (0,
-			   "Only one selector is allowed, eith ip or fqdn");
+        clib_error_return (0, "Only one selector is allowed, eith ip or fqdn");
       goto done;
     }
 
@@ -1311,36 +1265,36 @@ upf_show_assoc_command_fn (vlib_main_t * vm,
       pfcp_node_id_t node_id;
 
       if (has_ip)
-	{
-	  node_id.type = ip46_address_is_ip4 (&node_ip) ? NID_IPv4 : NID_IPv6;
-	  node_id.ip = node_ip;
-	}
+        {
+          node_id.type = ip46_address_is_ip4 (&node_ip) ? NID_IPv4 : NID_IPv6;
+          node_id.ip = node_ip;
+        }
       if (has_fqdn)
-	{
-	  node_id.type = NID_FQDN;
-	  node_id.fqdn = upf_name_to_labels (fqdn);
-	}
+        {
+          node_id.type = NID_FQDN;
+          node_id.fqdn = upf_name_to_labels (fqdn);
+        }
 
       node = pfcp_get_association (&node_id);
 
       if (node_id.type == NID_FQDN)
-	vec_free (node_id.fqdn);
+        vec_free (node_id.fqdn);
 
       if (!node)
-	{
-	  error = clib_error_return (0, "Association not found");
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "Association not found");
+          goto done;
+        }
 
       vlib_cli_output (vm, "%U", format_pfcp_node_association, node, verbose);
     }
   else
     {
       pool_foreach (node, gtm->nodes)
-      {
-	vlib_cli_output (vm, "%U", format_pfcp_node_association, node,
-			 verbose);
-      }
+        {
+          vlib_cli_output (vm, "%U", format_pfcp_node_association, node,
+                           verbose);
+        }
     }
 
 done:
@@ -1351,44 +1305,37 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_assoc_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_assoc_command, static) = {
   .path = "show upf association",
-  .short_help =
-  "show upf association",
+  .short_help = "show upf association",
   .function = upf_show_assoc_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_flows_command_fn (vlib_main_t * vm,
-			   unformat_input_t * main_input,
-			   vlib_cli_command_t * cmd)
+upf_show_flows_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                           vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
   u32 cpu_index;
   flowtable_main_t *fm = &flowtable_main;
   vlib_thread_main_t *tm = vlib_get_thread_main ();
-  flows_out_arg_t arg = {
-    .vm = vm,
-    .filtered = false,
-    .limit = ~0
-  };
+  flows_out_arg_t arg = { .vm = vm, .filtered = false, .limit = ~0 };
 
   if (unformat_user (main_input, unformat_line_input, line_input))
     {
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-	{
-	  if (unformat (line_input, "limit %u", &arg.limit))
-	    ;
-	  else
-	    {
-	      error = unformat_parse_error (line_input);
-	      unformat_free (line_input);
-	      goto done;
-	    }
-	}
+        {
+          if (unformat (line_input, "limit %u", &arg.limit))
+            ;
+          else
+            {
+              error = unformat_parse_error (line_input);
+              unformat_free (line_input);
+              goto done;
+            }
+        }
 
       unformat_free (line_input);
     }
@@ -1396,8 +1343,8 @@ upf_show_flows_command_fn (vlib_main_t * vm,
   for (cpu_index = 0; cpu_index < tm->n_vlib_mains; cpu_index++)
     {
       flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
-      clib_bihash_foreach_key_value_pair_48_8
-	(&fmt->flows_ht, upf_flows_out_cb, &arg);
+      clib_bihash_foreach_key_value_pair_48_8 (&fmt->flows_ht,
+                                               upf_flows_out_cb, &arg);
     }
 
 done:
@@ -1405,8 +1352,7 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_flows_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_flows_command, static) = {
   .path = "show upf flows",
   .short_help = "show upf flows [limit N]",
   .function = upf_show_flows_command_fn,
@@ -1414,9 +1360,8 @@ VLIB_CLI_COMMAND (upf_show_flows_command, static) =
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_bihash_command_fn (vlib_main_t * vm,
-			    unformat_input_t * main_input,
-			    vlib_cli_command_t * cmd)
+upf_show_bihash_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                            vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -1430,40 +1375,40 @@ upf_show_bihash_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "detail"))
-	verbose = 1;
+        verbose = 1;
       else if (unformat (line_input, "verbose"))
-	verbose = 2;
+        verbose = 2;
       else if (unformat (line_input, "v4-tunnel-by-key"))
-	hash = 1;
+        hash = 1;
       else if (unformat (line_input, "v6-tunnel-by-key"))
-	hash = 2;
+        hash = 2;
       else if (unformat (line_input, "qer-by-id"))
-	hash = 3;
+        hash = 3;
       else if (unformat (line_input, "peer-index-by-ip"))
-	hash = 4;
+        hash = 4;
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   switch (hash)
     {
     case 1:
       vlib_cli_output (vm, "%U", format_bihash_8_8, &sm->v4_tunnel_by_key,
-		       verbose);
+                       verbose);
       break;
     case 2:
       vlib_cli_output (vm, "%U", format_bihash_24_8, &sm->v6_tunnel_by_key,
-		       verbose);
+                       verbose);
       break;
     case 3:
       vlib_cli_output (vm, "%U", format_bihash_8_8, &sm->qer_by_id, verbose);
       break;
     case 4:
       vlib_cli_output (vm, "%U", format_bihash_24_8, &sm->peer_index_by_ip,
-		       verbose);
+                       verbose);
       break;
     default:
       error = clib_error_return (0, "Please specify an hash...");
@@ -1476,18 +1421,17 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_bihash_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_bihash_command, static) = {
   .path = "show upf bihash",
-  .short_help =
-  "show upf bihash <v4-tunnel-by-key | v6-tunnel-by-key | qer-by-id | peer-index-by-ip> [detail|verbose]",
+  .short_help = "show upf bihash <v4-tunnel-by-key | v6-tunnel-by-key | "
+                "qer-by-id | peer-index-by-ip> [detail|verbose]",
   .function = upf_show_bihash_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
-			  vlib_cli_command_t * cmd)
+upf_proxy_set_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                          vlib_cli_command_t *cmd)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
 #define _(type, name) type name;
@@ -1499,31 +1443,31 @@ upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
   foreach_upf_proxy_config_fields
 #undef _
     while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "mss %d", &tmp32))
-	mss = (u16) tmp32;
-      else if (unformat (input, "fifo-size %U",
-			 unformat_memory_size, &fifo_size))
-	;
-      else if (unformat (input, "max-fifo-size %U",
-			 unformat_memory_size, &max_fifo_size))
-	;
-      else if (unformat (input, "high-watermark %d", &tmp32))
-	high_watermark = (u8) tmp32;
-      else if (unformat (input, "low-watermark %d", &tmp32))
-	low_watermark = (u8) tmp32;
-      else if (unformat (input, "prealloc-fifos %d", &prealloc_fifos))
-	;
-      else if (unformat (input, "private-segment-count %d",
-			 &private_segment_count))
-	;
-      else if (unformat (input, "private-segment-size %U",
-			 unformat_memory_size, &private_segment_size))
-	;
-      else
-	return clib_error_return (0, "unknown input `%U'",
-				  format_unformat_error, input);
-    }
+  {
+    if (unformat (input, "mss %d", &tmp32))
+      mss = (u16) tmp32;
+    else if (unformat (input, "fifo-size %U", unformat_memory_size,
+                       &fifo_size))
+      ;
+    else if (unformat (input, "max-fifo-size %U", unformat_memory_size,
+                       &max_fifo_size))
+      ;
+    else if (unformat (input, "high-watermark %d", &tmp32))
+      high_watermark = (u8) tmp32;
+    else if (unformat (input, "low-watermark %d", &tmp32))
+      low_watermark = (u8) tmp32;
+    else if (unformat (input, "prealloc-fifos %d", &prealloc_fifos))
+      ;
+    else if (unformat (input, "private-segment-count %d",
+                       &private_segment_count))
+      ;
+    else if (unformat (input, "private-segment-size %U", unformat_memory_size,
+                       &private_segment_size))
+      ;
+    else
+      return clib_error_return (0, "unknown input `%U'", format_unformat_error,
+                                input);
+  }
 
 #define _(type, name) pm->name = name;
   foreach_upf_proxy_config_fields
@@ -1532,21 +1476,19 @@ upf_proxy_set_command_fn (vlib_main_t * vm, unformat_input_t * input,
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_proxy_set_command, static) =
-{
+VLIB_CLI_COMMAND (upf_proxy_set_command, static) = {
   .path = "set upf proxy",
   .short_help = "set upf proxy [mss <nn>] [fifo-size <nn>[k|m]]"
-      "[max-fifo-size <nn>[k|m]][high-watermark <nn>]"
-      "[low-watermark <nn>][prealloc-fifos <nn>]"
-      "[private-segment-size <mem>][private-segment-count <nn>]",
+                "[max-fifo-size <nn>[k|m]][high-watermark <nn>]"
+                "[low-watermark <nn>][prealloc-fifos <nn>]"
+                "[private-segment-size <mem>][private-segment-count <nn>]",
   .function = upf_proxy_set_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_proxy_command_fn (vlib_main_t * vm,
-			   unformat_input_t * main_input,
-			   vlib_cli_command_t * cmd)
+upf_show_proxy_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                           vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_proxy_main_t *pm = &upf_proxy_main;
@@ -1555,37 +1497,35 @@ upf_show_proxy_command_fn (vlib_main_t * vm,
   if (unformat_user (main_input, unformat_line_input, line_input))
     {
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-	{
-	  error = unformat_parse_error (line_input);
-	  unformat_free (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          unformat_free (line_input);
+          goto done;
+        }
 
       unformat_free (line_input);
     }
 
-  vlib_cli_output (vm, "MSS: %u\n"
-		   "FIFO Size: %U\n"
-		   "Max FIFO Size: %U\n"
-		   "Hi/Lo Watermark: %u %% / %u %%\n"
-		   "Prealloc FIFOs: %u\n"
-		   "Private Segment Count: %u\n"
-		   "Private Segment Size: %U\n",
-		   pm->mss,
-		   format_memory_size, pm->fifo_size,
-		   format_memory_size, pm->max_fifo_size,
-		   pm->high_watermark, pm->low_watermark,
-		   pm->prealloc_fifos,
-		   pm->private_segment_count,
-		   format_memory_size, pm->private_segment_size);
+  vlib_cli_output (vm,
+                   "MSS: %u\n"
+                   "FIFO Size: %U\n"
+                   "Max FIFO Size: %U\n"
+                   "Hi/Lo Watermark: %u %% / %u %%\n"
+                   "Prealloc FIFOs: %u\n"
+                   "Private Segment Count: %u\n"
+                   "Private Segment Size: %U\n",
+                   pm->mss, format_memory_size, pm->fifo_size,
+                   format_memory_size, pm->max_fifo_size, pm->high_watermark,
+                   pm->low_watermark, pm->prealloc_fifos,
+                   pm->private_segment_count, format_memory_size,
+                   pm->private_segment_size);
 
 done:
   return error;
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_proxy_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_proxy_command, static) = {
   .path = "show upf proxy",
   .short_help = "show upf proxy",
   .function = upf_show_proxy_command_fn,
@@ -1594,9 +1534,9 @@ VLIB_CLI_COMMAND (upf_show_proxy_command, static) =
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_proxy_session_command_fn (vlib_main_t * vm,
-				   unformat_input_t * main_input,
-				   vlib_cli_command_t * cmd)
+upf_show_proxy_session_command_fn (vlib_main_t *vm,
+                                   unformat_input_t *main_input,
+                                   vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_proxy_main_t *pm = &upf_proxy_main;
@@ -1606,28 +1546,26 @@ upf_show_proxy_session_command_fn (vlib_main_t * vm,
   if (unformat_user (main_input, unformat_line_input, line_input))
     {
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-	{
-	  error = unformat_parse_error (line_input);
-	  unformat_free (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          unformat_free (line_input);
+          goto done;
+        }
 
       unformat_free (line_input);
     }
 
   pool_foreach (ps, pm->sessions)
-  {
-    vlib_cli_output (vm, "%U\n", format_upf_proxy_session, ps);
-  }
+    {
+      vlib_cli_output (vm, "%U\n", format_upf_proxy_session, ps);
+    }
 
 done:
   return error;
 }
 
-
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_proxy_session_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_proxy_session_command, static) = {
   .path = "show upf proxy sessions",
   .short_help = "show upf proxy sessions",
   .function = upf_show_proxy_session_command_fn,
@@ -1635,9 +1573,8 @@ VLIB_CLI_COMMAND (upf_show_proxy_session_command, static) =
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_policy_command_fn (vlib_main_t * vm,
-			    unformat_input_t * input,
-			    vlib_cli_command_t * cmd)
+upf_show_policy_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                            vlib_cli_command_t *cmd)
 {
   upf_main_t *gtm = &upf_main;
   upf_forwarding_policy_t *fp_entry;
@@ -1647,37 +1584,36 @@ upf_show_policy_command_fn (vlib_main_t * vm,
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "%_%v%_", &policy_id))
-	;
+        ;
       else
-	return (clib_error_return (0, "unknown input '%U'",
-				   format_unformat_error, input));
+        return (clib_error_return (0, "unknown input '%U'",
+                                   format_unformat_error, input));
     }
   if (NULL == policy_id)
     {
       pool_foreach (fp_entry, gtm->upf_forwarding_policies)
-      {
-	vlib_cli_output (vm, "%U", format_upf_policy, fp_entry);
-      }
+        {
+          vlib_cli_output (vm, "%U", format_upf_policy, fp_entry);
+        }
     }
   else
     {
       hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
       if (hash_ptr)
-	{
-	  fp_entry =
-	    pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
-	  vlib_cli_output (vm, "%U", format_upf_policy, fp_entry);
-	}
+        {
+          fp_entry =
+            pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+          vlib_cli_output (vm, "%U", format_upf_policy, fp_entry);
+        }
       else
-	upf_debug ("###### Policy with id %v does not exist ######",
-		   policy_id);
+        upf_debug ("###### Policy with id %v does not exist ######",
+                   policy_id);
     }
   return (NULL);
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_policy_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_policy_command, static) = {
   .path = "show upf policy",
   .short_help = "show upf policy",
   .function = upf_show_policy_command_fn,
@@ -1685,9 +1621,8 @@ VLIB_CLI_COMMAND (upf_show_policy_command, static) =
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_policy_command_fn (vlib_main_t * vm,
-		       unformat_input_t * main_input,
-		       vlib_cli_command_t * cmd)
+upf_policy_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+                       vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   fib_route_path_t *rpaths = NULL, rpath;
@@ -1702,19 +1637,19 @@ upf_policy_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "id %_%v%_", &policy_id))
-	;
+        ;
       else if (unformat (line_input, "del"))
-	action = 0;
+        action = 0;
       else if (unformat (line_input, "add"))
-	action = 1;
+        action = 1;
       else if (unformat (line_input, "update"))
-	action = 2;
-      else if (unformat (line_input, "via %U",
-			 unformat_fib_route_path, &rpath, &payload_proto))
-	vec_add1 (rpaths, rpath);
+        action = 2;
+      else if (unformat (line_input, "via %U", unformat_fib_route_path, &rpath,
+                         &payload_proto))
+        vec_add1 (rpaths, rpath);
       else
-	return (clib_error_return (0, "unknown input '%U'",
-				   format_unformat_error, line_input));
+        return (clib_error_return (0, "unknown input '%U'",
+                                   format_unformat_error, line_input));
     }
 
   vnet_upf_policy_fn (rpaths, policy_id, action);
@@ -1724,18 +1659,18 @@ upf_policy_command_fn (vlib_main_t * vm,
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_add_policy_command, static) =
-{
+VLIB_CLI_COMMAND (upf_add_policy_command, static) = {
   .path = "upf policy",
-  .short_help = "upf policy [add|del] id <policy_id> via <next_hop> <interface>",
+  .short_help =
+    "upf policy [add|del] id <policy_id> via <next_hop> <interface>",
   .function = upf_policy_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_pfcp_heartbeat_config_command_fn (vlib_main_t * vm,
-				      unformat_input_t * main_input,
-				      vlib_cli_command_t * cmd)
+upf_pfcp_heartbeat_config_command_fn (vlib_main_t *vm,
+                                      unformat_input_t *main_input,
+                                      vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_main_t *gtm = &upf_main;
@@ -1750,11 +1685,12 @@ upf_pfcp_heartbeat_config_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "timeout %u", &timeout))
-	;
-      else if (unformat (line_input, "retries %u", &retries));
+        ;
+      else if (unformat (line_input, "retries %u", &retries))
+        ;
       else
-	return (clib_error_return (0, "unknown input '%U'",
-				   format_unformat_error, line_input));
+        return (clib_error_return (0, "unknown input '%U'",
+                                   format_unformat_error, line_input));
     }
 
   rv = vnet_upf_pfcp_heartbeat_config (timeout, retries);
@@ -1765,29 +1701,27 @@ upf_pfcp_heartbeat_config_command_fn (vlib_main_t * vm,
 
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND (upf_pfcp_heartbeat_config_command, static) = {
-    .path = "upf pfcp heartbeat-config",
-    .short_help = "upf pfcp heartbeat-config timeout <sec> retries <count>",
-    .function = upf_pfcp_heartbeat_config_command_fn,
+  .path = "upf pfcp heartbeat-config",
+  .short_help = "upf pfcp heartbeat-config timeout <sec> retries <count>",
+  .function = upf_pfcp_heartbeat_config_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_pfcp_heartbeat_config_command_fn (vlib_main_t * vm,
-					   unformat_input_t * main_input,
-					   vlib_cli_command_t * cmd)
+upf_show_pfcp_heartbeat_config_command_fn (vlib_main_t *vm,
+                                           unformat_input_t *main_input,
+                                           vlib_cli_command_t *cmd)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   vlib_cli_output (vm, "Timeout: %u Retries: %u", psm->hb_cfg.timeout,
-		   psm->hb_cfg.retries);
+                   psm->hb_cfg.retries);
   return NULL;
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_pfcp_heartbeat_config_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_pfcp_heartbeat_config_command, static) = {
   .path = "show upf heartbeat-config",
-  .short_help =
-  "show upf heartbeat-config",
+  .short_help = "show upf heartbeat-config",
   .function = upf_show_pfcp_heartbeat_config_command_fn,
 };
 /* *INDENT-ON* */

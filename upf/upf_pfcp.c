@@ -49,29 +49,31 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 upf_main_t upf_main;
 qos_pol_cfg_params_st pfcp_rate_cfg_main;
 
-static void node_assoc_attach_session (upf_node_assoc_t * n,
-				       upf_session_t * sx);
-static void node_assoc_detach_session (upf_session_t * sx);
+static void node_assoc_attach_session (upf_node_assoc_t *n, upf_session_t *sx);
+static void node_assoc_detach_session (upf_session_t *sx);
 
 static void pfcp_add_del_ue_ip (const void *ue_ip, void *si, int is_add);
 static void pfcp_add_del_v4_teid (const void *teid, void *si, int is_add);
 static void pfcp_add_del_v6_teid (const void *teid, void *si, int is_add);
 static void pfcp_add_del_v4_tdf (const void *tdf, void *si, int is_add);
 static void pfcp_add_del_v6_tdf (const void *tdf, void *si, int is_add);
-u8 *format_upf_acl (u8 * s, va_list * args);
+u8 *format_upf_acl (u8 *s, va_list *args);
 
-#define vec_bsearch(k, v, compar)                               \
-        bsearch((k), (v), vec_len((v)), sizeof((v)[0]), compar)
+#define vec_bsearch(k, v, compar)                                             \
+  bsearch ((k), (v), vec_len ((v)), sizeof ((v)[0]), compar)
 
 static u8 *
-format_upf_device_name (u8 * s, va_list * args)
+format_upf_device_name (u8 *s, va_list *args)
 {
   upf_main_t *gtm = &upf_main;
   u32 i = va_arg (*args, u32);
@@ -84,17 +86,18 @@ format_upf_device_name (u8 * s, va_list * args)
 }
 
 static clib_error_t *
-upf_interface_admin_up_down (vnet_main_t * vnm, u32 hw_if_index, u32 flags)
+upf_interface_admin_up_down (vnet_main_t *vnm, u32 hw_if_index, u32 flags)
 {
   u32 hw_flags = (flags & VNET_SW_INTERFACE_FLAG_ADMIN_UP) ?
-    VNET_HW_INTERFACE_FLAG_LINK_UP : 0;
+                   VNET_HW_INTERFACE_FLAG_LINK_UP :
+                   0;
   vnet_hw_interface_set_flags (vnm, hw_if_index, hw_flags);
 
   return /* no error */ 0;
 }
 
 /* *INDENT-OFF* */
-VNET_DEVICE_CLASS (gtpu_device_class,static) = {
+VNET_DEVICE_CLASS (gtpu_device_class, static) = {
   .name = "GTPU",
   .format_device_name = format_upf_device_name,
   .format_tx_trace = format_upf_encap_trace,
@@ -103,7 +106,7 @@ VNET_DEVICE_CLASS (gtpu_device_class,static) = {
 /* *INDENT-ON* */
 
 static u8 *
-format_gtpu_header_with_length (u8 * s, va_list * args)
+format_gtpu_header_with_length (u8 *s, va_list *args)
 {
   u32 dev_instance = va_arg (*args, u32);
   s = format (s, "unimplemented dev %u", dev_instance);
@@ -111,8 +114,7 @@ format_gtpu_header_with_length (u8 * s, va_list * args)
 }
 
 /* *INDENT-OFF* */
-VNET_HW_INTERFACE_CLASS (gtpu_hw_class) =
-{
+VNET_HW_INTERFACE_CLASS (gtpu_hw_class) = {
   .name = "GTPU",
   .format_header = format_gtpu_header_with_length,
   .build_rewrite = default_build_rewrite,
@@ -121,13 +123,12 @@ VNET_HW_INTERFACE_CLASS (gtpu_hw_class) =
 /* *INDENT-ON* */
 
 static int
-vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
-			upf_ipfix_policy_t ipfix_policy,
-			ip_address_t * ipfix_collector_ip,
-			u32 ipfix_report_interval,
-			u32 observation_domain_id,
-			u8 * observation_domain_name,
-			u64 observation_point_id, u32 * sw_if_idx)
+vnet_upf_create_nwi_if (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
+                        upf_ipfix_policy_t ipfix_policy,
+                        ip_address_t *ipfix_collector_ip,
+                        u32 ipfix_report_interval, u32 observation_domain_id,
+                        u8 *observation_domain_name, u64 observation_point_id,
+                        u32 *sw_if_idx)
 {
   vnet_main_t *vnm = upf_main.vnet_main;
   l2input_main_t *l2im = &l2input_main;
@@ -144,7 +145,7 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
     {
       nwi = vec_elt_at_index (gtm->nwis, p[0]);
       if (sw_if_idx)
-	*sw_if_idx = nwi->sw_if_index;
+        *sw_if_idx = nwi->sw_if_index;
 
       return VNET_API_ERROR_IF_ALREADY_EXISTS;
     }
@@ -165,8 +166,8 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
   if (vec_len (gtm->free_nwi_hw_if_indices) > 0)
     {
       vnet_interface_main_t *im = &vnm->interface_main;
-      hw_if_index = gtm->free_nwi_hw_if_indices
-	[vec_len (gtm->free_nwi_hw_if_indices) - 1];
+      hw_if_index =
+        gtm->free_nwi_hw_if_indices[vec_len (gtm->free_nwi_hw_if_indices) - 1];
       _vec_find (gtm->free_nwi_hw_if_indices)->len--;
 
       hi = vnet_get_hw_interface (vnm, hw_if_index);
@@ -176,20 +177,18 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
       /* clear old stats of freed nwi before reuse */
       sw_if_index = hi->sw_if_index;
       vnet_interface_counter_lock (im);
-      vlib_zero_combined_counter
-	(&im->combined_sw_if_counters[VNET_INTERFACE_COUNTER_TX],
-	 sw_if_index);
-      vlib_zero_combined_counter (&im->combined_sw_if_counters
-				  [VNET_INTERFACE_COUNTER_RX], sw_if_index);
-      vlib_zero_simple_counter (&im->sw_if_counters
-				[VNET_INTERFACE_COUNTER_DROP], sw_if_index);
+      vlib_zero_combined_counter (
+        &im->combined_sw_if_counters[VNET_INTERFACE_COUNTER_TX], sw_if_index);
+      vlib_zero_combined_counter (
+        &im->combined_sw_if_counters[VNET_INTERFACE_COUNTER_RX], sw_if_index);
+      vlib_zero_simple_counter (
+        &im->sw_if_counters[VNET_INTERFACE_COUNTER_DROP], sw_if_index);
       vnet_interface_counter_unlock (im);
     }
   else
     {
-      hw_if_index = vnet_register_interface
-	(vnm, gtpu_device_class.index, if_index, gtpu_hw_class.index,
-	 if_index);
+      hw_if_index = vnet_register_interface (
+        vnm, gtpu_device_class.index, if_index, gtpu_hw_class.index, if_index);
       hi = vnet_get_hw_interface (vnm, hw_if_index);
     }
 
@@ -218,7 +217,7 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
   vnet_sw_interface_t *si = vnet_get_sw_interface (vnm, sw_if_index);
   si->flags &= ~VNET_SW_INTERFACE_FLAG_HIDDEN;
   vnet_sw_interface_set_flags (vnm, sw_if_index,
-			       VNET_SW_INTERFACE_FLAG_ADMIN_UP);
+                               VNET_SW_INTERFACE_FLAG_ADMIN_UP);
 
   /*
    * L3 enable the interface
@@ -243,7 +242,7 @@ vnet_upf_create_nwi_if (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
 }
 
 static int
-vnet_upf_delete_nwi_if (u8 * name)
+vnet_upf_delete_nwi_if (u8 *name)
 {
   vnet_main_t *vnm = upf_main.vnet_main;
   upf_main_t *gtm = &upf_main;
@@ -258,13 +257,12 @@ vnet_upf_delete_nwi_if (u8 * name)
   nwi = pool_elt_at_index (gtm->nwis, p[0]);
 
   /* disable nwi if */
-  vnet_sw_interface_set_flags (vnm, nwi->sw_if_index, 0 /* down */ );
+  vnet_sw_interface_set_flags (vnm, nwi->sw_if_index, 0 /* down */);
   vnet_sw_interface_t *si = vnet_get_sw_interface (vnm, nwi->sw_if_index);
   si->flags |= VNET_SW_INTERFACE_FLAG_HIDDEN;
 
   /* make sure session is removed from l2 bd or xconnect */
-  set_int_l2_mode (gtm->vlib_main, vnm, MODE_L3, nwi->sw_if_index, 0, 0, 0,
-		   0);
+  set_int_l2_mode (gtm->vlib_main, vnm, MODE_L3, nwi->sw_if_index, 0, 0, 0, 0);
   gtm->nwi_index_by_sw_if_index[nwi->sw_if_index] = ~0;
 
   vec_add1 (gtm->free_nwi_hw_if_indices, nwi->hw_if_index);
@@ -274,9 +272,9 @@ vnet_upf_delete_nwi_if (u8 * name)
   vec_free (nwi->name);
 
   vec_foreach (ipfix_ctx_index, nwi->ipfix_context_indices)
-  {
-    upf_unref_ipfix_context_by_index (*ipfix_ctx_index);
-  }
+    {
+      upf_unref_ipfix_context_by_index (*ipfix_ctx_index);
+    }
 
   pool_put (gtm->nwis, nwi);
 
@@ -284,22 +282,19 @@ vnet_upf_delete_nwi_if (u8 * name)
 }
 
 int
-vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
-		      upf_ipfix_policy_t ipfix_policy,
-		      ip_address_t * ipfix_collector_ip,
-		      u32 ipfix_report_interval,
-		      u32 observation_domain_id,
-		      u8 * observation_domain_name,
-		      u64 observation_point_id, u8 add)
+vnet_upf_nwi_add_del (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
+                      upf_ipfix_policy_t ipfix_policy,
+                      ip_address_t *ipfix_collector_ip,
+                      u32 ipfix_report_interval, u32 observation_domain_id,
+                      u8 *observation_domain_name, u64 observation_point_id,
+                      u8 add)
 {
   return (add) ?
-    vnet_upf_create_nwi_if (name, ip4_table_id, ip6_table_id,
-			    ipfix_policy, ipfix_collector_ip,
-			    ipfix_report_interval,
-			    observation_domain_id,
-			    observation_domain_name,
-			    observation_point_id,
-			    NULL) : vnet_upf_delete_nwi_if (name);
+           vnet_upf_create_nwi_if (
+             name, ip4_table_id, ip6_table_id, ipfix_policy,
+             ipfix_collector_ip, ipfix_report_interval, observation_domain_id,
+             observation_domain_name, observation_point_id, NULL) :
+           vnet_upf_delete_nwi_if (name);
 }
 
 static int
@@ -312,40 +307,49 @@ pfcp_pdr_id_compare (const void *p1, const void *p2)
   return intcmp (a->id, b->id);
 }
 
-#define vec_diff(new, old, compar, add_del, user)			\
-  do {									\
-    size_t _i = 0, _j = 0;						\
-									\
-    if (new)								\
-      vec_sort_with_function(new,compar);				\
-    if (old)								\
-      vec_sort_with_function(old,compar);				\
-    if (new && old)							\
-      while (_i < vec_len(new) && _j < vec_len(old)) {			\
-	int r = compar(&vec_elt(new, _i), &vec_elt(old, _j));		\
-	if (r == 0) {							\
-	  _i++;;							\
-	  _j++;								\
-	} else if (r < 0) {						\
-	  /* insert new entry */					\
-	  add_del(&vec_elt(new, _i), user, 1);				\
-	  _i++;								\
-	} else {							\
-	  /* remove old entry */					\
-	  add_del(&vec_elt(old, _j), user, 0);				\
-	  _j++;								\
-	}								\
-      }									\
-									\
-    if (new)								\
-      for (;_i < vec_len(new); _i++)					\
-	/* insert new entry */						\
-	add_del(&vec_elt(new, _i), user, 1);				\
-    if (old)								\
-      for (;_j < vec_len(old); _j++)					\
-	/* remove old entry */						\
-	add_del(&vec_elt(old, _j), user, 0);				\
-  } while (0)
+#define vec_diff(new, old, compar, add_del, user)                             \
+  do                                                                          \
+    {                                                                         \
+      size_t _i = 0, _j = 0;                                                  \
+                                                                              \
+      if (new)                                                                \
+        vec_sort_with_function (new, compar);                                 \
+      if (old)                                                                \
+        vec_sort_with_function (old, compar);                                 \
+      if (new &&old)                                                          \
+        while (_i < vec_len (new) && _j < vec_len (old))                      \
+          {                                                                   \
+            int r = compar (&vec_elt (new, _i), &vec_elt (old, _j));          \
+            if (r == 0)                                                       \
+              {                                                               \
+                _i++;                                                         \
+                ;                                                             \
+                _j++;                                                         \
+              }                                                               \
+            else if (r < 0)                                                   \
+              {                                                               \
+                /* insert new entry */                                        \
+                add_del (&vec_elt (new, _i), user, 1);                        \
+                _i++;                                                         \
+              }                                                               \
+            else                                                              \
+              {                                                               \
+                /* remove old entry */                                        \
+                add_del (&vec_elt (old, _j), user, 0);                        \
+                _j++;                                                         \
+              }                                                               \
+          }                                                                   \
+                                                                              \
+      if (new)                                                                \
+        for (; _i < vec_len (new); _i++)                                      \
+          /* insert new entry */                                              \
+          add_del (&vec_elt (new, _i), user, 1);                              \
+      if (old)                                                                \
+        for (; _j < vec_len (old); _j++)                                      \
+          /* remove old entry */                                              \
+          add_del (&vec_elt (old, _j), user, 0);                              \
+    }                                                                         \
+  while (0)
 
 static int
 pfcp_far_id_compare (const void *p1, const void *p2)
@@ -378,7 +382,7 @@ pfcp_qer_id_compare (const void *p1, const void *p2)
 }
 
 upf_node_assoc_t *
-pfcp_get_association (pfcp_node_id_t * node_id)
+pfcp_get_association (pfcp_node_id_t *node_id)
 {
   upf_main_t *gtm = &upf_main;
   uword *p = NULL;
@@ -417,8 +421,8 @@ upf_init_association_policer ()
 
 upf_node_assoc_t *
 pfcp_new_association (session_handle_t session_handle,
-		      ip46_address_t * lcl_addr, ip46_address_t * rmt_addr,
-		      pfcp_node_id_t * node_id)
+                      ip46_address_t *lcl_addr, ip46_address_t *rmt_addr,
+                      pfcp_node_id_t *node_id)
 {
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;
@@ -447,29 +451,27 @@ pfcp_new_association (session_handle_t session_handle,
 
   n->policer_idx = upf_init_association_policer ();
   vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
-				 vlib_get_thread_index (), 0, 1);
+                                 vlib_get_thread_index (), 0, 1);
 
-  upf_pfcp_associnfo
-    (gtm,
-     "PFCP Association established: node %U, local IP %U, remote IP %U\n",
-     format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
-     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
+  upf_pfcp_associnfo (
+    gtm, "PFCP Association established: node %U, local IP %U, remote IP %U\n",
+    format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
+    IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
   return n;
 }
 
 void
-pfcp_release_association (upf_node_assoc_t * n)
+pfcp_release_association (upf_node_assoc_t *n)
 {
   upf_main_t *gtm = &upf_main;
   u32 node_id = n - gtm->nodes;
   upf_node_sessions_list_t *sessions = &n->sessions;
   u32 *smf_alt_node_ids = NULL;
 
-  upf_pfcp_associnfo
-    (gtm,
-     "PFCP Association released: node %U, local IP %U, remote IP %U\n",
-     format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
-     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
+  upf_pfcp_associnfo (
+    gtm, "PFCP Association released: node %U, local IP %U, remote IP %U\n",
+    format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
+    IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
 
   upf_pfcp_server_stop_heartbeat_timer (n);
 
@@ -492,11 +494,13 @@ pfcp_release_association (upf_node_assoc_t * n)
 #if CLIB_DEBUG > 1
       u32 *set_node_id;
       vec_foreach (set_node_id, smf_alt_node_ids)
-      {
-	upf_node_assoc_t *node = pool_elt_at_index (gtm->nodes, *set_node_id);
-	upf_debug ("smf_set remaining %d node: %U",
-		   (u32) (node - gtm->nodes), format_node_id, &node->node_id);
-      }
+        {
+          upf_node_assoc_t *node =
+            pool_elt_at_index (gtm->nodes, *set_node_id);
+          upf_debug ("smf_set remaining %d node: %U",
+                     (u32) (node - gtm->nodes), format_node_id,
+                     &node->node_id);
+        }
 #endif
     }
 
@@ -512,7 +516,8 @@ pfcp_release_association (upf_node_assoc_t * n)
 
         u32 random_idx = random_u32 (&rand_seed) % alt_node_count;
         u32 new_node_idx = vec_elt (smf_alt_node_ids, random_idx);
-        upf_node_assoc_t *new_node = pool_elt_at_index (gtm->nodes, new_node_idx);
+        upf_node_assoc_t *new_node =
+          pool_elt_at_index (gtm->nodes, new_node_idx);
 
         sx->flags |= UPF_SESSION_LOST_CP;
 
@@ -520,10 +525,11 @@ pfcp_release_association (upf_node_assoc_t * n)
         node_assoc_attach_session (new_node, sx);
 
         /* mark all in-flight session requests */
-        upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
-          req->flags.is_migrated_in_smfset = 1;
-          req->node = new_node_idx;
-        });
+        upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor,
+                           &sx->requests, {
+                             req->flags.is_migrated_in_smfset = 1;
+                             req->node = new_node_idx;
+                           });
       });
       /* *INDENT-ON* */
     }
@@ -531,7 +537,7 @@ pfcp_release_association (upf_node_assoc_t * n)
     {
       /* remove sessions */
       /* *INDENT-OFF* */
-      upf_llist_foreach(sx, gtm->sessions, assoc.anchor, sessions, {
+      upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
         ASSERT (sx->assoc.node == node_id);
 
         pfcp_disable_session (sx);
@@ -549,11 +555,11 @@ pfcp_release_association (upf_node_assoc_t * n)
   pool_put (gtm->nodes, n);
 
   vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_ASSOC_COUNTER],
-				 vlib_get_thread_index (), 0, 1);
+                                 vlib_get_thread_index (), 0, 1);
 }
 
 uword
-pfcp_new_smf_set (u8 * fqdn)
+pfcp_new_smf_set (u8 *fqdn)
 {
   upf_main_t *gtm = &upf_main;
   upf_smf_set_t *smfs;
@@ -572,7 +578,7 @@ pfcp_new_smf_set (u8 * fqdn)
 }
 
 uword
-pfcp_ensure_smf_set (u8 * fqdn)
+pfcp_ensure_smf_set (u8 *fqdn)
 {
   upf_main_t *gtm = &upf_main;
   ASSERT (fqdn);
@@ -589,7 +595,7 @@ pfcp_ensure_smf_set (u8 * fqdn)
 }
 
 void
-pfcp_free_smf_set (upf_smf_set_t * smfs)
+pfcp_free_smf_set (upf_smf_set_t *smfs)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -600,7 +606,7 @@ pfcp_free_smf_set (upf_smf_set_t * smfs)
 }
 
 void
-pfcp_node_enter_smf_set (upf_node_assoc_t * n, u8 * fqdn)
+pfcp_node_enter_smf_set (upf_node_assoc_t *n, u8 *fqdn)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -613,13 +619,13 @@ pfcp_node_enter_smf_set (upf_node_assoc_t * n, u8 * fqdn)
   upf_smfset_nodes_list_insert_tail (gtm->nodes, &smfs->nodes, n);
   n->smf_set.idx = smfs_idx;
 
-  upf_debug ("node %d %U entered set %U", n - gtm->nodes,
-	     format_node_id, &n->node_id, format_dns_labels, smfs->fqdn);
+  upf_debug ("node %d %U entered set %U", n - gtm->nodes, format_node_id,
+             &n->node_id, format_dns_labels, smfs->fqdn);
 }
 
 /* returns vector of alternative node indexes */
 u32 *
-pfcp_node_exit_smf_set (upf_node_assoc_t * n)
+pfcp_node_exit_smf_set (upf_node_assoc_t *n)
 {
   upf_main_t *gtm = &upf_main;
   u32 *alternatives = NULL;
@@ -638,16 +644,15 @@ pfcp_node_exit_smf_set (upf_node_assoc_t * n)
   else
     {
       /* *INDENT-OFF* */
-      upf_llist_foreach(el, gtm->nodes, smf_set.anchor, &smfs->nodes, {
-        vec_add1 (alternatives, el - gtm->nodes);
-      });
+      upf_llist_foreach (el, gtm->nodes, smf_set.anchor, &smfs->nodes,
+                         { vec_add1 (alternatives, el - gtm->nodes); });
       /* *INDENT-ON* */
       return alternatives;
     }
 }
 
 static void
-node_assoc_attach_session (upf_node_assoc_t * n, upf_session_t * sx)
+node_assoc_attach_session (upf_node_assoc_t *n, upf_session_t *sx)
 {
   upf_main_t *gtm = &upf_main;
   sx->assoc.node = n - gtm->nodes;
@@ -656,7 +661,7 @@ node_assoc_attach_session (upf_node_assoc_t * n, upf_session_t * sx)
 }
 
 static void
-node_assoc_detach_session (upf_session_t * sx)
+node_assoc_detach_session (upf_session_t *sx)
 {
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;
@@ -670,17 +675,16 @@ node_assoc_detach_session (upf_session_t * sx)
 }
 
 void
-pfcp_session_free_cp_fseid (upf_session_t * sx)
+pfcp_session_free_cp_fseid (upf_session_t *sx)
 {
   upf_main_t *gtm = &upf_main;
   upf_cached_f_seid_t *cached_fseid;
 
   ASSERT (sx->cached_fseid_idx != ~0);
 
-  upf_cp_fseid_key_t cp_key = { };
-  cp_key.seid = sx->cp_seid,
-    cp_key.cached_f_seid_id = sx->cached_fseid_idx,
-    mhash_unset (&gtm->mhash_cp_fseid_to_session_idx, &cp_key, NULL);
+  upf_cp_fseid_key_t cp_key = {};
+  cp_key.seid = sx->cp_seid, cp_key.cached_f_seid_id = sx->cached_fseid_idx,
+  mhash_unset (&gtm->mhash_cp_fseid_to_session_idx, &cp_key, NULL);
 
   cached_fseid =
     pool_elt_at_index (gtm->cached_fseid_pool, sx->cached_fseid_idx);
@@ -690,21 +694,21 @@ pfcp_session_free_cp_fseid (upf_session_t * sx)
     {
       mhash_unset (&gtm->mhash_cached_fseid_idx, &cached_fseid->key, NULL);
       ASSERT (mhash_get (&gtm->mhash_cached_fseid_idx, &cached_fseid->key) ==
-	      NULL);
+              NULL);
       pool_put (gtm->cached_fseid_pool, cached_fseid);
     }
   sx->cached_fseid_idx = ~0;
 }
 
 void
-pfcp_session_set_cp_fseid (upf_session_t * sx, pfcp_f_seid_t * f_seid)
+pfcp_session_set_cp_fseid (upf_session_t *sx, pfcp_f_seid_t *f_seid)
 {
   upf_main_t *gtm = &upf_main;
 
   if (sx->cached_fseid_idx != ~0)
     pfcp_session_free_cp_fseid (sx);
 
-  upf_cached_f_seid_key_t key = { };
+  upf_cached_f_seid_key_t key = {};
   key.flags = f_seid->flags;
   key.ip4 = f_seid->ip4;
   key.ip6 = f_seid->ip6;
@@ -716,14 +720,14 @@ pfcp_session_set_cp_fseid (upf_session_t * sx, pfcp_f_seid_t * f_seid)
   if (existing_f_seid)
     {
       cached_f_seid =
-	pool_elt_at_index (gtm->cached_fseid_pool, existing_f_seid[0]);
+        pool_elt_at_index (gtm->cached_fseid_pool, existing_f_seid[0]);
     }
   else
     {
       pool_get_zero (gtm->cached_fseid_pool, cached_f_seid);
       cached_f_seid->key = key;
       mhash_set (&gtm->mhash_cached_fseid_idx, &key,
-		 cached_f_seid - gtm->cached_fseid_pool, NULL);
+                 cached_f_seid - gtm->cached_fseid_pool, NULL);
       ASSERT (mhash_get (&gtm->mhash_cached_fseid_idx, &key));
     }
 
@@ -731,16 +735,16 @@ pfcp_session_set_cp_fseid (upf_session_t * sx, pfcp_f_seid_t * f_seid)
   sx->cp_seid = f_seid->seid;
   cached_f_seid->refcount += 1;
 
-  upf_cp_fseid_key_t cp_key = { };
+  upf_cp_fseid_key_t cp_key = {};
   cp_key.seid = sx->cp_seid;
   cp_key.cached_f_seid_id = sx->cached_fseid_idx;
   mhash_set (&gtm->mhash_cp_fseid_to_session_idx, &cp_key, sx - gtm->sessions,
-	     NULL);
+             NULL);
 }
 
 upf_session_t *
-pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid,
-		     u64 up_seid)
+pfcp_create_session (upf_node_assoc_t *assoc, pfcp_f_seid_t *cp_f_seid,
+                     u64 up_seid)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   vlib_main_t *vm = vlib_get_main ();
@@ -774,21 +778,21 @@ pfcp_create_session (upf_node_assoc_t * assoc, pfcp_f_seid_t * cp_f_seid,
 
   /* Init TEID by choose_id hash lookup table */
   sx->teid_by_chid =
-    sparse_vec_new ( /*elt bytes */ sizeof (u32), /*bits in index */ 8);
+    sparse_vec_new (/*elt bytes */ sizeof (u32), /*bits in index */ 8);
 
   session_flows_list_init (&sx->flows);
 
   vlib_worker_thread_barrier_release (vm);
 
-  vlib_increment_simple_counter (&gtm->upf_simple_counters
-				 [UPF_SESSIONS_COUNTER],
-				 vlib_get_thread_index (), 0, 1);
+  vlib_increment_simple_counter (
+    &gtm->upf_simple_counters[UPF_SESSIONS_COUNTER], vlib_get_thread_index (),
+    0, 1);
 
   return sx;
 }
 
 void
-pfcp_update_session (upf_session_t * sx)
+pfcp_update_session (upf_session_t *sx)
 {
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
   struct rules *pending = pfcp_get_rules (sx, PFCP_PENDING);
@@ -800,7 +804,7 @@ pfcp_update_session (upf_session_t * sx)
 }
 
 static void
-upf_peer_restack_dpo (upf_peer_t * p)
+upf_peer_restack_dpo (upf_peer_t *p)
 {
   dpo_id_t dpo = DPO_INVALID;
 
@@ -810,10 +814,10 @@ upf_peer_restack_dpo (upf_peer_t * p)
 }
 
 static upf_peer_t *
-upf_peer_from_fib_node (fib_node_t * node)
+upf_peer_from_fib_node (fib_node_t *node)
 {
-  return ((upf_peer_t *) (((char *) node) -
-			  STRUCT_OFFSET_OF (upf_peer_t, node)));
+  return (
+    (upf_peer_t *) (((char *) node) - STRUCT_OFFSET_OF (upf_peer_t, node)));
 }
 
 /**
@@ -821,7 +825,7 @@ upf_peer_from_fib_node (fib_node_t * node)
  * Here we will restack the new dpo of GTPU DIP to encap node.
  */
 static fib_node_back_walk_rc_t
-upf_peer_back_walk (fib_node_t * node, fib_node_back_walk_ctx_t * ctx)
+upf_peer_back_walk (fib_node_t *node, fib_node_back_walk_ctx_t *ctx)
 {
   upf_peer_restack_dpo (upf_peer_from_fib_node (node));
   return (FIB_NODE_BACK_WALK_CONTINUE);
@@ -845,7 +849,7 @@ upf_peer_fib_node_get (fib_node_index_t index)
  * Function definition to inform the FIB node that its last lock has gone.
  */
 static void
-upf_peer_last_lock_gone (fib_node_t * node)
+upf_peer_last_lock_gone (fib_node_t *node)
 {
   /*
    * The GTP peer is a root of the graph. As such
@@ -865,19 +869,18 @@ const fib_node_vft_t upf_vft = {
 };
 
 static uword
-peer_addr_ref (const upf_far_forward_t * fwd)
+peer_addr_ref (const upf_far_forward_t *fwd)
 {
   u8 is_ip4 =
-    !!(fwd->
-       outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
+    !!(fwd->outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
   upf_main_t *gtm = &upf_main;
   clib_bihash_kv_24_8_t kv, value;
   u32 fib_index;
   upf_peer_t *p;
 
-  fib_index = (is_ip4) ?
-    ip4_fib_table_get_index_for_sw_if_index (fwd->dst_sw_if_index) :
-    ip6_fib_table_get_index_for_sw_if_index (fwd->dst_sw_if_index);
+  fib_index =
+    (is_ip4) ? ip4_fib_table_get_index_for_sw_if_index (fwd->dst_sw_if_index) :
+               ip6_fib_table_get_index_for_sw_if_index (fwd->dst_sw_if_index);
 
   kv.key[0] = fwd->outer_header_creation.ip.as_u64[0];
   kv.key[1] = fwd->outer_header_creation.ip.as_u64[1];
@@ -907,36 +910,34 @@ peer_addr_ref (const upf_far_forward_t * fwd)
     }
 
   kv.value = p - gtm->peers;
-  clib_bihash_add_del_24_8 (&gtm->peer_index_by_ip, &kv, 1 /* is_add */ );
+  clib_bihash_add_del_24_8 (&gtm->peer_index_by_ip, &kv, 1 /* is_add */);
 
   fib_node_init (&p->node, gtm->fib_node_type);
   fib_prefix_t tun_dst_pfx;
   fib_prefix_from_ip46_addr (&fwd->outer_header_creation.ip, &tun_dst_pfx);
 
-  p->fib_entry_index = fib_entry_track (p->encap_fib_index,
-					&tun_dst_pfx,
-					gtm->fib_node_type,
-					p - gtm->peers, &p->sibling_index);
+  p->fib_entry_index =
+    fib_entry_track (p->encap_fib_index, &tun_dst_pfx, gtm->fib_node_type,
+                     p - gtm->peers, &p->sibling_index);
   upf_peer_restack_dpo (p);
 
   return p - gtm->peers;
 }
 
 static uword
-peer_addr_unref (const upf_far_forward_t * fwd)
+peer_addr_unref (const upf_far_forward_t *fwd)
 {
   u8 is_ip4 =
-    !!(fwd->
-       outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
+    !!(fwd->outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
   upf_main_t *gtm = &upf_main;
   clib_bihash_kv_24_8_t kv, value;
   upf_peer_t *p = NULL;
 
   kv.key[0] = fwd->outer_header_creation.ip.as_u64[0];
   kv.key[1] = fwd->outer_header_creation.ip.as_u64[1];
-  kv.key[2] = (is_ip4) ?
-    ip4_fib_table_get_index_for_sw_if_index (fwd->dst_sw_if_index) :
-    ip6_fib_table_get_index_for_sw_if_index (fwd->dst_sw_if_index);
+  kv.key[2] =
+    (is_ip4) ? ip4_fib_table_get_index_for_sw_if_index (fwd->dst_sw_if_index) :
+               ip6_fib_table_get_index_for_sw_if_index (fwd->dst_sw_if_index);
 
   if (!clib_bihash_search_24_8 (&gtm->peer_index_by_ip, &kv, &value))
     p = pool_elt_at_index (gtm->peers, value.value);
@@ -945,7 +946,7 @@ peer_addr_unref (const upf_far_forward_t * fwd)
   if (--(p->ref_cnt) != 0)
     return p->ref_cnt;
 
-  clib_bihash_add_del_24_8 (&gtm->peer_index_by_ip, &kv, 0 /* is_add */ );
+  clib_bihash_add_del_24_8 (&gtm->peer_index_by_ip, &kv, 0 /* is_add */);
 
   fib_entry_untrack (p->fib_entry_index, p->sibling_index);
   fib_node_deinit (&p->node);
@@ -955,7 +956,7 @@ peer_addr_unref (const upf_far_forward_t * fwd)
 }
 
 static inline void
-pfcp_free_pdr (upf_pdr_t * pdr)
+pfcp_free_pdr (upf_pdr_t *pdr)
 {
   upf_adf_put_adr_db (pdr->pdi.adr.db_id);
   vec_free (pdr->pdi.acl);
@@ -964,7 +965,7 @@ pfcp_free_pdr (upf_pdr_t * pdr)
 }
 
 int
-pfcp_make_pending_pdr (upf_session_t * sx)
+pfcp_make_pending_pdr (upf_session_t *sx)
 {
   struct rules *pending = pfcp_get_rules (sx, PFCP_PENDING);
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
@@ -978,20 +979,20 @@ pfcp_make_pending_pdr (upf_session_t * sx)
 
       pending->pdr = vec_dup (active->pdr);
       vec_foreach_index (i, active->pdr)
-      {
-	upf_pdr_t *pdr = vec_elt_at_index (pending->pdr, i);
+        {
+          upf_pdr_t *pdr = vec_elt_at_index (pending->pdr, i);
 
-	pdr->pdi.acl = vec_dup (vec_elt (active->pdr, i).pdi.acl);
-	pdr->urr_ids = vec_dup (vec_elt (active->pdr, i).urr_ids);
-	pdr->qer_ids = vec_dup (vec_elt (active->pdr, i).qer_ids);
-      }
+          pdr->pdi.acl = vec_dup (vec_elt (active->pdr, i).pdi.acl);
+          pdr->urr_ids = vec_dup (vec_elt (active->pdr, i).urr_ids);
+          pdr->qer_ids = vec_dup (vec_elt (active->pdr, i).qer_ids);
+        }
     }
 
   return 0;
 }
 
 static inline void
-pfcp_free_far (upf_far_t * far)
+pfcp_free_far (upf_far_t *far)
 {
   vec_free (far->forward.rewrite);
   if (far->forward.flags & FAR_F_REDIRECT_INFORMATION)
@@ -1001,7 +1002,7 @@ pfcp_free_far (upf_far_t * far)
 }
 
 int
-pfcp_make_pending_far (upf_session_t * sx)
+pfcp_make_pending_far (upf_session_t *sx)
 {
   struct rules *pending = pfcp_get_rules (sx, PFCP_PENDING);
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
@@ -1015,40 +1016,40 @@ pfcp_make_pending_far (upf_session_t * sx)
 
       pending->far = vec_dup (active->far);
       vec_foreach_index (i, active->far)
-      {
-	upf_far_t *old = vec_elt_at_index (active->far, i);
-	upf_far_t *new = vec_elt_at_index (pending->far, i);
+        {
+          upf_far_t *old = vec_elt_at_index (active->far, i);
+          upf_far_t *new = vec_elt_at_index (pending->far, i);
 
-	new->forward.rewrite = NULL;
-	clib_memset (&new->forward.redirect_information, 0,
-		     sizeof (new->forward.redirect_information));
+          new->forward.rewrite = NULL;
+          clib_memset (&new->forward.redirect_information, 0,
+                       sizeof (new->forward.redirect_information));
 
-	if (!(old->apply_action & FAR_FORWARD))
-	  continue;
+          if (!(old->apply_action & FAR_FORWARD))
+            continue;
 
-	if (old->forward.rewrite)
-	  new->forward.rewrite = vec_dup (old->forward.rewrite);
-	if (old->forward.flags & FAR_F_REDIRECT_INFORMATION)
-	  cpy_redirect_information (&new->forward.redirect_information,
-				    &old->forward.redirect_information);
-	if (old->forward.flags & FAR_F_FORWARDING_POLICY)
-	  new->forward.forwarding_policy.identifier =
-	    vec_dup (old->forward.forwarding_policy.identifier);
-      }
+          if (old->forward.rewrite)
+            new->forward.rewrite = vec_dup (old->forward.rewrite);
+          if (old->forward.flags & FAR_F_REDIRECT_INFORMATION)
+            cpy_redirect_information (&new->forward.redirect_information,
+                                      &old->forward.redirect_information);
+          if (old->forward.flags & FAR_F_FORWARDING_POLICY)
+            new->forward.forwarding_policy.identifier =
+              vec_dup (old->forward.forwarding_policy.identifier);
+        }
     }
 
   return 0;
 }
 
 static inline void
-pfcp_free_urr (upf_urr_t * urr)
+pfcp_free_urr (upf_urr_t *urr)
 {
   upf_urr_traffic_t *tt;
 
   pool_foreach (tt, urr->traffic)
-  {
-    hash_unset_mem_free (&urr->traffic_by_ue, &tt->ip);
-  }
+    {
+      hash_unset_mem_free (&urr->traffic_by_ue, &tt->ip);
+    }
 
   pool_free (urr->traffic);
   hash_free (urr->traffic_by_ue);
@@ -1057,7 +1058,7 @@ pfcp_free_urr (upf_urr_t * urr)
 }
 
 int
-pfcp_make_pending_urr (upf_session_t * sx)
+pfcp_make_pending_urr (upf_session_t *sx)
 {
   struct rules *pending = pfcp_get_rules (sx, PFCP_PENDING);
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
@@ -1074,14 +1075,14 @@ pfcp_make_pending_urr (upf_session_t * sx)
 
       pending->urr = vec_dup (active->urr);
       vec_foreach (urr, pending->urr)
-      {
-	urr->update_flags = 0;
-	urr->traffic = NULL;
-	urr->traffic_by_ue = NULL;
-	urr->linked_urr_ids = vec_dup (urr->linked_urr_ids);
-	urr->liusa_bitmap = NULL;
-	memset (&urr->volume.measure, 0, sizeof (urr->volume.measure));
-      }
+        {
+          urr->update_flags = 0;
+          urr->traffic = NULL;
+          urr->traffic_by_ue = NULL;
+          urr->linked_urr_ids = vec_dup (urr->linked_urr_ids);
+          urr->liusa_bitmap = NULL;
+          memset (&urr->volume.measure, 0, sizeof (urr->volume.measure));
+        }
 
 #ifdef UPF_FLOW_SESSION_SPINLOCK
       clib_spinlock_unlock (&sx->lock);
@@ -1092,7 +1093,7 @@ pfcp_make_pending_urr (upf_session_t * sx)
 }
 
 static upf_qer_policer_t *
-init_qer_policer (upf_qer_t * qer)
+init_qer_policer (upf_qer_t *qer)
 {
   qos_pol_cfg_params_st cfg = {
     .rate_type = QOS_RATE_KBPS,
@@ -1115,13 +1116,13 @@ init_qer_policer (upf_qer_t * qer)
   cfg.rb.kbps.cir_kbps = qer->mbr.dl;
   pol_logical_2_physical (&cfg, &pol->policer[UPF_DL]);
 
-  clib_bihash_add_del_8_8 (&gtm->qer_by_id, &qer->policer, 1 /* is_add */ );
+  clib_bihash_add_del_8_8 (&gtm->qer_by_id, &qer->policer, 1 /* is_add */);
 
   return pol;
 }
 
 static void
-attach_qer_policer (upf_qer_t * qer)
+attach_qer_policer (upf_qer_t *qer)
 {
   upf_main_t *gtm = &upf_main;
   upf_qer_policer_t *pol;
@@ -1136,11 +1137,11 @@ attach_qer_policer (upf_qer_t * qer)
 
   clib_atomic_fetch_add (&pol->ref_cnt, 1);
 
-  //pol_logical_2_physical(&qer->cfg, pol);
+  // pol_logical_2_physical(&qer->cfg, pol);
 }
 
 static void
-detach_qer_policer (upf_qer_t * qer)
+detach_qer_policer (upf_qer_t *qer)
 {
   upf_main_t *gtm = &upf_main;
   upf_qer_policer_t *pol;
@@ -1151,20 +1152,19 @@ detach_qer_policer (upf_qer_t * qer)
   pol = pool_elt_at_index (gtm->qer_policers, qer->policer.value);
   if (!clib_atomic_sub_fetch (&pol->ref_cnt, 1))
     {
-      clib_bihash_add_del_8_8 (&gtm->qer_by_id, &qer->policer,
-			       0 /* is_add */ );
+      clib_bihash_add_del_8_8 (&gtm->qer_by_id, &qer->policer, 0 /* is_add */);
       pool_put (gtm->qer_policers, pol);
     }
 }
 
 static inline void
-pfcp_free_qer (upf_qer_t * qer)
+pfcp_free_qer (upf_qer_t *qer)
 {
   detach_qer_policer (qer);
 }
 
 int
-pfcp_make_pending_qer (upf_session_t * sx)
+pfcp_make_pending_qer (upf_session_t *sx)
 {
   struct rules *pending = pfcp_get_rules (sx, PFCP_PENDING);
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
@@ -1177,16 +1177,16 @@ pfcp_make_pending_qer (upf_session_t * sx)
     {
       pending->qer = vec_dup (active->qer);
       vec_foreach (qer, pending->qer)
-      {
-	qer->policer.value = ~0;
-      }
+        {
+          qer->policer.value = ~0;
+        }
     }
 
   return 0;
 }
 
 static void
-pfcp_free_rules (upf_session_t * sx, int rule)
+pfcp_free_rules (upf_session_t *sx, int rule)
 {
   struct rules *rules = pfcp_get_rules (sx, rule);
   upf_pdr_t *pdr;
@@ -1195,25 +1195,25 @@ pfcp_free_rules (upf_session_t * sx, int rule)
   upf_qer_t *qer;
 
   vec_foreach (pdr, rules->pdr)
-  {
-    pfcp_free_pdr (pdr);
-  }
+    {
+      pfcp_free_pdr (pdr);
+    }
 
   vec_free (rules->pdr);
   vec_foreach (far, rules->far)
-  {
-    pfcp_free_far (far);
-  }
+    {
+      pfcp_free_far (far);
+    }
   vec_free (rules->far);
   vec_foreach (urr, rules->urr)
-  {
-    pfcp_free_urr (urr);
-  }
+    {
+      pfcp_free_urr (urr);
+    }
   vec_free (rules->urr);
   vec_foreach (qer, rules->qer)
-  {
-    pfcp_free_qer (qer);
-  }
+    {
+      pfcp_free_qer (qer);
+    }
   vec_free (rules->qer);
   vec_free (rules->ue_src_ip);
   vec_free (rules->ue_dst_ip);
@@ -1226,7 +1226,7 @@ pfcp_free_rules (upf_session_t * sx, int rule)
 }
 
 void
-upf_ref_forwarding_policies (upf_far_t * far, u8 is_del)
+upf_ref_forwarding_policies (upf_far_t *far, u8 is_del)
 {
   upf_main_t *gtm = &upf_main;
   uword *hash_ptr;
@@ -1237,15 +1237,14 @@ upf_ref_forwarding_policies (upf_far_t * far, u8 is_del)
   hash_ptr = hash_get_mem (gtm->forwarding_policy_by_id, policy_id);
   if (hash_ptr)
     {
-      fp_entry =
-	pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+      fp_entry = pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
       upf_debug ("Change reference for policy %s FAR %u", policy_id, far->id);
       clib_atomic_fetch_add (&fp_entry->ref_cnt, is_del ? -1 : 1);
     }
 }
 
 void
-pfcp_disable_session (upf_session_t * sx)
+pfcp_disable_session (upf_session_t *sx)
 {
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
   pfcp_server_main_t *psm = &pfcp_server_main;
@@ -1259,53 +1258,59 @@ pfcp_disable_session (upf_session_t * sx)
   upf_far_t *far;
 
   hash_unset (gtm->session_by_up_seid, sx->up_seid);
-  vec_foreach (v4_teid, active->v4_teid) pfcp_add_del_v4_teid (v4_teid, sx,
-							       0);
-  vec_foreach (v6_teid, active->v6_teid) pfcp_add_del_v6_teid (v6_teid, sx,
-							       0);
-  vec_foreach (ue_ip, active->ue_dst_ip) pfcp_add_del_ue_ip (ue_ip, sx, 0);
-  vec_foreach (ue_ip, active->ue_src_ip) pfcp_add_del_ue_ip (ue_ip, sx, 0);
-  vec_foreach (acl, active->v4_acls) pfcp_add_del_v4_tdf (acl, sx, 0);
-  vec_foreach (acl, active->v6_acls) pfcp_add_del_v6_tdf (acl, sx, 0);
+  vec_foreach (v4_teid, active->v4_teid)
+    pfcp_add_del_v4_teid (v4_teid, sx, 0);
+  vec_foreach (v6_teid, active->v6_teid)
+    pfcp_add_del_v6_teid (v6_teid, sx, 0);
+  vec_foreach (ue_ip, active->ue_dst_ip)
+    pfcp_add_del_ue_ip (ue_ip, sx, 0);
+  vec_foreach (ue_ip, active->ue_src_ip)
+    pfcp_add_del_ue_ip (ue_ip, sx, 0);
+  vec_foreach (acl, active->v4_acls)
+    pfcp_add_del_v4_tdf (acl, sx, 0);
+  vec_foreach (acl, active->v6_acls)
+    pfcp_add_del_v6_tdf (acl, sx, 0);
 
   /* derefer forwarding policies */
   vec_foreach (far, active->far)
-  {
-    upf_ref_forwarding_policies (far, 1);
-  }
+    {
+      upf_ref_forwarding_policies (far, 1);
+    }
 
   node_assoc_detach_session (sx);
 
-  //TODO: free DL fifo...
+  // TODO: free DL fifo...
 
-  //gtm->session_index_by_sw_if_index[sx->sw_if_index] = ~0;
+  // gtm->session_index_by_sw_if_index[sx->sw_if_index] = ~0;
 
   /* stop all timers */
   vec_foreach (urr, active->urr)
-  {
-    upf_pfcp_session_stop_urr_time (&urr->measurement_period, now);
-    upf_pfcp_session_stop_urr_time (&urr->time_threshold, now);
-    upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
-    upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
-    upf_pfcp_session_stop_urr_time (&urr->traffic_timer, now);
-  }
+    {
+      upf_pfcp_session_stop_urr_time (&urr->measurement_period, now);
+      upf_pfcp_session_stop_urr_time (&urr->time_threshold, now);
+      upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
+      upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
+      upf_pfcp_session_stop_urr_time (&urr->traffic_timer, now);
+    }
   upf_pfcp_session_stop_up_inactivity_timer (&active->inactivity_timer);
 
   /* detach all requests */
   /* *INDENT-OFF* */
-  upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
-    upf_session_requests_list_remove (pfcp_server_main.msg_pool, &sx->requests, req);
-    req->session.idx = ~0;
-  });
+  upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor,
+                     &sx->requests, {
+                       upf_session_requests_list_remove (
+                         pfcp_server_main.msg_pool, &sx->requests, req);
+                       req->session.idx = ~0;
+                     });
   /* *INDENT-ON* */
 
-  vlib_decrement_simple_counter (&gtm->upf_simple_counters
-				 [UPF_SESSIONS_COUNTER],
-				 vlib_get_thread_index (), 0, 1);
+  vlib_decrement_simple_counter (
+    &gtm->upf_simple_counters[UPF_SESSIONS_COUNTER], vlib_get_thread_index (),
+    0, 1);
 }
 
 void
-upf_delete_nat_binding (upf_session_t * sx)
+upf_delete_nat_binding (upf_session_t *sx)
 {
   upf_nat_addr_t *ap = sx->nat_addr;
   int (*upf_nat_del_binding) (ip4_address_t user_addr);
@@ -1321,7 +1326,7 @@ upf_delete_nat_binding (upf_session_t * sx)
 }
 
 void
-pfcp_free_session (upf_session_t * sx)
+pfcp_free_session (upf_session_t *sx)
 {
   vlib_main_t *vm = vlib_get_main ();
   upf_main_t *gtm = &upf_main;
@@ -1337,7 +1342,7 @@ pfcp_free_session (upf_session_t * sx)
    * session, so flow reporting can still be done on these flows
    */
   /* *INDENT-OFF* */
-  upf_llist_foreach(f, fm->flows, session_list_anchor, &sx->flows, {
+  upf_llist_foreach (f, fm->flows, session_list_anchor, &sx->flows, {
     flowtable_entry_remove (fm, f, now);
 
     /* make sure session_flow_unlink_handler has been called */
@@ -1369,8 +1374,8 @@ pfcp_free_session (upf_session_t * sx)
 }
 
 int
-session_flow_unlink_handler (flowtable_main_t * fm, flow_entry_t * flow,
-			     flow_direction_t direction, u32 now)
+session_flow_unlink_handler (flowtable_main_t *fm, flow_entry_t *flow,
+                             flow_direction_t direction, u32 now)
 {
   upf_main_t *gtm = &upf_main;
   ASSERT (flow->session_index != ~0);
@@ -1383,66 +1388,67 @@ session_flow_unlink_handler (flowtable_main_t * fm, flow_entry_t * flow,
   return 0;
 }
 
-#define pfcp_rule_vector_fns(t, REMOVE)					\
-upf_##t##_t * pfcp_get_##t##_by_id(struct rules *rules,			\
-				   typeof (((upf_##t##_t *)0)->id) t##_id) \
-{									\
-  upf_##t##_t r = { .id = t##_id };					\
-									\
-  return vec_bsearch(&r, rules->t, pfcp_##t##_id_compare);		\
-}									\
-									\
-upf_##t##_t *pfcp_get_##t(upf_session_t *sx, int rule,		\
-			  typeof (((upf_##t##_t *)0)->id) t##_id)	\
-{									\
-  struct rules *rules = pfcp_get_rules(sx, rule);				\
-  upf_##t##_t r = { .id = t##_id };					\
-									\
-  if (rule == PFCP_PENDING)						\
-    if (pfcp_make_pending_##t(sx) != 0)					\
-      return NULL;							\
-									\
-  return vec_bsearch(&r, rules->t, pfcp_##t##_id_compare);		\
-}									\
-									\
-int pfcp_sort_##t##s(struct rules *rules)					\
-{									\
-  vec_sort_with_function(rules->t, pfcp_##t##_id_compare);		\
-  return 0;								\
-}									\
-									\
-int pfcp_delete_##t(upf_session_t *sx, u32 t##_id)			\
-{									\
-  struct rules *rules = pfcp_get_rules(sx, PFCP_PENDING);			\
-  upf_##t##_t r = { .id = t##_id };					\
-  upf_##t##_t *p;							\
-									\
-  if (pfcp_make_pending_##t(sx) != 0)					\
-    return -1;								\
-									\
-  if (!(p = vec_bsearch(&r, rules->t, pfcp_##t##_id_compare)))		\
-    return -1;								\
-									\
-  do { REMOVE; } while (0);						\
-  pfcp_free_##t (p);							\
-									\
-  vec_delete(rules->t, 1, p - rules->t);				\
-  return 0;								\
-}
+#define pfcp_rule_vector_fns(t, REMOVE)                                       \
+  upf_##t##_t *pfcp_get_##t##_by_id (struct rules *rules,                     \
+                                     typeof (((upf_##t##_t *) 0)->id) t##_id) \
+  {                                                                           \
+    upf_##t##_t r = { .id = t##_id };                                         \
+                                                                              \
+    return vec_bsearch (&r, rules->t, pfcp_##t##_id_compare);                 \
+  }                                                                           \
+                                                                              \
+  upf_##t##_t *pfcp_get_##t (upf_session_t *sx, int rule,                     \
+                             typeof (((upf_##t##_t *) 0)->id) t##_id)         \
+  {                                                                           \
+    struct rules *rules = pfcp_get_rules (sx, rule);                          \
+    upf_##t##_t r = { .id = t##_id };                                         \
+                                                                              \
+    if (rule == PFCP_PENDING)                                                 \
+      if (pfcp_make_pending_##t (sx) != 0)                                    \
+        return NULL;                                                          \
+                                                                              \
+    return vec_bsearch (&r, rules->t, pfcp_##t##_id_compare);                 \
+  }                                                                           \
+                                                                              \
+  int pfcp_sort_##t##s (struct rules *rules)                                  \
+  {                                                                           \
+    vec_sort_with_function (rules->t, pfcp_##t##_id_compare);                 \
+    return 0;                                                                 \
+  }                                                                           \
+                                                                              \
+  int pfcp_delete_##t (upf_session_t *sx, u32 t##_id)                         \
+  {                                                                           \
+    struct rules *rules = pfcp_get_rules (sx, PFCP_PENDING);                  \
+    upf_##t##_t r = { .id = t##_id };                                         \
+    upf_##t##_t *p;                                                           \
+                                                                              \
+    if (pfcp_make_pending_##t (sx) != 0)                                      \
+      return -1;                                                              \
+                                                                              \
+    if (!(p = vec_bsearch (&r, rules->t, pfcp_##t##_id_compare)))             \
+      return -1;                                                              \
+                                                                              \
+    do                                                                        \
+      {                                                                       \
+        REMOVE;                                                               \
+      }                                                                       \
+    while (0);                                                                \
+    pfcp_free_##t (p);                                                        \
+                                                                              \
+    vec_delete (rules->t, 1, p - rules->t);                                   \
+    return 0;                                                                 \
+  }
 
 /* *INDENT-OFF* */
-pfcp_rule_vector_fns(pdr, ({}))
-pfcp_rule_vector_fns(far, ({}))
-pfcp_rule_vector_fns(urr, ({}))
-pfcp_rule_vector_fns(qer, ({}))
-/* *INDENT-ON* */
+pfcp_rule_vector_fns (pdr, ({})) pfcp_rule_vector_fns (far, ({}))
+  pfcp_rule_vector_fns (urr, ({})) pfcp_rule_vector_fns (qer, ({}))
+  /* *INDENT-ON* */
 
-void
-pfcp_send_end_marker (upf_session_t * sx, u16 far_id)
+  void pfcp_send_end_marker (upf_session_t *sx, u16 far_id)
 {
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
   struct rules *pending = pfcp_get_rules (sx, PFCP_PENDING);
-  upf_far_t r = {.id = far_id };
+  upf_far_t r = { .id = far_id };
   upf_main_t *gtm = &upf_main;
   send_end_marker_t *send_em;
   upf_peer_t *peer;
@@ -1494,7 +1500,7 @@ upf_acl_cmp (const void *a, const void *b)
   return memcmp (a, b, offsetof (upf_acl_t, pdr_idx));
 }
 
-//TODO: instead of using the UE IP, we should use the DL SDF dst fields
+// TODO: instead of using the UE IP, we should use the DL SDF dst fields
 static void
 pfcp_add_del_ue_ip (const void *ip, void *si, int is_add)
 {
@@ -1525,17 +1531,15 @@ pfcp_add_del_ue_ip (const void *ip, void *si, int is_add)
       upf_session_dpo_add_or_lock (fib_proto_to_dpo (pfx.fp_proto), sx, &sxd);
 
       /* add reverse route for client ip through special DPO */
-      fib_table_entry_special_dpo_add (ue_ip->fib_index, &pfx,
-				       FIB_SOURCE_SPECIAL,
-				       FIB_ENTRY_FLAG_EXCLUSIVE |
-				       FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT,
-				       &sxd);
+      fib_table_entry_special_dpo_add (
+        ue_ip->fib_index, &pfx, FIB_SOURCE_SPECIAL,
+        FIB_ENTRY_FLAG_EXCLUSIVE | FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT, &sxd);
     }
   else
     {
       /* delete reverse route for client ip */
       fib_table_entry_special_remove (ue_ip->fib_index, &pfx,
-				      FIB_SOURCE_SPECIAL);
+                                      FIB_SOURCE_SPECIAL);
     }
 }
 
@@ -1550,10 +1554,9 @@ pfcp_add_del_v4_teid (const void *teid, void *si, int is_add)
   kv.key = v4_teid->key.as_u64;
   kv.value = ((u64) v4_teid->rule_index << 32) | (sess - gtm->sessions);
 
-  upf_debug
-    ("upf_pfcp: is_add: %d, TEID: 0x%08x, IP:%U, Session:%p, idx: %p.",
-     is_add, v4_teid->key.teid, format_ip4_address, &v4_teid->key.dst, sess,
-     sess - gtm->sessions);
+  upf_debug ("upf_pfcp: is_add: %d, TEID: 0x%08x, IP:%U, Session:%p, idx: %p.",
+             is_add, v4_teid->key.teid, format_ip4_address, &v4_teid->key.dst,
+             sess, sess - gtm->sessions);
 
   clib_bihash_add_del_8_8 (&gtm->v4_tunnel_by_key, &kv, is_add);
 }
@@ -1571,10 +1574,9 @@ pfcp_add_del_v6_teid (const void *teid, void *si, int is_add)
   kv.key[2] = v6_teid->key.teid;
   kv.value = ((u64) v6_teid->rule_index << 32) | (sess - gtm->sessions);
 
-  upf_debug
-    ("upf_pfcp: is_add: %d, TEID: 0x%08x, IP:%U, Session:%p, idx: %p.",
-     is_add, v6_teid->key.teid, format_ip6_address, &v6_teid->key.dst, sess,
-     sess - gtm->sessions);
+  upf_debug ("upf_pfcp: is_add: %d, TEID: 0x%08x, IP:%U, Session:%p, idx: %p.",
+             is_add, v6_teid->key.teid, format_ip6_address, &v6_teid->key.dst,
+             sess, sess - gtm->sessions);
 
   clib_bihash_add_del_24_8 (&gtm->v6_tunnel_by_key, &kv, is_add);
 }
@@ -1598,17 +1600,17 @@ pfcp_add_del_tdf (const void *tdf, void *si, int is_ip4, int is_add)
     return;
 
   upf_debug ("acl fib idx: 0x%08x, tdf fib idx: 0x%08x, ACL: %U\n",
-	     acl->fib_index,
-	     vec_elt (gtm->tdf_ul_table[pfx.fp_proto], acl->fib_index),
-	     format_upf_acl, acl);
+             acl->fib_index,
+             vec_elt (gtm->tdf_ul_table[pfx.fp_proto], acl->fib_index),
+             format_upf_acl, acl);
 
   fib_index = vec_elt (gtm->tdf_ul_table[pfx.fp_proto], acl->fib_index);
   if (~0 == fib_index)
     return;
 
-  pfx.fp_len = is_ip4 ?
-    ip4_mask_to_preflen (&acl->mask.address[UPF_ACL_FIELD_SRC].ip4) :
-    ip6_mask_to_preflen (&acl->mask.address[UPF_ACL_FIELD_SRC].ip6);
+  pfx.fp_len =
+    is_ip4 ? ip4_mask_to_preflen (&acl->mask.address[UPF_ACL_FIELD_SRC].ip4) :
+             ip6_mask_to_preflen (&acl->mask.address[UPF_ACL_FIELD_SRC].ip6);
 
   if (is_add)
     {
@@ -1617,11 +1619,10 @@ pfcp_add_del_tdf (const void *tdf, void *si, int is_ip4, int is_add)
       upf_session_dpo_add_or_lock (fib_proto_to_dpo (pfx.fp_proto), sx, &sxd);
 
       /* add reverse route for client ip through special DPO */
-      fib_table_entry_special_dpo_add (fib_index, &pfx,
-				       FIB_SOURCE_SPECIAL,
-				       FIB_ENTRY_FLAG_ATTACHED,
-				       // FIB_ENTRY_FLAG_EXCLUSIVE | FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT,
-				       &sxd);
+      fib_table_entry_special_dpo_add (
+        fib_index, &pfx, FIB_SOURCE_SPECIAL, FIB_ENTRY_FLAG_ATTACHED,
+        // FIB_ENTRY_FLAG_EXCLUSIVE | FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT,
+        &sxd);
     }
   else
     {
@@ -1633,53 +1634,51 @@ pfcp_add_del_tdf (const void *tdf, void *si, int is_ip4, int is_add)
 static void
 pfcp_add_del_v4_tdf (const void *tdf, void *si, int is_add)
 {
-  pfcp_add_del_tdf (tdf, si, 1 /* is_ip4 */ , is_add);
+  pfcp_add_del_tdf (tdf, si, 1 /* is_ip4 */, is_add);
 }
 
 static void
 pfcp_add_del_v6_tdf (const void *tdf, void *si, int is_add)
 {
-  pfcp_add_del_tdf (tdf, si, 0 /* is_ip4 */ , is_add);
+  pfcp_add_del_tdf (tdf, si, 0 /* is_ip4 */, is_add);
 }
 
 u8 *
-format_upf_acl (u8 * s, va_list * args)
+format_upf_acl (u8 *s, va_list *args)
 {
   upf_acl_t *acl = va_arg (*args, upf_acl_t *);
   ip46_type_t itype = (acl->is_ip4) ? IP46_TYPE_IP4 : IP46_TYPE_IP6;
 
-  return format (s,
-		 "%u: %u, (%u/%u/%u/%u) TEID 0x%08x, UE-IP %U, %u/%u, %U/%U:%u-%u <-> %U/%U:%u-%u%s",
-		 acl->pdr_idx, acl->precedence, !!acl->is_ip4,
-		 !!acl->match_teid, !!acl->match_ue_ip, !!acl->match_sdf,
-		 acl->teid, format_ip46_address, &acl->ue_ip, itype,
-		 acl->match.protocol, acl->mask.protocol, format_ip46_address,
-		 &acl->match.address[IPFILTER_RULE_FIELD_SRC], itype,
-		 format_ip46_address,
-		 &acl->mask.address[IPFILTER_RULE_FIELD_SRC], itype,
-		 acl->mask.port[IPFILTER_RULE_FIELD_SRC],
-		 acl->match.port[IPFILTER_RULE_FIELD_SRC],
-		 format_ip46_address,
-		 &acl->match.address[IPFILTER_RULE_FIELD_DST], itype,
-		 format_ip46_address,
-		 &acl->mask.address[IPFILTER_RULE_FIELD_DST], itype,
-		 acl->mask.port[IPFILTER_RULE_FIELD_DST],
-		 acl->match.port[IPFILTER_RULE_FIELD_DST],
-		 acl->match_ip_app ? " [ip app]" : "");
+  return format (
+    s,
+    "%u: %u, (%u/%u/%u/%u) TEID 0x%08x, UE-IP %U, %u/%u, %U/%U:%u-%u <-> "
+    "%U/%U:%u-%u%s",
+    acl->pdr_idx, acl->precedence, !!acl->is_ip4, !!acl->match_teid,
+    !!acl->match_ue_ip, !!acl->match_sdf, acl->teid, format_ip46_address,
+    &acl->ue_ip, itype, acl->match.protocol, acl->mask.protocol,
+    format_ip46_address, &acl->match.address[IPFILTER_RULE_FIELD_SRC], itype,
+    format_ip46_address, &acl->mask.address[IPFILTER_RULE_FIELD_SRC], itype,
+    acl->mask.port[IPFILTER_RULE_FIELD_SRC],
+    acl->match.port[IPFILTER_RULE_FIELD_SRC], format_ip46_address,
+    &acl->match.address[IPFILTER_RULE_FIELD_DST], itype, format_ip46_address,
+    &acl->mask.address[IPFILTER_RULE_FIELD_DST], itype,
+    acl->mask.port[IPFILTER_RULE_FIELD_DST],
+    acl->match.port[IPFILTER_RULE_FIELD_DST],
+    acl->match_ip_app ? " [ip app]" : "");
 }
 
 always_inline u32
 upf_fib_index_by_sw_if_index (u32 sw_if_index, int is_ip4)
 {
-  u32 *fib_index_by_sw_if_index = is_ip4 ?
-    ip4_main.fib_index_by_sw_if_index : ip6_main.fib_index_by_sw_if_index;
+  u32 *fib_index_by_sw_if_index = is_ip4 ? ip4_main.fib_index_by_sw_if_index :
+                                           ip6_main.fib_index_by_sw_if_index;
 
   return vec_elt (fib_index_by_sw_if_index, sw_if_index);
 }
 
 /* Maybe should be moved into the core somewhere */
 always_inline void
-ip4_address_mask_from_width (ip4_address_t * a, u32 width)
+ip4_address_mask_from_width (ip4_address_t *a, u32 width)
 {
   int i, byte, bit, bitnum;
   ASSERT (width <= 32);
@@ -1694,7 +1693,7 @@ ip4_address_mask_from_width (ip4_address_t * a, u32 width)
 }
 
 always_inline void
-compile_teid (const upf_pdr_t * pdr, upf_acl_t * acl)
+compile_teid (const upf_pdr_t *pdr, upf_acl_t *acl)
 {
   if (!(pdr->pdi.fields & F_PDI_LOCAL_F_TEID))
     return;
@@ -1704,7 +1703,7 @@ compile_teid (const upf_pdr_t * pdr, upf_acl_t * acl)
 }
 
 static void
-compile_ue_ip (int is_ip4, const upf_pdr_t * pdr, upf_acl_t * acl)
+compile_ue_ip (int is_ip4, const upf_pdr_t *pdr, upf_acl_t *acl)
 {
   if (!(pdr->pdi.fields & F_PDI_UE_IP_ADDR))
     return;
@@ -1712,20 +1711,20 @@ compile_ue_ip (int is_ip4, const upf_pdr_t * pdr, upf_acl_t * acl)
   if (is_ip4 && pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
     {
       acl->match_ue_ip =
-	(pdr->pdi.src_intf == SRC_INTF_ACCESS) ? UPF_ACL_UL : UPF_ACL_DL;
+        (pdr->pdi.src_intf == SRC_INTF_ACCESS) ? UPF_ACL_UL : UPF_ACL_DL;
       ip46_address_set_ip4 (&acl->ue_ip, &pdr->pdi.ue_addr.ip4);
     }
   else if (!is_ip4 && pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6)
     {
       acl->match_ue_ip =
-	(pdr->pdi.src_intf == SRC_INTF_ACCESS) ? UPF_ACL_UL : UPF_ACL_DL;
+        (pdr->pdi.src_intf == SRC_INTF_ACCESS) ? UPF_ACL_UL : UPF_ACL_DL;
       ip46_address_set_ip6 (&acl->ue_ip, &pdr->pdi.ue_addr.ip6);
     }
 }
 
 static void
-acl_set_ue_ip (ip46_address_t * ip, ip46_address_t * mask, int is_ip4,
-	       const upf_pdr_t * pdr)
+acl_set_ue_ip (ip46_address_t *ip, ip46_address_t *mask, int is_ip4,
+               const upf_pdr_t *pdr)
 {
   if (!(pdr->pdi.fields & F_PDI_UE_IP_ADDR))
     return;
@@ -1744,8 +1743,8 @@ acl_set_ue_ip (ip46_address_t * ip, ip46_address_t * mask, int is_ip4,
 }
 
 static void
-ip_assign_address (int dst, int src, int is_ip4, const upf_pdr_t * pdr,
-		   const acl_rule_t * rule, upf_acl_t * acl)
+ip_assign_address (int dst, int src, int is_ip4, const upf_pdr_t *pdr,
+                   const acl_rule_t *rule, upf_acl_t *acl)
 {
   ip46_address_t *mask = &acl->mask.address[dst];
   ip46_address_t *ip = &acl->match.address[dst];
@@ -1760,17 +1759,17 @@ ip_assign_address (int dst, int src, int is_ip4, const upf_pdr_t * pdr,
       *ip = addr->address;
 
       if (is_ip4)
-	{
-	  ip46_address_mask_ip4 (mask);
-	  ip4_address_mask_from_width (&mask->ip4, addr->mask);
-	}
+        {
+          ip46_address_mask_ip4 (mask);
+          ip4_address_mask_from_width (&mask->ip4, addr->mask);
+        }
       else
-	ip6_address_mask_from_width (&mask->ip6, addr->mask);
+        ip6_address_mask_from_width (&mask->ip6, addr->mask);
     }
 }
 
 static void
-ip_assign_port (int dst, int src, const acl_rule_t * rule, upf_acl_t * acl)
+ip_assign_port (int dst, int src, const acl_rule_t *rule, upf_acl_t *acl)
 {
   const ipfilter_port_t *port = &rule->port[src];
 
@@ -1779,14 +1778,14 @@ ip_assign_port (int dst, int src, const acl_rule_t * rule, upf_acl_t * acl)
 }
 
 static void
-compile_sdf (int is_ip4, const upf_pdr_t * pdr,
-	     const acl_rule_t * rule, upf_acl_t * acl)
+compile_sdf (int is_ip4, const upf_pdr_t *pdr, const acl_rule_t *rule,
+             upf_acl_t *acl)
 {
   ASSERT (pdr->pdi.fields & F_PDI_SDF_FILTER);
 
   acl->match_sdf = 1;
 
-  if (rule->proto != (u8) ~ 0)
+  if (rule->proto != (u8) ~0)
     {
       acl->mask.protocol = ~0;
       acl->match.protocol = rule->proto;
@@ -1796,18 +1795,18 @@ compile_sdf (int is_ip4, const upf_pdr_t * pdr,
     {
     case SRC_INTF_ACCESS:
       ip_assign_address (UPF_ACL_FIELD_DST, IPFILTER_RULE_FIELD_SRC, is_ip4,
-			 pdr, rule, acl);
+                         pdr, rule, acl);
       ip_assign_address (UPF_ACL_FIELD_SRC, IPFILTER_RULE_FIELD_DST, is_ip4,
-			 pdr, rule, acl);
+                         pdr, rule, acl);
       ip_assign_port (UPF_ACL_FIELD_DST, IPFILTER_RULE_FIELD_SRC, rule, acl);
       ip_assign_port (UPF_ACL_FIELD_SRC, IPFILTER_RULE_FIELD_DST, rule, acl);
       break;
 
     default:
       ip_assign_address (UPF_ACL_FIELD_SRC, IPFILTER_RULE_FIELD_SRC, is_ip4,
-			 pdr, rule, acl);
+                         pdr, rule, acl);
       ip_assign_address (UPF_ACL_FIELD_DST, IPFILTER_RULE_FIELD_DST, is_ip4,
-			 pdr, rule, acl);
+                         pdr, rule, acl);
       ip_assign_port (UPF_ACL_FIELD_SRC, IPFILTER_RULE_FIELD_SRC, rule, acl);
       ip_assign_port (UPF_ACL_FIELD_DST, IPFILTER_RULE_FIELD_DST, rule, acl);
       break;
@@ -1815,9 +1814,8 @@ compile_sdf (int is_ip4, const upf_pdr_t * pdr,
 }
 
 static int
-compile_pdi (int is_ip4, const upf_pdr_t * pdr,
-	     const acl_rule_t * rule, u32 pdr_idx, u32 sw_if_index,
-	     upf_acl_t * acl)
+compile_pdi (int is_ip4, const upf_pdr_t *pdr, const acl_rule_t *rule,
+             u32 pdr_idx, u32 sw_if_index, upf_acl_t *acl)
 {
   memset (acl, 0, sizeof (*acl));
 
@@ -1838,10 +1836,9 @@ compile_pdi (int is_ip4, const upf_pdr_t * pdr,
   return 0;
 }
 
-
 static void
-rules_add_v4_teid (struct rules *r, const ip4_address_t * addr, u32 teid,
-		   u32 rule_index)
+rules_add_v4_teid (struct rules *r, const ip4_address_t *addr, u32 teid,
+                   u32 rule_index)
 {
   gtpu4_endp_rule_t endp, *e;
 
@@ -1850,10 +1847,10 @@ rules_add_v4_teid (struct rules *r, const ip4_address_t * addr, u32 teid,
   endp.rule_index = rule_index;
 
   vec_foreach (e, r->v4_teid)
-  {
-    if (e->key.as_u64 == endp.key.as_u64)
-      break;
-  }
+    {
+      if (e->key.as_u64 == endp.key.as_u64)
+        break;
+    }
   if (e == vec_end (r->v4_teid))
     vec_add1 (r->v4_teid, endp);
   else
@@ -1862,8 +1859,8 @@ rules_add_v4_teid (struct rules *r, const ip4_address_t * addr, u32 teid,
 }
 
 static void
-rules_add_v6_teid (struct rules *r, const ip6_address_t * addr, u32 teid,
-		   u32 rule_index)
+rules_add_v6_teid (struct rules *r, const ip6_address_t *addr, u32 teid,
+                   u32 rule_index)
 {
   gtpu6_endp_rule_t endp, *e;
 
@@ -1872,10 +1869,10 @@ rules_add_v6_teid (struct rules *r, const ip6_address_t * addr, u32 teid,
   endp.rule_index = rule_index;
 
   vec_foreach (e, r->v6_teid)
-  {
-    if (memcmp (&e->key, &endp.key, sizeof (endp.key)) == 0)
-      break;
-  }
+    {
+      if (memcmp (&e->key, &endp.key, sizeof (endp.key)) == 0)
+        break;
+    }
   if (e == vec_end (r->v6_teid))
     vec_add1 (r->v6_teid, endp);
   else
@@ -1884,8 +1881,8 @@ rules_add_v6_teid (struct rules *r, const ip6_address_t * addr, u32 teid,
 }
 
 static void
-rules_add_ue_ip (struct rules *r, fib_protocol_t fproto,
-		 ue_ip_t * ue_ip, u8 is_dst)
+rules_add_ue_ip (struct rules *r, fib_protocol_t fproto, ue_ip_t *ue_ip,
+                 u8 is_dst)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -1896,18 +1893,18 @@ rules_add_ue_ip (struct rules *r, fib_protocol_t fproto,
       u32 fib_index = ~0;
 
       if (ue_ip->fib_index < vec_len (gtm->tdf_ul_table[fproto]))
-	fib_index = vec_elt (gtm->tdf_ul_table[fproto], ue_ip->fib_index);
+        fib_index = vec_elt (gtm->tdf_ul_table[fproto], ue_ip->fib_index);
 
       if (~0 != fib_index)
-	{
-	  ue_ip->fib_index = fib_index;
-	  vec_add1 (r->ue_src_ip, *ue_ip);
-	}
+        {
+          ue_ip->fib_index = fib_index;
+          vec_add1 (r->ue_src_ip, *ue_ip);
+        }
     }
 }
 
 static int
-build_pfcp_rules (upf_session_t * sx)
+build_pfcp_rules (upf_session_t *sx)
 {
   upf_main_t *gtm = &upf_main;
   struct rules *pending = pfcp_get_rules (sx, PFCP_PENDING);
@@ -1917,138 +1914,140 @@ build_pfcp_rules (upf_session_t * sx)
   pending->proxy_pdr_idx = ~0;
 
   vec_foreach_index (idx, pending->pdr)
-  {
-    upf_pdr_t *pdr = vec_elt_at_index (pending->pdr, idx);
-    u32 sw_if_index = ~0;
+    {
+      upf_pdr_t *pdr = vec_elt_at_index (pending->pdr, idx);
+      u32 sw_if_index = ~0;
 
-    if (pdr->pdi.nwi_index != ~0)
-      {
-	upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, pdr->pdi.nwi_index);
-	sw_if_index = nwi->sw_if_index;
-      }
+      if (pdr->pdi.nwi_index != ~0)
+        {
+          upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, pdr->pdi.nwi_index);
+          sw_if_index = nwi->sw_if_index;
+        }
 
-    /* create UE IP route from SGi Network Instance into Session */
+      /* create UE IP route from SGi Network Instance into Session */
 
-    /*
-     * From 3GPP TS 29.244 version 14.3.0, Table 7.5.2.2-2
-     *
-     * NOTE 2: When a Local F-TEID is provisioned in the PDI, the
-     *         Network Instance shall relate to the IP address of
-     *         the F-TEID. Otherwise, the Network Instance shall
-     *         relate to the UE IP address.
-     */
-    if (!(pdr->pdi.fields & F_PDI_LOCAL_F_TEID) &&
-	pdr->pdi.fields & F_PDI_UE_IP_ADDR)
-      {
-	ue_ip_t ue_ip;
-	u8 is_dst = !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD);
+      /*
+       * From 3GPP TS 29.244 version 14.3.0, Table 7.5.2.2-2
+       *
+       * NOTE 2: When a Local F-TEID is provisioned in the PDI, the
+       *         Network Instance shall relate to the IP address of
+       *         the F-TEID. Otherwise, the Network Instance shall
+       *         relate to the UE IP address.
+       */
+      if (!(pdr->pdi.fields & F_PDI_LOCAL_F_TEID) &&
+          pdr->pdi.fields & F_PDI_UE_IP_ADDR)
+        {
+          ue_ip_t ue_ip;
+          u8 is_dst = !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD);
 
-	if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
-	  {
-	    ip46_address_set_ip4 (&ue_ip.addr, &pdr->pdi.ue_addr.ip4);
-	    ue_ip.fib_index =
-	      upf_fib_index_by_sw_if_index (sw_if_index, 1 /* is_ip4 */ );
-	    ue_ip.sw_if_index = sw_if_index;
+          if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
+            {
+              ip46_address_set_ip4 (&ue_ip.addr, &pdr->pdi.ue_addr.ip4);
+              ue_ip.fib_index =
+                upf_fib_index_by_sw_if_index (sw_if_index, 1 /* is_ip4 */);
+              ue_ip.sw_if_index = sw_if_index;
 
-	    upf_debug ("UP FIB Idx %u, sw_if_index %u",
-		       ue_ip.fib_index, ue_ip.sw_if_index);
-	    rules_add_ue_ip (pending, FIB_PROTOCOL_IP4, &ue_ip, is_dst);
-	  }
+              upf_debug ("UP FIB Idx %u, sw_if_index %u", ue_ip.fib_index,
+                         ue_ip.sw_if_index);
+              rules_add_ue_ip (pending, FIB_PROTOCOL_IP4, &ue_ip, is_dst);
+            }
 
-	if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6)
-	  {
-	    ue_ip.addr.ip6 = pdr->pdi.ue_addr.ip6;
-	    ue_ip.fib_index =
-	      upf_fib_index_by_sw_if_index (sw_if_index, 0 /* is_ip4 */ );
-	    ue_ip.sw_if_index = sw_if_index;
+          if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6)
+            {
+              ue_ip.addr.ip6 = pdr->pdi.ue_addr.ip6;
+              ue_ip.fib_index =
+                upf_fib_index_by_sw_if_index (sw_if_index, 0 /* is_ip4 */);
+              ue_ip.sw_if_index = sw_if_index;
 
-	    rules_add_ue_ip (pending, FIB_PROTOCOL_IP6, &ue_ip, is_dst);
-	  }
-      }
+              rules_add_ue_ip (pending, FIB_PROTOCOL_IP6, &ue_ip, is_dst);
+            }
+        }
 
-    /* register Local F-TEIDs */
-    if (pdr->pdi.fields & F_PDI_LOCAL_F_TEID)
-      {
-	if (pdr->pdi.teid.flags & F_TEID_V4)
-	  rules_add_v4_teid (pending, &pdr->pdi.teid.ip4,
-			     pdr->pdi.teid.teid, idx);
+      /* register Local F-TEIDs */
+      if (pdr->pdi.fields & F_PDI_LOCAL_F_TEID)
+        {
+          if (pdr->pdi.teid.flags & F_TEID_V4)
+            rules_add_v4_teid (pending, &pdr->pdi.teid.ip4, pdr->pdi.teid.teid,
+                               idx);
 
-	if (pdr->pdi.teid.flags & F_TEID_V6)
-	  rules_add_v6_teid (pending, &pdr->pdi.teid.ip6,
-			     pdr->pdi.teid.teid, idx);
-      }
+          if (pdr->pdi.teid.flags & F_TEID_V6)
+            rules_add_v6_teid (pending, &pdr->pdi.teid.ip6, pdr->pdi.teid.teid,
+                               idx);
+        }
 
-    if (vec_len (pdr->pdi.acl) != 0)
-      {
-	acl_rule_t *rule;
+      if (vec_len (pdr->pdi.acl) != 0)
+        {
+          acl_rule_t *rule;
 
-	ASSERT (pdr->pdi.fields & F_PDI_SDF_FILTER);
-	vec_foreach (rule, pdr->pdi.acl)
-	{
-	  if (rule->type == IPFILTER_IPV4 || rule->type == IPFILTER_WILDCARD)
-	    {
-	      upf_acl_t *acl;
+          ASSERT (pdr->pdi.fields & F_PDI_SDF_FILTER);
+          vec_foreach (rule, pdr->pdi.acl)
+            {
+              if (rule->type == IPFILTER_IPV4 ||
+                  rule->type == IPFILTER_WILDCARD)
+                {
+                  upf_acl_t *acl;
 
-	      vec_add2 (pending->v4_acls, acl, 1);
-	      /* compile PDI into ACL matcher */
-	      compile_pdi (1 /* is_ip4 */ , pdr, rule, idx,
-			   sw_if_index, acl);
-	      if ((pdr->pdi.fields & F_PDI_APPLICATION_ID) &&
-		  (pdr->pdi.adr.flags & UPF_ADR_IP_RULES))
-		acl->match_ip_app = 1;
-	    }
+                  vec_add2 (pending->v4_acls, acl, 1);
+                  /* compile PDI into ACL matcher */
+                  compile_pdi (1 /* is_ip4 */, pdr, rule, idx, sw_if_index,
+                               acl);
+                  if ((pdr->pdi.fields & F_PDI_APPLICATION_ID) &&
+                      (pdr->pdi.adr.flags & UPF_ADR_IP_RULES))
+                    acl->match_ip_app = 1;
+                }
 
-	  if (rule->type == IPFILTER_IPV6 || rule->type == IPFILTER_WILDCARD)
-	    {
-	      upf_acl_t *acl;
+              if (rule->type == IPFILTER_IPV6 ||
+                  rule->type == IPFILTER_WILDCARD)
+                {
+                  upf_acl_t *acl;
 
-	      vec_add2 (pending->v6_acls, acl, 1);
-	      /* compile PDI into ACL matcher */
-	      compile_pdi (0 /* is_ip4 */ , pdr, rule, idx,
-			   sw_if_index, acl);
-	    }
-	}
-      }
+                  vec_add2 (pending->v6_acls, acl, 1);
+                  /* compile PDI into ACL matcher */
+                  compile_pdi (0 /* is_ip4 */, pdr, rule, idx, sw_if_index,
+                               acl);
+                }
+            }
+        }
 
-    if ((pdr->pdi.fields & F_PDI_APPLICATION_ID) &&
-	(pdr->pdi.adr.flags & UPF_ADR_PROXY) &&
-	pdr->precedence < pending->proxy_precedence)
-      {
-	pending->proxy_precedence = pdr->precedence;
-	pending->proxy_pdr_idx = idx;
-	pending->flags |= PFCP_ADR;
-      }
-  }
+      if ((pdr->pdi.fields & F_PDI_APPLICATION_ID) &&
+          (pdr->pdi.adr.flags & UPF_ADR_PROXY) &&
+          pdr->precedence < pending->proxy_precedence)
+        {
+          pending->proxy_precedence = pdr->precedence;
+          pending->proxy_pdr_idx = idx;
+          pending->flags |= PFCP_ADR;
+        }
+    }
 
-  if (vec_len (pending->ue_src_ip) != 0 || vec_len (pending->ue_dst_ip) != 0
-      || vec_len (pending->v4_acls) != 0 || vec_len (pending->v6_acls) != 0)
+  if (vec_len (pending->ue_src_ip) != 0 || vec_len (pending->ue_dst_ip) != 0 ||
+      vec_len (pending->v4_acls) != 0 || vec_len (pending->v6_acls) != 0)
     pending->flags |= PFCP_CLASSIFY;
 
   return 0;
 }
 
 static void
-build_urr_link_map (upf_session_t * sx)
+build_urr_link_map (upf_session_t *sx)
 {
   struct rules *pending = pfcp_get_rules (sx, PFCP_PENDING);
   u32 idx;
 
   vec_foreach_index (idx, pending->urr)
-  {
-    upf_urr_t *urr = vec_elt_at_index (pending->urr, idx);
-    u32 *id;
-
-    vec_foreach (id, urr->linked_urr_ids)
     {
-      upf_urr_t *l;
+      upf_urr_t *urr = vec_elt_at_index (pending->urr, idx);
+      u32 *id;
 
-      l = pfcp_get_urr_by_id (pending, *id);
-      if (!l)
-	continue;
+      vec_foreach (id, urr->linked_urr_ids)
+        {
+          upf_urr_t *l;
 
-      l->liusa_bitmap = clib_bitmap_set (l->liusa_bitmap, idx, 1);
+          l = pfcp_get_urr_by_id (pending, *id);
+          if (!l)
+            continue;
+
+          l->liusa_bitmap = clib_bitmap_set (l->liusa_bitmap, idx, 1);
+        }
     }
-  }
 }
 
 void
@@ -2064,7 +2063,7 @@ upf_ip_lookup_tx (u32 bi, int is_ip4)
 }
 
 int
-pfcp_update_apply (upf_session_t * sx)
+pfcp_update_apply (upf_session_t *sx)
 {
   struct rules *pending = pfcp_get_rules (sx, PFCP_PENDING);
   struct rules *active = pfcp_get_rules (sx, PFCP_ACTIVE);
@@ -2089,10 +2088,10 @@ pfcp_update_apply (upf_session_t * sx)
   if (pending_pdr)
     {
       if (build_pfcp_rules (sx) != 0)
-	{
-	  vlib_worker_thread_barrier_release (vm);
-	  return -1;
-	}
+        {
+          vlib_worker_thread_barrier_release (vm);
+          return -1;
+        }
     }
   else
     {
@@ -2125,30 +2124,28 @@ pfcp_update_apply (upf_session_t * sx)
       upf_far_t *far;
 
       vec_foreach (far, pending->far)
-      {
-	if (far->forward.outer_header_creation.description != 0)
-	  {
-	    far->forward.peer_idx = peer_addr_ref (&far->forward);
+        {
+          if (far->forward.outer_header_creation.description != 0)
+            {
+              far->forward.peer_idx = peer_addr_ref (&far->forward);
 
-	    if (far->forward.outer_header_creation.description
-		& OUTER_HEADER_CREATION_GTP_IP4)
-	      {
-		rules_add_v4_teid (pending,
-				   &far->forward.outer_header_creation.ip.ip4,
-				   far->forward.outer_header_creation.teid,
-				   far->id);
-	      }
-	    else if (far->forward.outer_header_creation.description
-		     & OUTER_HEADER_CREATION_GTP_IP6)
-	      {
-		rules_add_v6_teid (pending,
-				   &far->forward.outer_header_creation.ip.ip6,
-				   far->forward.outer_header_creation.teid,
-				   far->id);
-	      }
-	  }
-	upf_ref_forwarding_policies (far, 0);
-      }
+              if (far->forward.outer_header_creation.description &
+                  OUTER_HEADER_CREATION_GTP_IP4)
+                {
+                  rules_add_v4_teid (
+                    pending, &far->forward.outer_header_creation.ip.ip4,
+                    far->forward.outer_header_creation.teid, far->id);
+                }
+              else if (far->forward.outer_header_creation.description &
+                       OUTER_HEADER_CREATION_GTP_IP6)
+                {
+                  rules_add_v6_teid (
+                    pending, &far->forward.outer_header_creation.ip.ip6,
+                    far->forward.outer_header_creation.teid, far->id);
+                }
+            }
+          upf_ref_forwarding_policies (far, 0);
+        }
     }
   else
     pending->far = active->far;
@@ -2163,9 +2160,9 @@ pfcp_update_apply (upf_session_t * sx)
       upf_qer_t *qer;
 
       vec_foreach (qer, pending->qer)
-      {
-	attach_qer_policer (qer);
-      }
+        {
+          attach_qer_policer (qer);
+        }
     }
   else
     pending->qer = active->qer;
@@ -2176,11 +2173,11 @@ pfcp_update_apply (upf_session_t * sx)
 
       /* update UE addresses and TEIDs */
       vec_diff (pending->ue_dst_ip, active->ue_dst_ip, ip46_address_fib_cmp,
-		pfcp_add_del_ue_ip, sx);
+                pfcp_add_del_ue_ip, sx);
       vec_diff (pending->v4_teid, active->v4_teid, v4_teid_cmp,
-		pfcp_add_del_v4_teid, sx);
+                pfcp_add_del_v4_teid, sx);
       vec_diff (pending->v6_teid, active->v6_teid, v6_teid_cmp,
-		pfcp_add_del_v6_teid, sx);
+                pfcp_add_del_v6_teid, sx);
 
       upf_debug ("v4 TEIDs %u\n", pending->v4_teid);
       upf_debug ("v6 TEIDs %u\n", pending->v6_teid);
@@ -2189,13 +2186,13 @@ pfcp_update_apply (upf_session_t * sx)
       upf_debug ("v6 ACLs %u\n", pending->v6_acls);
 
       vec_diff (pending->ue_src_ip, active->ue_src_ip, ip46_address_fib_cmp,
-		pfcp_add_del_ue_ip, sx);
+                pfcp_add_del_ue_ip, sx);
 
       /* has PDRs but no TEIDs or UE IPs, add to global wildcard TDF table */
       vec_diff (pending->v4_acls, active->v4_acls, upf_acl_cmp,
-		pfcp_add_del_v4_tdf, sx);
+                pfcp_add_del_v4_tdf, sx);
       vec_diff (pending->v6_acls, active->v6_acls, upf_acl_cmp,
-		pfcp_add_del_v6_tdf, sx);
+                pfcp_add_del_v6_tdf, sx);
     }
 
   /* flip the switch */
@@ -2208,18 +2205,18 @@ pfcp_update_apply (upf_session_t * sx)
   if (active->inactivity_timer.handle != pending->inactivity_timer.handle)
     upf_pfcp_session_stop_up_inactivity_timer (&pending->inactivity_timer);
   upf_pfcp_session_start_up_inactivity_timer (si, sx->last_ul_traffic,
-					      &active->inactivity_timer);
+                                              &active->inactivity_timer);
 
   if (pending_far)
     {
       upf_far_t *far;
 
       vec_foreach (far, pending->far)
-      {
-	upf_ref_forwarding_policies (far, 1);
-	if (far->forward.outer_header_creation.description != 0)
-	  peer_addr_unref (&far->forward);
-      }
+        {
+          upf_ref_forwarding_policies (far, 1);
+          if (far->forward.outer_header_creation.description != 0)
+            peer_addr_unref (&far->forward);
+        }
     }
 
   vlib_worker_thread_barrier_release (vm);
@@ -2229,63 +2226,61 @@ pfcp_update_apply (upf_session_t * sx)
       send_end_marker_t *send_em;
 
       vec_foreach (send_em, active->send_end_marker)
-      {
-	upf_far_t r = {.id = send_em->far_id };
-	upf_far_t *far;
-	int is_ip4;
-	u32 bi;
+        {
+          upf_far_t r = { .id = send_em->far_id };
+          upf_far_t *far;
+          int is_ip4;
+          u32 bi;
 
-	if (!(far = vec_bsearch (&r, pending->far, pfcp_far_id_compare)))
-	  continue;
+          if (!(far = vec_bsearch (&r, pending->far, pfcp_far_id_compare)))
+            continue;
 
-	is_ip4 =
-	  !!(far->forward.outer_header_creation.description &
-	     OUTER_HEADER_CREATION_ANY_IP4);
+          is_ip4 = !!(far->forward.outer_header_creation.description &
+                      OUTER_HEADER_CREATION_ANY_IP4);
 
-	upf_debug ("TODO: send_end_marker for FAR %d", far->id);
-	bi = upf_gtpu_end_marker (send_em->fib_index, send_em->dpoi_index,
-				  far->forward.rewrite, is_ip4);
-	upf_ip_lookup_tx (bi, is_ip4);
-      }
+          upf_debug ("TODO: send_end_marker for FAR %d", far->id);
+          bi = upf_gtpu_end_marker (send_em->fib_index, send_em->dpoi_index,
+                                    far->forward.rewrite, is_ip4);
+          upf_ip_lookup_tx (bi, is_ip4);
+        }
       vec_free (active->send_end_marker);
     }
 
   vec_foreach (urr, active->urr)
-  {
-    if (urr->update_flags & PFCP_URR_UPDATE_MEASUREMENT_PERIOD)
-      {
-	upf_pfcp_session_start_stop_urr_time
-	  (si, &urr->measurement_period,
-	   !!(urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING));
-      }
+    {
+      if (urr->update_flags & PFCP_URR_UPDATE_MEASUREMENT_PERIOD)
+        {
+          upf_pfcp_session_start_stop_urr_time (
+            si, &urr->measurement_period,
+            !!(urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING));
+        }
 
-    if ((urr->methods & PFCP_URR_TIME))
-      {
-	if (urr->update_flags & PFCP_URR_UPDATE_TIME_THRESHOLD)
-	  {
-	    upf_pfcp_session_start_stop_urr_time
-	      (si, &urr->time_threshold,
-	       !!(urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD));
-	  }
-	if (urr->update_flags & PFCP_URR_UPDATE_TIME_QUOTA)
-	  {
-	    urr->time_quota.base =
-	      (urr->time_threshold.base !=
-	       0) ? urr->time_threshold.base : now;
-	    upf_pfcp_session_start_stop_urr_time (si, &urr->time_quota,
-						  !!(urr->triggers &
-						     REPORTING_TRIGGER_TIME_QUOTA));
-	  }
-      }
-    if (urr->update_flags & PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME)
-      {
-	urr->quota_validity_time.base = now;
-	upf_pfcp_session_start_stop_urr_time (si,
-					      &urr->quota_validity_time,
-					      !!(urr->triggers &
-						 REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
-      }
-  }
+      if ((urr->methods & PFCP_URR_TIME))
+        {
+          if (urr->update_flags & PFCP_URR_UPDATE_TIME_THRESHOLD)
+            {
+              upf_pfcp_session_start_stop_urr_time (
+                si, &urr->time_threshold,
+                !!(urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD));
+            }
+          if (urr->update_flags & PFCP_URR_UPDATE_TIME_QUOTA)
+            {
+              urr->time_quota.base = (urr->time_threshold.base != 0) ?
+                                       urr->time_threshold.base :
+                                       now;
+              upf_pfcp_session_start_stop_urr_time (
+                si, &urr->time_quota,
+                !!(urr->triggers & REPORTING_TRIGGER_TIME_QUOTA));
+            }
+        }
+      if (urr->update_flags & PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME)
+        {
+          urr->quota_validity_time.base = now;
+          upf_pfcp_session_start_stop_urr_time (
+            si, &urr->quota_validity_time,
+            !!(urr->triggers & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
+        }
+    }
 
   if (!pending_pdr)
     pending->pdr = NULL;
@@ -2300,52 +2295,54 @@ pfcp_update_apply (upf_session_t * sx)
       /* copy rest traffic from old active (now pending) to current
        * new URR was initialized with zero, simply add the old values */
       vec_foreach (urr, pending->urr)
-      {
-	upf_urr_t *new_urr = pfcp_get_urr_by_id (active, urr->id);
+        {
+          upf_urr_t *new_urr = pfcp_get_urr_by_id (active, urr->id);
 
-	if (!new_urr)
-	  {
-	    /* stop all timers */
-	    upf_pfcp_session_stop_urr_time (&urr->measurement_period, now);
-	    upf_pfcp_session_stop_urr_time (&urr->time_threshold, now);
-	    upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
-	    upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
-	    upf_pfcp_session_stop_urr_time (&urr->traffic_timer, now);
+          if (!new_urr)
+            {
+              /* stop all timers */
+              upf_pfcp_session_stop_urr_time (&urr->measurement_period, now);
+              upf_pfcp_session_stop_urr_time (&urr->time_threshold, now);
+              upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
+              upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
+              upf_pfcp_session_stop_urr_time (&urr->traffic_timer, now);
 
-	    continue;
-	  }
+              continue;
+            }
 
-	new_urr->traffic = urr->traffic;
-	new_urr->traffic_by_ue = urr->traffic_by_ue;
-	urr->traffic = NULL;
-	urr->traffic_by_ue = NULL;
+          new_urr->traffic = urr->traffic;
+          new_urr->traffic_by_ue = urr->traffic_by_ue;
+          urr->traffic = NULL;
+          urr->traffic_by_ue = NULL;
 
-	if ((new_urr->methods & PFCP_URR_VOLUME))
-	  {
-	    urr_volume_t *old_volume = &urr->volume;
-	    urr_volume_t *new_volume = &new_urr->volume;
+          if ((new_urr->methods & PFCP_URR_VOLUME))
+            {
+              urr_volume_t *old_volume = &urr->volume;
+              urr_volume_t *new_volume = &new_urr->volume;
 
-#define combine_volume_type(Dst, Src, T, D)		\
-	      (Dst)->measure.T.D += (Src)->measure.T.D
-#define combine_volume(Dst, Src, T)				\
-	      do {						\
-		combine_volume_type((Dst), (Src), T, ul);	\
-		combine_volume_type((Dst), (Src), T, dl);	\
-		combine_volume_type((Dst), (Src), T, total);	\
-	      } while (0)
+#define combine_volume_type(Dst, Src, T, D)                                   \
+  (Dst)->measure.T.D += (Src)->measure.T.D
+#define combine_volume(Dst, Src, T)                                           \
+  do                                                                          \
+    {                                                                         \
+      combine_volume_type ((Dst), (Src), T, ul);                              \
+      combine_volume_type ((Dst), (Src), T, dl);                              \
+      combine_volume_type ((Dst), (Src), T, total);                           \
+    }                                                                         \
+  while (0)
 
-	    combine_volume (new_volume, old_volume, packets);
-	    combine_volume (new_volume, old_volume, bytes);
+              combine_volume (new_volume, old_volume, packets);
+              combine_volume (new_volume, old_volume, bytes);
 
-	    if (new_urr->update_flags & PFCP_URR_UPDATE_VOLUME_QUOTA)
-	      new_volume->measure.consumed = new_volume->measure.bytes;
-	    else
-	      combine_volume (new_volume, old_volume, consumed);
+              if (new_urr->update_flags & PFCP_URR_UPDATE_VOLUME_QUOTA)
+                new_volume->measure.consumed = new_volume->measure.bytes;
+              else
+                combine_volume (new_volume, old_volume, consumed);
 
 #undef combine_volume
 #undef combine_volume_type
-	  }
-      }
+            }
+        }
 
 #ifdef UPF_FLOW_SESSION_SPINLOCK
       clib_spinlock_unlock (&sx->lock);
@@ -2360,7 +2357,7 @@ pfcp_update_apply (upf_session_t * sx)
 }
 
 void
-pfcp_update_finish (upf_session_t * sx)
+pfcp_update_finish (upf_session_t *sx)
 {
   pfcp_free_rules (sx, PFCP_PENDING);
 }
@@ -2384,13 +2381,12 @@ pfcp_lookup_up_seid (uint64_t up_seid)
   return pool_elt_at_index (gtm->sessions, p[0]);
 }
 
-
 upf_session_t *
 pfcp_lookup_cp_cached_f_seid (u32 cached_f_seid_idx, u64 cp_seid)
 {
   upf_main_t *gtm = &upf_main;
 
-  upf_cp_fseid_key_t fseid_key = { };
+  upf_cp_fseid_key_t fseid_key = {};
   fseid_key.seid = cp_seid;
   fseid_key.cached_f_seid_id = cached_f_seid_idx;
 
@@ -2402,7 +2398,7 @@ pfcp_lookup_cp_cached_f_seid (u32 cached_f_seid_idx, u64 cp_seid)
 }
 
 upf_session_t *
-pfcp_lookup_cp_f_seid (pfcp_f_seid_t * f_seid)
+pfcp_lookup_cp_f_seid (pfcp_f_seid_t *f_seid)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -2420,8 +2416,8 @@ pfcp_lookup_cp_f_seid (pfcp_f_seid_t * f_seid)
 }
 
 static int
-urr_increment_and_check_counter (u64 * packets, u64 * bytes, u64 * consumed,
-				 u64 threshold, u64 quota, u64 n_bytes)
+urr_increment_and_check_counter (u64 *packets, u64 *bytes, u64 *consumed,
+                                 u64 threshold, u64 quota, u64 n_bytes)
 {
   int r = URR_OK;
 
@@ -2442,7 +2438,7 @@ urr_increment_and_check_counter (u64 * packets, u64 * bytes, u64 * consumed,
 
 #ifdef UPF_TRAFFIC_LOG
 static u8 *
-format_tcp_flags_brief (u8 * s, va_list * args)
+format_tcp_flags_brief (u8 *s, va_list *args)
 {
   int flags = va_arg (*args, int);
 
@@ -2467,10 +2463,9 @@ format_tcp_flags_brief (u8 * s, va_list * args)
 }
 
 static void
-display_packet_for_urr (vlib_main_t * vm, vlib_buffer_t * b,
-			const char *node_name,
-			u16 urr_id, u8 is_ul, u8 is_dl,
-			u64 up, u64 down, u64 tot, uword len, u8 is_ip4)
+display_packet_for_urr (vlib_main_t *vm, vlib_buffer_t *b,
+                        const char *node_name, u16 urr_id, u8 is_ul, u8 is_dl,
+                        u64 up, u64 down, u64 tot, uword len, u8 is_ip4)
 {
   if (b->current_length < sizeof (ip4_header_t))
     {
@@ -2487,22 +2482,22 @@ display_packet_for_urr (vlib_main_t * vm, vlib_buffer_t * b,
     {
       ip4_header_t *ip = (ip4_header_t *) vlib_buffer_get_current (b);
       u32 header_bytes =
-	(ip->ip_version_and_header_length & 0xf) * sizeof (u32);
+        (ip->ip_version_and_header_length & 0xf) * sizeof (u32);
       bytes_left = b->current_length - header_bytes;
 
       if (b->current_length < sizeof (header_bytes))
-	{
-	  clib_warning ("URR LOG: IP header truncated");
-	  return;
-	}
+        {
+          clib_warning ("URR LOG: IP header truncated");
+          return;
+        }
 
       next_header = (u8 *) vlib_buffer_get_current (b) + header_bytes;
-      s =
-	format (0,
-		"URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
-		urr_id, is_ul, is_dl, up, down, tot, format_ip4_address,
-		ip->src_address.data, format_ip4_address,
-		ip->dst_address.data, len, format_ip_protocol, ip->protocol);
+      s = format (0,
+                  "URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U "
+                  "-> %U: len %u: %U",
+                  urr_id, is_ul, is_dl, up, down, tot, format_ip4_address,
+                  ip->src_address.data, format_ip4_address,
+                  ip->dst_address.data, len, format_ip_protocol, ip->protocol);
       protocol = ip->protocol;
     }
   else
@@ -2510,47 +2505,47 @@ display_packet_for_urr (vlib_main_t * vm, vlib_buffer_t * b,
       ip6_header_t *ip = (ip6_header_t *) vlib_buffer_get_current (b);
       next_header = (u8 *) ip6_next_header (ip);
       bytes_left = b->current_length - sizeof (ip6_header_t);
-      s =
-	format (0,
-		"URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U -> %U: len %u: %U",
-		urr_id, is_ul, is_dl, up, down, tot, format_ip6_address,
-		&ip->src_address, format_ip6_address, &ip->dst_address, len,
-		format_ip_protocol, ip->protocol);
+      s = format (0,
+                  "URR Id %d is_ul %d is_dl %d up %llu down %llu tot %llu: %U "
+                  "-> %U: len %u: %U",
+                  urr_id, is_ul, is_dl, up, down, tot, format_ip6_address,
+                  &ip->src_address, format_ip6_address, &ip->dst_address, len,
+                  format_ip_protocol, ip->protocol);
       protocol = ip->protocol;
     }
   switch (protocol)
     {
     case IP_PROTOCOL_TCP:
       if (bytes_left < sizeof (tcp_header_t))
-	{
-	  s = format (s, " <truncated>");
-	}
+        {
+          s = format (s, " <truncated>");
+        }
       else
-	{
-	  tcp_header_t *tcp = (tcp_header_t *) next_header;
-	  s = format (s, " %u -> %u flags %U seq %u ack %u",
-		      clib_net_to_host_u16 (tcp->src_port),
-		      clib_net_to_host_u16 (tcp->dst_port),
-		      format_tcp_flags_brief, tcp->flags,
-		      clib_net_to_host_u32 (tcp->seq_number),
-		      clib_net_to_host_u32 (tcp->ack_number));
-	}
+        {
+          tcp_header_t *tcp = (tcp_header_t *) next_header;
+          s = format (s, " %u -> %u flags %U seq %u ack %u",
+                      clib_net_to_host_u16 (tcp->src_port),
+                      clib_net_to_host_u16 (tcp->dst_port),
+                      format_tcp_flags_brief, tcp->flags,
+                      clib_net_to_host_u32 (tcp->seq_number),
+                      clib_net_to_host_u32 (tcp->ack_number));
+        }
       break;
     case IP_PROTOCOL_UDP:
       if (bytes_left < sizeof (udp_header_t))
-	{
-	  s = format (s, " <truncated>");
-	}
+        {
+          s = format (s, " <truncated>");
+        }
       else
-	{
-	  udp_header_t *udp = (udp_header_t *) next_header;
-	  s = format (s, " %u -> %u",
-		      clib_net_to_host_u16 (udp->src_port),
-		      clib_net_to_host_u16 (udp->dst_port));
-	}
+        {
+          udp_header_t *udp = (udp_header_t *) next_header;
+          s = format (s, " %u -> %u", clib_net_to_host_u16 (udp->src_port),
+                      clib_net_to_host_u16 (udp->dst_port));
+        }
       break;
     case IP_PROTOCOL_ICMP:
-      /* s = format (s, "%U", format_ip4_icmp_header, next_header, bytes_left); */
+      /* s = format (s, "%U", format_ip4_icmp_header, next_header, bytes_left);
+       */
       s = format (s, "icmp");
       break;
     }
@@ -2565,14 +2560,13 @@ display_packet_for_urr (vlib_main_t * vm, vlib_buffer_t * b,
  * @brief Function to process URRs.
  *
  * @return true if the packet should be dropped, false otherwise
-*/
+ */
 bool
-process_urrs (vlib_main_t * vm, upf_session_t * sess,
-	      const char *node_name,
-	      struct rules *active,
-	      upf_pdr_t * pdr, vlib_buffer_t * b, u8 is_dl, u8 is_ul)
+process_urrs (vlib_main_t *vm, upf_session_t *sess, const char *node_name,
+              struct rules *active, upf_pdr_t *pdr, vlib_buffer_t *b, u8 is_dl,
+              u8 is_ul)
 {
-  upf_urr_traffic_t tt = {.ip = ip46_address_initializer };
+  upf_urr_traffic_t tt = { .ip = ip46_address_initializer };
   upf_event_urr_data_t *uev = NULL;
   f64 now = vlib_time_now (vm);
   upf_main_t *gtm = &upf_main;
@@ -2591,179 +2585,172 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
     sess->last_ul_traffic = now;
 
   vec_foreach (urr_id, pdr->urr_ids)
-  {
-    upf_urr_t *urr = pfcp_get_urr_by_id (active, *urr_id);
-    int r = URR_OK;
+    {
+      upf_urr_t *urr = pfcp_get_urr_by_id (active, *urr_id);
+      int r = URR_OK;
 
-    if (!urr)
-      continue;
+      if (!urr)
+        continue;
 
 #if CLIB_DEBUG > 2
-    f64 unow = unix_time_now ();
-    upf_debug
-      ("Monitoring Time: %12.4f - %12.4f : %12.4f Unix: %U - %U : %12.4f",
-       urr->monitoring_time.vlib_time, now,
-       urr->monitoring_time.vlib_time - now, format_time_float, NULL,
-       urr->monitoring_time.unix_time, format_time_float, NULL, unow,
-       urr->monitoring_time.unix_time - unow);
+      f64 unow = unix_time_now ();
+      upf_debug (
+        "Monitoring Time: %12.4f - %12.4f : %12.4f Unix: %U - %U : %12.4f",
+        urr->monitoring_time.vlib_time, now,
+        urr->monitoring_time.vlib_time - now, format_time_float, NULL,
+        urr->monitoring_time.unix_time, format_time_float, NULL, unow,
+        urr->monitoring_time.unix_time - unow);
 #endif
 
-    if (urr->monitoring_time.vlib_time < now)
-      {
-	if ((urr->status & URR_AFTER_MONITORING_TIME))
-	  {
-	    clib_warning ("Possible control plane bug:"
-			  " dropping the session 0x%016" PRIx64
-			  " instead of enqueueing 2nd Monitoring Time split",
-			  sess->up_seid);
-	    status |= URR_DROP_SESSION;
-	    break;
-	  }
+      if (urr->monitoring_time.vlib_time < now)
+        {
+          if ((urr->status & URR_AFTER_MONITORING_TIME))
+            {
+              clib_warning ("Possible control plane bug:"
+                            " dropping the session 0x%016" PRIx64
+                            " instead of enqueueing 2nd Monitoring Time split",
+                            sess->up_seid);
+              status |= URR_DROP_SESSION;
+              break;
+            }
 
-	urr->usage_before_monitoring_time.volume = urr->volume.measure;
-	memset (&urr->volume.measure.packets, 0,
-		sizeof (urr->volume.measure.packets));
-	memset (&urr->volume.measure.bytes, 0,
-		sizeof (urr->volume.measure.bytes));
+          urr->usage_before_monitoring_time.volume = urr->volume.measure;
+          memset (&urr->volume.measure.packets, 0,
+                  sizeof (urr->volume.measure.packets));
+          memset (&urr->volume.measure.bytes, 0,
+                  sizeof (urr->volume.measure.bytes));
 
-	urr->usage_before_monitoring_time.start_time = urr->start_time;
-	urr->usage_before_monitoring_time.time_of_first_packet =
-	  urr->time_of_first_packet;
-	urr->usage_before_monitoring_time.time_of_last_packet =
-	  urr->time_of_last_packet;
-	urr->start_time = urr->monitoring_time.unix_time;
-	urr->time_of_first_packet = now;
-	urr->monitoring_time.vlib_time = INFINITY;
-	urr->status |= URR_AFTER_MONITORING_TIME;
-      }
+          urr->usage_before_monitoring_time.start_time = urr->start_time;
+          urr->usage_before_monitoring_time.time_of_first_packet =
+            urr->time_of_first_packet;
+          urr->usage_before_monitoring_time.time_of_last_packet =
+            urr->time_of_last_packet;
+          urr->start_time = urr->monitoring_time.unix_time;
+          urr->time_of_first_packet = now;
+          urr->monitoring_time.vlib_time = INFINITY;
+          urr->status |= URR_AFTER_MONITORING_TIME;
+        }
 
-    if (urr->time_of_first_packet == INFINITY)
-      urr->time_of_first_packet = now;
-    urr->time_of_last_packet = now;
+      if (urr->time_of_first_packet == INFINITY)
+        urr->time_of_first_packet = now;
+      urr->time_of_last_packet = now;
 
-    if ((urr->methods & PFCP_URR_VOLUME))
-      {
-	uword len = vlib_buffer_length_in_chain (vm, b);
+      if ((urr->methods & PFCP_URR_VOLUME))
+        {
+          uword len = vlib_buffer_length_in_chain (vm, b);
 
-#define urr_incr_and_check(V, D, L)					\
-	  urr_increment_and_check_counter(&V.measure.packets.D,		\
-					  &V.measure.bytes.D,		\
-					  &V.measure.consumed.D,	\
-					  V.threshold.D,		\
-					  V.quota.D,			\
-					  (L))
+#define urr_incr_and_check(V, D, L)                                           \
+  urr_increment_and_check_counter (&V.measure.packets.D, &V.measure.bytes.D,  \
+                                   &V.measure.consumed.D, V.threshold.D,      \
+                                   V.quota.D, (L))
 
-	if (is_ul)
-	  r |= urr_incr_and_check (urr->volume, ul, len);
-	if (is_dl)
-	  r |= urr_incr_and_check (urr->volume, dl, len);
+          if (is_ul)
+            r |= urr_incr_and_check (urr->volume, ul, len);
+          if (is_dl)
+            r |= urr_incr_and_check (urr->volume, dl, len);
 
-	r |= urr_incr_and_check (urr->volume, total, len);
+          r |= urr_incr_and_check (urr->volume, total, len);
 
 #ifdef UPF_TRAFFIC_LOG
-	ip4_header_t *iph =
-	  (ip4_header_t *) (b->data + vnet_buffer (b)->l3_hdr_offset);
-	display_packet_for_urr (vm, b, node_name, *urr_id,
-				is_ul, is_dl,
-				urr->volume.measure.bytes.ul,
-				urr->volume.measure.bytes.dl,
-				urr->volume.measure.bytes.total,
-				len,
-				(iph->ip_version_and_header_length & 0xF0) ==
-				0x40);
+          ip4_header_t *iph =
+            (ip4_header_t *) (b->data + vnet_buffer (b)->l3_hdr_offset);
+          display_packet_for_urr (
+            vm, b, node_name, *urr_id, is_ul, is_dl,
+            urr->volume.measure.bytes.ul, urr->volume.measure.bytes.dl,
+            urr->volume.measure.bytes.total, len,
+            (iph->ip_version_and_header_length & 0xF0) == 0x40);
 #endif
 
-	if (PREDICT_FALSE (r & URR_QUOTA_EXHAUSTED))
-	  urr->status |= URR_OVER_QUOTA;
-      }
+          if (PREDICT_FALSE (r & URR_QUOTA_EXHAUSTED))
+            urr->status |= URR_OVER_QUOTA;
+        }
 
-    if ((urr->methods & PFCP_URR_EVENT) &&
-	(urr->triggers & REPORTING_TRIGGER_START_OF_TRAFFIC))
-      {
-	ip4_header_t *iph =
-	  (ip4_header_t *) (b->data + vnet_buffer (b)->l3_hdr_offset);
-	upf_urr_traffic_t *t = NULL;
+      if ((urr->methods & PFCP_URR_EVENT) &&
+          (urr->triggers & REPORTING_TRIGGER_START_OF_TRAFFIC))
+        {
+          ip4_header_t *iph =
+            (ip4_header_t *) (b->data + vnet_buffer (b)->l3_hdr_offset);
+          upf_urr_traffic_t *t = NULL;
 
-	if (ip46_address_is_zero (&tt.ip))
-	  {
-	    // calculate session key based on PDI and check session table....
-	    if ((iph->ip_version_and_header_length & 0xF0) == 0x40)
-	      {
-		if (is_dl)
-		  ip46_address_set_ip4 (&tt.ip, &iph->dst_address);
-		if (is_ul)
-		  ip46_address_set_ip4 (&tt.ip, &iph->src_address);
-	      }
-	    else
-	      {
-		ip6_header_t *ip6 =
-		  (ip6_header_t *) (b->data + vnet_buffer (b)->l3_hdr_offset);
+          if (ip46_address_is_zero (&tt.ip))
+            {
+              // calculate session key based on PDI and check session table....
+              if ((iph->ip_version_and_header_length & 0xF0) == 0x40)
+                {
+                  if (is_dl)
+                    ip46_address_set_ip4 (&tt.ip, &iph->dst_address);
+                  if (is_ul)
+                    ip46_address_set_ip4 (&tt.ip, &iph->src_address);
+                }
+              else
+                {
+                  ip6_header_t *ip6 =
+                    (ip6_header_t *) (b->data +
+                                      vnet_buffer (b)->l3_hdr_offset);
 
-		ASSERT ((iph->ip_version_and_header_length & 0xF0) == 0x60);
+                  ASSERT ((iph->ip_version_and_header_length & 0xF0) == 0x60);
 
-		if (is_dl)
-		  ip46_address_set_ip6 (&tt.ip, &ip6->dst_address);
-		if (is_ul)
-		  ip46_address_set_ip6 (&tt.ip, &ip6->src_address);
-	      }
-	  }
+                  if (is_dl)
+                    ip46_address_set_ip6 (&tt.ip, &ip6->dst_address);
+                  if (is_ul)
+                    ip46_address_set_ip6 (&tt.ip, &ip6->src_address);
+                }
+            }
 
-	upf_debug ("Start Of Traffic UE IP: %U, Pool: %p, Hash: %p\n",
-		   format_ip46_address, &tt.ip, IP46_TYPE_ANY,
-		   urr->traffic, urr->traffic_by_ue);
+          upf_debug ("Start Of Traffic UE IP: %U, Pool: %p, Hash: %p\n",
+                     format_ip46_address, &tt.ip, IP46_TYPE_ANY, urr->traffic,
+                     urr->traffic_by_ue);
 
-	if (urr->traffic_by_ue)
-	  {
-	    uword *p;
+          if (urr->traffic_by_ue)
+            {
+              uword *p;
 
-	    ASSERT (urr->traffic != NULL);
+              ASSERT (urr->traffic != NULL);
 
-	    p = hash_get_mem (urr->traffic_by_ue, &tt.ip);
-	    if (p)
-	      t = pool_elt_at_index (urr->traffic, p[0]);
-	  }
+              p = hash_get_mem (urr->traffic_by_ue, &tt.ip);
+              if (p)
+                t = pool_elt_at_index (urr->traffic, p[0]);
+            }
 
-	if (!t)
-	  {
-	    upf_event_urr_data_t ev = {
-	      .urr_id = urr->id,
-	      .trigger = URR_START_OF_TRAFFIC
-	    };
+          if (!t)
+            {
+              upf_event_urr_data_t ev = { .urr_id = urr->id,
+                                          .trigger = URR_START_OF_TRAFFIC };
 
-	    /* no traffic for this UE */
-	    if (!urr->traffic_by_ue)
-	      urr->traffic_by_ue =
-		hash_create_mem (0, sizeof (ip46_address_t), sizeof (uword));
+              /* no traffic for this UE */
+              if (!urr->traffic_by_ue)
+                urr->traffic_by_ue =
+                  hash_create_mem (0, sizeof (ip46_address_t), sizeof (uword));
 
-	    pool_get (urr->traffic, t);
-	    *t = tt;
-	    t->first_seen = now;
-	    hash_set_mem_alloc (&urr->traffic_by_ue, &t->ip,
-				t - urr->traffic);
+              pool_get (urr->traffic, t);
+              *t = tt;
+              t->first_seen = now;
+              hash_set_mem_alloc (&urr->traffic_by_ue, &t->ip,
+                                  t - urr->traffic);
 
-	    vec_add1_ha (uev, ev, sizeof (upf_event_urr_hdr_t), 0);
-	    status |= URR_START_OF_TRAFFIC;
-	  }
-	else if (t && t->first_seen + 10 < now)
-	  {
-	    upf_event_urr_data_t *ev;
+              vec_add1_ha (uev, ev, sizeof (upf_event_urr_hdr_t), 0);
+              status |= URR_START_OF_TRAFFIC;
+            }
+          else if (t && t->first_seen + 10 < now)
+            {
+              upf_event_urr_data_t *ev;
 
-	    /* crude 10 second timeout */
+              /* crude 10 second timeout */
 
-	    t->first_seen = now;
-	    vec_add2_ha (uev, ev, 1, sizeof (upf_event_urr_hdr_t), 0);
-	    ev->urr_id = urr->id;
-	    ev->trigger = URR_START_OF_TRAFFIC;
-	    status |= URR_START_OF_TRAFFIC;
-	  }
-	// TODO: trafic was expired, rearm and send report
-      }
+              t->first_seen = now;
+              vec_add2_ha (uev, ev, 1, sizeof (upf_event_urr_hdr_t), 0);
+              ev->urr_id = urr->id;
+              ev->trigger = URR_START_OF_TRAFFIC;
+              status |= URR_START_OF_TRAFFIC;
+            }
+          // TODO: trafic was expired, rearm and send report
+        }
 
-    if (PREDICT_FALSE (urr->status & URR_OVER_QUOTA))
-      ret = false;
+      if (PREDICT_FALSE (urr->status & URR_OVER_QUOTA))
+        ret = false;
 
-    status |= r;
-  }
+      status |= r;
+    }
 
 #ifdef UPF_FLOW_SESSION_SPINLOCK
   clib_spinlock_unlock (&sess->lock);
@@ -2790,11 +2777,10 @@ process_urrs (vlib_main_t * vm, upf_session_t * sess,
  * @brief Function to process QERs.
  *
  * @return true if the packet should be dropped, false otherwise
-*/
+ */
 bool
-process_qers (vlib_main_t * vm, upf_session_t * sess,
-	      struct rules *r,
-	      upf_pdr_t * pdr, vlib_buffer_t * b, u8 is_dl, u8 is_ul)
+process_qers (vlib_main_t *vm, upf_session_t *sess, struct rules *r,
+              upf_pdr_t *pdr, vlib_buffer_t *b, u8 is_dl, u8 is_ul)
 {
   u8 direction = is_dl ? UPF_DL : UPF_UL;
   upf_main_t *gtm = &upf_main;
@@ -2815,140 +2801,102 @@ process_qers (vlib_main_t * vm, upf_session_t * sess,
   len = vlib_buffer_length_in_chain (vm, b);
 
   vec_foreach (qer_id, pdr->qer_ids)
-  {
-    upf_qer_t *qer = pfcp_get_qer_by_id (r, *qer_id);
-    upf_qer_policer_t *pol;
-    u32 col __attribute__((unused));
+    {
+      upf_qer_t *qer = pfcp_get_qer_by_id (r, *qer_id);
+      upf_qer_policer_t *pol;
+      u32 col __attribute__ ((unused));
 
-    if (!qer)
-      continue;
+      if (!qer)
+        continue;
 
-    if (!(qer->flags & PFCP_QER_MBR))
-      continue;
+      if (!(qer->flags & PFCP_QER_MBR))
+        continue;
 
-    if (qer->gate_status[direction])
-      {
-	ret = false;
-	break;
-      }
+      if (qer->gate_status[direction])
+        {
+          ret = false;
+          break;
+        }
 
-    pol = pool_elt_at_index (gtm->qer_policers, qer->policer.value);
-    col =
-      vnet_police_packet (&pol->policer[direction], len, POLICE_CONFORM,
-			  time_in_policer_periods);
-    upf_debug ("QER color: %d\n", col);
-  }
+      pol = pool_elt_at_index (gtm->qer_policers, qer->policer.value);
+      col = vnet_police_packet (&pol->policer[direction], len, POLICE_CONFORM,
+                                time_in_policer_periods);
+      upf_debug ("QER color: %d\n", col);
+    }
 
   return ret;
 }
 
+static const char *apply_action_flags[] = { "DROP",      "FORWARD",   "BUFFER",
+                                            "NOTIFY_CP", "DUPLICATE", NULL };
 
+static const char *urr_method_flags[] = { "TIME", "VOLUME", "EVENT", NULL };
 
+static const char *urr_trigger_flags[] = { "PERIODIC REPORTING",
+                                           "VOLUME THRESHOLD",
+                                           "TIME THRESHOLD",
+                                           "QUOTA HOLDING TIME",
+                                           "START OF TRAFFIC",
+                                           "STOP OF TRAFFIC",
+                                           "DROPPED DL TRAFFIC THRESHOLD",
+                                           "LINKED USAGE REPORTING",
+                                           "VOLUME QUOTA",
+                                           "TIME QUOTA",
+                                           "ENVELOPE CLOSURE",
+                                           NULL };
 
-static const char *apply_action_flags[] = {
-  "DROP",
-  "FORWARD",
-  "BUFFER",
-  "NOTIFY_CP",
-  "DUPLICATE",
-  NULL
-};
+static const char *urr_status_flags[] = { "OVER QUOTA",
+                                          "AFTER MONITORING TIME", "REPORTED",
+                                          NULL };
 
-static const char *urr_method_flags[] = {
-  "TIME",
-  "VOLUME",
-  "EVENT",
-  NULL
-};
-
-static const char *urr_trigger_flags[] = {
-  "PERIODIC REPORTING",
-  "VOLUME THRESHOLD",
-  "TIME THRESHOLD",
-  "QUOTA HOLDING TIME",
-  "START OF TRAFFIC",
-  "STOP OF TRAFFIC",
-  "DROPPED DL TRAFFIC THRESHOLD",
-  "LINKED USAGE REPORTING",
-  "VOLUME QUOTA",
-  "TIME QUOTA",
-  "ENVELOPE CLOSURE",
-  NULL
-};
-
-static const char *urr_status_flags[] = {
-  "OVER QUOTA",
-  "AFTER MONITORING TIME",
-  "REPORTED",
-  NULL
-};
-
-static const char *source_intf_name[] = {
-  "Access",
-  "Core",
-  "SGi-LAN",
-  "CP-function"
-};
+static const char *source_intf_name[] = { "Access", "Core", "SGi-LAN",
+                                          "CP-function" };
 
 static const char *outer_header_removal_str[] = {
-  "GTP-U/UDP/IPv4",
-  "GTP-U/UDP/IPv6",
-  "UDP/IPv4",
-  "UDP/IPv6",
-  "IPv4",
-  "IPv6",
-  "GTP-U/UDP/IP",
-  "VLAN S-TAG",
-  "S-TAG and C-TAG"
+  "GTP-U/UDP/IPv4", "GTP-U/UDP/IPv6", "UDP/IPv4",   "UDP/IPv6",       "IPv4",
+  "IPv6",           "GTP-U/UDP/IP",   "VLAN S-TAG", "S-TAG and C-TAG"
 };
 
-static const char *qer_gate_status_flags[] = {
-  "OPEN",
-  "CLOSED",
-  NULL
-};
+static const char *qer_gate_status_flags[] = { "OPEN", "CLOSED", NULL };
 
 static u8 *
-format_urr_counter (u8 * s, va_list * args)
+format_urr_counter (u8 *s, va_list *args)
 {
   void *m = va_arg (*args, void *);
   void *t = va_arg (*args, void *);
   off_t offs = va_arg (*args, off_t);
 
-  return format (s,
-		 "Measured: %20" PRIu64 ", Theshold: %20" PRIu64 ", Pkts: %10"
-		 PRIu64,
-		 *(u64 *) (m + offsetof (urr_measure_t, bytes) + offs),
-		 *(u64 *) (t + offs),
-		 *(u64 *) (m + offsetof (urr_measure_t, packets) + offs));
+  return format (
+    s, "Measured: %20" PRIu64 ", Theshold: %20" PRIu64 ", Pkts: %10" PRIu64,
+    *(u64 *) (m + offsetof (urr_measure_t, bytes) + offs), *(u64 *) (t + offs),
+    *(u64 *) (m + offsetof (urr_measure_t, packets) + offs));
 }
 
 static u8 *
-format_urr_quota (u8 * s, va_list * args)
+format_urr_quota (u8 *s, va_list *args)
 {
   void *m = va_arg (*args, void *);
   void *q = va_arg (*args, void *);
   off_t offs = va_arg (*args, off_t);
 
   return format (s, "Consumed: %20" PRIu64 ", Quota:    %20" PRIu64,
-		 *(u64 *) (m + offsetof (urr_measure_t, consumed) + offs),
-		 *(u64 *) (q + offs));
+                 *(u64 *) (m + offsetof (urr_measure_t, consumed) + offs),
+                 *(u64 *) (q + offs));
 }
 
 static u8 *
-format_urr_time (u8 * s, va_list * args)
+format_urr_time (u8 *s, va_list *args)
 {
   urr_time_t *t = va_arg (*args, urr_time_t *);
   f64 now = unix_time_now ();
 
   return format (s, "%20" PRIu64 " secs @ %U, in %9.3f secs, handle 0x%08x",
-		 t->period,
-		 format_time_float, NULL, t->expected,
-		 t->expected - now, t->handle);
+                 t->period, format_time_float, NULL, t->expected,
+                 t->expected - now, t->handle);
 }
 
 u8 *
-format_upf_far (u8 * s, va_list * args)
+format_upf_far (u8 *s, va_list *args)
 {
   upf_main_t *gtm = &upf_main;
   upf_far_t *far = va_arg (*args, upf_far_t *);
@@ -2966,50 +2914,49 @@ format_upf_far (u8 * s, va_list * args)
   else
     s = format (s, "FAR: %u @ %p\n", far->id, far);
 
-  s = format (s, "%UApply Action: %08x == %U\n",
-	      format_white_space, indent + 2, far->apply_action,
-	      format_flags, far->apply_action, apply_action_flags);
+  s = format (s, "%UApply Action: %08x == %U\n", format_white_space,
+              indent + 2, far->apply_action, format_flags, far->apply_action,
+              apply_action_flags);
 
   if (far->apply_action & FAR_FORWARD)
     {
       upf_far_forward_t *ff = &far->forward;
 
-      s = format (s, "%UForward:\n"
-		  "%UNetwork Instance: %U\n"
-		  "%UDestination Interface: %u\n",
-		  format_white_space, indent + 2,
-		  format_white_space, indent + 4,
-		  format_dns_labels, nwi ? nwi->name : NULL,
-		  format_white_space, indent + 4, ff->dst_intf);
+      s = format (s,
+                  "%UForward:\n"
+                  "%UNetwork Instance: %U\n"
+                  "%UDestination Interface: %u\n",
+                  format_white_space, indent + 2, format_white_space,
+                  indent + 4, format_dns_labels, nwi ? nwi->name : NULL,
+                  format_white_space, indent + 4, ff->dst_intf);
       if (ff->flags & FAR_F_REDIRECT_INFORMATION)
-	s = format (s, "%URedirect Information: %U\n",
-		    format_white_space, indent + 4,
-		    format_redirect_information, &ff->redirect_information);
+        s = format (s, "%URedirect Information: %U\n", format_white_space,
+                    indent + 4, format_redirect_information,
+                    &ff->redirect_information);
       if (ff->flags & FAR_F_OUTER_HEADER_CREATION)
-	{
-	  s = format (s, "%UOuter Header Creation: %U\n",
-		      format_white_space, indent + 4,
-		      format_outer_header_creation,
-		      &ff->outer_header_creation);
-	  if (debug && ff->rewrite)
-	    s = format (s, "%URewrite Header: %U\n",
-			format_white_space, indent + 4,
-			(ff->outer_header_creation.description &
-			 OUTER_HEADER_CREATION_ANY_IP4) ? format_ip4_header :
-			format_ip6_header, ff->rewrite,
-			vec_len (ff->rewrite));
-	}
+        {
+          s = format (s, "%UOuter Header Creation: %U\n", format_white_space,
+                      indent + 4, format_outer_header_creation,
+                      &ff->outer_header_creation);
+          if (debug && ff->rewrite)
+            s = format (s, "%URewrite Header: %U\n", format_white_space,
+                        indent + 4,
+                        (ff->outer_header_creation.description &
+                         OUTER_HEADER_CREATION_ANY_IP4) ?
+                          format_ip4_header :
+                          format_ip6_header,
+                        ff->rewrite, vec_len (ff->rewrite));
+        }
       if (ff->flags & FAR_F_FORWARDING_POLICY)
-	s = format (s, "%UForwarding Policy: %v\n",
-		    format_white_space, indent + 4,
-		    far->forward.forwarding_policy.identifier);
+        s = format (s, "%UForwarding Policy: %v\n", format_white_space,
+                    indent + 4, far->forward.forwarding_policy.identifier);
     }
 
   return s;
 }
 
 u8 *
-format_pfcp_session (u8 * s, va_list * args)
+format_pfcp_session (u8 *s, va_list *args)
 {
   upf_session_t *sx = va_arg (*args, upf_session_t *);
   int rule = va_arg (*args, int);
@@ -3024,23 +2971,21 @@ format_pfcp_session (u8 * s, va_list * args)
 
   upf_node_assoc_t *assoc = pool_elt_at_index (gtm->nodes, sx->assoc.node);
 
-  upf_cached_f_seid_key_t f_seid = { };
+  upf_cached_f_seid_key_t f_seid = {};
   if (sx->cached_fseid_idx != ~0)
     {
       upf_cached_f_seid_t *cached =
-	pool_elt_at_index (gtm->cached_fseid_pool, sx->cached_fseid_idx);
+        pool_elt_at_index (gtm->cached_fseid_pool, sx->cached_fseid_idx);
       f_seid = cached->key;
     }
 
   s = format (s,
-	      "CP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U\n"
-	      "UP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U (%U %U)\n",
-	      sx->cp_seid, sx->cp_seid,
-	      format_ip46_address, &assoc->rmt_addr, IP46_TYPE_ANY,
-	      sx->up_seid, sx->up_seid,
-	      format_ip46_address, &assoc->lcl_addr, IP46_TYPE_ANY,
-	      format_ip4_address, &f_seid.ip4, format_ip6_address,
-	      &f_seid.ip6);
+              "CP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U\n"
+              "UP F-SEID: 0x%016" PRIx64 " (%" PRIu64 ") @ %U (%U %U)\n",
+              sx->cp_seid, sx->cp_seid, format_ip46_address, &assoc->rmt_addr,
+              IP46_TYPE_ANY, sx->up_seid, sx->up_seid, format_ip46_address,
+              &assoc->lcl_addr, IP46_TYPE_ANY, format_ip4_address, &f_seid.ip4,
+              format_ip6_address, &f_seid.ip6);
 
   user_id_str = format (0, "%U", format_user_id, &sx->user_id);
   if (user_id_str)
@@ -3048,285 +2993,293 @@ format_pfcp_session (u8 * s, va_list * args)
 
   if (debug)
     s = format (s, "  SIdx: %u\n  Pointer: %p\n  PDR: %p\n  FAR: %p\n",
-		sx - gtm->sessions, sx, rules->pdr, rules->far);
+                sx - gtm->sessions, sx, rules->pdr, rules->far);
 
   s = format (s, "  PFCP Association: %u\n", sx->assoc.node);
   if (debug)
     s = format (s, "                  (prev:%u,next:%u)\n",
-		sx->assoc.anchor.prev, sx->assoc.anchor.next);
+                sx->assoc.anchor.prev, sx->assoc.anchor.next);
   if (rules->inactivity_timer.period != 0)
-    s =
-      format (s,
-	      "  UP Inactivity Timer: %u secs, inactive %12.4f secs (0x%08x)\n",
-	      rules->inactivity_timer.period,
-	      vlib_time_now (gtm->vlib_main) - sx->last_ul_traffic,
-	      rules->inactivity_timer.handle);
+    s = format (
+      s, "  UP Inactivity Timer: %u secs, inactive %12.4f secs (0x%08x)\n",
+      rules->inactivity_timer.period,
+      vlib_time_now (gtm->vlib_main) - sx->last_ul_traffic,
+      rules->inactivity_timer.handle);
 
   if (gtm->pfcp_spec_version == 16)
     {
       u16 idx = 1;
       s = format (s, "  TEID assignment per choose ID\n");
-      for (idx = 0; idx < 256 /* U8_MAX limits value of CHID */ ; idx++)
-	{
-	  u32 teid = *sparse_vec_elt_at_index (sx->teid_by_chid, idx);
-	  if (teid)
-	    s = format (s, "    %3u: %u (0x%08x)\n", idx, teid, teid);
+      for (idx = 0; idx < 256 /* U8_MAX limits value of CHID */; idx++)
+        {
+          u32 teid = *sparse_vec_elt_at_index (sx->teid_by_chid, idx);
+          if (teid)
+            s = format (s, "    %3u: %u (0x%08x)\n", idx, teid, teid);
 
-	  idx += 1;
-	}
+          idx += 1;
+        }
     }
 
   vec_foreach (pdr, rules->pdr)
-  {
-    upf_nwi_t *nwi = NULL;
-    size_t j;
+    {
+      upf_nwi_t *nwi = NULL;
+      size_t j;
 
-    if (!pool_is_free_index (gtm->nwis, pdr->pdi.nwi_index))
-      nwi = pool_elt_at_index (gtm->nwis, pdr->pdi.nwi_index);
+      if (!pool_is_free_index (gtm->nwis, pdr->pdi.nwi_index))
+        nwi = pool_elt_at_index (gtm->nwis, pdr->pdi.nwi_index);
 
-    s = format (s, "PDR: %u @ %p\n"
-		"  Precedence: %u\n"
-		"  PDI:\n"
-		"    Fields: %08x\n",
-		pdr->id, pdr, pdr->precedence, pdr->pdi.fields);
+      s = format (s,
+                  "PDR: %u @ %p\n"
+                  "  Precedence: %u\n"
+                  "  PDI:\n"
+                  "    Fields: %08x\n",
+                  pdr->id, pdr, pdr->precedence, pdr->pdi.fields);
 
-    if (pdr->pdi.src_intf < ARRAY_LEN (source_intf_name))
-      s =
-	format (s, "    Source Interface: %s\n",
-		source_intf_name[pdr->pdi.src_intf]);
-    else
-      s = format (s, "    Source Interface: %d\n", pdr->pdi.src_intf);
+      if (pdr->pdi.src_intf < ARRAY_LEN (source_intf_name))
+        s = format (s, "    Source Interface: %s\n",
+                    source_intf_name[pdr->pdi.src_intf]);
+      else
+        s = format (s, "    Source Interface: %d\n", pdr->pdi.src_intf);
 
-    s = format (s, "    Network Instance: %U\n",
-		format_dns_labels, nwi ? nwi->name : NULL);
+      s = format (s, "    Network Instance: %U\n", format_dns_labels,
+                  nwi ? nwi->name : NULL);
 
-    if (pdr->pdi.fields & F_PDI_LOCAL_F_TEID)
-      {
-	s = format (s, "    Local F-TEID: %u (0x%08x)\n",
-		    pdr->pdi.teid.teid, pdr->pdi.teid.teid);
-	if (pdr->pdi.teid.flags & F_TEID_V4)
-	  s = format (s, "            IPv4: %U\n",
-		      format_ip4_address, &pdr->pdi.teid.ip4);
-	if (pdr->pdi.teid.flags & F_TEID_V6)
-	  s = format (s, "            IPv6: %U\n",
-		      format_ip6_address, &pdr->pdi.teid.ip6);
-      }
-    if (pdr->pdi.fields & F_PDI_UE_IP_ADDR)
-      {
-	s = format (s, "    UE IP address (%s):\n",
-		    pdr->pdi.
-		    ue_addr.flags & IE_UE_IP_ADDRESS_SD ? "destination" :
-		    "source");
-	if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
-	  s = format (s, "      IPv4 address: %U\n",
-		      format_ip4_address, &pdr->pdi.ue_addr.ip4);
-	if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6)
-	  s = format (s, "      IPv6 address: %U\n",
-		      format_ip6_address, &pdr->pdi.ue_addr.ip6);
-      }
-    if (pdr->pdi.fields & F_PDI_SDF_FILTER)
-      {
-	acl_rule_t *rule;
+      if (pdr->pdi.fields & F_PDI_LOCAL_F_TEID)
+        {
+          s = format (s, "    Local F-TEID: %u (0x%08x)\n", pdr->pdi.teid.teid,
+                      pdr->pdi.teid.teid);
+          if (pdr->pdi.teid.flags & F_TEID_V4)
+            s = format (s, "            IPv4: %U\n", format_ip4_address,
+                        &pdr->pdi.teid.ip4);
+          if (pdr->pdi.teid.flags & F_TEID_V6)
+            s = format (s, "            IPv6: %U\n", format_ip6_address,
+                        &pdr->pdi.teid.ip6);
+        }
+      if (pdr->pdi.fields & F_PDI_UE_IP_ADDR)
+        {
+          s = format (s, "    UE IP address (%s):\n",
+                      pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD ?
+                        "destination" :
+                        "source");
+          if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
+            s = format (s, "      IPv4 address: %U\n", format_ip4_address,
+                        &pdr->pdi.ue_addr.ip4);
+          if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6)
+            s = format (s, "      IPv6 address: %U\n", format_ip6_address,
+                        &pdr->pdi.ue_addr.ip6);
+        }
+      if (pdr->pdi.fields & F_PDI_SDF_FILTER)
+        {
+          acl_rule_t *rule;
 
-	s = format (s, "    SDF Filter [%u]:\n", vec_len (pdr->pdi.acl));
-	vec_foreach (rule, pdr->pdi.acl)
-	{
-	  s = format (s, "      %U\n", format_ipfilter, rule);
-	}
-      }
-    if (pdr->pdi.fields & F_PDI_APPLICATION_ID)
-      {
-	s = format (s, "  Application Id: %v [db:%u]\n",
-		    pool_elt_at_index (gtm->upf_apps,
-				       pdr->pdi.adr.application_id)->name,
-		    pdr->pdi.adr.db_id);
-      }
-    s = format (s, "  Outer Header Removal: %s\n"
-		"  FAR Id: %u\n"
-		"  URR Ids: [",
-		(pdr->outer_header_removal >=
-		 ARRAY_LEN (outer_header_removal_str)) ? "no" :
-		outer_header_removal_str[pdr->outer_header_removal],
-		pdr->far_id);
-    vec_foreach_index (j, pdr->urr_ids) s =
-      format (s, "%s%u", j != 0 ? "," : "", vec_elt (pdr->urr_ids, j));
-    s = format (s, "] @ %p\n", pdr->urr_ids);
-    s = format (s, "  QER Ids: [");
-    vec_foreach_index (j, pdr->qer_ids) s =
-      format (s, "%s%u", j != 0 ? "," : "", vec_elt (pdr->qer_ids, j));
-    s = format (s, "] @ %p\n", pdr->qer_ids);
-  }
+          s = format (s, "    SDF Filter [%u]:\n", vec_len (pdr->pdi.acl));
+          vec_foreach (rule, pdr->pdi.acl)
+            {
+              s = format (s, "      %U\n", format_ipfilter, rule);
+            }
+        }
+      if (pdr->pdi.fields & F_PDI_APPLICATION_ID)
+        {
+          s = format (
+            s, "  Application Id: %v [db:%u]\n",
+            pool_elt_at_index (gtm->upf_apps, pdr->pdi.adr.application_id)
+              ->name,
+            pdr->pdi.adr.db_id);
+        }
+      s = format (
+        s,
+        "  Outer Header Removal: %s\n"
+        "  FAR Id: %u\n"
+        "  URR Ids: [",
+        (pdr->outer_header_removal >= ARRAY_LEN (outer_header_removal_str)) ?
+          "no" :
+          outer_header_removal_str[pdr->outer_header_removal],
+        pdr->far_id);
+      vec_foreach_index (j, pdr->urr_ids)
+        s = format (s, "%s%u", j != 0 ? "," : "", vec_elt (pdr->urr_ids, j));
+      s = format (s, "] @ %p\n", pdr->urr_ids);
+      s = format (s, "  QER Ids: [");
+      vec_foreach_index (j, pdr->qer_ids)
+        s = format (s, "%s%u", j != 0 ? "," : "", vec_elt (pdr->qer_ids, j));
+      s = format (s, "] @ %p\n", pdr->qer_ids);
+    }
 
   vec_foreach (far, rules->far)
-  {
-    s = format (s, "%U", format_upf_far, far, debug);
-  }
+    {
+      s = format (s, "%U", format_upf_far, far, debug);
+    }
 
   vec_foreach (urr, rules->urr)
-  {
-    if (debug)
-      s = format (s, "URR: %u @ %p [%d]\n", urr->id, urr, urr - rules->urr);
-    else
-      s = format (s, "URR: %u\n", urr->id);
+    {
+      if (debug)
+        s = format (s, "URR: %u @ %p [%d]\n", urr->id, urr, urr - rules->urr);
+      else
+        s = format (s, "URR: %u\n", urr->id);
 
-    /* *INDENT-OFF* */
-    s = format (s, "  Measurement Method: %04x == %U\n"
-		   "  Reporting Triggers: %04x == %U\n"
-		   "  Status: %d == %U\n",
-		   urr->methods, format_flags, (u64)urr->methods, urr_method_flags,
-		   urr->triggers, format_flags, (u64)urr->triggers, urr_trigger_flags,
-		   urr->status, format_flags, (u64)urr->status, urr_status_flags);
-    /* *INDENT-ON* */
-
-    if (urr->triggers & REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
-      {
-	u32 *id;
-
-	s = format (s, "  Linked URR Ids: [");
-	vec_foreach (id, urr->linked_urr_ids)
-	{
-	  if (id == urr->linked_urr_ids)
-	    s = format (s, "%d", *id);
-	  else
-	    s = format (s, ",%d", *id);
-	}
-	s = format (s, "]\n");
-      }
-    if (debug)
-      s = format (s, "  LIUSA: %U\n", format_bitmap_hex, urr->liusa_bitmap);
-
-    s =
-      format (s, "  Start Time: %U\n", format_time_float, NULL,
-	      urr->start_time);
-    s =
-      format (s,
-	      "  vTime of First Usage: %U \n" "  vTime of Last Usage:  %U \n",
-	      format_vlib_time, gtm->vlib_main,
-	      urr->usage_before_monitoring_time.time_of_first_packet,
-	      format_vlib_time, gtm->vlib_main,
-	      urr->usage_before_monitoring_time.time_of_last_packet);
-    if (urr->methods & PFCP_URR_VOLUME)
-      {
-	urr_volume_t *v = &urr->volume;
-
-	  /* *INDENT-OFF* */
-	  s = format (s, "  Volume\n"
-		      "    Up:    %U\n           %U\n"
-		      "    Down:  %U\n           %U\n"
-		      "    Total: %U\n           %U\n",
-		      format_urr_counter, &v->measure, &v->threshold, offsetof(urr_counter_t, ul),
-		      format_urr_quota,   &v->measure, &v->quota, offsetof(urr_counter_t, ul),
-		      format_urr_counter, &v->measure, &v->threshold, offsetof(urr_counter_t, dl),
-		      format_urr_quota,   &v->measure, &v->quota, offsetof(urr_counter_t, dl),
-		      format_urr_counter, &v->measure, &v->threshold, offsetof(urr_counter_t, total),
-		      format_urr_quota,   &v->measure, &v->quota, offsetof(urr_counter_t, total));
-	  /* *INDENT-ON* */
-      }
-    if (urr->measurement_period.base != 0)
-      {
-	s = format (s, "  Measurement Period: %U\n",
-		    format_urr_time, &urr->measurement_period);
-      }
-
-    if (urr->methods & PFCP_URR_TIME)
-      {
-	s = format (s, "  Time\n    Quota:     %U\n    Threshold: %U\n",
-		    format_urr_time, &urr->time_quota,
-		    format_urr_time, &urr->time_threshold);
-      }
-    if (urr->monitoring_time.vlib_time != INFINITY)
-      {
-	f64 now = unix_time_now ();
-
-	s = format (s, "  Monitoring Time: %U, in %9.3f secs\n",
-		    /* VPP does not support ISO dates... */
-		    format_time_float, NULL, urr->monitoring_time.unix_time,
-		    urr->monitoring_time.unix_time - now,
-		    urr->monitoring_time.vlib_time -
-		    vlib_time_now (gtm->vlib_main));
-
-	if (urr->status & URR_AFTER_MONITORING_TIME)
-	  {
-	    s = format (s, "  Usage Before Monitoring Time\n"
-			"    vTime of First Usage: %U \n"
-			"    vTime of Last Usage:  %U \n",
-			format_vlib_time, gtm->vlib_main,
-			urr->
-			usage_before_monitoring_time.time_of_first_packet,
-			format_vlib_time, gtm->vlib_main,
-			urr->
-			usage_before_monitoring_time.time_of_last_packet);
-	    if (urr->methods & PFCP_URR_VOLUME)
-	      {
-		urr_measure_t *v = &urr->usage_before_monitoring_time.volume;
-
-		s = format (s, "    Volume\n"
-			    "      Up:    %20" PRIu64 ", Pkts: %10" PRIu64
-			    "\n" "      Down:  %20" PRIu64 ", Pkts: %10"
-			    PRIu64 "\n" "      Total: %20" PRIu64
-			    ", Pkts: %10" PRIu64 "\n", v->bytes.ul,
-			    v->packets.ul, v->bytes.dl, v->packets.dl,
-			    v->bytes.total, v->packets.total);
-	      }
-	    if (urr->methods & PFCP_URR_TIME)
-	      {
-		s = format (s, "    Start Time %U, End Time %U, %9.3f secs\n",
-			    format_time_float, NULL,
-			    urr->usage_before_monitoring_time.start_time,
-			    format_time_float, NULL, urr->start_time,
-			    urr->start_time -
-			    urr->usage_before_monitoring_time.start_time);
-	      }
-	  }
-      }
-    if (urr->traffic)
-      {
-	vlib_main_t *vm = gtm->vlib_main;
-	f64 now = vlib_time_now (vm);
-	upf_urr_traffic_t *tt;
-
-	s = format (s, "  Start Of Traffic UE IPs: %u, now: %U\n"
-		    "    Timer: %U\n",
-		    pool_elts (urr->traffic),
-		    format_vlib_time, vm, now,
-		    format_urr_time, &urr->traffic_timer);
-
-	pool_foreach (tt, urr->traffic)
-	{
-	  s = format (s, "%U @ %U [%U]\n",
-		      format_ip46_address, &tt->ip, IP46_TYPE_ANY,
-		      format_vlib_time, vm, tt->first_seen,
-		      format_vlib_time, vm, now - tt->first_seen);
-	}
-      }
-  }
-  vec_foreach (qer, rules->qer)
-  {
       /* *INDENT-OFF* */
-      s = format (s, "QER: %u\n"
-		  "  UL Gate: %d == %U\n"
-		  "  DL Gate: %d == %U\n",
-		  qer->id,
-		  qer->gate_status[UPF_UL],
-		  format_flags, (u64)qer->gate_status[UPF_UL], qer_gate_status_flags,
-		  qer->gate_status[UPF_DL],
-		  format_flags, (u64)qer->gate_status[UPF_DL], qer_gate_status_flags);
+      s = format (s,
+                  "  Measurement Method: %04x == %U\n"
+                  "  Reporting Triggers: %04x == %U\n"
+                  "  Status: %d == %U\n",
+                  urr->methods, format_flags, (u64) urr->methods,
+                  urr_method_flags, urr->triggers, format_flags,
+                  (u64) urr->triggers, urr_trigger_flags, urr->status,
+                  format_flags, (u64) urr->status, urr_status_flags);
       /* *INDENT-ON* */
-  }
+
+      if (urr->triggers & REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
+        {
+          u32 *id;
+
+          s = format (s, "  Linked URR Ids: [");
+          vec_foreach (id, urr->linked_urr_ids)
+            {
+              if (id == urr->linked_urr_ids)
+                s = format (s, "%d", *id);
+              else
+                s = format (s, ",%d", *id);
+            }
+          s = format (s, "]\n");
+        }
+      if (debug)
+        s = format (s, "  LIUSA: %U\n", format_bitmap_hex, urr->liusa_bitmap);
+
+      s = format (s, "  Start Time: %U\n", format_time_float, NULL,
+                  urr->start_time);
+      s = format (s,
+                  "  vTime of First Usage: %U \n"
+                  "  vTime of Last Usage:  %U \n",
+                  format_vlib_time, gtm->vlib_main,
+                  urr->usage_before_monitoring_time.time_of_first_packet,
+                  format_vlib_time, gtm->vlib_main,
+                  urr->usage_before_monitoring_time.time_of_last_packet);
+      if (urr->methods & PFCP_URR_VOLUME)
+        {
+          urr_volume_t *v = &urr->volume;
+
+          /* *INDENT-OFF* */
+          s = format (s,
+                      "  Volume\n"
+                      "    Up:    %U\n           %U\n"
+                      "    Down:  %U\n           %U\n"
+                      "    Total: %U\n           %U\n",
+                      format_urr_counter, &v->measure, &v->threshold,
+                      offsetof (urr_counter_t, ul), format_urr_quota,
+                      &v->measure, &v->quota, offsetof (urr_counter_t, ul),
+                      format_urr_counter, &v->measure, &v->threshold,
+                      offsetof (urr_counter_t, dl), format_urr_quota,
+                      &v->measure, &v->quota, offsetof (urr_counter_t, dl),
+                      format_urr_counter, &v->measure, &v->threshold,
+                      offsetof (urr_counter_t, total), format_urr_quota,
+                      &v->measure, &v->quota, offsetof (urr_counter_t, total));
+          /* *INDENT-ON* */
+        }
+      if (urr->measurement_period.base != 0)
+        {
+          s = format (s, "  Measurement Period: %U\n", format_urr_time,
+                      &urr->measurement_period);
+        }
+
+      if (urr->methods & PFCP_URR_TIME)
+        {
+          s = format (s, "  Time\n    Quota:     %U\n    Threshold: %U\n",
+                      format_urr_time, &urr->time_quota, format_urr_time,
+                      &urr->time_threshold);
+        }
+      if (urr->monitoring_time.vlib_time != INFINITY)
+        {
+          f64 now = unix_time_now ();
+
+          s = format (s, "  Monitoring Time: %U, in %9.3f secs\n",
+                      /* VPP does not support ISO dates... */
+                      format_time_float, NULL, urr->monitoring_time.unix_time,
+                      urr->monitoring_time.unix_time - now,
+                      urr->monitoring_time.vlib_time -
+                        vlib_time_now (gtm->vlib_main));
+
+          if (urr->status & URR_AFTER_MONITORING_TIME)
+            {
+              s =
+                format (s,
+                        "  Usage Before Monitoring Time\n"
+                        "    vTime of First Usage: %U \n"
+                        "    vTime of Last Usage:  %U \n",
+                        format_vlib_time, gtm->vlib_main,
+                        urr->usage_before_monitoring_time.time_of_first_packet,
+                        format_vlib_time, gtm->vlib_main,
+                        urr->usage_before_monitoring_time.time_of_last_packet);
+              if (urr->methods & PFCP_URR_VOLUME)
+                {
+                  urr_measure_t *v = &urr->usage_before_monitoring_time.volume;
+
+                  s = format (
+                    s,
+                    "    Volume\n"
+                    "      Up:    %20" PRIu64 ", Pkts: %10" PRIu64 "\n"
+                    "      Down:  %20" PRIu64 ", Pkts: %10" PRIu64 "\n"
+                    "      Total: %20" PRIu64 ", Pkts: %10" PRIu64 "\n",
+                    v->bytes.ul, v->packets.ul, v->bytes.dl, v->packets.dl,
+                    v->bytes.total, v->packets.total);
+                }
+              if (urr->methods & PFCP_URR_TIME)
+                {
+                  s =
+                    format (s, "    Start Time %U, End Time %U, %9.3f secs\n",
+                            format_time_float, NULL,
+                            urr->usage_before_monitoring_time.start_time,
+                            format_time_float, NULL, urr->start_time,
+                            urr->start_time -
+                              urr->usage_before_monitoring_time.start_time);
+                }
+            }
+        }
+      if (urr->traffic)
+        {
+          vlib_main_t *vm = gtm->vlib_main;
+          f64 now = vlib_time_now (vm);
+          upf_urr_traffic_t *tt;
+
+          s = format (s,
+                      "  Start Of Traffic UE IPs: %u, now: %U\n"
+                      "    Timer: %U\n",
+                      pool_elts (urr->traffic), format_vlib_time, vm, now,
+                      format_urr_time, &urr->traffic_timer);
+
+          pool_foreach (tt, urr->traffic)
+            {
+              s = format (s, "%U @ %U [%U]\n", format_ip46_address, &tt->ip,
+                          IP46_TYPE_ANY, format_vlib_time, vm, tt->first_seen,
+                          format_vlib_time, vm, now - tt->first_seen);
+            }
+        }
+    }
+  vec_foreach (qer, rules->qer)
+    {
+      /* *INDENT-OFF* */
+      s = format (s,
+                  "QER: %u\n"
+                  "  UL Gate: %d == %U\n"
+                  "  DL Gate: %d == %U\n",
+                  qer->id, qer->gate_status[UPF_UL], format_flags,
+                  (u64) qer->gate_status[UPF_UL], qer_gate_status_flags,
+                  qer->gate_status[UPF_DL], format_flags,
+                  (u64) qer->gate_status[UPF_DL], qer_gate_status_flags);
+      /* *INDENT-ON* */
+    }
   return s;
 }
 
 static u8 *
-format_time_stamp (u8 * s, va_list * args)
+format_time_stamp (u8 *s, va_list *args)
 {
   u32 *v = va_arg (*args, u32 *);
-  struct timeval tv = {.tv_sec = *v,.tv_usec = 0 };
+  struct timeval tv = { .tv_sec = *v, .tv_usec = 0 };
 
   return format (s, "%U", format_timeval, NULL, &tv);
 }
 
 u8 *
-format_pfcp_node_association (u8 * s, va_list * args)
+format_pfcp_node_association (u8 *s, va_list *args)
 {
   upf_node_assoc_t *node = va_arg (*args, upf_node_assoc_t *);
   u8 verbose = va_arg (*args, int);
@@ -3335,24 +3288,24 @@ format_pfcp_node_association (u8 * s, va_list * args)
   u32 i = 0;
 
   s = format (s,
-	      "Node: %U\n"
-	      "  Recovery Time Stamp: %U\n"
-	      "  Sessions: ",
-	      format_node_id, &node->node_id,
-	      format_time_stamp, &node->recovery_time_stamp);
+              "Node: %U\n"
+              "  Recovery Time Stamp: %U\n"
+              "  Sessions: ",
+              format_node_id, &node->node_id, format_time_stamp,
+              &node->recovery_time_stamp);
 
   if (verbose)
     {
-    /* *INDENT-OFF* */
-    upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
-      if (i > 0 && (i % 8) == 0)
-        s = format (s, "\n            ");
+      /* *INDENT-OFF* */
+      upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
+        if (i > 0 && (i % 8) == 0)
+          s = format (s, "\n            ");
 
-      s = format (s, " 0x%016" PRIx64, sx->up_seid);
+        s = format (s, " 0x%016" PRIx64, sx->up_seid);
 
-      i++;
-    });
-    /* *INDENT-ON* */
+        i++;
+      });
+      /* *INDENT-ON* */
     }
 
   if (verbose)
@@ -3364,18 +3317,18 @@ format_pfcp_node_association (u8 * s, va_list * args)
 }
 
 u8 *
-format_pfcp_endpoint_key (u8 * s, va_list * args)
+format_pfcp_endpoint_key (u8 *s, va_list *args)
 {
   ip46_address_fib_t *key = va_arg (*args, ip46_address_fib_t *);
 
-  s = format (s, "%U [@%u]",
-	      format_ip46_address, &key->addr, IP46_TYPE_ANY, key->fib_index);
+  s = format (s, "%U [@%u]", format_ip46_address, &key->addr, IP46_TYPE_ANY,
+              key->fib_index);
 
   return s;
 }
 
 u8 *
-format_network_instance_index (u8 * s, va_list * args)
+format_network_instance_index (u8 *s, va_list *args)
 {
   u32 n = va_arg (*args, u32);
   upf_main_t *gtm = &upf_main;
@@ -3388,7 +3341,7 @@ format_network_instance_index (u8 * s, va_list * args)
 }
 
 u8 *
-format_gtpu_endpoint (u8 * s, va_list * args)
+format_gtpu_endpoint (u8 *s, va_list *args)
 {
   upf_upip_res_t *ep = va_arg (*args, upf_upip_res_t *);
 
@@ -3403,8 +3356,8 @@ format_gtpu_endpoint (u8 * s, va_list * args)
   if (INTF_INVALID != ep->intf)
     s = format (s, ", Intf: %u", ep->intf);
 
-  s = format (s, ", 0x%08x/%d (0x%08x)",
-	      ep->teid, __builtin_popcount (ep->mask), ep->mask);
+  s = format (s, ", 0x%08x/%d (0x%08x)", ep->teid,
+              __builtin_popcount (ep->mask), ep->mask);
 
   return s;
 }

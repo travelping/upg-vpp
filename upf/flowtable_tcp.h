@@ -45,12 +45,9 @@ typedef enum tcp_event
 
 /* flow lifetime in seconds */
 static const int tcp_lifetime[TCP_F_STATE_MAX] = {
-  [TCP_F_STATE_SYN] = 15,
-  [TCP_F_STATE_SYNACK] = 60,
-  [TCP_F_STATE_ESTABLISHED] = 299,
-  [TCP_F_STATE_FIN] = 15,
-  [TCP_F_STATE_FINACK] = 3,
-  [TCP_F_STATE_RST] = 6
+  [TCP_F_STATE_SYN] = 15,          [TCP_F_STATE_SYNACK] = 60,
+  [TCP_F_STATE_ESTABLISHED] = 299, [TCP_F_STATE_FIN] = 15,
+  [TCP_F_STATE_FINACK] = 3,        [TCP_F_STATE_RST] = 6
 };
 
 static const tcp_f_state_t tcp_trans[TCP_F_STATE_MAX][TCP_EV_MAX] = {
@@ -90,7 +87,7 @@ static const tcp_f_state_t tcp_trans[TCP_F_STATE_MAX][TCP_EV_MAX] = {
 };
 
 always_inline tcp_event_t
-tcp_event (tcp_header_t * hdr)
+tcp_event (tcp_header_t *hdr)
 {
   tcp_event_t event = TCP_EV_NONE;
   if (hdr->flags & TCP_FLAG_SYN && hdr->flags & TCP_FLAG_ACK)

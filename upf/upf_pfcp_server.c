@@ -36,35 +36,42 @@
 
 #define RESPONSE_TIMEOUT 30
 
-/* use pow2 to avoid rounding error accumulation in timerwheel implementation */
+/* use pow2 to avoid rounding error accumulation in timerwheel implementation
+ */
 #define TW_CLOCKS_PER_SECOND (128.0)
-#define TW_SECS_PER_CLOCK (1.0 / TW_CLOCKS_PER_SECOND)
+#define TW_SECS_PER_CLOCK    (1.0 / TW_CLOCKS_PER_SECOND)
 
 /* as defined in vnet/policer, PPS-based QOS fixed size */
-#define UPF_POLICER_FIXED_PKT_SIZE 256
+#define UPF_POLICER_FIXED_PKT_SIZE   256
 #define LATE_TIMER_WARNING_THRESHOLD 5
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
-#define urr_debug_out(format, args...)				\
-  _clib_error (CLIB_ERROR_WARNING, NULL, 0, format, ## args)
+#define urr_debug_out(format, args...)                                        \
+  _clib_error (CLIB_ERROR_WARNING, NULL, 0, format, ##args)
 
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 
-#define urr_debug_out(...)			\
-  do { } while (0)
+#define urr_debug_out(...)                                                    \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
-static void upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req);
-static void restart_response_timer (pfcp_msg_t * msg);
-static void upf_pfcp_server_send_session_request (upf_session_t * sx,
-						  pfcp_decoded_msg_t * dmsg);
+static void upf_pfcp_make_response (pfcp_msg_t *resp, pfcp_msg_t *req);
+static void restart_response_timer (pfcp_msg_t *msg);
+static void upf_pfcp_server_send_session_request (upf_session_t *sx,
+                                                  pfcp_decoded_msg_t *dmsg);
 
 pfcp_server_main_t pfcp_server_main;
 
-#define MAX_HDRS_LEN    100	/* Max number of bytes for headers */
+#define MAX_HDRS_LEN 100 /* Max number of bytes for headers */
 
 static u32
 upf_pfcp_server_start_generic_timer (u32 user_handle, u32 ticks)
@@ -89,7 +96,7 @@ upf_pfcp_server_start_generic_timer (u32 user_handle, u32 ticks)
   return handle;
 }
 
-#define upf_pfcp_server_stop_generic_timer(handle) \
+#define upf_pfcp_server_stop_generic_timer(handle)                            \
   upf_pfcp_server_do_stop_generic_timer (handle, __FUNCTION__)
 
 static void
@@ -102,9 +109,8 @@ upf_pfcp_server_do_stop_generic_timer (u32 handle, const char *what)
   p = hash_get (psm->timer_handle_map, handle);
   if (!p)
     {
-      clib_warning
-	("timer error: %s: stopping timer that has already been stopped",
-	 what);
+      clib_warning (
+        "timer error: %s: stopping timer that has already been stopped", what);
       return;
     }
 
@@ -152,27 +158,27 @@ upf_pfcp_server_expire_timers ()
     TW (tw_timer_expire_timers_vec) (&psm->timer, psm->now, psm->expired);
 
   vec_foreach_index (idx, psm->expired)
-  {
-    timer = pool_elt_at_index (psm->timers, psm->expired[idx]);
-    if (timer->tw_handle == ~0)
-      {
-	clib_warning ("timer error: a timer has expired twice (?)");
-	continue;
-      }
+    {
+      timer = pool_elt_at_index (psm->timers, psm->expired[idx]);
+      if (timer->tw_handle == ~0)
+        {
+          clib_warning ("timer error: a timer has expired twice (?)");
+          continue;
+        }
 
-    timer->tw_handle = ~0;
-    psm->expired[idx] = timer->user_handle;
-    /*
-     * Make it so that the timer entry will be cleaned up upon the
-     * next iteration
-     */
-    timer->next_expired_timer = psm->next_expired_timer;
-    psm->next_expired_timer = timer - psm->timers;
-  }
+      timer->tw_handle = ~0;
+      psm->expired[idx] = timer->user_handle;
+      /*
+       * Make it so that the timer entry will be cleaned up upon the
+       * next iteration
+       */
+      timer->next_expired_timer = psm->next_expired_timer;
+      psm->next_expired_timer = timer - psm->timers;
+    }
 }
 
 static void
-upf_pfcp_send_data (pfcp_msg_t * msg)
+upf_pfcp_send_data (pfcp_msg_t *msg)
 {
   app_session_transport_t at;
   svm_msg_q_t *mq;
@@ -190,9 +196,9 @@ upf_pfcp_send_data (pfcp_msg_t * msg)
   at.lcl_port = msg->lcl.port;
   at.rmt_port = msg->rmt.port;
 
-  int r = app_send_dgram_raw (s->tx_fifo, &at, mq, msg->data,
-			      _vec_len (msg->data), SESSION_IO_EVT_TX,
-			      1 /* do_evt */ , 0);
+  int r =
+    app_send_dgram_raw (s->tx_fifo, &at, mq, msg->data, _vec_len (msg->data),
+                        SESSION_IO_EVT_TX, 1 /* do_evt */, 0);
   /*
    * This is needed in case if there are > 0 workers
    * as PFCP still runs on the main thread which can't
@@ -204,8 +210,8 @@ upf_pfcp_send_data (pfcp_msg_t * msg)
 }
 
 static int
-encode_pfcp_session_msg (upf_session_t * sx,
-			 pfcp_decoded_msg_t * dmsg, pfcp_msg_t * msg)
+encode_pfcp_session_msg (upf_session_t *sx, pfcp_decoded_msg_t *dmsg,
+                         pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_main_t *gtm = &upf_main;
@@ -225,12 +231,12 @@ encode_pfcp_session_msg (upf_session_t * sx,
       sx->flags & UPF_SESSION_LOST_CP)
     {
       upf_cached_f_seid_t *cached_f_seid =
-	pool_elt_at_index (gtm->cached_fseid_pool, sx->cached_fseid_idx);
+        pool_elt_at_index (gtm->cached_fseid_pool, sx->cached_fseid_idx);
       UPF_SET_BIT (dmsg->session_report_request.grp.fields,
-		   SESSION_REPORT_REQUEST_OLD_CP_F_SEID);
+                   SESSION_REPORT_REQUEST_OLD_CP_F_SEID);
       dmsg->session_report_request.old_cp_f_seid.seid = sx->cp_seid;
       dmsg->session_report_request.old_cp_f_seid.flags =
-	cached_f_seid->key.flags;
+        cached_f_seid->key.flags;
       dmsg->session_report_request.old_cp_f_seid.ip4 = cached_f_seid->key.ip4;
       dmsg->session_report_request.old_cp_f_seid.ip6 = cached_f_seid->key.ip6;
 
@@ -252,18 +258,17 @@ encode_pfcp_session_msg (upf_session_t * sx,
   msg->rmt.port = clib_host_to_net_u16 (UDP_DST_PORT_PFCP);
 
   upf_debug ("PFCP Session Msg on session 0x%016lx from %U:%d to %U:%d\n",
-	     msg->session_handle,
-	     format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
-	     clib_net_to_host_u16 (msg->lcl.port),
-	     format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
-	     clib_net_to_host_u16 (msg->rmt.port));
+             msg->session_handle, format_ip46_address, &msg->lcl.address,
+             IP46_TYPE_ANY, clib_net_to_host_u16 (msg->lcl.port),
+             format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+             clib_net_to_host_u16 (msg->rmt.port));
 
   return 0;
 }
 
 static int
-encode_pfcp_node_msg (upf_node_assoc_t * n,
-		      pfcp_decoded_msg_t * dmsg, pfcp_msg_t * msg)
+encode_pfcp_node_msg (upf_node_assoc_t *n, pfcp_decoded_msg_t *dmsg,
+                      pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_main_t *gtm = &upf_main;
@@ -285,17 +290,16 @@ encode_pfcp_node_msg (upf_node_assoc_t * n,
   msg->rmt.port = clib_host_to_net_u16 (UDP_DST_PORT_PFCP);
 
   upf_debug ("PFCP Node Msg on session 0x%016lx from %U:%d to %U:%d\n",
-	     msg->session_handle,
-	     format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
-	     clib_net_to_host_u16 (msg->lcl.port),
-	     format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
-	     clib_net_to_host_u16 (msg->rmt.port));
+             msg->session_handle, format_ip46_address, &msg->lcl.address,
+             IP46_TYPE_ANY, clib_net_to_host_u16 (msg->lcl.port),
+             format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+             clib_net_to_host_u16 (msg->rmt.port));
 
   return 0;
 }
 
 static int
-upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
+upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   int len = vec_len (msg->data);
@@ -310,7 +314,7 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
       pfcp_msg_t resp;
 
       upf_debug ("PFCP: msg version invalid: %d.",
-		 pfcp_msg_version (msg->data));
+                 pfcp_msg_version (msg->data));
 
       memset (&resp, 0, sizeof (resp));
       upf_pfcp_make_response (&resp, msg);
@@ -323,8 +327,8 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
 
   if (!pfcp_msg_enough_len (msg->data, len))
     {
-      upf_debug ("PFCP: msg length invalid, data %d, msg %d.",
-		 len, pfcp_msg_length (msg->data));
+      upf_debug ("PFCP: msg length invalid, data %d, msg %d.", len,
+                 pfcp_msg_length (msg->data));
       return -1;
     }
 
@@ -346,22 +350,22 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
     case PFCP_SESSION_DELETION_REQUEST:
     case PFCP_SESSION_REPORT_REQUEST:
       {
-	uword *p = NULL;
+        uword *p = NULL;
 
-	p = mhash_get (&psm->response_q, msg->request_key);
-	if (!p)
-	  {
-	    upf_pfcp_handle_msg (msg);
-	  }
-	else
-	  {
-	    pfcp_msg_t *resp = pfcp_msg_pool_elt_at_index (psm, p[0]);
+        p = mhash_get (&psm->response_q, msg->request_key);
+        if (!p)
+          {
+            upf_pfcp_handle_msg (msg);
+          }
+        else
+          {
+            pfcp_msg_t *resp = pfcp_msg_pool_elt_at_index (psm, p[0]);
 
-	    upf_debug ("resend... %d\n", p[0]);
-	    upf_pfcp_send_data (resp);
-	    restart_response_timer (resp);
-	  }
-	break;
+            upf_debug ("resend... %d\n", p[0]);
+            upf_pfcp_send_data (resp);
+            restart_response_timer (resp);
+          }
+        break;
       }
 
     case PFCP_HEARTBEAT_RESPONSE:
@@ -377,28 +381,28 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
     case PFCP_SESSION_DELETION_RESPONSE:
     case PFCP_SESSION_REPORT_RESPONSE:
       {
-	pfcp_msg_t *req;
-	uword *p;
+        pfcp_msg_t *req;
+        uword *p;
 
-	p = hash_get (psm->request_q, msg->seq_no);
-	upf_debug ("Msg Seq No: %u, %p, idx %u\n", msg->seq_no, p,
-		   p ? p[0] : ~0);
-	if (!p)
-	  break;
+        p = hash_get (psm->request_q, msg->seq_no);
+        upf_debug ("Msg Seq No: %u, %p, idx %u\n", msg->seq_no, p,
+                   p ? p[0] : ~0);
+        if (!p)
+          break;
 
-	req = pfcp_msg_pool_elt_at_index (psm, p[0]);
+        req = pfcp_msg_pool_elt_at_index (psm, p[0]);
 
-	msg->node = req->node;
-	msg->session.idx = req->session.idx;
-	msg->up_seid = req->up_seid;
+        msg->node = req->node;
+        msg->session.idx = req->session.idx;
+        msg->up_seid = req->up_seid;
 
-	upf_pfcp_server_stop_msg_timer (req);
+        upf_pfcp_server_stop_msg_timer (req);
 
-	upf_pfcp_handle_msg (msg);
+        upf_pfcp_handle_msg (msg);
 
-	upf_pfcp_server_stop_request (req);
+        upf_pfcp_server_stop_request (req);
 
-	break;
+        break;
       }
 
     default:
@@ -409,7 +413,7 @@ upf_pfcp_server_rx_msg (pfcp_msg_t * msg)
 }
 
 static pfcp_msg_t *
-build_pfcp_session_msg (upf_session_t * sx, pfcp_decoded_msg_t * dmsg)
+build_pfcp_session_msg (upf_session_t *sx, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_msg_t *msg;
@@ -426,7 +430,7 @@ build_pfcp_session_msg (upf_session_t * sx, pfcp_decoded_msg_t * dmsg)
 }
 
 static pfcp_msg_t *
-build_pfcp_node_msg (upf_node_assoc_t * n, pfcp_decoded_msg_t * dmsg)
+build_pfcp_node_msg (upf_node_assoc_t *n, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_msg_t *msg;
@@ -443,7 +447,7 @@ build_pfcp_node_msg (upf_node_assoc_t * n, pfcp_decoded_msg_t * dmsg)
 }
 
 int
-upf_pfcp_send_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg)
+upf_pfcp_send_request (upf_session_t *sx, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   vlib_main_t *vm = psm->vlib_main;
@@ -461,7 +465,7 @@ upf_pfcp_send_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg)
 
   upf_debug ("sending NOTIFY event %p", msg);
   vlib_process_signal_event_mt (vm, pfcp_api_process_node.index, EVENT_TX,
-				(uword) msg);
+                                (uword) msg);
 
 out_free:
   pfcp_free_dmsg_contents (dmsg);
@@ -469,7 +473,7 @@ out_free:
 }
 
 static void
-enqueue_request (pfcp_msg_t * msg, u32 n1, u32 t1)
+enqueue_request (pfcp_msg_t *msg, u32 n1, u32 t1)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   u32 id = pfcp_msg_get_index (psm, msg);
@@ -483,10 +487,10 @@ enqueue_request (pfcp_msg_t * msg, u32 n1, u32 t1)
     {
       upf_session_requests_list_anchor_init (msg);
       upf_session_t *sx =
-	pool_elt_at_index (upf_main.sessions, msg->session.idx);
+        pool_elt_at_index (upf_main.sessions, msg->session.idx);
 
       upf_session_requests_list_insert_tail (psm->msg_pool, &sx->requests,
-					     msg);
+                                             msg);
     }
 
   msg->timer =
@@ -515,8 +519,7 @@ request_t1_expired (u32 seq_no)
   upf_debug ("Msg Seq No: %u, %p, n1 %u\n", req->seq_no, req, req->n1);
 
   /* make sure to resent reports to new peer if smfset peer is changed */
-  if (req->flags.is_migrated_in_smfset &&
-      req->session.idx != ~0 &&
+  if (req->flags.is_migrated_in_smfset && req->session.idx != ~0 &&
       pfcp_msg_type (req->data) == PFCP_SESSION_REPORT_REQUEST)
     {
       upf_session_t *sx = pool_elt_at_index (gtm->sessions, req->session.idx);
@@ -539,25 +542,25 @@ request_t1_expired (u32 seq_no)
       u8 type = pfcp_msg_type (req->data);
 
       /*
-         FIXME: here in pool_is_free_index we check for node index which can be reused
-         as soon as node goes back. Instead we should stop all requests as soon
-         as node is stopped. It should be easier to track since we can have
-         only one heartbeat request at time
+         FIXME: here in pool_is_free_index we check for node index which can be
+         reused as soon as node goes back. Instead we should stop all requests
+         as soon as node is stopped. It should be easier to track since we can
+         have only one heartbeat request at time
        */
-      if (type == PFCP_HEARTBEAT_REQUEST
-	  && !pool_is_free_index (gtm->nodes, req->node))
-	{
-	  upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, req->node);
-	  upf_pfcp_associnfo
-	    (gtm,
-	     "PFCP Association unstable: node %U, local IP %U, remote IP %U\n",
-	     format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
-	     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
-	}
+      if (type == PFCP_HEARTBEAT_REQUEST &&
+          !pool_is_free_index (gtm->nodes, req->node))
+        {
+          upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, req->node);
+          upf_pfcp_associnfo (
+            gtm,
+            "PFCP Association unstable: node %U, local IP %U, remote IP %U\n",
+            format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
+            IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
+        }
 
       upf_debug ("resend...\n");
       req->timer =
-	upf_pfcp_server_start_timer (PFCP_SERVER_T1, req->seq_no, req->t1);
+        upf_pfcp_server_start_timer (PFCP_SERVER_T1, req->seq_no, req->t1);
       req->expires_at = psm->now + req->t1;
 
       upf_pfcp_send_data (req);
@@ -575,28 +578,29 @@ request_t1_expired (u32 seq_no)
       /*
          TODO: this pool_is_free_index is invalid since pool id can be reused
          instead we should do checking based on persistent key or instead we
-         could track or requests of node and forget them as soon as association is lost
+         could track or requests of node and forget them as soon as association
+         is lost
        */
-      if (type == PFCP_HEARTBEAT_REQUEST
-	  && !pool_is_free_index (gtm->nodes, node))
-	{
-	  upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, node);
+      if (type == PFCP_HEARTBEAT_REQUEST &&
+          !pool_is_free_index (gtm->nodes, node))
+        {
+          upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, node);
 
-	  upf_pfcp_associnfo
-	    (gtm,
-	     "PFCP Association lost: node %U, local IP %U, remote IP %U\n",
-	     format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
-	     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
+          upf_pfcp_associnfo (
+            gtm, "PFCP Association lost: node %U, local IP %U, remote IP %U\n",
+            format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
+            IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
 
-	  pfcp_release_association (n);
-	}
+          pfcp_release_association (n);
+        }
     }
 }
 
 void
-upf_pfcp_server_stop_request (pfcp_msg_t * req)
+upf_pfcp_server_stop_request (pfcp_msg_t *req)
 {
-  /* FIXME: ivan4th: handle edge case: t1 timer also expired in this iteration for this seq_no */
+  /* FIXME: ivan4th: handle edge case: t1 timer also expired in this iteration
+   * for this seq_no */
   /* (do we really need any special handling there? unsure...) */
 
   pfcp_server_main_t *psm = &pfcp_server_main;
@@ -617,7 +621,7 @@ upf_pfcp_server_stop_request (pfcp_msg_t * req)
 }
 
 static void
-upf_pfcp_server_send_request (pfcp_msg_t * msg)
+upf_pfcp_server_send_request (pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
@@ -625,7 +629,7 @@ upf_pfcp_server_send_request (pfcp_msg_t * msg)
     enqueue_request (msg, psm->hb_cfg.retries, psm->hb_cfg.timeout);
   else
     enqueue_request (msg, PFCP_DEFAULT_REQUEST_RETRIES,
-		     PFCP_DEFAULT_REQUEST_INTERVAL);
+                     PFCP_DEFAULT_REQUEST_INTERVAL);
 
   upf_pfcp_send_data (msg);
 }
@@ -638,37 +642,35 @@ upf_pfcp_server_send_request (pfcp_msg_t * msg)
  * hold number of such Session Report requests.
  */
 static bool
-upf_pfcp_police_message (upf_session_t * sx, pfcp_decoded_msg_t * dmsg)
+upf_pfcp_police_message (upf_session_t *sx, pfcp_decoded_msg_t *dmsg)
 {
   upf_main_t *gtm = &upf_main;
   u64 time_in_policer_periods;
   upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, sx->assoc.node);
   policer_t *p = pool_elt_at_index (gtm->pfcp_policers, n->policer_idx);
 
-  if (dmsg->type != PFCP_SESSION_REPORT_REQUEST
-      || !dmsg->session_report_request.usage_report)
+  if (dmsg->type != PFCP_SESSION_REPORT_REQUEST ||
+      !dmsg->session_report_request.usage_report)
     return true;
 
-  if (ISSET_BIT
-      (dmsg->session_report_request.usage_report->grp.fields,
-       USAGE_REPORT_APPLICATION_DETECTION_INFORMATION)
-      || !ISSET_BIT (dmsg->session_report_request.usage_report->grp.fields,
-		     USAGE_REPORT_UE_IP_ADDRESS)
-      || !(dmsg->session_report_request.usage_report->usage_report_trigger &
-	   USAGE_REPORT_TRIGGER_START_OF_TRAFFIC))
+  if (ISSET_BIT (dmsg->session_report_request.usage_report->grp.fields,
+                 USAGE_REPORT_APPLICATION_DETECTION_INFORMATION) ||
+      !ISSET_BIT (dmsg->session_report_request.usage_report->grp.fields,
+                  USAGE_REPORT_UE_IP_ADDRESS) ||
+      !(dmsg->session_report_request.usage_report->usage_report_trigger &
+        USAGE_REPORT_TRIGGER_START_OF_TRAFFIC))
     return true;
 
   time_in_policer_periods =
     clib_cpu_time_now () >> POLICER_TICKS_PER_PERIOD_SHIFT;
 
-  return vnet_police_packet
-    (p, UPF_POLICER_FIXED_PKT_SIZE, POLICE_CONFORM,
-     time_in_policer_periods) == POLICE_CONFORM;
+  return vnet_police_packet (p, UPF_POLICER_FIXED_PKT_SIZE, POLICE_CONFORM,
+                             time_in_policer_periods) == POLICE_CONFORM;
 }
 
 static void
-upf_pfcp_server_send_session_request (upf_session_t * sx,
-				      pfcp_decoded_msg_t * dmsg)
+upf_pfcp_server_send_session_request (upf_session_t *sx,
+                                      pfcp_decoded_msg_t *dmsg)
 {
   pfcp_msg_t *msg;
 
@@ -683,8 +685,8 @@ upf_pfcp_server_send_session_request (upf_session_t * sx,
 }
 
 static void
-upf_pfcp_server_send_node_request (upf_node_assoc_t * n,
-				   pfcp_decoded_msg_t * dmsg)
+upf_pfcp_server_send_node_request (upf_node_assoc_t *n,
+                                   pfcp_decoded_msg_t *dmsg)
 {
   pfcp_msg_t *msg;
 
@@ -704,13 +706,12 @@ response_expired (u32 id)
   upf_debug ("Msg Seq No: %u, %p, idx %u\n", msg->seq_no, msg, id);
   upf_debug ("release...\n");
 
-
   mhash_unset (&psm->response_q, msg->request_key, NULL);
   pfcp_msg_pool_put (psm, msg);
 }
 
 static void
-restart_response_timer (pfcp_msg_t * msg)
+restart_response_timer (pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   u32 id = pfcp_msg_get_index (psm, msg);
@@ -724,7 +725,7 @@ restart_response_timer (pfcp_msg_t * msg)
 }
 
 static void
-enqueue_response (pfcp_msg_t * msg)
+enqueue_response (pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   u32 id = pfcp_msg_get_index (psm, msg);
@@ -738,7 +739,7 @@ enqueue_response (pfcp_msg_t * msg)
 }
 
 static void
-upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req)
+upf_pfcp_make_response (pfcp_msg_t *resp, pfcp_msg_t *req)
 {
   resp->timer = ~0;
   resp->seq_no = req->seq_no;
@@ -749,7 +750,7 @@ upf_pfcp_make_response (pfcp_msg_t * resp, pfcp_msg_t * req)
 }
 
 int
-upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg)
+upf_pfcp_send_response (pfcp_msg_t *req, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_msg_t *resp;
@@ -788,7 +789,7 @@ urr_check_counter (u64 bytes, u64 consumed, u64 threshold, u64 quota)
 }
 
 void
-upf_pfcp_session_up_deletion_report (upf_session_t * sx)
+upf_pfcp_session_up_deletion_report (upf_session_t *sx)
 {
   /*
    * TS 29.244 clause 5.18.2: UP Function Initiated PFCP Session
@@ -796,9 +797,7 @@ upf_pfcp_session_up_deletion_report (upf_session_t * sx)
    * the reason for session termination
    */
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_decoded_msg_t dmsg = {
-    .type = PFCP_SESSION_REPORT_REQUEST
-  };
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
   pfcp_session_report_request_t *req = &dmsg.session_report_request;
   struct rules *active;
   f64 now = psm->now;
@@ -816,11 +815,10 @@ upf_pfcp_session_up_deletion_report (upf_session_t * sx)
       UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
       upf_usage_report_init (&report, vec_len (active->urr));
-      upf_usage_report_set (&report,
-			    USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT,
-			    now);
+      upf_usage_report_set (
+        &report, USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT, now);
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
-			      &req->usage_report);
+                              &req->usage_report);
       upf_usage_report_free (&report);
     }
   else
@@ -835,12 +833,10 @@ upf_pfcp_session_up_deletion_report (upf_session_t * sx)
 }
 
 static void
-upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
-			       upf_event_urr_data_t * uev, f64 now)
+upf_pfcp_session_usage_report (upf_session_t *sx, ip46_address_t *ue,
+                               upf_event_urr_data_t *uev, f64 now)
 {
-  pfcp_decoded_msg_t dmsg = {
-    .type = PFCP_SESSION_REPORT_REQUEST
-  };
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
   pfcp_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
@@ -867,61 +863,59 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
   upf_usage_report_init (&report, vec_len (active->urr));
 
   vec_foreach (ev, uev)
-  {
-    urr = pfcp_get_urr_by_id (active, ev->urr_id);
-    if (!urr)
-      continue;
+    {
+      urr = pfcp_get_urr_by_id (active, ev->urr_id);
+      if (!urr)
+        continue;
 
-    if (ev->trigger & URR_START_OF_TRAFFIC)
-      {
-	upf_usage_report_trigger (&report, urr - active->urr,
-				  USAGE_REPORT_TRIGGER_START_OF_TRAFFIC,
-				  urr->liusa_bitmap, now);
-	send = 1;
+      if (ev->trigger & URR_START_OF_TRAFFIC)
+        {
+          upf_usage_report_trigger (&report, urr - active->urr,
+                                    USAGE_REPORT_TRIGGER_START_OF_TRAFFIC,
+                                    urr->liusa_bitmap, now);
+          send = 1;
 
-	if (urr->traffic_timer.handle == ~0)
-	  {
-	    urr->traffic_timer.base = now;
-	    upf_pfcp_session_start_stop_urr_time (si, &urr->traffic_timer, 1);
-	  }
-      }
-  }
+          if (urr->traffic_timer.handle == ~0)
+            {
+              urr->traffic_timer.base = now;
+              upf_pfcp_session_start_stop_urr_time (si, &urr->traffic_timer,
+                                                    1);
+            }
+        }
+    }
 
   vec_foreach (urr, active->urr)
-  {
-    u32 trigger = 0;
+    {
+      u32 trigger = 0;
 
-    upf_debug ("URR: %p\n", urr);
-    if (urr->status & URR_REPORTED)
-      /* skip already reported URR */
-      continue;
+      upf_debug ("URR: %p\n", urr);
+      if (urr->status & URR_REPORTED)
+        /* skip already reported URR */
+        continue;
 
-#define urr_check(V, D)					\
-      urr_check_counter(				\
-			V.measure.bytes.D,		\
-			V.measure.consumed.D,		\
-			V.threshold.D,			\
-			V.quota.D)
+#define urr_check(V, D)                                                       \
+  urr_check_counter (V.measure.bytes.D, V.measure.consumed.D, V.threshold.D,  \
+                     V.quota.D)
 
-    trigger = urr_check (urr->volume, ul);
-    trigger |= urr_check (urr->volume, dl);
-    trigger |= urr_check (urr->volume, total);
+      trigger = urr_check (urr->volume, ul);
+      trigger |= urr_check (urr->volume, dl);
+      trigger |= urr_check (urr->volume, total);
 
 #undef urr_check
 
-    if (trigger != 0)
-      {
-	upf_usage_report_trigger (&report, urr - active->urr, trigger,
-				  urr->liusa_bitmap, now);
-	urr->status |= URR_REPORTED;
-	send = 1;
-      }
-  }
+      if (trigger != 0)
+        {
+          upf_usage_report_trigger (&report, urr - active->urr, trigger,
+                                    urr->liusa_bitmap, now);
+          urr->status |= URR_REPORTED;
+          send = 1;
+        }
+    }
 
   if (send)
     {
       upf_usage_report_build (sx, ue, active->urr, now, &report,
-			      &req->usage_report);
+                              &req->usage_report);
       upf_pfcp_server_send_session_request (sx, &dmsg);
     }
 
@@ -930,7 +924,7 @@ upf_pfcp_session_usage_report (upf_session_t * sx, ip46_address_t * ue,
 }
 
 void
-upf_pfcp_session_stop_up_inactivity_timer (urr_time_t * t)
+upf_pfcp_session_stop_up_inactivity_timer (urr_time_t *t)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
@@ -942,7 +936,7 @@ upf_pfcp_session_stop_up_inactivity_timer (urr_time_t * t)
 }
 
 void
-upf_pfcp_session_start_up_inactivity_timer (u32 si, f64 last, urr_time_t * t)
+upf_pfcp_session_start_up_inactivity_timer (u32 si, f64 last, urr_time_t *t)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   i64 interval;
@@ -957,23 +951,23 @@ upf_pfcp_session_start_up_inactivity_timer (u32 si, f64 last, urr_time_t * t)
   t->expected = vlib_time_now (psm->vlib_main) + period;
 
   interval = psm->timer.ticks_per_second * period;
-  interval = clib_max (interval, 1);	/* make sure interval is at least 1 */
+  interval = clib_max (interval, 1); /* make sure interval is at least 1 */
   t->handle = upf_pfcp_server_start_generic_timer (si, interval);
 
-  upf_debug
-    ("starting UP inactivity timer on sidx %u, handle 0x%08x: "
-     "now is %.4f, expire in %lu ticks "
-     " clib_now %.4f, current tick: %u",
-     si, t->handle, psm->timer.last_run_time, interval,
-     unix_time_now (), psm->timer.current_tick);
+  upf_debug ("starting UP inactivity timer on sidx %u, handle 0x%08x: "
+             "now is %.4f, expire in %lu ticks "
+             " clib_now %.4f, current tick: %u",
+             si, t->handle, psm->timer.last_run_time, interval,
+             unix_time_now (), psm->timer.current_tick);
 }
 
 void
-upf_pfcp_session_stop_urr_time (urr_time_t * t, const f64 now)
+upf_pfcp_session_stop_urr_time (urr_time_t *t, const f64 now)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
-  if (t->handle != ~0 && t->expected > now)	// XXXX: t->expected == now possible? (unlikely...)
+  if (t->handle != ~0 &&
+      t->expected > now) // XXXX: t->expected == now possible? (unlikely...)
     {
       /* The timer wheel stop expired timers automatically. We don't map
        * expired timers to their urr_time_t structure, therefore the handle
@@ -991,12 +985,12 @@ upf_pfcp_session_stop_urr_time (urr_time_t * t, const f64 now)
 }
 
 void
-upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t, u8 start_it)
+upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t *t, u8 start_it)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
-  /* the timer interval must be based on tw->current_tick, so for calculating that
-   * we need to use the now timestamp of that current_tick */
+  /* the timer interval must be based on tw->current_tick, so for calculating
+   * that we need to use the now timestamp of that current_tick */
   const f64 now = psm->timer.last_run_time;
 
   if (t->handle != ~0)
@@ -1010,25 +1004,22 @@ upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t, u8 start_it)
 
       t->expected = t->base + t->period;
       interval = psm->timer.ticks_per_second * (t->expected - now) + 1;
-      interval = clib_max (interval, 1);	/* make sure interval is at least 1 */
+      interval = clib_max (interval, 1); /* make sure interval is at least 1 */
       t->handle = upf_pfcp_server_start_generic_timer (si, interval);
 
-      upf_debug
-	("starting URR timer on sidx %u, handle 0x%08x: "
-	 "now is %.4f, base is %.4f, expire in %lu ticks "
-	 " @ %.4f (%U), clib_now %.4f, current tick: %u",
-	 si, t->handle, now, t->base, interval,
-	 t->expected, format_time_float, NULL, t->expected,
-	 unix_time_now (), psm->timer.current_tick);
+      upf_debug ("starting URR timer on sidx %u, handle 0x%08x: "
+                 "now is %.4f, base is %.4f, expire in %lu ticks "
+                 " @ %.4f (%U), clib_now %.4f, current tick: %u",
+                 si, t->handle, now, t->base, interval, t->expected,
+                 format_time_float, NULL, t->expected, unix_time_now (),
+                 psm->timer.current_tick);
     }
 }
 
 static void
-upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
+upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
 {
-  pfcp_decoded_msg_t dmsg = {
-    .type = PFCP_SESSION_REPORT_REQUEST
-  };
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
   pfcp_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
@@ -1043,11 +1034,11 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
   upf_debug ("upf_pfcp_session_urr_timer (%p, 0x%016" PRIx64 " @ %u, %.4f)\n"
-	     "  UP Inactivity Timer: %u secs, inactive %12.4f secs (0x%08x)",
-	     sx, sx->up_seid, sx - gtm->sessions, now,
-	     active->inactivity_timer.period,
-	     vlib_time_now (gtm->vlib_main) - sx->last_ul_traffic,
-	     active->inactivity_timer.handle);
+             "  UP Inactivity Timer: %u secs, inactive %12.4f secs (0x%08x)",
+             sx, sx->up_seid, sx - gtm->sessions, now,
+             active->inactivity_timer.period,
+             vlib_time_now (gtm->vlib_main) - sx->last_ul_traffic,
+             active->inactivity_timer.handle);
 
   memset (req, 0, sizeof (*req));
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
@@ -1056,203 +1047,200 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
       active->inactivity_timer.period != 0)
     {
       if (ceil (vlib_time_now (gtm->vlib_main) - sx->last_ul_traffic) >=
-	  active->inactivity_timer.period)
-	{
-	  active->inactivity_timer.handle = ~0;
-	  req->report_type |= REPORT_TYPE_UPIR;
-	}
+          active->inactivity_timer.period)
+        {
+          active->inactivity_timer.handle = ~0;
+          req->report_type |= REPORT_TYPE_UPIR;
+        }
       else
-	{
-	  upf_pfcp_session_stop_up_inactivity_timer
-	    (&active->inactivity_timer);
-	  upf_pfcp_session_start_up_inactivity_timer (si, sx->last_ul_traffic,
-						      &active->inactivity_timer);
-	}
+        {
+          upf_pfcp_session_stop_up_inactivity_timer (
+            &active->inactivity_timer);
+          upf_pfcp_session_start_up_inactivity_timer (
+            si, sx->last_ul_traffic, &active->inactivity_timer);
+        }
     }
 
   upf_usage_report_init (&report, vec_len (active->urr));
 
   vec_foreach_index (idx, active->urr)
-  {
-    upf_urr_t *urr = vec_elt_at_index (active->urr, idx);
-    f64 trigger_now = now;
-    u32 trigger = 0;
+    {
+      upf_urr_t *urr = vec_elt_at_index (active->urr, idx);
+      f64 trigger_now = now;
+      u32 trigger = 0;
 
-#define urr_check(V, NOW)				\
-    (((V).base != 0) && ((V).period != 0) &&		\
-     ((V).expected != 0) && (V).expected < (NOW))
-#define urr_check_late(V, NOW)					  \
-    do { 							  \
-      if ((V).expected < (NOW) - LATE_TIMER_WARNING_THRESHOLD)    \
-        {	                                                  \
-          vlib_increment_simple_counter (                         \
-            &gtm->upf_simple_counters[UPF_TIMERS_MISSED],         \
-	    vlib_get_thread_index (), 0, 1);                      \
-	  clib_warning("WARNING: timer late by %.4f seconds: "#V, \
-		      (NOW) - (V).expected);			  \
-        }                                                         \
-    } while (0)
+#define urr_check(V, NOW)                                                     \
+  (((V).base != 0) && ((V).period != 0) && ((V).expected != 0) &&             \
+   (V).expected < (NOW))
+#define urr_check_late(V, NOW)                                                \
+  do                                                                          \
+    {                                                                         \
+      if ((V).expected < (NOW) -LATE_TIMER_WARNING_THRESHOLD)                 \
+        {                                                                     \
+          vlib_increment_simple_counter (                                     \
+            &gtm->upf_simple_counters[UPF_TIMERS_MISSED],                     \
+            vlib_get_thread_index (), 0, 1);                                  \
+          clib_warning ("WARNING: timer late by %.4f seconds: " #V,           \
+                        (NOW) - (V).expected);                                \
+        }                                                                     \
+    }                                                                         \
+  while (0)
 
-#define URR_COND_TIME(t, time)			\
-    (t).period != 0 ? time : 0
-#define URR_DEBUG_HEADER						\
-    "Rule       | base                                | period   | expire at               | in secs              | ticks     | handle     | check result\n"
-#define URR_DEUBG_LINE "%-10s | %U (%9.3f) | %8lu | %U | %9.3f, %9.3f | %9.3f | 0x%08x | %u\n"
+#define URR_COND_TIME(t, time) (t).period != 0 ? time : 0
+#define URR_DEBUG_HEADER                                                      \
+  "Rule       | base                                | period   | expire at  " \
+  "             | in secs              | ticks     | handle     | check "     \
+  "result\n"
+#define URR_DEUBG_LINE                                                        \
+  "%-10s | %U (%9.3f) | %8lu | %U | %9.3f, %9.3f | %9.3f | 0x%08x | %u\n"
 #define URR_DEUBG_ABS_LINE "%-10s | %U | %12.4f | %U | %12.4f\n"
-#define URR_DEBUG_VALUES(Label, t)					\
-    (Label),								\
-      format_time_float, NULL, (t).base,				\
-      URR_COND_TIME(t, ((t).base - now)),				\
-      (t).period,							\
-      format_time_float, NULL, (t).base + (f64)(t).period,		\
-      URR_COND_TIME(t, (((t).base + (f64)(t).period) - now)),		\
-      URR_COND_TIME(t, ((t).expected - now)),				\
-      URR_COND_TIME(t, ((t).expected - now) * TW_CLOCKS_PER_SECOND),	\
-      (t).handle, urr_check(t, now)
+#define URR_DEBUG_VALUES(Label, t)                                            \
+  (Label), format_time_float, NULL, (t).base,                                 \
+    URR_COND_TIME (t, ((t).base - now)), (t).period, format_time_float, NULL, \
+    (t).base + (f64) (t).period,                                              \
+    URR_COND_TIME (t, (((t).base + (f64) (t).period) - now)),                 \
+    URR_COND_TIME (t, ((t).expected - now)),                                  \
+    URR_COND_TIME (t, ((t).expected - now) * TW_CLOCKS_PER_SECOND),           \
+    (t).handle, urr_check (t, now)
 
-#define URR_DEBUG_ABS_VALUES(Label, t)					\
-    (Label),								\
-      format_time_float, NULL, (t).unix_time,				\
-      (t).unix_time - now,						\
-      format_vlib_time, gtm->vlib_main, (t).vlib_time,			\
-      (t).vlib_time - vnow
+#define URR_DEBUG_ABS_VALUES(Label, t)                                        \
+  (Label), format_time_float, NULL, (t).unix_time, (t).unix_time - now,       \
+    format_vlib_time, gtm->vlib_main, (t).vlib_time, (t).vlib_time - vnow
 
-    upf_debug ("URR: %p, Id: %u", urr, urr->id);
-    urr_debug_out
-      (URR_DEBUG_HEADER
-       URR_DEUBG_LINE
-       URR_DEUBG_LINE
-       URR_DEUBG_LINE
-       URR_DEUBG_ABS_LINE,
-       URR_DEBUG_VALUES ("Period", urr->measurement_period),
-       URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
-       URR_DEBUG_VALUES ("Quota", urr->time_quota),
-       URR_DEBUG_ABS_VALUES ("Monitoring", urr->monitoring_time));
+      upf_debug ("URR: %p, Id: %u", urr, urr->id);
+      urr_debug_out (
+        URR_DEBUG_HEADER URR_DEUBG_LINE URR_DEUBG_LINE URR_DEUBG_LINE
+          URR_DEUBG_ABS_LINE,
+        URR_DEBUG_VALUES ("Period", urr->measurement_period),
+        URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
+        URR_DEBUG_VALUES ("Quota", urr->time_quota),
+        URR_DEBUG_ABS_VALUES ("Monitoring", urr->monitoring_time));
 
-    if (urr_check (urr->measurement_period, now))
-      {
-	urr_check_late (urr->measurement_period, now);
-	if (urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING)
-	  {
-	    trigger |= USAGE_REPORT_TRIGGER_PERIODIC_REPORTING;
-	    trigger_now =
-	      clib_min (trigger_now, urr->measurement_period.expected);
-	  }
+      if (urr_check (urr->measurement_period, now))
+        {
+          urr_check_late (urr->measurement_period, now);
+          if (urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING)
+            {
+              trigger |= USAGE_REPORT_TRIGGER_PERIODIC_REPORTING;
+              trigger_now =
+                clib_min (trigger_now, urr->measurement_period.expected);
+            }
 
-	urr->measurement_period.base += urr->measurement_period.period;
-	if ((urr->measurement_period.base + urr->measurement_period.period) <
-	    now)
-	  {
-	    clib_warning
-	      ("WARNING: URR %p, Measurement Period wrong, Session 0x%016"
-	       PRIx64 ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE, urr,
-	       sx->up_seid, urr->id, URR_DEBUG_VALUES ("Period",
-						       urr->measurement_period));
+          urr->measurement_period.base += urr->measurement_period.period;
+          if ((urr->measurement_period.base + urr->measurement_period.period) <
+              now)
+            {
+              clib_warning (
+                "WARNING: URR %p, Measurement Period wrong, Session "
+                "0x%016" PRIx64 ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE,
+                urr, sx->up_seid, urr->id,
+                URR_DEBUG_VALUES ("Period", urr->measurement_period));
 #if CLIB_DEBUG > 0
-	    ASSERT ((urr->measurement_period.base +
-		     urr->measurement_period.period) < now);
+              ASSERT ((urr->measurement_period.base +
+                       urr->measurement_period.period) < now);
 #endif
-	    while ((urr->measurement_period.base +
-		    urr->measurement_period.period) < now)
-	      {
-		urr->measurement_period.base +=
-		  urr->measurement_period.period;
-	      }
-	  }
+              while ((urr->measurement_period.base +
+                      urr->measurement_period.period) < now)
+                {
+                  urr->measurement_period.base +=
+                    urr->measurement_period.period;
+                }
+            }
 
-	/* rearm Measurement Period */
-	upf_pfcp_session_start_stop_urr_time
-	  (si, &urr->measurement_period, 1);
+          /* rearm Measurement Period */
+          upf_pfcp_session_start_stop_urr_time (si, &urr->measurement_period,
+                                                1);
+        }
+      if (urr_check (urr->time_threshold, now))
+        {
+          urr_check_late (urr->time_threshold, now);
+          if (urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD)
+            {
+              trigger |= USAGE_REPORT_TRIGGER_TIME_THRESHOLD;
+              trigger_now =
+                clib_min (trigger_now, urr->time_threshold.expected);
+            }
 
-      }
-    if (urr_check (urr->time_threshold, now))
-      {
-	urr_check_late (urr->time_threshold, now);
-	if (urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD)
-	  {
-	    trigger |= USAGE_REPORT_TRIGGER_TIME_THRESHOLD;
-	    trigger_now =
-	      clib_min (trigger_now, urr->time_threshold.expected);
-	  }
+          upf_pfcp_session_stop_urr_time (&urr->time_threshold, now);
+        }
+      if (urr_check (urr->time_quota, now))
+        {
+          urr_check_late (urr->time_quota, now);
+          if (urr->triggers & REPORTING_TRIGGER_TIME_QUOTA)
+            {
+              trigger |= USAGE_REPORT_TRIGGER_TIME_QUOTA;
+              trigger_now = clib_min (trigger_now, urr->time_quota.expected);
+            }
 
-	upf_pfcp_session_stop_urr_time (&urr->time_threshold, now);
-      }
-    if (urr_check (urr->time_quota, now))
-      {
-	urr_check_late (urr->time_quota, now);
-	if (urr->triggers & REPORTING_TRIGGER_TIME_QUOTA)
-	  {
-	    trigger |= USAGE_REPORT_TRIGGER_TIME_QUOTA;
-	    trigger_now = clib_min (trigger_now, urr->time_quota.expected);
-	  }
+          upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
+          urr->time_quota.period = 0;
+          urr->status |= URR_OVER_QUOTA;
+        }
+      if (urr_check (urr->quota_validity_time, now))
+        {
+          urr_check_late (urr->quota_validity_time, now);
+          if (urr->triggers & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME)
+            {
+              trigger |= USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME;
+              trigger_now =
+                clib_min (trigger_now, urr->quota_validity_time.expected);
+            }
 
-	upf_pfcp_session_stop_urr_time (&urr->time_quota, now);
-	urr->time_quota.period = 0;
-	urr->status |= URR_OVER_QUOTA;
-      }
-    if (urr_check (urr->quota_validity_time, now))
-      {
-	urr_check_late (urr->quota_validity_time, now);
-	if (urr->triggers & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME)
-	  {
-	    trigger |= USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME;
-	    trigger_now =
-	      clib_min (trigger_now, urr->quota_validity_time.expected);
-	  }
+          upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
+          urr->quota_validity_time.period = 0;
+          urr->status |= URR_OVER_QUOTA;
+        }
 
-	upf_pfcp_session_stop_urr_time (&urr->quota_validity_time, now);
-	urr->quota_validity_time.period = 0;
-	urr->status |= URR_OVER_QUOTA;
-      }
+      if (urr_check (urr->traffic_timer, now))
+        {
+          upf_urr_traffic_t **expired = NULL;
+          upf_urr_traffic_t *tt = NULL;
 
-    if (urr_check (urr->traffic_timer, now))
-      {
-	upf_urr_traffic_t **expired = NULL;
-	upf_urr_traffic_t *tt = NULL;
+          urr_check_late (urr->traffic_timer, now);
 
-	urr_check_late (urr->traffic_timer, now);
+          pool_foreach (tt, urr->traffic)
+            {
+              if (tt->first_seen + 60 < now)
+                vec_add1 (expired, tt);
+            };
 
-	pool_foreach (tt, urr->traffic)
-	{
-	  if (tt->first_seen + 60 < now)
-	    vec_add1 (expired, tt);
-	};
+          for (int i = 0; i < vec_len (expired); i++)
+            {
+              hash_unset_mem_free (&urr->traffic_by_ue, &expired[i]->ip);
+              pool_put (urr->traffic, expired[i]);
+            }
+          vec_free (expired);
 
-	for (int i = 0; i < vec_len (expired); i++)
-	  {
-	    hash_unset_mem_free (&urr->traffic_by_ue, &expired[i]->ip);
-	    pool_put (urr->traffic, expired[i]);
-	  }
-	vec_free (expired);
-
-	if (pool_elts (urr->traffic) != 0)
-	  {
-	    urr->traffic_timer.base = now;
-	    upf_pfcp_session_start_stop_urr_time (si, &urr->traffic_timer, 1);
-	  }
-      }
+          if (pool_elts (urr->traffic) != 0)
+            {
+              urr->traffic_timer.base = now;
+              upf_pfcp_session_start_stop_urr_time (si, &urr->traffic_timer,
+                                                    1);
+            }
+        }
 
 #undef urr_check
 
-    if (trigger != 0)
-      {
-	req->report_type |= REPORT_TYPE_USAR;
-	UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
+      if (trigger != 0)
+        {
+          req->report_type |= REPORT_TYPE_USAR;
+          UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
-	upf_usage_report_trigger (&report, idx, trigger, urr->liusa_bitmap,
-				  trigger_now);
+          upf_usage_report_trigger (&report, idx, trigger, urr->liusa_bitmap,
+                                    trigger_now);
 
-	// clear reporting on the time based triggers, until rearmed by update
-	urr->triggers &= ~(REPORTING_TRIGGER_TIME_THRESHOLD |
-			   REPORTING_TRIGGER_TIME_QUOTA |
-			   REPORTING_TRIGGER_QUOTA_VALIDITY_TIME);
-      }
-  }
+          // clear reporting on the time based triggers, until rearmed by
+          // update
+          urr->triggers &=
+            ~(REPORTING_TRIGGER_TIME_THRESHOLD | REPORTING_TRIGGER_TIME_QUOTA |
+              REPORTING_TRIGGER_QUOTA_VALIDITY_TIME);
+        }
+    }
 
   if (req->report_type != 0)
     {
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
-			      &req->usage_report);
+                              &req->usage_report);
       upf_pfcp_server_send_session_request (sx, &dmsg);
     }
 
@@ -1263,77 +1251,80 @@ upf_pfcp_session_urr_timer (upf_session_t * sx, f64 now)
 #if CLIB_DEBUG > 10
 
 static void
-upf_validate_session_timer (upf_session_t * sx)
+upf_validate_session_timer (upf_session_t *sx)
 {
   f64 now = unix_time_now ();
   struct rules *r;
   upf_urr_t *urr;
   int error = 0;
 
-#define urr_check(V, NOW)	(~0 != (V).handle)
+#define urr_check(V, NOW) (~0 != (V).handle)
 
   r = pfcp_get_rules (sx, PFCP_PENDING);
   vec_foreach (urr, r->urr)
-  {
-    if (!urr_check (urr->measurement_period, now) &&
-	!(urr->monitoring_time.vlib_time != INFINITY) &&
-	!urr_check (urr->time_threshold, now) &&
-	!urr_check (urr->time_quota, now))
-      continue;
+    {
+      if (!urr_check (urr->measurement_period, now) &&
+          !(urr->monitoring_time.vlib_time != INFINITY) &&
+          !urr_check (urr->time_threshold, now) &&
+          !urr_check (urr->time_quota, now))
+        continue;
 
-    error++;
-    clib_warning
-      ("WARNING: Pending URR %p with active timer handler, Session 0x%016"
-       PRIx64 ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE URR_DEUBG_LINE
-       URR_DEUBG_LINE URR_DEUBG_ABS_LINE, urr, sx->up_seid, urr->id,
-       URR_DEBUG_VALUES ("Period", urr->measurement_period),
-       URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
-       URR_DEBUG_VALUES ("Quota", urr->time_quota));
+      error++;
+      clib_warning ("WARNING: Pending URR %p with active timer handler, "
+                    "Session 0x%016" PRIx64
+                    ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE
+                      URR_DEUBG_LINE URR_DEUBG_LINE URR_DEUBG_ABS_LINE,
+                    urr, sx->up_seid, urr->id,
+                    URR_DEBUG_VALUES ("Period", urr->measurement_period),
+                    URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
+                    URR_DEBUG_VALUES ("Quota", urr->time_quota));
     URR_DEBUG_ABS_VALUES ("Monitoring", urr->monitoring_time));
-  }
+    }
 #undef urr_check
 
-#define urr_check(V, NOW)			\
-  (((V).handle != ~0) && (V).expected < ((NOW) - 1))
+#define urr_check(V, NOW) (((V).handle != ~0) && (V).expected < ((NOW) -1))
 
   r = pfcp_get_rules (sx, PFCP_ACTIVE);
   vec_foreach (urr, r->urr)
-  {
-    if (!urr_check (urr->measurement_period, now) &&
-	!urr_check (urr->monitoring_time, now) &&
-	!urr_check (urr->time_threshold, now) &&
-	!urr_check (urr->time_quota, now))
-      continue;
+    {
+      if (!urr_check (urr->measurement_period, now) &&
+          !urr_check (urr->monitoring_time, now) &&
+          !urr_check (urr->time_threshold, now) &&
+          !urr_check (urr->time_quota, now))
+        continue;
 
-    error++;
-    clib_warning ("WARNING: Active URR %p with expired timer, Session 0x%016"
-		  PRIx64 ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE
-		  URR_DEUBG_LINE URR_DEUBG_LINE URR_DEUBG_ABS_LINE, urr,
-		  sx->up_seid, urr->id, URR_DEBUG_VALUES ("Period",
-							  urr->measurement_period),
-		  URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
-		  URR_DEBUG_VALUES ("Quota", urr->time_quota),
-		  URR_DEBUG_ABS_VALUES ("Monitoring", urr->monitoring_time));
-  }
+      error++;
+      clib_warning (
+        "WARNING: Active URR %p with expired timer, Session 0x%016" PRIx64
+        ", URR: %u\n" URR_DEBUG_HEADER URR_DEUBG_LINE URR_DEUBG_LINE
+          URR_DEUBG_LINE URR_DEUBG_ABS_LINE,
+        urr, sx->up_seid, urr->id,
+        URR_DEBUG_VALUES ("Period", urr->measurement_period),
+        URR_DEBUG_VALUES ("Threshold", urr->time_threshold),
+        URR_DEBUG_VALUES ("Quota", urr->time_quota),
+        URR_DEBUG_ABS_VALUES ("Monitoring", urr->monitoring_time));
+    }
 #undef urr_check
 
   ASSERT (error == 0);
 }
 
-static void upf_validate_session_timers ()
+static void
+upf_validate_session_timers ()
 {
   upf_main_t *gtm = &upf_main;
   upf_session_t *sx = NULL;
 
   pool_foreach (sx, gtm->sessions)
-  {
-    upf_validate_session_timer (sx);
-  }
+    {
+      upf_validate_session_timer (sx);
+    }
 }
 
 #endif
 
-void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg)
+void
+upf_pfcp_server_stop_msg_timer (pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   u32 id_resp, *exp_id, id_t1;
@@ -1351,13 +1342,13 @@ void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg)
    * pfcp_process() loop
    */
   vec_foreach (exp_id, psm->expired)
-  {
-    if (*exp_id == id_t1 || *exp_id == id_resp)
-      {
-	msg->timer = ~0;
-	*exp_id = ~0;
-      }
-  }
+    {
+      if (*exp_id == id_t1 || *exp_id == id_resp)
+        {
+          msg->timer = ~0;
+          *exp_id = ~0;
+        }
+    }
 
   /*
    * Don't call tw_timer_stop() on expired timer handles as they're invalid
@@ -1368,7 +1359,8 @@ void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg)
   msg->timer = ~0;
 }
 
-void upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t * n)
+void
+upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t *n)
 {
   if (n->heartbeat_handle != ~0)
     {
@@ -1377,7 +1369,8 @@ void upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t * n)
     }
 }
 
-u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds)
+u32
+upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   i64 interval = seconds * psm->timer.ticks_per_second;
@@ -1386,21 +1379,21 @@ u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds)
   ASSERT ((id & 0xff000000) == 0);
 
   return upf_pfcp_server_start_generic_timer (((0x80 | type) << 24) | id,
-					      interval);
+                                              interval);
 }
 
-void upf_pfcp_server_deferred_free_msgs_by_node (u32 node)
+void
+upf_pfcp_server_deferred_free_msgs_by_node (u32 node)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   hash_set (psm->free_msgs_by_node, node, 1);
 }
 
-void upf_server_handle_hb_timer (u32 node_idx)
+void
+upf_server_handle_hb_timer (u32 node_idx)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_decoded_msg_t dmsg = {
-    .type = PFCP_HEARTBEAT_REQUEST
-  };
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_HEARTBEAT_REQUEST };
   pfcp_heartbeat_request_t *req = &dmsg.heartbeat_request;
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;
@@ -1420,21 +1413,22 @@ void upf_server_handle_hb_timer (u32 node_idx)
   upf_pfcp_server_send_node_request (n, &dmsg);
 }
 
-static int timer_id_cmp (void *a1, void *a2)
+static int
+timer_id_cmp (void *a1, void *a2)
 {
   u32 *n1 = a1;
   u32 *n2 = a2;
 
   if (*n1 < *n2)
-      return -1;
+    return -1;
   else if (*n1 == *n2)
     return 0;
   else
-      return 1;
+    return 1;
 }
 
 static uword
-  pfcp_process (vlib_main_t * vm, vlib_node_runtime_t * rt, vlib_frame_t * f)
+pfcp_process (vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   uword event_type, *event_data = 0;
@@ -1452,14 +1446,14 @@ static uword
       f64 timeout;
 
       ticks_until_expiration =
-	TW (tw_timer_first_expires_in_ticks) (&psm->timer);
+        TW (tw_timer_first_expires_in_ticks) (&psm->timer);
       /* min 1 tick wait */
       ticks_until_expiration = clib_max (ticks_until_expiration, 1);
       /* sleep max 1s */
       ticks_until_expiration =
-	clib_min (ticks_until_expiration, TW_CLOCKS_PER_SECOND);
+        clib_min (ticks_until_expiration, TW_CLOCKS_PER_SECOND);
 
-      timeout = (f64) ticks_until_expiration *TW_SECS_PER_CLOCK;
+      timeout = (f64) ticks_until_expiration * TW_SECS_PER_CLOCK;
 
       (void) vlib_process_wait_for_event_or_clock (vm, timeout);
       event_type = vlib_process_get_events (vm, &event_data);
@@ -1467,210 +1461,211 @@ static uword
       pfcp_msg_pool_loop_start (psm);
       psm->now = unix_time_now ();
 
-      /* run the timing wheel first, to that the internal base for new and updated timers
-       * is set to now */
+      /* run the timing wheel first, to that the internal base for new and
+       * updated timers is set to now */
       upf_pfcp_server_expire_timers ();
 
       switch (event_type)
-	{
-	case ~0:		/* timeout */
-	  // upf_debug ("timeout....");
-	  break;
+        {
+        case ~0: /* timeout */
+          // upf_debug ("timeout....");
+          break;
 
-	case EVENT_RX:
-	  {
-	    for (int i = 0; i < vec_len (event_data); i++)
-	      {
-		pfcp_msg_t *msg = (pfcp_msg_t *) event_data[i];
+        case EVENT_RX:
+          {
+            for (int i = 0; i < vec_len (event_data); i++)
+              {
+                pfcp_msg_t *msg = (pfcp_msg_t *) event_data[i];
 
-		upf_pfcp_server_rx_msg (msg);
+                upf_pfcp_server_rx_msg (msg);
 
-		vec_free (msg->data);
-		clib_mem_free (msg);
-	      }
-	    break;
-	  }
+                vec_free (msg->data);
+                clib_mem_free (msg);
+              }
+            break;
+          }
 
-	case EVENT_TX:
-	  {
-	    for (int i = 0; i < vec_len (event_data); i++)
-	      {
-		pfcp_msg_t *tx = (pfcp_msg_t *) event_data[i];
-		// Handle case when session was removed before
-		// receiving this event
+        case EVENT_TX:
+          {
+            for (int i = 0; i < vec_len (event_data); i++)
+              {
+                pfcp_msg_t *tx = (pfcp_msg_t *) event_data[i];
+                // Handle case when session was removed before
+                // receiving this event
 
-		if (!pool_is_free_index (gtm->nodes, tx->node))
-		  {
-		    pfcp_msg_t *msg;
+                if (!pool_is_free_index (gtm->nodes, tx->node))
+                  {
+                    pfcp_msg_t *msg;
 
-		    msg = pfcp_msg_pool_add (psm, tx);
-		    upf_pfcp_server_send_request (msg);
-		  }
-		else
-		  {
-		    vec_free (tx->data);
-		  }
+                    msg = pfcp_msg_pool_add (psm, tx);
+                    upf_pfcp_server_send_request (msg);
+                  }
+                else
+                  {
+                    vec_free (tx->data);
+                  }
 
-		clib_mem_free (tx);
-	      }
-	    break;
-	  }
+                clib_mem_free (tx);
+              }
+            break;
+          }
 
-	case EVENT_URR:
-	  {
-	    for (int i = 0; i < vec_len (event_data); i++)
-	      {
-		upf_event_urr_data_t *uev =
-		  (upf_event_urr_data_t *) event_data[i];
-		/* TBD: re-verify! */
-		upf_event_urr_hdr_t *ueh =
-		  (upf_event_urr_hdr_t *) vec_header (uev);
-		upf_session_t *sx = 0;
+        case EVENT_URR:
+          {
+            for (int i = 0; i < vec_len (event_data); i++)
+              {
+                upf_event_urr_data_t *uev =
+                  (upf_event_urr_data_t *) event_data[i];
+                /* TBD: re-verify! */
+                upf_event_urr_hdr_t *ueh =
+                  (upf_event_urr_hdr_t *) vec_header (uev);
+                upf_session_t *sx = 0;
 
-		/*
-		 * The session could have been freed or replaced after
-		 * this even has been queued, but before it has been
-		 * handled. So we check if the pool entry is free, and
-		 * also verify that UP-SEID in the session matches
-		 * UP-SEID in the event.
-		 */
-		if (!pool_is_free_index (gtm->sessions, ueh->session_idx))
-		  sx = pool_elt_at_index (gtm->sessions, ueh->session_idx);
+                /*
+                 * The session could have been freed or replaced after
+                 * this even has been queued, but before it has been
+                 * handled. So we check if the pool entry is free, and
+                 * also verify that UP-SEID in the session matches
+                 * UP-SEID in the event.
+                 */
+                if (!pool_is_free_index (gtm->sessions, ueh->session_idx))
+                  sx = pool_elt_at_index (gtm->sessions, ueh->session_idx);
 
-		if (!sx || sx->up_seid != ueh->up_seid)
-		  goto next_ev_urr;
+                if (!sx || sx->up_seid != ueh->up_seid)
+                  goto next_ev_urr;
 
-		if (!(ueh->status & URR_DROP_SESSION))
-		  {
-		    upf_debug
-		      ("URR Event on Session Idx: %wd, %p, UE: %U, Events: %u\n",
-		       ueh->session_idx, sx, format_ip46_address, &ueh->ue,
-		       IP46_TYPE_ANY, vec_len (uev));
-		    upf_pfcp_session_usage_report (sx, &ueh->ue, uev,
-						   psm->now);
-		  }
-		else
-		  {
-		    /*
-		     * The session has a fatal reporting issue such as
-		     * multiple Monitoring Time splits being queued
-		     */
-		    upf_debug
-		      ("URR Event on Session Idx: DROP: %wd, %p\n",
-		       ueh->session_idx, sx);
-		    upf_pfcp_session_up_deletion_report (sx);
-		    pfcp_disable_session (sx);
-		    pfcp_free_session (sx);
-		  }
+                if (!(ueh->status & URR_DROP_SESSION))
+                  {
+                    upf_debug ("URR Event on Session Idx: %wd, %p, UE: %U, "
+                               "Events: %u\n",
+                               ueh->session_idx, sx, format_ip46_address,
+                               &ueh->ue, IP46_TYPE_ANY, vec_len (uev));
+                    upf_pfcp_session_usage_report (sx, &ueh->ue, uev,
+                                                   psm->now);
+                  }
+                else
+                  {
+                    /*
+                     * The session has a fatal reporting issue such as
+                     * multiple Monitoring Time splits being queued
+                     */
+                    upf_debug ("URR Event on Session Idx: DROP: %wd, %p\n",
+                               ueh->session_idx, sx);
+                    upf_pfcp_session_up_deletion_report (sx);
+                    pfcp_disable_session (sx);
+                    pfcp_free_session (sx);
+                  }
 
-	      next_ev_urr:
-		vec_free (uev);
-	      }
-	    break;
-	  }
+              next_ev_urr:
+                vec_free (uev);
+              }
+            break;
+          }
 
-	default:
-	  upf_debug ("event %ld, %p. ", event_type, event_data[0]);
-	  break;
-	}
+        default:
+          upf_debug ("event %ld, %p. ", event_type, event_data[0]);
+          break;
+        }
 
       vec_sort_with_function (psm->expired, timer_id_cmp);
       last_expired = ~0;
 
       for (int i = 0; i < vec_len (psm->expired); i++)
-	{
-	  /*
-	   * Check if the timer has been stopped while handling other
-	   * timers in this iteration of the upf_process() loop
-	   */
-	  if (psm->expired[i] == ~0)
-	    continue;
+        {
+          /*
+           * Check if the timer has been stopped while handling other
+           * timers in this iteration of the upf_process() loop
+           */
+          if (psm->expired[i] == ~0)
+            continue;
 
-	  switch (psm->expired[i] >> 24)
-	    {
-	    case 0 ... 0x7f:
-	      if (last_expired == psm->expired[i])
-		continue;
-	      last_expired = psm->expired[i];
+          switch (psm->expired[i] >> 24)
+            {
+            case 0 ... 0x7f:
+              if (last_expired == psm->expired[i])
+                continue;
+              last_expired = psm->expired[i];
 
-	      {
-		const u32 si = psm->expired[i] & 0x7FFFFFFF;
-		upf_session_t *sx;
+              {
+                const u32 si = psm->expired[i] & 0x7FFFFFFF;
+                upf_session_t *sx;
 
-		if (pool_is_free_index (gtm->sessions, si))
-		  continue;
+                if (pool_is_free_index (gtm->sessions, si))
+                  continue;
 
-		sx = pool_elt_at_index (gtm->sessions, si);
-		upf_pfcp_session_urr_timer (sx, psm->now);
-	      }
-	      break;
+                sx = pool_elt_at_index (gtm->sessions, si);
+                upf_pfcp_session_urr_timer (sx, psm->now);
+              }
+              break;
 
-	    case 0x80 | PFCP_SERVER_HB_TIMER:
-	      /*
-	       * It is important that the heartbeat timer handler runs
-	       * before the T1 timer below, which is ensured by the
-	       * value of PFCP_SERVER_HB_TIMER and PFCP_SERVER_T1
-	       * constants, and also by sorting the expired timers
-	       * above. This way, if the association is released due
-	       * to a T1 timeout, no attempt is made to stop the
-	       * expired heartbeat timer.
-	       * upf_server_handle_hb_timer() clears the expired
-	       * heartbeat timer handle.
-	       */
-	      upf_debug ("PFCP Server Heartbeat Timeout: %u",
-			 psm->expired[i] & 0x00FFFFFF);
-	      upf_server_handle_hb_timer (psm->expired[i] & 0x00FFFFFF);
-	      break;
+            case 0x80 | PFCP_SERVER_HB_TIMER:
+              /*
+               * It is important that the heartbeat timer handler runs
+               * before the T1 timer below, which is ensured by the
+               * value of PFCP_SERVER_HB_TIMER and PFCP_SERVER_T1
+               * constants, and also by sorting the expired timers
+               * above. This way, if the association is released due
+               * to a T1 timeout, no attempt is made to stop the
+               * expired heartbeat timer.
+               * upf_server_handle_hb_timer() clears the expired
+               * heartbeat timer handle.
+               */
+              upf_debug ("PFCP Server Heartbeat Timeout: %u",
+                         psm->expired[i] & 0x00FFFFFF);
+              upf_server_handle_hb_timer (psm->expired[i] & 0x00FFFFFF);
+              break;
 
-	    case 0x80 | PFCP_SERVER_T1:
-	      upf_debug ("PFCP Server T1 Timeout: %u",
-			 psm->expired[i] & 0x00FFFFFF);
-	      request_t1_expired (psm->expired[i] & 0x00FFFFFF);
-	      break;
+            case 0x80 | PFCP_SERVER_T1:
+              upf_debug ("PFCP Server T1 Timeout: %u",
+                         psm->expired[i] & 0x00FFFFFF);
+              request_t1_expired (psm->expired[i] & 0x00FFFFFF);
+              break;
 
-	    case 0x80 | PFCP_SERVER_RESPONSE:
-	      upf_debug ("PFCP Server Response Timeout: %u",
-			 psm->expired[i] & 0x00FFFFFF);
-	      response_expired (psm->expired[i] & 0x00FFFFFF);
-	      break;
+            case 0x80 | PFCP_SERVER_RESPONSE:
+              upf_debug ("PFCP Server Response Timeout: %u",
+                         psm->expired[i] & 0x00FFFFFF);
+              response_expired (psm->expired[i] & 0x00FFFFFF);
+              break;
 
-	    default:
-	      upf_debug ("timeout for unknown id: %u", psm->expired[i] >> 24);
-	      break;
-	    }
-	}
+            default:
+              upf_debug ("timeout for unknown id: %u", psm->expired[i] >> 24);
+              break;
+            }
+        }
 
       /* Free messages that must be freed after the loop */
       pool_foreach (msg, psm->msg_pool)
-      {
-	if (!msg->flags.is_valid_pool_item)
-	  continue;
+        {
+          if (!msg->flags.is_valid_pool_item)
+            continue;
 
-	ASSERT (msg->expires_at);
+          ASSERT (msg->expires_at);
 
-	/* TODO: replace this workaround with proper msg removal inplace */
-	if (!hash_get (psm->free_msgs_by_node, msg->node))
-	  {
-	    /*
-	     * This should not happen unless a timer didn't fire for some reason
-	     */
-	    if (psm->now > msg->expires_at + 1)
-	      clib_warning
-		("Deleting expired message from %U:%d to %U:%d, seq_no %d, expired %f seconds ago",
-		 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
-		 clib_net_to_host_u16 (msg->lcl.port), format_ip46_address,
-		 &msg->rmt.address, IP46_TYPE_ANY,
-		 clib_net_to_host_u16 (msg->rmt.port), msg->seq_no,
-		 psm->now - msg->expires_at);
-	    else
-	      continue;
-	  }
+          /* TODO: replace this workaround with proper msg removal inplace */
+          if (!hash_get (psm->free_msgs_by_node, msg->node))
+            {
+              /*
+               * This should not happen unless a timer didn't fire for some
+               * reason
+               */
+              if (psm->now > msg->expires_at + 1)
+                clib_warning (
+                  "Deleting expired message from %U:%d to %U:%d, seq_no %d, "
+                  "expired %f seconds ago",
+                  format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
+                  clib_net_to_host_u16 (msg->lcl.port), format_ip46_address,
+                  &msg->rmt.address, IP46_TYPE_ANY,
+                  clib_net_to_host_u16 (msg->rmt.port), msg->seq_no,
+                  psm->now - msg->expires_at);
+              else
+                continue;
+            }
 
-	hash_unset (psm->request_q, msg->seq_no);
-	mhash_unset (&psm->response_q, msg->request_key, NULL);
-	upf_pfcp_server_stop_msg_timer (msg);
-	pfcp_msg_pool_put (psm, msg);
-      }
+          hash_unset (psm->request_q, msg->seq_no);
+          mhash_unset (&psm->response_q, msg->request_key, NULL);
+          upf_pfcp_server_stop_msg_timer (msg);
+          pfcp_msg_pool_put (psm, msg);
+        }
 
       vec_reset_length (psm->expired);
       vec_reset_length (event_data);
@@ -1684,18 +1679,20 @@ static uword
   return (0);
 }
 
-void upf_pfcp_server_session_usage_report (upf_event_urr_data_t * uev)
+void
+upf_pfcp_server_session_usage_report (upf_event_urr_data_t *uev)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   vlib_main_t *vm = psm->vlib_main;
 
   vlib_process_signal_event_mt (vm, pfcp_api_process_node.index, EVENT_URR,
-				(uword) uev);
+                                (uword) uev);
 }
 
 /*********************************************************/
 
-clib_error_t *pfcp_server_main_init (vlib_main_t * vm)
+clib_error_t *
+pfcp_server_main_init (vlib_main_t *vm)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   clib_error_t *error;
@@ -1707,11 +1704,11 @@ clib_error_t *pfcp_server_main_init (vlib_main_t * vm)
   psm->start_time = time (NULL);
   mhash_init (&psm->response_q, sizeof (uword), sizeof (u64) * 4);
 
-  TW (tw_timer_wheel_init) (&psm->timer, NULL,
-			    TW_SECS_PER_CLOCK /* 10ms timer interval */ , ~0);
+  TW (tw_timer_wheel_init)
+  (&psm->timer, NULL, TW_SECS_PER_CLOCK /* 10ms timer interval */, ~0);
 
   upf_debug ("PFCP: start_time: %p, %d, %x.", psm, psm->start_time,
-	     psm->start_time);
+             psm->start_time);
 
   psm->hb_cfg.retries = PFCP_DEFAULT_REQUEST_RETRIES;
   psm->hb_cfg.timeout = PFCP_DEFAULT_REQUEST_INTERVAL;
@@ -1723,11 +1720,11 @@ clib_error_t *pfcp_server_main_init (vlib_main_t * vm)
 
 /* *INDENT-OFF* */
 VLIB_REGISTER_NODE (pfcp_api_process_node) = {
-    .function = pfcp_process,
-    .type = VLIB_NODE_TYPE_PROCESS,
-    .process_log2_n_stack_bytes = 16,
-    .runtime_data_bytes = sizeof (void *),
-    .name = "pfcp-api",
+  .function = pfcp_process,
+  .type = VLIB_NODE_TYPE_PROCESS,
+  .process_log2_n_stack_bytes = 16,
+  .runtime_data_bytes = sizeof (void *),
+  .name = "pfcp-api",
 };
 
 /* *INDENT-ON* */

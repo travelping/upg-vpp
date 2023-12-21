@@ -57,8 +57,16 @@ UPF_LLIST_TEMPLATE_TYPES (upf_smfset_nodes_list);
 
 /* #define UPF_TRAFFIC_LOG 1 */
 
-#define ip4_address_initializer { 0 }
-#define ip6_address_initializer {{ 0 }}
+#define ip4_address_initializer                                               \
+  {                                                                           \
+    0                                                                         \
+  }
+#define ip6_address_initializer                                               \
+  {                                                                           \
+    {                                                                         \
+      0                                                                       \
+    }                                                                         \
+  }
 
 /* UPF buffer opaque definition */
 typedef struct
@@ -69,23 +77,23 @@ typedef struct
     u32 teid;
     u32 session_index;
     u16 ext_hdr_len;
-    u16 data_offset;		/* offset relative to ip hdr */
+    u16 data_offset; /* offset relative to ip hdr */
     u8 hdr_flags;
     u8 flags;
-    u8 is_reverse:1;
-    u8 is_proxied:1;
+    u8 is_reverse : 1;
+    u8 is_proxied : 1;
     u32 pdr_idx;
     u32 flow_id;
   } gtpu;
 } upf_buffer_opaque_t;
 
 STATIC_ASSERT (sizeof (upf_buffer_opaque_t) <=
-	       STRUCT_SIZE_OF (vnet_buffer_opaque2_t, unused),
-	       "upf_buffer_opaque_t too large for vnet_buffer_opaque2_t");
+                 STRUCT_SIZE_OF (vnet_buffer_opaque2_t, unused),
+               "upf_buffer_opaque_t too large for vnet_buffer_opaque2_t");
 
-#define upf_buffer_opaque(b)                           \
-  ((upf_buffer_opaque_t *)((u8 *)((b)->opaque2) +       \
-STRUCT_OFFSET_OF (vnet_buffer_opaque_t, unused)))
+#define upf_buffer_opaque(b)                                                  \
+  ((upf_buffer_opaque_t *) ((u8 *) ((b)->opaque2) +                           \
+                            STRUCT_OFFSET_OF (vnet_buffer_opaque_t, unused)))
 
 #if CLIB_DEBUG > 0
 
@@ -96,44 +104,49 @@ STRUCT_OFFSET_OF (vnet_buffer_opaque_t, unused)))
  * upf-ip[46]-proxy-server-output)
  */
 #define UPF_BUFFER_F_GTPU_INITIALIZED VNET_BUFFER_F_AVAIL1
-#define UPF_ENTER_SUBGRAPH(b, sidx, is_ip4)				\
-  do {									\
-    ASSERT (!((b)->flags & UPF_BUFFER_F_GTPU_INITIALIZED));		\
-    clib_memset(upf_buffer_opaque (b), 0, sizeof(upf_buffer_opaque_t));	\
-    b->flags |= UPF_BUFFER_F_GTPU_INITIALIZED;				\
-    upf_buffer_opaque (b)->gtpu.session_index = sidx;			\
-    upf_buffer_opaque (b)->gtpu.flags =					\
-      is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;			\
-  } while (0)
-#define UPF_CHECK_INNER_NODE(b) ASSERT (b->flags & UPF_BUFFER_F_GTPU_INITIALIZED)
+#define UPF_ENTER_SUBGRAPH(b, sidx, is_ip4)                                   \
+  do                                                                          \
+    {                                                                         \
+      ASSERT (!((b)->flags & UPF_BUFFER_F_GTPU_INITIALIZED));                 \
+      clib_memset (upf_buffer_opaque (b), 0, sizeof (upf_buffer_opaque_t));   \
+      b->flags |= UPF_BUFFER_F_GTPU_INITIALIZED;                              \
+      upf_buffer_opaque (b)->gtpu.session_index = sidx;                       \
+      upf_buffer_opaque (b)->gtpu.flags =                                     \
+        is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;                     \
+    }                                                                         \
+  while (0)
+#define UPF_CHECK_INNER_NODE(b)                                               \
+  ASSERT (b->flags &UPF_BUFFER_F_GTPU_INITIALIZED)
 
 #else
 
-#define UPF_ENTER_SUBGRAPH(b, sidx, is_ip4)				\
-  do {									\
-    clib_memset(upf_buffer_opaque (b), 0, sizeof(upf_buffer_opaque_t)); \
-    upf_buffer_opaque (b)->gtpu.session_index = sidx;			\
-    upf_buffer_opaque (b)->gtpu.flags =					\
-      is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;			\
-  } while (0)
+#define UPF_ENTER_SUBGRAPH(b, sidx, is_ip4)                                   \
+  do                                                                          \
+    {                                                                         \
+      clib_memset (upf_buffer_opaque (b), 0, sizeof (upf_buffer_opaque_t));   \
+      upf_buffer_opaque (b)->gtpu.session_index = sidx;                       \
+      upf_buffer_opaque (b)->gtpu.flags =                                     \
+        is_ip4 ? BUFFER_GTP_UDP_IP4 : BUFFER_GTP_UDP_IP6;                     \
+    }                                                                         \
+  while (0)
 #define UPF_CHECK_INNER_NODE(b)
 
 #endif
 
-#define BUFFER_FAR_ONLY     (1<<3)	/* don't include in QER/URR processing */
-#define BUFFER_HAS_GTP_HDR  (1<<4)
-#define BUFFER_HAS_UDP_HDR  (1<<5)
-#define BUFFER_HAS_IP4_HDR  (1<<6)
-#define BUFFER_HAS_IP6_HDR  (1<<7)
-#define BUFFER_HDR_MASK     (BUFFER_HAS_GTP_HDR | BUFFER_HAS_UDP_HDR |	\
-			     BUFFER_HAS_IP4_HDR | BUFFER_HAS_IP6_HDR)
-#define BUFFER_GTP_UDP_IP4  (BUFFER_HAS_GTP_HDR | BUFFER_HAS_UDP_HDR |	\
-			     BUFFER_HAS_IP4_HDR)
-#define BUFFER_GTP_UDP_IP6  (BUFFER_HAS_GTP_HDR | BUFFER_HAS_UDP_HDR |	\
-			     BUFFER_HAS_IP6_HDR)
-#define BUFFER_UDP_IP4      (BUFFER_HAS_UDP_HDR | BUFFER_HAS_IP4_HDR)
-#define BUFFER_UDP_IP6      (BUFFER_HAS_UDP_HDR | BUFFER_HAS_IP6_HDR)
-
+#define BUFFER_FAR_ONLY    (1 << 3) /* don't include in QER/URR processing */
+#define BUFFER_HAS_GTP_HDR (1 << 4)
+#define BUFFER_HAS_UDP_HDR (1 << 5)
+#define BUFFER_HAS_IP4_HDR (1 << 6)
+#define BUFFER_HAS_IP6_HDR (1 << 7)
+#define BUFFER_HDR_MASK                                                       \
+  (BUFFER_HAS_GTP_HDR | BUFFER_HAS_UDP_HDR | BUFFER_HAS_IP4_HDR |             \
+   BUFFER_HAS_IP6_HDR)
+#define BUFFER_GTP_UDP_IP4                                                    \
+  (BUFFER_HAS_GTP_HDR | BUFFER_HAS_UDP_HDR | BUFFER_HAS_IP4_HDR)
+#define BUFFER_GTP_UDP_IP6                                                    \
+  (BUFFER_HAS_GTP_HDR | BUFFER_HAS_UDP_HDR | BUFFER_HAS_IP6_HDR)
+#define BUFFER_UDP_IP4 (BUFFER_HAS_UDP_HDR | BUFFER_HAS_IP4_HDR)
+#define BUFFER_UDP_IP6 (BUFFER_HAS_UDP_HDR | BUFFER_HAS_IP6_HDR)
 
 /**
  *		Bits
@@ -150,13 +163,13 @@ STRUCT_OFFSET_OF (vnet_buffer_opaque_t, unused)))
  * 10		Sequence Number (2nd Octet)1) 4)
  * 11		N-PDU Number2) 4)
  * 12		Next Extension Header Type3) 4)
-**/
+ **/
 
 typedef struct
 {
   u8 ver_flags;
   u8 type;
-  u16 length;			/* length in octets of the payload */
+  u16 length; /* length in octets of the payload */
   u32 teid;
   u16 sequence;
   u8 pdu_number;
@@ -164,8 +177,7 @@ typedef struct
 } gtpu_header_t;
 
 /* *INDENT-OFF* */
-typedef CLIB_PACKED (struct
-{
+typedef CLIB_PACKED (struct {
   u8 type;
   u8 len;
   u16 pad;
@@ -173,70 +185,65 @@ typedef CLIB_PACKED (struct
 /* *INDENT-ON* */
 
 /* *INDENT-OFF* */
-typedef CLIB_PACKED (struct
-{
+typedef CLIB_PACKED (struct {
   u8 ie_type;
   u8 restart_counter;
 }) gtpu_ie_recovery_t;
 /* *INDENT-ON* */
 
-#define GTPU_V1_HDR_LEN   8
+#define GTPU_V1_HDR_LEN 8
 
-#define GTPU_VER_MASK (7<<5)
-#define GTPU_PT_BIT   (1<<4)
-#define GTPU_E_BIT    (1<<2)
-#define GTPU_S_BIT    (1<<1)
-#define GTPU_PN_BIT   (1<<0)
-#define GTPU_E_S_PN_BIT  (7<<0)
+#define GTPU_VER_MASK   (7 << 5)
+#define GTPU_PT_BIT     (1 << 4)
+#define GTPU_E_BIT      (1 << 2)
+#define GTPU_S_BIT      (1 << 1)
+#define GTPU_PN_BIT     (1 << 0)
+#define GTPU_E_S_PN_BIT (7 << 0)
 
-#define GTPU_V1_VER   (1<<5)
+#define GTPU_V1_VER (1 << 5)
 
-#define GTPU_PT_GTP    (1<<4)
+#define GTPU_PT_GTP             (1 << 4)
 #define GTPU_TYPE_ECHO_REQUEST  1
 #define GTPU_TYPE_ECHO_RESPONSE 2
-#define GTPU_TYPE_ERROR_IND    26
-#define GTPU_TYPE_END_MARKER  254
-#define GTPU_TYPE_GTPU  255
+#define GTPU_TYPE_ERROR_IND     26
+#define GTPU_TYPE_END_MARKER    254
+#define GTPU_TYPE_GTPU          255
 
 #define GTPU_UDP_PORT 2152
 
 #define GTPU_EXT_HEADER_UDP_PORT_LENGTH 1
 
 #define GTPU_EXT_HEADER_NEXT_HEADER_NO_MORE 0
-#define GTPU_EXT_HEADER_UDP_PORT 0x40
+#define GTPU_EXT_HEADER_UDP_PORT            0x40
 
-#define GTPU_IE_RECOVERY 14
-#define GTPU_IE_TEID_I 16
+#define GTPU_IE_RECOVERY    14
+#define GTPU_IE_TEID_I      16
 #define GTPU_IE_GSN_ADDRESS 133
 
 /* *INDENT-OFF* */
-typedef CLIB_PACKED(struct
-{
+typedef CLIB_PACKED (struct {
   u8 id;
   u8 data[];
 }) gtpu_tv_ie_t;
 
-typedef CLIB_PACKED(struct
-{
+typedef CLIB_PACKED (struct {
   u8 id;
   u16 len;
   u8 data[];
 }) gtpu_tlv_ie_t;
 
-typedef CLIB_PACKED(struct
-{
-  ip4_header_t ip4;            /* 20 bytes */
-  udp_header_t udp;            /* 8 bytes */
-  gtpu_header_t gtpu;	       /* 8 bytes */
+typedef CLIB_PACKED (struct {
+  ip4_header_t ip4;   /* 20 bytes */
+  udp_header_t udp;   /* 8 bytes */
+  gtpu_header_t gtpu; /* 8 bytes */
 }) ip4_gtpu_header_t;
 /* *INDENT-ON* */
 
 /* *INDENT-OFF* */
-typedef CLIB_PACKED(struct
-{
-  ip6_header_t ip6;            /* 40 bytes */
-  udp_header_t udp;            /* 8 bytes */
-  gtpu_header_t gtpu;     /* 8 bytes */
+typedef CLIB_PACKED (struct {
+  ip6_header_t ip6;   /* 40 bytes */
+  udp_header_t udp;   /* 8 bytes */
+  gtpu_header_t gtpu; /* 8 bytes */
 }) ip6_gtpu_header_t;
 /* *INDENT-ON* */
 
@@ -249,14 +256,15 @@ typedef CLIB_PACKED (struct {
 /* *INDENT-ON* */
 
 /* *INDENT-OFF* */
-typedef CLIB_PACKED
-(struct {
+typedef CLIB_PACKED (struct {
   /*
    * Key fields: src intf and gtpu teid on incoming gtpu packet
    * all fields in NET byte order
    */
-  union {
-    struct {
+  union
+  {
+    struct
+    {
       u32 src_intf;
       u32 teid;
     };
@@ -266,14 +274,15 @@ typedef CLIB_PACKED
 /* *INDENT-ON* */
 
 /* *INDENT-OFF* */
-typedef CLIB_PACKED
-(struct {
+typedef CLIB_PACKED (struct {
   /*
    * Key fields: ip src and gtpu teid on incoming gtpu packet
    * all fields in NET byte order
    */
-  union {
-    struct {
+  union
+  {
+    struct
+    {
       u32 dst;
       u32 teid;
     };
@@ -289,8 +298,7 @@ typedef struct
 } gtpu4_endp_rule_t;
 
 /* *INDENT-OFF* */
-typedef CLIB_PACKED
-(struct {
+typedef CLIB_PACKED (struct {
   /*
    * Key fields: ip src and gtpu teid on incoming gtpu packet
    * all fields in NET byte order
@@ -351,29 +359,24 @@ typedef struct
 #define IPFILTER_RULE_FIELD_SRC 0
 #define IPFILTER_RULE_FIELD_DST 1
 
-#define ACL_ADDR_ANY				\
-  (ipfilter_address_t){				\
-    .address.as_u64 = {(u64)~0, (u64)~0},	\
-    .mask = 0,					\
+#define ACL_ADDR_ANY                                                          \
+  (ipfilter_address_t) { .address.as_u64 = { (u64) ~0, (u64) ~0 }, .mask = 0, }
+
+#define acl_addr_is_any(ip)                                                   \
+  ((~0 == (ip)->address.as_u64[0]) && (~0 == (ip)->address.as_u64[1]) &&      \
+   ((u8) 0 == (ip)->mask))
+
+#define ACL_ADDR_ASSIGNED                                                     \
+  (ipfilter_address_t)                                                        \
+  {                                                                           \
+    .address.as_u64 = { (u64) ~0, (u64) ~0 }, .mask = (u8) ~0,                \
   }
 
-#define acl_addr_is_any(ip)			\
-  ((~0 == (ip)->address.as_u64[0]) &&		\
-   (~0 == (ip)->address.as_u64[1]) &&		\
-   ((u8)0 == (ip)->mask))
+#define acl_addr_is_assigned(ip)                                              \
+  ((~0 == (ip)->address.as_u64[0]) && (~0 == (ip)->address.as_u64[1]) &&      \
+   ((u8) ~0 == (ip)->mask))
 
-#define ACL_ADDR_ASSIGNED			\
-  (ipfilter_address_t){				\
-    .address.as_u64 = {(u64)~0, (u64)~0},	\
-    .mask = (u8)~0,				\
-  }
-
-#define acl_addr_is_assigned(ip)		\
-  ((~0 == (ip)->address.as_u64[0]) &&		\
-   (~0 == (ip)->address.as_u64[1]) &&		\
-   ((u8)~0 == (ip)->mask))
-
-#define INTF_INVALID	((u8)~0)
+#define INTF_INVALID ((u8) ~0)
 
 typedef struct
 {
@@ -423,15 +426,15 @@ typedef struct
 {
   u32 precedence;
 
-  int is_ip4:1;
-  int match_teid:1;
-  int match_ue_ip:3;
-  int match_sdf:1;
-  int match_ip_app:1;
+  int is_ip4 : 1;
+  int match_teid : 1;
+  int match_ue_ip : 3;
+  int match_sdf : 1;
+  int match_ip_app : 1;
 
   u32 fib_index;
-  u32 teid;			// TEID
-  ip46_address_t ue_ip;		// UE-IP
+  u32 teid;             // TEID
+  ip46_address_t ue_ip; // UE-IP
 
   /* SDF */
   upf_acl_5tuple_t mask;
@@ -443,8 +446,8 @@ typedef struct
 
 #define UPF_ACL_FIELD_SRC 0
 #define UPF_ACL_FIELD_DST 1
-#define UPF_ACL_UL 1
-#define UPF_ACL_DL 2
+#define UPF_ACL_UL        1
+#define UPF_ACL_DL        2
 
 /* Packet Detection Information */
 typedef struct
@@ -453,10 +456,10 @@ typedef struct
   u32 nwi_index;
 
   u32 fields;
-#define F_PDI_LOCAL_F_TEID    0x0001
-#define F_PDI_UE_IP_ADDR      0x0004
-#define F_PDI_SDF_FILTER      0x0008
-#define F_PDI_APPLICATION_ID  0x0010
+#define F_PDI_LOCAL_F_TEID   0x0001
+#define F_PDI_UE_IP_ADDR     0x0004
+#define F_PDI_SDF_FILTER     0x0008
+#define F_PDI_APPLICATION_ID 0x0010
 
   pfcp_f_teid_t teid;
   pfcp_ue_ip_address_t ue_addr;
@@ -481,9 +484,9 @@ typedef struct
 typedef struct
 {
   u16 flags;
-#define FAR_F_REDIRECT_INFORMATION	BIT(0)
-#define FAR_F_OUTER_HEADER_CREATION	BIT(1)
-#define FAR_F_FORWARDING_POLICY		BIT(2)
+#define FAR_F_REDIRECT_INFORMATION  BIT (0)
+#define FAR_F_OUTER_HEADER_CREATION BIT (1)
+#define FAR_F_FORWARDING_POLICY     BIT (2)
 
   pfcp_destination_interface_t dst_intf;
   u32 dst_sw_if_index;
@@ -526,11 +529,11 @@ typedef struct
    */
   dpo_id_t dpo;
   /**
-    * A representation of a path as described by a route producer.
-    * We maintain this path as we need to remove old path while policy update
-    */
+   * A representation of a path as described by a route producer.
+   * We maintain this path as we need to remove old path while policy update
+   */
   fib_route_path_t *rpaths;
- /**
+  /**
    * Next node index (ip4-rewrite here)
    *
    */
@@ -551,11 +554,11 @@ typedef struct
 {
   u16 id;
   u16 apply_action;
-#define FAR_DROP       0x0001
-#define FAR_FORWARD    0x0002
-#define FAR_BUFFER     0x0004
-#define FAR_NOTIFY_CP  0x0008
-#define FAR_DUPLICATE  0x0010
+#define FAR_DROP      0x0001
+#define FAR_FORWARD   0x0002
+#define FAR_BUFFER    0x0004
+#define FAR_NOTIFY_CP 0x0008
+#define FAR_DUPLICATE 0x0010
 
   union
   {
@@ -574,11 +577,11 @@ typedef struct
 
 /* Counter */
 
-#define URR_OK                  0
-#define URR_QUOTA_EXHAUSTED     BIT(0)
-#define URR_THRESHOLD_REACHED   BIT(1)
-#define URR_START_OF_TRAFFIC    BIT(2)
-#define URR_DROP_SESSION        BIT(3)
+#define URR_OK                0
+#define URR_QUOTA_EXHAUSTED   BIT (0)
+#define URR_THRESHOLD_REACHED BIT (1)
+#define URR_START_OF_TRAFFIC  BIT (2)
+#define URR_DROP_SESSION      BIT (3)
 
 typedef enum
 {
@@ -594,16 +597,16 @@ typedef enum
   UPF_N_COUNTERS = 9,
 } upf_counters_type_t;
 
-#define foreach_upf_counter_name   \
-  _(ASSOC_COUNTER, total_assoc, upf)     \
-  _(SESSIONS_COUNTER, total_sessions, upf)      \
-  _(FLOW_COUNTER, total_flows, upf)             \
-  _(FLOWS_STITCHED, total_stitched, upf)         \
-  _(FLOWS_NOT_STITCHED_MSS_MISMATCH, mss_mismatch, upf) \
-  _(FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP, tcp_ops_tstamp, upf) \
-  _(FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT, tcp_ops_sack_permit, upf) \
-  _(FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf) \
-  _(TIMERS_MISSED, timers_missed, upf)
+#define foreach_upf_counter_name                                              \
+  _ (ASSOC_COUNTER, total_assoc, upf)                                         \
+  _ (SESSIONS_COUNTER, total_sessions, upf)                                   \
+  _ (FLOW_COUNTER, total_flows, upf)                                          \
+  _ (FLOWS_STITCHED, total_stitched, upf)                                     \
+  _ (FLOWS_NOT_STITCHED_MSS_MISMATCH, mss_mismatch, upf)                      \
+  _ (FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP, tcp_ops_tstamp, upf)               \
+  _ (FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT, tcp_ops_sack_permit, upf)        \
+  _ (FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)                   \
+  _ (TIMERS_MISSED, timers_missed, upf)
 
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */
@@ -631,7 +634,7 @@ typedef struct
 typedef struct
 {
   f64 base;
-  u32 period;			/* relative duration in seconds */
+  u32 period; /* relative duration in seconds */
   f64 expected;
   u32 handle;
 } urr_time_t;
@@ -647,7 +650,7 @@ typedef struct
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
 
   ip46_address_t ip;
-  //TODO: timeout
+  // TODO: timeout
   f64 first_seen;
 } upf_urr_traffic_t;
 
@@ -663,17 +666,17 @@ typedef struct
   u16 triggers;
 
   u8 status;
-#define URR_OVER_QUOTA                  BIT(0)
-#define URR_AFTER_MONITORING_TIME       BIT(1)
-#define URR_REPORTED                    BIT(2)
+#define URR_OVER_QUOTA            BIT (0)
+#define URR_AFTER_MONITORING_TIME BIT (1)
+#define URR_REPORTED              BIT (2)
 
   u8 update_flags;
-#define PFCP_URR_UPDATE_VOLUME_QUOTA		BIT(0)
-#define PFCP_URR_UPDATE_TIME_QUOTA		BIT(1)
-#define PFCP_URR_UPDATE_TIME_THRESHOLD		BIT(2)
-#define PFCP_URR_UPDATE_MONITORING_TIME		BIT(3)
-#define PFCP_URR_UPDATE_MEASUREMENT_PERIOD	BIT(4)
-#define PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME	BIT(5)
+#define PFCP_URR_UPDATE_VOLUME_QUOTA        BIT (0)
+#define PFCP_URR_UPDATE_TIME_QUOTA          BIT (1)
+#define PFCP_URR_UPDATE_TIME_THRESHOLD      BIT (2)
+#define PFCP_URR_UPDATE_MONITORING_TIME     BIT (3)
+#define PFCP_URR_UPDATE_MEASUREMENT_PERIOD  BIT (4)
+#define PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME BIT (5)
 
   u32 seq_no;
   f64 start_time;
@@ -682,12 +685,13 @@ typedef struct
   f64 time_of_last_packet;
   urr_volume_t volume;
 
-  urr_time_t measurement_period;	/* relative duration in seconds */
-  urr_time_t time_threshold;	/* relative duration in seconds */
-  urr_time_t time_quota;	/* relative duration in seconds */
-  urr_time_t quota_holding_time;	/* relative duration in seconds */
-  urr_time_t quota_validity_time;	/* relative duration in seconds */
-  urr_abs_time_t monitoring_time;	/* absolute UTC ts since 1900-01-01 00:00:00 */
+  urr_time_t measurement_period;  /* relative duration in seconds */
+  urr_time_t time_threshold;      /* relative duration in seconds */
+  urr_time_t time_quota;          /* relative duration in seconds */
+  urr_time_t quota_holding_time;  /* relative duration in seconds */
+  urr_time_t quota_validity_time; /* relative duration in seconds */
+  urr_abs_time_t
+    monitoring_time; /* absolute UTC ts since 1900-01-01 00:00:00 */
 
   struct
   {
@@ -723,7 +727,7 @@ typedef struct
   u32 id;
 
   u8 flags;
-#define PFCP_QER_MBR				BIT(0)
+#define PFCP_QER_MBR BIT (0)
 
   u8 gate_status[UPF_DIRECTION_MAX];
 
@@ -765,8 +769,9 @@ typedef struct
   } assoc;
 
   uint32_t flags;
-#define UPF_SESSION_LOST_CP         BIT(0)	/* remote cp peer is down, f_seid is invalid */
-#define UPF_SESSION_UPDATING        BIT(1)	/* TODO: remove, looks like not used */
+#define UPF_SESSION_LOST_CP                                                   \
+  BIT (0) /* remote cp peer is down, f_seid is invalid */
+#define UPF_SESSION_UPDATING BIT (1) /* TODO: remove, looks like not used */
 
   volatile int active;
 
@@ -778,10 +783,10 @@ typedef struct
     upf_urr_t *urr;
     upf_qer_t *qer;
     uint32_t flags;
-#define PFCP_SDF_IPV4	BIT(0)
-#define PFCP_SDF_IPV6	BIT(1)
-#define PFCP_ADR		BIT(2)
-#define PFCP_CLASSIFY	BIT(3)
+#define PFCP_SDF_IPV4 BIT (0)
+#define PFCP_SDF_IPV6 BIT (1)
+#define PFCP_ADR      BIT (2)
+#define PFCP_CLASSIFY BIT (3)
 
     u16 proxy_precedence;
     u32 proxy_pdr_idx;
@@ -806,7 +811,7 @@ typedef struct
   /* TEID table by choose_id */
   u32 *teid_by_chid;
 
-  //TODO: this is temporary, should be removed
+  // TODO: this is temporary, should be removed
   ip4_address_t user_addr;
 
   upf_nat_addr_t *nat_addr;
@@ -826,10 +831,9 @@ typedef struct
   u16 generation;
 } upf_session_t;
 
-
 typedef enum
 {
-#define upf_gtpu_error(n,s) UPF_GTPU_ERROR_##n,
+#define upf_gtpu_error(n, s) UPF_GTPU_ERROR_##n,
 #include <upf/upf_gtpu_error.def>
 #undef upf_gtpu_error
   UPF_GTPU_N_ERROR,
@@ -932,7 +936,7 @@ typedef u8 *regex_t;
 
 typedef struct
 {
-  u32 id;			/* bit 31 == 1 indicates PFD from CP */
+  u32 id; /* bit 31 == 1 indicates PFD from CP */
   regex_t regex;
   acl_rule_t acl_rule;
 } upf_adr_t;
@@ -942,13 +946,13 @@ typedef struct
   u8 *name;
   u32 flags;
   u32 num_ip_rules;
-  uword *rules_by_id;		/* hash over rule ids */
-  upf_adr_t *rules;		/* vector of rule definitions */
-  u32 db_index;			/* index in ADR pool */
+  uword *rules_by_id; /* hash over rule ids */
+  upf_adr_t *rules;   /* vector of rule definitions */
+  u32 db_index;       /* index in ADR pool */
 } upf_adf_app_t;
 
-#define UPF_ADR_PROXY    BIT(0)
-#define UPF_ADR_IP_RULES BIT(1)
+#define UPF_ADR_PROXY    BIT (0)
+#define UPF_ADR_IP_RULES BIT (1)
 
 #define UPF_ADR_PROTO_HTTP  1
 #define UPF_ADR_PROTO_HTTPS 2
@@ -982,7 +986,7 @@ typedef struct
 } upf_cp_fseid_key_t;
 
 /* bihash buckets are cheap, only 8 bytes per bucket */
-#define UPF_MAPPING_BUCKETS      (64 * 1024)
+#define UPF_MAPPING_BUCKETS (64 * 1024)
 
 /* 128 MB per hash max memory,
  *    ~ max. 64k per bucket
@@ -994,7 +998,7 @@ typedef struct
  * by smaller pages that are keept arround eats significant amount of memory
  * from bihash.
  */
-#define UPF_MAPPING_MEMORY_SIZE  (2 << 27)
+#define UPF_MAPPING_MEMORY_SIZE (2 << 27)
 
 typedef struct
 {
@@ -1021,11 +1025,11 @@ typedef struct
   upf_session_t *sessions;
 
   /* lookup session by up seid */
-  uword *session_by_up_seid;	/* keyed session id */
+  uword *session_by_up_seid; /* keyed session id */
 
   /* lookup tunnel by TEID */
-  clib_bihash_8_8_t v4_tunnel_by_key;	/* keyed session id */
-  clib_bihash_24_8_t v6_tunnel_by_key;	/* keyed session id */
+  clib_bihash_8_8_t v4_tunnel_by_key;  /* keyed session id */
+  clib_bihash_24_8_t v6_tunnel_by_key; /* keyed session id */
 
   /* lookup session by ingress VRF and UE (src) IP */
   //  clib_bihash_8_8_t *session_by_tdf_ue_ip;
@@ -1037,7 +1041,8 @@ typedef struct
 
   /* list of remote GTP-U peer ref count used to stack FIB DPO objects */
   upf_peer_t *peers;
-  clib_bihash_24_8_t peer_index_by_ip;	/* remote GTP-U peer keyed on it's ip addr and vrf */
+  clib_bihash_24_8_t
+    peer_index_by_ip; /* remote GTP-U peer keyed on it's ip addr and vrf */
 
   /* pool of associated PFCP nodes */
   upf_node_assoc_t *nodes;
@@ -1076,7 +1081,7 @@ typedef struct
   /* adf apps vector */
   upf_adf_app_t *upf_apps;
 
-  //TODO: Change to UPF flags?
+  // TODO: Change to UPF flags?
   u32 pfcp_spec_version;
   u32 rand_base;
 
@@ -1112,7 +1117,6 @@ extern vlib_node_registration_t upf6_encap_node;
 extern vlib_node_registration_t upf_ip4_forward_node;
 extern vlib_node_registration_t upf_ip6_forward_node;
 
-
 typedef enum
 {
   UPF_FORWARD_NEXT_DROP,
@@ -1130,64 +1134,59 @@ typedef struct
   u32 teid;
 } upf_encap_trace_t;
 
-u8 *format_upf_encap_trace (u8 * s, va_list * args);
-u32 upf_gtpu_end_marker (u32 fib_index, u32 dpoi_index, u8 * rewrite,
-			 int is_ip4);
+u8 *format_upf_encap_trace (u8 *s, va_list *args);
+u32 upf_gtpu_end_marker (u32 fib_index, u32 dpoi_index, u8 *rewrite,
+                         int is_ip4);
 
-int vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index,
-				    u8 add);
-void vnet_upf_pfcp_set_polling (vlib_main_t * vm, u8 polling);
-int vnet_upf_nwi_add_del (u8 * name, u32 ip4_table_id, u32 ip6_table_id,
-			  upf_ipfix_policy_t ipfix_policy,
-			  ip_address_t * ipfix_collector_ip,
-			  u32 ipfix_report_interval,
-			  u32 observation_domain_id,
-			  u8 * observation_domain_name,
-			  u64 observation_point_id, u8 add);
-int vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
-			   u8 * name, u8 intf, u32 teid, u32 mask, u8 add);
+int vnet_upf_pfcp_endpoint_add_del (ip46_address_t *ip, u32 fib_index, u8 add);
+void vnet_upf_pfcp_set_polling (vlib_main_t *vm, u8 polling);
+int vnet_upf_nwi_add_del (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
+                          upf_ipfix_policy_t ipfix_policy,
+                          ip_address_t *ipfix_collector_ip,
+                          u32 ipfix_report_interval, u32 observation_domain_id,
+                          u8 *observation_domain_name,
+                          u64 observation_point_id, u8 add);
+int vnet_upf_upip_add_del (ip4_address_t *ip4, ip6_address_t *ip6, u8 *name,
+                           u8 intf, u32 teid, u32 mask, u8 add);
 
 int vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
-				    int is_en);
+                                    int is_en);
 int vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto,
-				   u32 table_id, u8 add);
+                                   u32 table_id, u8 add);
 
-int vnet_upf_node_id_set (const pfcp_node_id_t * node_id);
+int vnet_upf_node_id_set (const pfcp_node_id_t *node_id);
 
 int vnet_upf_pfcp_heartbeat_config (u32 timeout, u32 retires);
 
-void upf_session_dpo_add_or_lock (dpo_proto_t dproto, upf_session_t * sx,
-				  dpo_id_t * dpo);
+void upf_session_dpo_add_or_lock (dpo_proto_t dproto, upf_session_t *sx,
+                                  dpo_id_t *dpo);
 
-const dpo_id_t *upf_get_session_dpo_ip4 (upf_nwi_t * nwi,
-					 ip4_address_t * ip4);
+const dpo_id_t *upf_get_session_dpo_ip4 (upf_nwi_t *nwi, ip4_address_t *ip4);
 
-const dpo_id_t *upf_get_session_dpo_ip6 (upf_nwi_t * nwi,
-					 ip6_address_t * ip6);
+const dpo_id_t *upf_get_session_dpo_ip6 (upf_nwi_t *nwi, ip6_address_t *ip6);
 
 dpo_type_t upf_session_dpo_get_type (void);
 
-int
-vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
-			   ip4_address_t end_addr, u8 * name,
-			   u16 port_block_size, u16 min_port, u16 max_port,
-			   u8 is_add);
+int vnet_upf_nat_pool_add_del (u8 *nwi_name, ip4_address_t start_addr,
+                               ip4_address_t end_addr, u8 *name,
+                               u16 port_block_size, u16 min_port, u16 max_port,
+                               u8 is_add);
 
-int vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add);
+int vnet_upf_ue_ip_pool_add_del (u8 *identity, u8 *nwi_name, int is_add);
 
 void upf_ip_lookup_tx (u32 bi, int is_ip4);
-void upf_gtpu_error_ind (vlib_buffer_t * b0, int is_ip4);
+void upf_gtpu_error_ind (vlib_buffer_t *b0, int is_ip4);
 
-void upf_pfcp_policers_relalculate (qos_pol_cfg_params_st * cfg);
+void upf_pfcp_policers_relalculate (qos_pol_cfg_params_st *cfg);
 
 UPF_LLIST_TEMPLATE_DEFINITIONS (upf_node_sessions_list, upf_session_t,
-				assoc.anchor);
+                                assoc.anchor);
 
 UPF_LLIST_TEMPLATE_DEFINITIONS (upf_smfset_nodes_list, upf_node_assoc_t,
-				smf_set.anchor);
+                                smf_set.anchor);
 
 static_always_inline void
-upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
+upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t *b)
 {
   vnet_buffer (b)->l3_hdr_offset = b->current_data;
   b->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
@@ -1195,19 +1194,19 @@ upf_vnet_buffer_l3_hdr_offset_is_current (vlib_buffer_t * b)
 
 /* from src/vnet/ip/ping.c */
 static_always_inline fib_node_index_t
-upf_ip46_fib_table_lookup_host (u32 fib_index, ip46_address_t * pa46,
-				int is_ip4)
+upf_ip46_fib_table_lookup_host (u32 fib_index, ip46_address_t *pa46,
+                                int is_ip4)
 {
-  fib_node_index_t fib_entry_index = is_ip4 ?
-    ip4_fib_table_lookup (ip4_fib_get (fib_index), &pa46->ip4, 32) :
-    ip6_fib_table_lookup (fib_index, &pa46->ip6, 128);
+  fib_node_index_t fib_entry_index =
+    is_ip4 ? ip4_fib_table_lookup (ip4_fib_get (fib_index), &pa46->ip4, 32) :
+             ip6_fib_table_lookup (fib_index, &pa46->ip6, 128);
   return fib_entry_index;
 }
 
 /* from src/vnet/ip/ping.c */
 static_always_inline u32
-upf_ip46_get_resolving_interface (u32 fib_index, ip46_address_t * pa46,
-				  int is_ip4)
+upf_ip46_get_resolving_interface (u32 fib_index, ip46_address_t *pa46,
+                                  int is_ip4)
 {
   fib_node_index_t fib_entry_index;
 
@@ -1217,15 +1216,15 @@ upf_ip46_get_resolving_interface (u32 fib_index, ip46_address_t * pa46,
   return fib_entry_get_resolving_interface (fib_entry_index);
 }
 
-void upf_proxy_init (vlib_main_t * vm);
+void upf_proxy_init (vlib_main_t *vm);
 
 #define UPF_NAT_MIN_PORT 1024
 #define UPF_NAT_MAX_PORT 65535
 
-upf_nat_pool_t *get_nat_pool_by_name (u8 * name);
+upf_nat_pool_t *get_nat_pool_by_name (u8 *name);
 
 static inline void
-increment_v4_address (ip4_address_t * a)
+increment_v4_address (ip4_address_t *a)
 {
   u32 v;
 
@@ -1233,13 +1232,13 @@ increment_v4_address (ip4_address_t * a)
   a->as_u32 = clib_host_to_net_u32 (v);
 }
 
-void upf_fpath_stack_dpo (upf_forwarding_policy_t * p);
+void upf_fpath_stack_dpo (upf_forwarding_policy_t *p);
 
-int vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * id, u8 action);
-u8 *format_upf_policy (u8 * s, va_list * args);
-u8 *upf_name_to_labels (u8 * name);
+int vnet_upf_policy_fn (fib_route_path_t *rpaths, u8 *id, u8 action);
+u8 *format_upf_policy (u8 *s, va_list *args);
+u8 *upf_name_to_labels (u8 *name);
 
-__clib_export void upf_nat_get_src_port (vlib_buffer_t * b, u16 port);
+__clib_export void upf_nat_get_src_port (vlib_buffer_t *b, u16 port);
 
 #endif /* __included_upf_h__ */
 

@@ -14,11 +14,14 @@
 
 #include "flowtable.h"
 
-#define FLOW_MAXIMUM_EXPORT_ENTRIES	(1024)
+#define FLOW_MAXIMUM_EXPORT_ENTRIES (1024)
 
-typedef struct {
-  union {
-    struct {
+typedef struct
+{
+  union
+  {
+    struct
+    {
       u32 ingress_fib_index;
       u32 egress_fib_index;
       /*
@@ -35,12 +38,15 @@ typedef struct {
   };
 } upf_ipfix_info_key_t;
 
-STATIC_ASSERT (sizeof(upf_ipfix_info_key_t) == 24,
-	       "size of ipfix_info_key_t must be 24");
+STATIC_ASSERT (sizeof (upf_ipfix_info_key_t) == 24,
+               "size of ipfix_info_key_t must be 24");
 
-typedef struct {
-  union {
-    struct {
+typedef struct
+{
+  union
+  {
+    struct
+    {
       ip46_address_t collector_ip;
       u32 observation_domain_id;
       upf_ipfix_policy_t policy;
@@ -50,8 +56,8 @@ typedef struct {
   };
 } upf_ipfix_context_key_t;
 
-STATIC_ASSERT (sizeof(upf_ipfix_context_key_t) == 24,
-	       "size of ipfix_context_key_t must be 24");
+STATIC_ASSERT (sizeof (upf_ipfix_context_key_t) == 24,
+               "size of ipfix_context_key_t must be 24");
 
 typedef struct
 {
@@ -86,11 +92,11 @@ typedef struct
   /** IPFIX field: egressVRFID */
   u32 egress_vrf_id;
   /** IPFIX field: VRFname */
-  u8 * vrf_name;
+  u8 *vrf_name;
   /** IPFIX field: interfaceName */
-  u8 * interface_name;
+  u8 *interface_name;
   /** IPFIX field: observationDomainName */
-  u8 * observation_domain_name;
+  u8 *observation_domain_name;
   /** IPFIX field: observationPointId */
   u64 observation_point_id;
   /** Reference count */
@@ -124,22 +130,20 @@ typedef struct
   vnet_main_t *vnet_main;
 } upf_ipfix_main_t;
 
-u8 *format_upf_ipfix_entry (u8 * s, va_list * args);
+u8 *format_upf_ipfix_entry (u8 *s, va_list *args);
 
-clib_error_t * upf_ipfix_init (vlib_main_t * vm);
+clib_error_t *upf_ipfix_init (vlib_main_t *vm);
 
-typedef ipfix_field_specifier_t * (*upf_ipfix_field_func_t) (ipfix_field_specifier_t *);
-typedef u32 (*upf_ipfix_value_func_t) (vlib_buffer_t * to_b,
-				       flow_entry_t * f,
-				       flow_direction_t direction,
-				       u16 offset,
-				       upf_session_t *sx,
-				       upf_ipfix_info_t *info,
-				       bool last);
+typedef ipfix_field_specifier_t *(*upf_ipfix_field_func_t) (
+  ipfix_field_specifier_t *);
+typedef u32 (*upf_ipfix_value_func_t) (vlib_buffer_t *to_b, flow_entry_t *f,
+                                       flow_direction_t direction, u16 offset,
+                                       upf_session_t *sx,
+                                       upf_ipfix_info_t *info, bool last);
 
 typedef struct
 {
-  char * name;
+  char *name;
   u16 field_count_ipv4;
   u16 field_count_ipv6;
   upf_ipfix_field_func_t add_ip4_fields;
@@ -150,23 +154,17 @@ typedef struct
 
 extern upf_ipfix_template_t upf_ipfix_templates[];
 
-u32
-upf_ref_ipfix_context (upf_ipfix_context_key_t *key);
-void
-upf_ref_ipfix_context_by_index (u32 cidx);
-void
-upf_unref_ipfix_context_by_index (u32 cidx);
+u32 upf_ref_ipfix_context (upf_ipfix_context_key_t *key);
+void upf_ref_ipfix_context_by_index (u32 cidx);
+void upf_unref_ipfix_context_by_index (u32 cidx);
 
-u32
-upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key);
-void
-upf_unref_ipfix_info (u32 iidx);
+u32 upf_ensure_ref_ipfix_info (upf_ipfix_info_key_t *key);
+void upf_unref_ipfix_info (u32 iidx);
 
-upf_ipfix_policy_t upf_ipfix_lookup_policy (u8 * name, bool * ok);
-uword unformat_ipfix_policy (unformat_input_t * i, va_list * args);
-u8 *format_upf_ipfix_policy (u8 * s, va_list * args);
+upf_ipfix_policy_t upf_ipfix_lookup_policy (u8 *name, bool *ok);
+uword unformat_ipfix_policy (unformat_input_t *i, va_list *args);
+u8 *format_upf_ipfix_policy (u8 *s, va_list *args);
 
-void
-upf_ipfix_ensure_flow_info (flow_entry_t * f);
+void upf_ipfix_ensure_flow_info (flow_entry_t *f);
 
 #endif

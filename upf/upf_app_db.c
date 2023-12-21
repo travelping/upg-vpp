@@ -36,16 +36,16 @@ typedef struct
 static upf_adf_entry_t *upf_adf_db = NULL;
 
 static void
-upf_adf_cleanup_db_entry (upf_adf_entry_t * entry)
+upf_adf_cleanup_db_entry (upf_adf_entry_t *entry)
 {
   regex_t *regex = NULL;
 
   upf_app_fib_cleanup (entry);
 
   vec_foreach (regex, entry->expressions)
-  {
-    vec_free (*regex);
-  }
+    {
+      vec_free (*regex);
+    }
 
   if (entry->database)
     hs_free_database (entry->database);
@@ -72,7 +72,7 @@ upf_adf_remove (u32 db_index)
 }
 
 static int
-upf_adf_create_update_db (upf_adf_app_t * app)
+upf_adf_create_update_db (upf_adf_app_t *app)
 {
 #if CLIB_DEBUG > 1
   upf_main_t *gtm = &upf_main;
@@ -87,10 +87,10 @@ upf_adf_create_update_db (upf_adf_app_t * app)
   if (!hash_elts (app->rules_by_id))
     {
       if (app->db_index != ~0)
-	{
-	  upf_adf_remove (app->db_index);
-	  app->db_index = ~0;
-	}
+        {
+          upf_adf_remove (app->db_index);
+          app->db_index = ~0;
+        }
       return 0;
     }
 
@@ -103,7 +103,7 @@ upf_adf_create_update_db (upf_adf_app_t * app)
     {
       pool_get (upf_adf_db, entry);
       if (!entry)
-	return -1;
+        return -1;
 
       memset (entry, 0, sizeof (*entry));
       app->db_index = entry - upf_adf_db;
@@ -112,30 +112,30 @@ upf_adf_create_update_db (upf_adf_app_t * app)
     }
 
   /* *INDENT-OFF* */
-  hash_foreach(rule_index, index, app->rules_by_id,
-  ({
-     rule = pool_elt_at_index(app->rules, index);
+  hash_foreach (
+    rule_index, index, app->rules_by_id, ({
+      rule = pool_elt_at_index (app->rules, index);
 
-     if (rule->regex)
-     {
-       regex_t regex = vec_dup(rule->regex);
+      if (rule->regex)
+        {
+          regex_t regex = vec_dup (rule->regex);
 
-       adf_debug("app id: %u, regex: %s", app - gtm->upf_apps, regex);
-       vec_add1(entry->expressions, regex);
-       vec_add1(entry->flags, HS_FLAG_SINGLEMATCH);
-       vec_add1(entry->ids, rule->id);
-     }
-     else
-     {
-       adf_debug("app id: %u, ip filter: %U", app - gtm->upf_apps, format_ipfilter, &rule->acl_rule);
-       vec_add1(entry->acl, rule->acl_rule);
-     }
-  }));
+          adf_debug ("app id: %u, regex: %s", app - gtm->upf_apps, regex);
+          vec_add1 (entry->expressions, regex);
+          vec_add1 (entry->flags, HS_FLAG_SINGLEMATCH);
+          vec_add1 (entry->ids, rule->id);
+        }
+      else
+        {
+          adf_debug ("app id: %u, ip filter: %U", app - gtm->upf_apps,
+                     format_ipfilter, &rule->acl_rule);
+          vec_add1 (entry->acl, rule->acl_rule);
+        }
+    }));
   /* *INDENT-ON* */
 
-  ASSERT(vec_len(entry->acl) ?
-	 app->flags & UPF_ADR_IP_RULES :
-	 !(app->flags & UPF_ADR_IP_RULES));
+  ASSERT (vec_len (entry->acl) ? app->flags & UPF_ADR_IP_RULES :
+                                 !(app->flags & UPF_ADR_IP_RULES));
 
   if (entry->database)
     {
@@ -148,10 +148,10 @@ upf_adf_create_update_db (upf_adf_app_t * app)
   if (vec_len (entry->expressions) == 0)
     goto done;
 
-  if (hs_compile_multi
-      ((const char **) entry->expressions, entry->flags, entry->ids,
-       vec_len (entry->expressions), HS_MODE_BLOCK, NULL, &entry->database,
-       &compile_err) != HS_SUCCESS)
+  if (hs_compile_multi ((const char **) entry->expressions, entry->flags,
+                        entry->ids, vec_len (entry->expressions),
+                        HS_MODE_BLOCK, NULL, &entry->database,
+                        &compile_err) != HS_SUCCESS)
     {
       adf_debug ("Error: %s", compile_err->message);
       error = -1;
@@ -172,7 +172,7 @@ done:
 
 static int
 upf_adf_event_handler (unsigned int id, unsigned long long from,
-		       unsigned long long to, unsigned int flags, void *ctx)
+                       unsigned long long to, unsigned int flags, void *ctx)
 {
   (void) from;
   (void) to;
@@ -187,11 +187,11 @@ upf_adf_event_handler (unsigned int id, unsigned long long from,
 }
 
 int
-upf_adf_lookup (u32 db_index, u8 * str, uint16_t length, u32 * id)
+upf_adf_lookup (u32 db_index, u8 *str, uint16_t length, u32 *id)
 {
   upf_adf_entry_t *entry = NULL;
   int ret = 0;
-  upf_adf_cb_args_t args = { };
+  upf_adf_cb_args_t args = {};
 
   if (db_index == ~0)
     return -1;
@@ -201,9 +201,8 @@ upf_adf_lookup (u32 db_index, u8 * str, uint16_t length, u32 * id)
   if (!entry->database)
     return -1;
 
-  ret =
-    hs_scan (entry->database, (const char *) str, length, 0, entry->scratch,
-	     upf_adf_event_handler, (void *) &args);
+  ret = hs_scan (entry->database, (const char *) str, length, 0,
+                 entry->scratch, upf_adf_event_handler, (void *) &args);
   if (ret != HS_SUCCESS)
     return -1;
 
@@ -257,11 +256,9 @@ upf_adf_adr_ref_count (u32 db_index)
   return 0;
 }
 
-
 static clib_error_t *
-upf_adf_app_add_command_fn (vlib_main_t * vm,
-			    unformat_input_t * input,
-			    vlib_cli_command_t * cmd)
+upf_adf_app_add_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                            vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   u8 *name = NULL;
@@ -281,23 +278,23 @@ upf_adf_app_add_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "add session 0x%lx pdr %u name %_%v%_",
-		    &up_seid, &pdr_id, &name))
-	{
-	  add_flag = 1;
-	  break;
-	}
+                    &up_seid, &pdr_id, &name))
+        {
+          add_flag = 1;
+          break;
+        }
       if (unformat (line_input, "update session 0x%lx pdr %u name %_%v%_",
-		    &up_seid, &pdr_id, &name))
-	{
-	  add_flag = 0;
-	  break;
-	}
+                    &up_seid, &pdr_id, &name))
+        {
+          add_flag = 0;
+          break;
+        }
       else
-	{
-	  error = clib_error_return (0, "unknown input `%U'",
-				     format_unformat_error, input);
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "unknown input `%U'",
+                                     format_unformat_error, input);
+          goto done;
+        }
     }
 
   sess = pfcp_lookup_up_seid (up_seid);
@@ -348,18 +345,17 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_adf_app_add_command, static) =
-{
+VLIB_CLI_COMMAND (upf_adf_app_add_command, static) = {
   .path = "upf adf app",
-  .short_help = "upf adf app <add|update> session <id> pdr <id> name <app name>",
+  .short_help =
+    "upf adf app <add|update> session <id> pdr <id> name <app name>",
   .function = upf_adf_app_add_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_adf_url_test_command_fn (vlib_main_t * vm,
-			     unformat_input_t * input,
-			     vlib_cli_command_t * cmd)
+upf_adf_url_test_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                             vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   upf_main_t *sm = &upf_main;
@@ -375,15 +371,15 @@ upf_adf_url_test_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "%u url %_%v%_", &id, &url))
-	break;
+        break;
       else if (unformat (line_input, "name %v url %_%v%_", &name, &url))
-	break;
+        break;
       else
-	{
-	  error = clib_error_return (0, "unknown input `%U'",
-				     format_unformat_error, input);
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "unknown input `%U'",
+                                     format_unformat_error, input);
+          goto done;
+        }
     }
 
   if (~0 == id && name != NULL)
@@ -392,10 +388,10 @@ upf_adf_url_test_command_fn (vlib_main_t * vm,
 
       p = hash_get_mem (sm->upf_app_by_name, name);
       if (!p)
-	{
-	  error = clib_error_return (0, "application does not exist...");
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "application does not exist...");
+          goto done;
+        }
       id = p[0];
     }
 
@@ -412,8 +408,7 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_adf_url_test_command, static) =
-{
+VLIB_CLI_COMMAND (upf_adf_url_test_command, static) = {
   .path = "upf adf test db",
   .short_help = "upf adf test db [<id> | name <name>] url <url>",
   .function = upf_adf_url_test_command_fn,
@@ -421,9 +416,8 @@ VLIB_CLI_COMMAND (upf_adf_url_test_command, static) =
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_adf_show_db_command_fn (vlib_main_t * vm,
-			    unformat_input_t * input,
-			    vlib_cli_command_t * cmd)
+upf_adf_show_db_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                            vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -440,15 +434,15 @@ upf_adf_show_db_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "%_%v%_", &name))
-	{
-	  break;
-	}
+        {
+          break;
+        }
       else
-	{
-	  error = clib_error_return (0, "unknown input `%U'",
-				     format_unformat_error, input);
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "unknown input `%U'",
+                                     format_unformat_error, input);
+          goto done;
+        }
     }
 
   p = hash_get_mem (sm->upf_app_by_name, name);
@@ -476,8 +470,7 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_adf_show_db_command, static) =
-{
+VLIB_CLI_COMMAND (upf_adf_show_db_command, static) = {
   .path = "show upf adf app",
   .short_help = "show upf adf app <name>",
   .function = upf_adf_show_db_command_fn,
@@ -486,14 +479,13 @@ VLIB_CLI_COMMAND (upf_adf_show_db_command, static) =
 
 /* Action function shared between message handler and debug CLI */
 
-static int
-vnet_upf_rule_add_del (u8 * app_name, u32 rule_index, u8 add, regex_t regex,
-		       acl_rule_t * acl_rule);
+static int vnet_upf_rule_add_del (u8 *app_name, u32 rule_index, u8 add,
+                                  regex_t regex, acl_rule_t *acl_rule);
 
-static int vnet_upf_app_add_del (u8 * name, u32 flags, u8 add);
+static int vnet_upf_app_add_del (u8 *name, u32 flags, u8 add);
 
 int
-upf_app_add_del (upf_main_t * sm, u8 * name, u32 flags, int add)
+upf_app_add_del (upf_main_t *sm, u8 *name, u32 flags, int add)
 {
   int rv = 0;
 
@@ -503,8 +495,8 @@ upf_app_add_del (upf_main_t * sm, u8 * name, u32 flags, int add)
 }
 
 int
-upf_rule_add_del (upf_main_t * sm, u8 * name, u32 id, int add, u8 * regex,
-		  acl_rule_t * acl_rule)
+upf_rule_add_del (upf_main_t *sm, u8 *name, u32 id, int add, u8 *regex,
+                  acl_rule_t *acl_rule)
 {
   int rv = 0;
 
@@ -514,7 +506,7 @@ upf_rule_add_del (upf_main_t * sm, u8 * name, u32 id, int add, u8 * regex,
 }
 
 static int
-vnet_upf_app_add_del (u8 * name, u32 flags, u8 add)
+vnet_upf_app_add_del (u8 *name, u32 flags, u8 add)
 {
   upf_main_t *sm = &upf_main;
   upf_adf_app_t *app = NULL;
@@ -527,15 +519,14 @@ vnet_upf_app_add_del (u8 * name, u32 flags, u8 add)
   if (add)
     {
       if (p)
-	return VNET_API_ERROR_VALUE_EXIST;
+        return VNET_API_ERROR_VALUE_EXIST;
 
       pool_get (sm->upf_apps, app);
       memset (app, 0, sizeof (*app));
 
       app->name = vec_dup (name);
       app->flags = flags;
-      app->rules_by_id =
-	hash_create ( /* initial length */ 32, sizeof (uword));
+      app->rules_by_id = hash_create (/* initial length */ 32, sizeof (uword));
 
       app->db_index = ~0;
 
@@ -544,25 +535,25 @@ vnet_upf_app_add_del (u8 * name, u32 flags, u8 add)
   else
     {
       if (!p)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       app = pool_elt_at_index (sm->upf_apps, p[0]);
 
       if (upf_adf_adr_ref_count (app->db_index) != 0)
-	return VNET_API_ERROR_INSTANCE_IN_USE;
+        return VNET_API_ERROR_INSTANCE_IN_USE;
 
       /* *INDENT-OFF* */
-      hash_foreach(rule_index, index, app->rules_by_id,
-      ({
-	 upf_adr_t *rule = NULL;
-	 rule = pool_elt_at_index(app->rules, index);
-	 vnet_upf_rule_add_del(app->name, rule->id, 0, NULL, NULL);
-      }));
+      hash_foreach (rule_index, index, app->rules_by_id, ({
+                      upf_adr_t *rule = NULL;
+                      rule = pool_elt_at_index (app->rules, index);
+                      vnet_upf_rule_add_del (app->name, rule->id, 0, NULL,
+                                             NULL);
+                    }));
       /* *INDENT-ON* */
 
       hash_unset_mem (sm->upf_app_by_name, app->name);
       if (app->db_index != ~0)
-	upf_adf_remove (app->db_index);
+        upf_adf_remove (app->db_index);
       vec_free (app->name);
       hash_free (app->rules_by_id);
       pool_free (app->rules);
@@ -574,9 +565,8 @@ vnet_upf_app_add_del (u8 * name, u32 flags, u8 add)
 }
 
 static clib_error_t *
-upf_app_add_del_command_fn (vlib_main_t * vm,
-			    unformat_input_t * input,
-			    vlib_cli_command_t * cmd)
+upf_app_add_del_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                            vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   u8 *name = NULL;
@@ -592,18 +582,18 @@ upf_app_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "del"))
-	add = 0;
+        add = 0;
       else if (unformat (line_input, "add"))
-	add = 1;
+        add = 1;
       else if (unformat (line_input, "proxy"))
-	flags |= UPF_ADR_PROXY;
+        flags |= UPF_ADR_PROXY;
       if (unformat (line_input, "name %_%v%_", &name))
-	break;
+        break;
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   if (!name)
@@ -644,17 +634,16 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_app_add_del_command, static) =
-{
- .path = "create upf application",
- .short_help = "create upf application name <name> [proxy] [add|del]",
- .function = upf_app_add_del_command_fn,
+VLIB_CLI_COMMAND (upf_app_add_del_command, static) = {
+  .path = "create upf application",
+  .short_help = "create upf application name <name> [proxy] [add|del]",
+  .function = upf_app_add_del_command_fn,
 };
 /* *INDENT-ON* */
 
 static int
-vnet_upf_rule_add_del (u8 * app_name, u32 rule_index, u8 add, regex_t regex,
-		       acl_rule_t * acl_rule)
+vnet_upf_rule_add_del (u8 *app_name, u32 rule_index, u8 add, regex_t regex,
+                       acl_rule_t *acl_rule)
 {
   upf_main_t *sm = &upf_main;
   uword *p = NULL;
@@ -676,30 +665,31 @@ vnet_upf_rule_add_del (u8 * app_name, u32 rule_index, u8 add, regex_t regex,
   if (add)
     {
       if (p)
-	return VNET_API_ERROR_VALUE_EXIST;
+        return VNET_API_ERROR_VALUE_EXIST;
 
       pool_get (app->rules, rule);
       memset (rule, 0, sizeof (*rule));
       rule->id = rule_index;
       if (regex != 0)
-	rule->regex = vec_dup (regex);
-      else {
-        ASSERT (acl_rule);
-	if (!app->num_ip_rules++)
-	  app->flags |= UPF_ADR_IP_RULES;
-	rule->acl_rule = *acl_rule;
-      }
+        rule->regex = vec_dup (regex);
+      else
+        {
+          ASSERT (acl_rule);
+          if (!app->num_ip_rules++)
+            app->flags |= UPF_ADR_IP_RULES;
+          rule->acl_rule = *acl_rule;
+        }
 
       hash_set (app->rules_by_id, rule_index, rule - app->rules);
     }
   else
     {
       if (!p)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       rule = pool_elt_at_index (app->rules, p[0]);
       if (!rule->regex && !--app->num_ip_rules)
-	app->flags &= ~UPF_ADR_IP_RULES;
+        app->flags &= ~UPF_ADR_IP_RULES;
       vec_free (rule->regex);
       hash_unset (app->rules_by_id, rule_index);
       clib_memset (rule, 0, sizeof (*rule));
@@ -714,9 +704,9 @@ vnet_upf_rule_add_del (u8 * app_name, u32 rule_index, u8 add, regex_t regex,
 }
 
 static clib_error_t *
-upf_application_rule_add_del_command_fn (vlib_main_t * vm,
-					 unformat_input_t * input,
-					 vlib_cli_command_t * cmd)
+upf_application_rule_add_del_command_fn (vlib_main_t *vm,
+                                         unformat_input_t *input,
+                                         vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
@@ -734,45 +724,45 @@ upf_application_rule_add_del_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "%_%v%_ rule %u", &app_name, &rule_index))
-	{
-	  if (unformat (line_input, "del"))
-	    {
-	      add = 0;
-	      break;
-	    }
-	  else if (unformat (line_input, "add"))
-	    {
-	      add = 1;
+        {
+          if (unformat (line_input, "del"))
+            {
+              add = 0;
+              break;
+            }
+          else if (unformat (line_input, "add"))
+            {
+              add = 1;
 
-	      if (unformat (line_input, "l7 regex %_%s%_", &regex))
-		{
-		  break;
-		}
-	      else if (unformat
-		    (line_input, "ipfilter %_%U%_", unformat_ipfilter, &rule))
-		{
-		  break;
-		}
-	      else
-		{
-		  error = clib_error_return (0, "unknown input `%U'",
-					     format_unformat_error, input);
-		  goto done;
-		}
-	    }
-	  else
-	    {
-	      error = clib_error_return (0, "unknown input `%U'",
-					 format_unformat_error, input);
-	      goto done;
-	    }
-	}
+              if (unformat (line_input, "l7 regex %_%s%_", &regex))
+                {
+                  break;
+                }
+              else if (unformat (line_input, "ipfilter %_%U%_",
+                                 unformat_ipfilter, &rule))
+                {
+                  break;
+                }
+              else
+                {
+                  error = clib_error_return (0, "unknown input `%U'",
+                                             format_unformat_error, input);
+                  goto done;
+                }
+            }
+          else
+            {
+              error = clib_error_return (0, "unknown input `%U'",
+                                         format_unformat_error, input);
+              goto done;
+            }
+        }
       else
-	{
-	  error = clib_error_return (0, "unknown input `%U'",
-				     format_unformat_error, input);
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "unknown input `%U'",
+                                     format_unformat_error, input);
+          goto done;
+        }
     }
 
   rv = vnet_upf_rule_add_del (app_name, rule_index, add, regex, &rule);
@@ -807,17 +797,16 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_application_rule_add_del_command, static) =
-{
+VLIB_CLI_COMMAND (upf_application_rule_add_del_command, static) = {
   .path = "upf application",
   .short_help = "upf application <name> rule <id> (add | del) "
-  "[l7 regex <regex> | ipfilter <ipfilter>]",
+                "[l7 regex <regex> | ipfilter <ipfilter>]",
   .function = upf_application_rule_add_del_command_fn,
 };
 /* *INDENT-ON* */
 
 u8 *
-format_upf_adr (u8 * s, va_list * args)
+format_upf_adr (u8 *s, va_list *args)
 {
   upf_adr_t *rule = va_arg (*args, upf_adr_t *);
 
@@ -832,24 +821,23 @@ format_upf_adr (u8 * s, va_list * args)
 }
 
 static void
-upf_show_rules (vlib_main_t * vm, upf_adf_app_t * app)
+upf_show_rules (vlib_main_t *vm, upf_adf_app_t *app)
 {
   u32 index = 0;
   u32 rule_index = 0;
   upf_adr_t *rule = NULL;
 
   /* *INDENT-OFF* */
-  hash_foreach(rule_index, index, app->rules_by_id,
-  ({
-     rule = pool_elt_at_index(app->rules, index);
-     vlib_cli_output (vm, "%U", format_upf_adr, rule);
-  }));
+  hash_foreach (rule_index, index, app->rules_by_id, ({
+                  rule = pool_elt_at_index (app->rules, index);
+                  vlib_cli_output (vm, "%U", format_upf_adr, rule);
+                }));
   /* *INDENT-ON* */
 }
 
 static clib_error_t *
-upf_show_app_command_fn (vlib_main_t * vm,
-			 unformat_input_t * input, vlib_cli_command_t * cmd)
+upf_show_app_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                         vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   u8 *name = NULL;
@@ -865,15 +853,15 @@ upf_show_app_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "%_%v%_", &name))
-	{
-	  break;
-	}
+        {
+          break;
+        }
       else
-	{
-	  error = clib_error_return (0, "unknown input `%U'",
-				     format_unformat_error, input);
-	  goto done;
-	}
+        {
+          error = clib_error_return (0, "unknown input `%U'",
+                                     format_unformat_error, input);
+          goto done;
+        }
     }
 
   p = hash_get_mem (sm->upf_app_by_name, name);
@@ -894,8 +882,7 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_app_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_app_command, static) = {
   .path = "show upf application",
   .short_help = "show upf application <name>",
   .function = upf_show_app_command_fn,
@@ -903,8 +890,8 @@ VLIB_CLI_COMMAND (upf_show_app_command, static) =
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_apps_command_fn (vlib_main_t * vm,
-			  unformat_input_t * input, vlib_cli_command_t * cmd)
+upf_show_apps_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                          vlib_cli_command_t *cmd)
 {
   upf_main_t *sm = &upf_main;
   u8 *name = NULL;
@@ -917,54 +904,51 @@ upf_show_apps_command_fn (vlib_main_t * vm,
   if (unformat_user (input, unformat_line_input, line_input))
     {
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-	{
-	  if (unformat (line_input, "verbose"))
-	    {
-	      verbose = 1;
-	      break;
-	    }
-	  else
-	    {
-	      error = clib_error_return (0, "unknown input `%U'",
-					 format_unformat_error, input);
-	      unformat_free (line_input);
-	      return error;
-	    }
-	}
+        {
+          if (unformat (line_input, "verbose"))
+            {
+              verbose = 1;
+              break;
+            }
+          else
+            {
+              error = clib_error_return (0, "unknown input `%U'",
+                                         format_unformat_error, input);
+              unformat_free (line_input);
+              return error;
+            }
+        }
 
       unformat_free (line_input);
     }
 
   /* *INDENT-OFF* */
-  hash_foreach(name, index, sm->upf_app_by_name,
-  ({
-     upf_adf_app_t *app = NULL;
-     app = pool_elt_at_index(sm->upf_apps, index);
-     vlib_cli_output (vm, "app: %v", app->name);
+  hash_foreach (name, index, sm->upf_app_by_name, ({
+                  upf_adf_app_t *app = NULL;
+                  app = pool_elt_at_index (sm->upf_apps, index);
+                  vlib_cli_output (vm, "app: %v", app->name);
 
-     if (verbose)
-       {
-	 upf_show_rules(vm, app);
-       }
-  }));
+                  if (verbose)
+                    {
+                      upf_show_rules (vm, app);
+                    }
+                }));
   /* *INDENT-ON* */
 
   return NULL;
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_apps_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_apps_command, static) = {
   .path = "show upf applications",
   .short_help = "show upf applications [verbose]",
   .function = upf_show_apps_command_fn,
 };
 /* *INDENT-ON* */
 
-
 int
-upf_update_app (upf_main_t * sm, u8 * app_name, u32 num_rules, u32 * ids,
-		u32 * regex_lengths, u8 ** regexes)
+upf_update_app (upf_main_t *sm, u8 *app_name, u32 num_rules, u32 *ids,
+                u32 *regex_lengths, u8 **regexes)
 {
   upf_adf_app_t *app = NULL;
   uword *p = NULL;
@@ -984,13 +968,12 @@ upf_update_app (upf_main_t * sm, u8 * app_name, u32 num_rules, u32 * ids,
     return VNET_API_ERROR_INSTANCE_IN_USE;
 
   /* *INDENT-OFF* */
-  hash_foreach(rule_index, index, app->rules_by_id,
-  ({
-    rule = pool_elt_at_index(app->rules, index);
-    vec_free (rule->regex);
-    clib_memset (rule, 0, sizeof (*rule));
-    pool_put_index (app->rules, index);
-  }));
+  hash_foreach (rule_index, index, app->rules_by_id, ({
+                  rule = pool_elt_at_index (app->rules, index);
+                  vec_free (rule->regex);
+                  clib_memset (rule, 0, sizeof (*rule));
+                  pool_put_index (app->rules, index);
+                }));
   /* *INDENT-ON* */
 
   hash_free (app->rules_by_id);
@@ -1014,12 +997,11 @@ upf_update_app (upf_main_t * sm, u8 * app_name, u32 num_rules, u32 * ids,
 }
 
 int
-upf_app_ip_rule_match (u32 db_index, flow_entry_t * flow,
-		       ip46_address_t *assigned)
+upf_app_ip_rule_match (u32 db_index, flow_entry_t *flow,
+                       ip46_address_t *assigned)
 {
   upf_adf_entry_t *entry = pool_elt_at_index (upf_adf_db, db_index);
-  return entry->app_dpos &&
-    upf_app_dpo_match (entry, flow, assigned);
+  return entry->app_dpos && upf_app_dpo_match (entry, flow, assigned);
 }
 
 /*

@@ -33,8 +33,11 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 typedef enum
@@ -48,22 +51,22 @@ typedef enum
 } upf_proxy_input_next_t;
 
 /* Statistics (not all errors) */
-#define foreach_upf_proxy_input_error				\
-  _(LENGTH, "inconsistent ip/tcp lengths")			\
-  _(NO_LISTENER, "no redirect server available")		\
-  _(PROCESS, "good packets process")				\
-  _(OPTIONS, "Could not parse options")				\
-  _(CREATE_SESSION_FAIL, "Sessions couldn't be allocated")
+#define foreach_upf_proxy_input_error                                         \
+  _ (LENGTH, "inconsistent ip/tcp lengths")                                   \
+  _ (NO_LISTENER, "no redirect server available")                             \
+  _ (PROCESS, "good packets process")                                         \
+  _ (OPTIONS, "Could not parse options")                                      \
+  _ (CREATE_SESSION_FAIL, "Sessions couldn't be allocated")
 
 static char *upf_proxy_input_error_strings[] = {
-#define _(sym,string) string,
+#define _(sym, string) string,
   foreach_upf_proxy_input_error
 #undef _
 };
 
 typedef enum
 {
-#define _(sym,str) UPF_PROXY_INPUT_ERROR_##sym,
+#define _(sym, str) UPF_PROXY_INPUT_ERROR_##sym,
   foreach_upf_proxy_input_error
 #undef _
     UPF_PROXY_INPUT_N_ERROR,
@@ -74,11 +77,10 @@ typedef struct
   u32 session_index;
   u64 up_seid;
   u8 packet_data[64 - 1 * sizeof (u32)];
-}
-upf_proxy_input_trace_t;
+} upf_proxy_input_trace_t;
 
 static u8 *
-format_upf_proxy_input_trace (u8 * s, va_list * args)
+format_upf_proxy_input_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
@@ -86,15 +88,14 @@ format_upf_proxy_input_trace (u8 * s, va_list * args)
   u32 indent = format_get_indent (s);
 
   s = format (s, "upf_session%d up-seid 0x%016" PRIx64 "\n%U%U",
-	      t->session_index, t->up_seid,
-	      format_white_space, indent,
-	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
+              t->session_index, t->up_seid, format_white_space, indent,
+              format_ip4_header, t->packet_data, sizeof (t->packet_data));
   return s;
 }
 
 static u8
-tcp_flow_is_valid (tcp_connection_t * tc, flow_entry_t * f,
-		   flow_direction_t direction)
+tcp_flow_is_valid (tcp_connection_t *tc, flow_entry_t *f,
+                   flow_direction_t direction)
 {
   flow_direction_t origin = direction ^ f->is_reverse;
   flow_direction_t reverse = direction ^ FT_REVERSE ^ f->is_reverse;
@@ -109,11 +110,11 @@ tcp_flow_is_valid (tcp_connection_t * tc, flow_entry_t * f,
     return 0;
 
   return (f->key.port[origin] == tc->connection.rmt_port) &&
-    (f->key.port[reverse] == tc->connection.lcl_port);
+         (f->key.port[reverse] == tc->connection.lcl_port);
 }
 
 void
-upf_kill_connection_hard (tcp_connection_t * tc)
+upf_kill_connection_hard (tcp_connection_t *tc)
 {
   session_lookup_del_connection (&tc->connection);
 
@@ -123,8 +124,8 @@ upf_kill_connection_hard (tcp_connection_t * tc)
 }
 
 static_always_inline u32
-splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
-		       flow_direction_t direction)
+splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
+                       flow_direction_t direction)
 {
   flow_direction_t origin = FT_ORIGIN ^ direction;
   flow_direction_t reverse = FT_REVERSE ^ direction;
@@ -141,9 +142,8 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
 
   // lookup connections
-  tc =
-    transport_get_connection (TRANSPORT_PROTO_TCP, ftc->conn_index,
-			      ftc->thread_index);
+  tc = transport_get_connection (TRANSPORT_PROTO_TCP, ftc->conn_index,
+                                 ftc->thread_index);
   if (!tc)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
 
@@ -151,13 +151,10 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
   if (!s)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
 
-  tcpRx = tcp_get_connection_from_transport
-    (transport_get_connection
-     (TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index));
-  tcpTx =
-    tcp_get_connection_from_transport (transport_get_connection
-				       (TRANSPORT_PROTO_TCP, rev->conn_index,
-					rev->thread_index));
+  tcpRx = tcp_get_connection_from_transport (transport_get_connection (
+    TRANSPORT_PROTO_TCP, ftc->conn_index, ftc->thread_index));
+  tcpTx = tcp_get_connection_from_transport (transport_get_connection (
+    TRANSPORT_PROTO_TCP, rev->conn_index, rev->thread_index));
 
   ASSERT (tcp_flow_is_valid (tcpRx, flow, direction));
   ASSERT (tcp_flow_is_valid (tcpTx, flow, FT_REVERSE ^ direction));
@@ -171,20 +168,19 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
-      vlib_increment_simple_counter (&gtm->upf_simple_counters
-				     [UPF_FLOWS_NOT_STITCHED_MSS_MISMATCH],
-				     vlib_get_thread_index (), 0, 1);
+      vlib_increment_simple_counter (
+        &gtm->upf_simple_counters[UPF_FLOWS_NOT_STITCHED_MSS_MISMATCH],
+        vlib_get_thread_index (), 0, 1);
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
-  if (tcp_opts_tstamp (&tcpTx->rcv_opts) !=
-      tcp_opts_tstamp (&tcpRx->rcv_opts))
+  if (tcp_opts_tstamp (&tcpTx->rcv_opts) != tcp_opts_tstamp (&tcpRx->rcv_opts))
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
-      vlib_increment_simple_counter (&gtm->upf_simple_counters
-				     [UPF_FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP],
-				     vlib_get_thread_index (), 0, 1);
+      vlib_increment_simple_counter (
+        &gtm->upf_simple_counters[UPF_FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP],
+        vlib_get_thread_index (), 0, 1);
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
@@ -193,28 +189,30 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
     {
       upf_debug ("=============> DON'T SPLICE <=============");
       flow->dont_splice = 1;
-      vlib_increment_simple_counter (&gtm->upf_simple_counters
-				     [UPF_FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT],
-				     vlib_get_thread_index (), 0, 1);
+      vlib_increment_simple_counter (
+        &gtm->upf_simple_counters[UPF_FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT],
+        vlib_get_thread_index (), 0, 1);
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
   if (flow_seq_offs (flow, origin) == 0)
     flow_seq_offs (flow, origin) = direction == FT_ORIGIN ?
-      tcpTx->snd_nxt - tcpRx->rcv_nxt : tcpRx->rcv_nxt - tcpTx->snd_nxt;
+                                     tcpTx->snd_nxt - tcpRx->rcv_nxt :
+                                     tcpRx->rcv_nxt - tcpTx->snd_nxt;
 
   if (flow_seq_offs (flow, reverse) == 0)
     flow_seq_offs (flow, reverse) = direction == FT_ORIGIN ?
-      tcpTx->rcv_nxt - tcpRx->snd_nxt : tcpRx->snd_nxt - tcpTx->rcv_nxt;
+                                      tcpTx->rcv_nxt - tcpRx->snd_nxt :
+                                      tcpRx->snd_nxt - tcpTx->rcv_nxt;
 
   /* check fifo, proxy Tx/Rx are connected... */
   if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
       svm_fifo_max_dequeue (s->tx_fifo) != 0)
     {
       flow->spliced_dirty = 1;
-      vlib_increment_simple_counter (&gtm->upf_simple_counters
-				     [UPF_FLOWS_STITCHED_DIRTY_FIFOS],
-				     vlib_get_thread_index (), 0, 1);
+      vlib_increment_simple_counter (
+        &gtm->upf_simple_counters[UPF_FLOWS_STITCHED_DIRTY_FIFOS],
+        vlib_get_thread_index (), 0, 1);
     }
 
   /* kill the TCP connections, session and proxy session */
@@ -225,15 +223,14 @@ splice_tcp_connection (upf_main_t * gtm, flow_entry_t * flow,
   /* switch to direct spliceing */
   flow->is_spliced = 1;
 
-  vlib_increment_simple_counter (&gtm->upf_simple_counters
-				 [UPF_FLOWS_STITCHED],
-				 vlib_get_thread_index (), 0, 1);
+  vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_FLOWS_STITCHED],
+                                 vlib_get_thread_index (), 0, 1);
 
   return UPF_PROXY_INPUT_NEXT_TCP_FORWARD;
 }
 
 static_always_inline int
-upf_vnet_load_tcp_hdr_offset (vlib_buffer_t * b)
+upf_vnet_load_tcp_hdr_offset (vlib_buffer_t *b)
 {
   ip4_header_t *ip4 = vlib_buffer_get_current (b);
   tcp_header_t *tcp;
@@ -242,7 +239,7 @@ upf_vnet_load_tcp_hdr_offset (vlib_buffer_t * b)
     {
       int ip_hdr_bytes = ip4_header_bytes (ip4);
       if (PREDICT_FALSE (b->current_length < ip_hdr_bytes + sizeof (*tcp)))
-	return -1;
+        return -1;
 
       tcp = ip4_next_header (ip4);
       vnet_buffer (b)->tcp.hdr_offset = (u8 *) tcp - (u8 *) ip4;
@@ -251,7 +248,7 @@ upf_vnet_load_tcp_hdr_offset (vlib_buffer_t * b)
     {
       ip6_header_t *ip6 = vlib_buffer_get_current (b);
       if (PREDICT_FALSE (b->current_length < sizeof (*ip6) + sizeof (*tcp)))
-	return -1;
+        return -1;
 
       tcp = ip6_next_header (ip6);
       vnet_buffer (b)->tcp.hdr_offset = (u8 *) tcp - (u8 *) ip6;
@@ -263,8 +260,8 @@ upf_vnet_load_tcp_hdr_offset (vlib_buffer_t * b)
 }
 
 static_always_inline void
-load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction,
-		    flow_entry_t * flow, u32 thread_index)
+load_tstamp_offset (vlib_buffer_t *b, flow_direction_t direction,
+                    flow_entry_t *flow, u32 thread_index)
 {
   tcp_header_t *tcp;
   tcp_options_t opts;
@@ -288,8 +285,8 @@ load_tstamp_offset (vlib_buffer_t * b, flow_direction_t direction,
 }
 
 static uword
-upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
-		 const char *node_name, vlib_frame_t * from_frame, int is_ip4)
+upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
+                 const char *node_name, vlib_frame_t *from_frame, int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -318,191 +315,188 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
 
       while (n_left_from > 0 && n_left_to_next > 0)
-	{
-	  upf_session_t *sess = NULL;
-	  flow_direction_t direction;
-	  flow_entry_t *flow = NULL;
-	  upf_pdr_t *pdr = NULL;
-	  upf_far_t *far = NULL;
-	  struct rules *active;
-	  flow_tc_t *ftc;
+        {
+          upf_session_t *sess = NULL;
+          flow_direction_t direction;
+          flow_entry_t *flow = NULL;
+          upf_pdr_t *pdr = NULL;
+          upf_far_t *far = NULL;
+          struct rules *active;
+          flow_tc_t *ftc;
 
-	  bi = from[0];
-	  to_next[0] = bi;
-	  from += 1;
-	  to_next += 1;
-	  n_left_from -= 1;
-	  n_left_to_next -= 1;
+          bi = from[0];
+          to_next[0] = bi;
+          from += 1;
+          to_next += 1;
+          n_left_from -= 1;
+          n_left_to_next -= 1;
 
-	  b = vlib_get_buffer (vm, bi);
-	  UPF_CHECK_INNER_NODE (b);
+          b = vlib_get_buffer (vm, bi);
+          UPF_CHECK_INNER_NODE (b);
 
-	  error = 0;
-	  next = UPF_FORWARD_NEXT_DROP;
+          error = 0;
+          next = UPF_FORWARD_NEXT_DROP;
 
-	  ASSERT (upf_buffer_opaque (b)->gtpu.flow_id != ~0);
+          ASSERT (upf_buffer_opaque (b)->gtpu.flow_id != ~0);
 
-	  /* Outer Header Removal */
-	  switch (upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK)
-	    {
-	    case BUFFER_GTP_UDP_IP4:	/* GTP-U/UDP/IPv4 */
-	      vlib_buffer_advance (b,
-				   upf_buffer_opaque (b)->gtpu.data_offset);
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      break;
+          /* Outer Header Removal */
+          switch (upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK)
+            {
+            case BUFFER_GTP_UDP_IP4: /* GTP-U/UDP/IPv4 */
+              vlib_buffer_advance (b, upf_buffer_opaque (b)->gtpu.data_offset);
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              break;
 
-	    case BUFFER_GTP_UDP_IP6:	/* GTP-U/UDP/IPv6 */
-	      vlib_buffer_advance (b,
-				   upf_buffer_opaque (b)->gtpu.data_offset);
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      break;
+            case BUFFER_GTP_UDP_IP6: /* GTP-U/UDP/IPv6 */
+              vlib_buffer_advance (b, upf_buffer_opaque (b)->gtpu.data_offset);
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              break;
 
-	    case BUFFER_UDP_IP4:	/* UDP/IPv4 */
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      vlib_buffer_advance (b,
-				   sizeof (ip4_header_t) +
-				   sizeof (udp_header_t));
-	      break;
+            case BUFFER_UDP_IP4: /* UDP/IPv4 */
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              vlib_buffer_advance (b, sizeof (ip4_header_t) +
+                                        sizeof (udp_header_t));
+              break;
 
-	    case BUFFER_UDP_IP6:	/* UDP/IPv6 */
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      vlib_buffer_advance (b,
-				   sizeof (ip6_header_t) +
-				   sizeof (udp_header_t));
-	      break;
+            case BUFFER_UDP_IP6: /* UDP/IPv6 */
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              vlib_buffer_advance (b, sizeof (ip6_header_t) +
+                                        sizeof (udp_header_t));
+              break;
 
-	    default:
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      break;
-	    }
+            default:
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              break;
+            }
 
-	  upf_debug ("flow: %p (0x%08x): %U\n",
-		     fm->flows + upf_buffer_opaque (b)->gtpu.flow_id,
-		     upf_buffer_opaque (b)->gtpu.flow_id,
-		     format_flow_key,
-		     &(fm->flows + upf_buffer_opaque (b)->gtpu.flow_id)->key);
+          upf_debug ("flow: %p (0x%08x): %U\n",
+                     fm->flows + upf_buffer_opaque (b)->gtpu.flow_id,
+                     upf_buffer_opaque (b)->gtpu.flow_id, format_flow_key,
+                     &(fm->flows + upf_buffer_opaque (b)->gtpu.flow_id)->key);
 
-	  flow =
-	    pool_elt_at_index (fm->flows,
-			       upf_buffer_opaque (b)->gtpu.flow_id);
-	  ASSERT (flow);
+          flow =
+            pool_elt_at_index (fm->flows, upf_buffer_opaque (b)->gtpu.flow_id);
+          ASSERT (flow);
 
-	  direction =
-	    (flow->is_reverse ==
-	     upf_buffer_opaque (b)->gtpu.is_reverse) ? FT_ORIGIN : FT_REVERSE;
+          direction =
+            (flow->is_reverse == upf_buffer_opaque (b)->gtpu.is_reverse) ?
+              FT_ORIGIN :
+              FT_REVERSE;
 
-	  upf_debug ("direction: %u, buffer: %u, flow: %u", direction,
-		     upf_buffer_opaque (b)->gtpu.is_reverse,
-		     flow->is_reverse);
+          upf_debug ("direction: %u, buffer: %u, flow: %u", direction,
+                     upf_buffer_opaque (b)->gtpu.is_reverse, flow->is_reverse);
 
-	  vnet_buffer (b)->ip.rx_sw_if_index =
-	    vnet_buffer (b)->sw_if_index[VLIB_RX];
+          vnet_buffer (b)->ip.rx_sw_if_index =
+            vnet_buffer (b)->sw_if_index[VLIB_RX];
 
-	  ftc = &flow_tc (flow, direction);
+          ftc = &flow_tc (flow, direction);
 
-	  if (flow->is_spliced)
-	    {
-	      /* bypass TCP connection handling */
-	      upf_debug ("TCP_FORWARD");
-	      next = UPF_PROXY_INPUT_NEXT_TCP_FORWARD;
-	    }
-	  else if (ftc->conn_index != ~0)
-	    {
-	      ASSERT (ftc->thread_index == thread_index);
+          if (flow->is_spliced)
+            {
+              /* bypass TCP connection handling */
+              upf_debug ("TCP_FORWARD");
+              next = UPF_PROXY_INPUT_NEXT_TCP_FORWARD;
+            }
+          else if (ftc->conn_index != ~0)
+            {
+              ASSERT (ftc->thread_index == thread_index);
 
-	      upf_debug ("existing connection 0x%08x", ftc->conn_index);
-	      vnet_buffer (b)->tcp.connection_index = ftc->conn_index;
+              upf_debug ("existing connection 0x%08x", ftc->conn_index);
+              vnet_buffer (b)->tcp.connection_index = ftc->conn_index;
 
-	      /* transport connection already setup */
-	      next = splice_tcp_connection (gtm, flow, direction);
-	    }
-	  else
-	    {
-	      /* ftc->conn_index == ~0 */
+              /* transport connection already setup */
+              next = splice_tcp_connection (gtm, flow, direction);
+            }
+          else
+            {
+              /* ftc->conn_index == ~0 */
 
-	      if (ftc->thread_index != ~0)
-		{
-		  /* the flow already had a serving session, but that session was closed
-		     signaled by conn_index == ~0 && thread_index != ~0 */
-		  upf_debug ("LATE TCP FRAGMENT");
-		  next = UPF_FORWARD_NEXT_DROP;
-		}
-	      else if (direction == FT_ORIGIN)
-		{
-		  upf_debug ("PROXY_ACCEPT");
-		  load_tstamp_offset (b, direction, flow, thread_index);
-		  next = UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT;
-		}
-	      else if (direction == FT_REVERSE)
-		{
-		  upf_debug ("INPUT_LOOKUP");
-		  load_tstamp_offset (b, direction, flow, thread_index);
-		  next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
-		}
-	      else
-		goto trace;
-	    }
+              if (ftc->thread_index != ~0)
+                {
+                  /* the flow already had a serving session, but that session
+                     was closed
+                     signaled by conn_index == ~0 && thread_index != ~0 */
+                  upf_debug ("LATE TCP FRAGMENT");
+                  next = UPF_FORWARD_NEXT_DROP;
+                }
+              else if (direction == FT_ORIGIN)
+                {
+                  upf_debug ("PROXY_ACCEPT");
+                  load_tstamp_offset (b, direction, flow, thread_index);
+                  next = UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT;
+                }
+              else if (direction == FT_REVERSE)
+                {
+                  upf_debug ("INPUT_LOOKUP");
+                  load_tstamp_offset (b, direction, flow, thread_index);
+                  next = UPF_PROXY_INPUT_NEXT_TCP_INPUT_LOOKUP;
+                }
+              else
+                goto trace;
+            }
 
-	  // FT_REVERSE direction (DL) and stitched traffic (upf-ip[46]-tcp-forward)
-	  // is accounted for on the upf-ip[46]-forward node
-	  if (direction == FT_ORIGIN
-	      && next != UPF_PROXY_INPUT_NEXT_TCP_FORWARD)
-	    {
-	      /* Get next node index and adj index from tunnel next_dpo */
-	      sess = pool_elt_at_index (gtm->sessions, flow->session_index);
-	      active = pfcp_get_rules (sess, PFCP_ACTIVE);
-	      pdr =
-		pfcp_get_pdr_by_id (active, flow_pdr_id (flow, direction));
-	      far = pdr ? pfcp_get_far_by_id (active, pdr->far_id) : NULL;
+          // FT_REVERSE direction (DL) and stitched traffic
+          // (upf-ip[46]-tcp-forward) is accounted for on the
+          // upf-ip[46]-forward node
+          if (direction == FT_ORIGIN &&
+              next != UPF_PROXY_INPUT_NEXT_TCP_FORWARD)
+            {
+              /* Get next node index and adj index from tunnel next_dpo */
+              sess = pool_elt_at_index (gtm->sessions, flow->session_index);
+              active = pfcp_get_rules (sess, PFCP_ACTIVE);
+              pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, direction));
+              far = pdr ? pfcp_get_far_by_id (active, pdr->far_id) : NULL;
 
-	      if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
-		{
-		  next = UPF_FORWARD_NEXT_DROP;
-		  goto trace;
-		}
+              if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
+                {
+                  next = UPF_FORWARD_NEXT_DROP;
+                  goto trace;
+                }
 
-#define IS_DL(_pdr, _far)						\
-              ((_pdr)->pdi.src_intf == SRC_INTF_CORE || (_far)->forward.dst_intf == DST_INTF_ACCESS)
-#define IS_UL(_pdr, _far)						\
-              ((_pdr)->pdi.src_intf == SRC_INTF_ACCESS || (_far)->forward.dst_intf == DST_INTF_CORE)
+#define IS_DL(_pdr, _far)                                                     \
+  ((_pdr)->pdi.src_intf == SRC_INTF_CORE ||                                   \
+   (_far)->forward.dst_intf == DST_INTF_ACCESS)
+#define IS_UL(_pdr, _far)                                                     \
+  ((_pdr)->pdi.src_intf == SRC_INTF_ACCESS ||                                 \
+   (_far)->forward.dst_intf == DST_INTF_CORE)
 
-	      upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
-	      if (!process_qers (vm, sess, active, pdr, b,
-				 IS_DL (pdr, far), IS_UL (pdr, far)))
-		next = UPF_FORWARD_NEXT_DROP;
-	      if (!process_urrs (vm, sess, node_name, active, pdr, b,
-				 IS_DL (pdr, far), IS_UL (pdr, far)))
-		next = UPF_FORWARD_NEXT_DROP;
+              upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
+              if (!process_qers (vm, sess, active, pdr, b, IS_DL (pdr, far),
+                                 IS_UL (pdr, far)))
+                next = UPF_FORWARD_NEXT_DROP;
+              if (!process_urrs (vm, sess, node_name, active, pdr, b,
+                                 IS_DL (pdr, far), IS_UL (pdr, far)))
+                next = UPF_FORWARD_NEXT_DROP;
 
-	      flow_update_stats (vm, b, flow, is_ip4,
-				 timestamp_ns, current_time);
+              flow_update_stats (vm, b, flow, is_ip4, timestamp_ns,
+                                 current_time);
 
 #undef IS_DL
 #undef IS_UL
-	    }
+            }
 
-	trace:
-	  b->error = error ? node->errors[error] : 0;
+        trace:
+          b->error = error ? node->errors[error] : 0;
 
-	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
-	    {
-	      upf_session_t *sess = NULL;
-	      u32 sidx = 0;
-	      upf_proxy_input_trace_t *tr =
-		vlib_add_trace (vm, node, b, sizeof (*tr));
+          if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
+            {
+              upf_session_t *sess = NULL;
+              u32 sidx = 0;
+              upf_proxy_input_trace_t *tr =
+                vlib_add_trace (vm, node, b, sizeof (*tr));
 
-	      /* Get next node index and adj index from tunnel next_dpo */
-	      sidx = upf_buffer_opaque (b)->gtpu.session_index;
-	      sess = pool_elt_at_index (gtm->sessions, sidx);
-	      tr->session_index = sidx;
-	      tr->up_seid = sess->up_seid;
-	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
-			   sizeof (tr->packet_data));
-	    }
+              /* Get next node index and adj index from tunnel next_dpo */
+              sidx = upf_buffer_opaque (b)->gtpu.session_index;
+              sess = pool_elt_at_index (gtm->sessions, sidx);
+              tr->session_index = sidx;
+              tr->up_seid = sess->up_seid;
+              clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
+                           sizeof (tr->packet_data));
+            }
 
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next, bi, next);
-	}
+          vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+                                           n_left_to_next, bi, next);
+        }
 
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
@@ -510,20 +504,18 @@ upf_proxy_input (vlib_main_t * vm, vlib_node_runtime_t * node,
   return from_frame->n_vectors;
 }
 
-VLIB_NODE_FN (upf_ip4_proxy_input_node) (vlib_main_t * vm,
-					 vlib_node_runtime_t * node,
-					 vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip4_proxy_input_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_input (vm, node, "upf-ip4-proxy-input", from_frame,
-			  /* is_ip4 */ 1);
+                          /* is_ip4 */ 1);
 }
 
-VLIB_NODE_FN (upf_ip6_proxy_input_node) (vlib_main_t * vm,
-					 vlib_node_runtime_t * node,
-					 vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip6_proxy_input_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_input (vm, node, "upf-ip6-proxy-input", from_frame,
-			  /* is_ip4 */ 0);
+                          /* is_ip4 */ 0);
 }
 
 /* *INDENT-OFF* */

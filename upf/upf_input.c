@@ -33,8 +33,11 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 typedef enum
@@ -45,22 +48,22 @@ typedef enum
 } upf_input_next_t;
 
 /* Statistics (not all errors) */
-#define foreach_upf_input_error				\
-  _(LENGTH, "inconsistent ip/tcp lengths")			\
-  _(NO_LISTENER, "no redirect server available")		\
-  _(INPUT, "good packets input")				\
-  _(OPTIONS, "Could not parse options")				\
-  _(CREATE_SESSION_FAIL, "Sessions couldn't be allocated")
+#define foreach_upf_input_error                                               \
+  _ (LENGTH, "inconsistent ip/tcp lengths")                                   \
+  _ (NO_LISTENER, "no redirect server available")                             \
+  _ (INPUT, "good packets input")                                             \
+  _ (OPTIONS, "Could not parse options")                                      \
+  _ (CREATE_SESSION_FAIL, "Sessions couldn't be allocated")
 
 static char *upf_input_error_strings[] = {
-#define _(sym,string) string,
+#define _(sym, string) string,
   foreach_upf_input_error
 #undef _
 };
 
 typedef enum
 {
-#define _(sym,str) UPF_INPUT_ERROR_##sym,
+#define _(sym, str) UPF_INPUT_ERROR_##sym,
   foreach_upf_input_error
 #undef _
     UPF_INPUT_N_ERROR,
@@ -73,11 +76,10 @@ typedef struct
   u32 pdr_id;
   u32 far_id;
   u8 packet_data[64 - 1 * sizeof (u32)];
-}
-upf_input_trace_t;
+} upf_input_trace_t;
 
 static u8 *
-format_upf_input_trace (u8 * s, va_list * args)
+format_upf_input_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
@@ -85,15 +87,15 @@ format_upf_input_trace (u8 * s, va_list * args)
   u32 indent = format_get_indent (s);
 
   s = format (s, "upf_session%d up-seid 0x%016" PRIx64 " pdr %d far %d\n%U%U",
-	      t->session_index, t->up_seid, t->pdr_id, t->far_id,
-	      format_white_space, indent,
-	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
+              t->session_index, t->up_seid, t->pdr_id, t->far_id,
+              format_white_space, indent, format_ip4_header, t->packet_data,
+              sizeof (t->packet_data));
   return s;
 }
 
 static uword
-upf_input (vlib_main_t * vm, vlib_node_runtime_t * node,
-	   vlib_frame_t * from_frame, int is_ip4)
+upf_input (vlib_main_t *vm, vlib_node_runtime_t *node,
+           vlib_frame_t *from_frame, int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -122,148 +124,138 @@ upf_input (vlib_main_t * vm, vlib_node_runtime_t * node,
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
 
       while (n_left_from > 0 && n_left_to_next > 0)
-	{
-	  upf_pdr_t *pdr = NULL;
-	  upf_far_t *far = NULL;
+        {
+          upf_pdr_t *pdr = NULL;
+          upf_far_t *far = NULL;
 
-	  bi = from[0];
-	  to_next[0] = bi;
-	  from += 1;
-	  to_next += 1;
-	  n_left_from -= 1;
-	  n_left_to_next -= 1;
+          bi = from[0];
+          to_next[0] = bi;
+          from += 1;
+          to_next += 1;
+          n_left_from -= 1;
+          n_left_to_next -= 1;
 
-	  b = vlib_get_buffer (vm, bi);
-	  UPF_CHECK_INNER_NODE (b);
+          b = vlib_get_buffer (vm, bi);
+          UPF_CHECK_INNER_NODE (b);
 
-	  /* Get next node index and adj index from tunnel next_dpo */
-	  sidx = upf_buffer_opaque (b)->gtpu.session_index;
-	  sess = pool_elt_at_index (gtm->sessions, sidx);
+          /* Get next node index and adj index from tunnel next_dpo */
+          sidx = upf_buffer_opaque (b)->gtpu.session_index;
+          sess = pool_elt_at_index (gtm->sessions, sidx);
 
-	  error = 0;
-	  next = UPF_INPUT_NEXT_UPF_FORWARD;
-	  active = pfcp_get_rules (sess, PFCP_ACTIVE);
+          error = 0;
+          next = UPF_INPUT_NEXT_UPF_FORWARD;
+          active = pfcp_get_rules (sess, PFCP_ACTIVE);
 
-	  if (PREDICT_TRUE (upf_buffer_opaque (b)->gtpu.pdr_idx != ~0))
-	    {
-	      pdr =
-		vec_elt_at_index (active->pdr,
-				  upf_buffer_opaque (b)->gtpu.pdr_idx);
-	      far = pfcp_get_far_by_id (active, pdr->far_id);
-	    }
+          if (PREDICT_TRUE (upf_buffer_opaque (b)->gtpu.pdr_idx != ~0))
+            {
+              pdr = vec_elt_at_index (active->pdr,
+                                      upf_buffer_opaque (b)->gtpu.pdr_idx);
+              far = pfcp_get_far_by_id (active, pdr->far_id);
+            }
 
-	  upf_debug ("IP hdr: %U", format_ip4_header,
-		     vlib_buffer_get_current (b), b->current_length);
-	  upf_debug ("PDR Idx: %u, PDR: %p, FAR: %p",
-		     upf_buffer_opaque (b)->gtpu.pdr_idx, pdr, far);
-	  if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
-	    goto trace;
+          upf_debug ("IP hdr: %U", format_ip4_header,
+                     vlib_buffer_get_current (b), b->current_length);
+          upf_debug ("PDR Idx: %u, PDR: %p, FAR: %p",
+                     upf_buffer_opaque (b)->gtpu.pdr_idx, pdr, far);
+          if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
+            goto trace;
 
-	  upf_debug ("PDR OHR: %u", pdr->outer_header_removal);
+          upf_debug ("PDR OHR: %u", pdr->outer_header_removal);
 
-	  /* Outer Header Removal */
-	  switch (pdr->outer_header_removal)
-	    {
-	    case OUTER_HEADER_REMOVAL_GTP_IP4:	/* GTP-U/UDP/IPv4 */
-	      if (PREDICT_FALSE
-		  ((upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK) !=
-		   BUFFER_GTP_UDP_IP4))
-		{
-		  next = UPF_INPUT_NEXT_DROP;
-		  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
-		  goto trace;
-		}
-	      vlib_buffer_advance (b,
-				   upf_buffer_opaque (b)->gtpu.data_offset);
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      break;
+          /* Outer Header Removal */
+          switch (pdr->outer_header_removal)
+            {
+            case OUTER_HEADER_REMOVAL_GTP_IP4: /* GTP-U/UDP/IPv4 */
+              if (PREDICT_FALSE ((upf_buffer_opaque (b)->gtpu.flags &
+                                  BUFFER_HDR_MASK) != BUFFER_GTP_UDP_IP4))
+                {
+                  next = UPF_INPUT_NEXT_DROP;
+                  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
+                  goto trace;
+                }
+              vlib_buffer_advance (b, upf_buffer_opaque (b)->gtpu.data_offset);
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              break;
 
-	    case OUTER_HEADER_REMOVAL_GTP_IP6:	/* GTP-U/UDP/IPv6 */
-	      if (PREDICT_FALSE
-		  ((upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK) !=
-		   BUFFER_GTP_UDP_IP6))
-		{
-		  next = UPF_INPUT_NEXT_DROP;
-		  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
-		  goto trace;
-		}
-	      vlib_buffer_advance (b,
-				   upf_buffer_opaque (b)->gtpu.data_offset);
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      break;
+            case OUTER_HEADER_REMOVAL_GTP_IP6: /* GTP-U/UDP/IPv6 */
+              if (PREDICT_FALSE ((upf_buffer_opaque (b)->gtpu.flags &
+                                  BUFFER_HDR_MASK) != BUFFER_GTP_UDP_IP6))
+                {
+                  next = UPF_INPUT_NEXT_DROP;
+                  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
+                  goto trace;
+                }
+              vlib_buffer_advance (b, upf_buffer_opaque (b)->gtpu.data_offset);
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              break;
 
-	    case OUTER_HEADER_REMOVAL_UDP_IP4:	/* UDP/IPv4 */
-	      if (PREDICT_FALSE
-		  ((upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK) !=
-		   BUFFER_UDP_IP4))
-		{
-		  next = UPF_INPUT_NEXT_DROP;
-		  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
-		  goto trace;
-		}
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      vlib_buffer_advance (b,
-				   sizeof (ip4_header_t) +
-				   sizeof (udp_header_t));
-	      break;
+            case OUTER_HEADER_REMOVAL_UDP_IP4: /* UDP/IPv4 */
+              if (PREDICT_FALSE ((upf_buffer_opaque (b)->gtpu.flags &
+                                  BUFFER_HDR_MASK) != BUFFER_UDP_IP4))
+                {
+                  next = UPF_INPUT_NEXT_DROP;
+                  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
+                  goto trace;
+                }
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              vlib_buffer_advance (b, sizeof (ip4_header_t) +
+                                        sizeof (udp_header_t));
+              break;
 
-	    case OUTER_HEADER_REMOVAL_UDP_IP6:	/* UDP/IPv6 */
-	      if (PREDICT_FALSE
-		  ((upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK) !=
-		   BUFFER_UDP_IP6))
-		{
-		  next = UPF_INPUT_NEXT_DROP;
-		  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
-		  goto trace;
-		}
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      vlib_buffer_advance (b,
-				   sizeof (ip6_header_t) +
-				   sizeof (udp_header_t));
-	      break;
+            case OUTER_HEADER_REMOVAL_UDP_IP6: /* UDP/IPv6 */
+              if (PREDICT_FALSE ((upf_buffer_opaque (b)->gtpu.flags &
+                                  BUFFER_HDR_MASK) != BUFFER_UDP_IP6))
+                {
+                  next = UPF_INPUT_NEXT_DROP;
+                  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
+                  goto trace;
+                }
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              vlib_buffer_advance (b, sizeof (ip6_header_t) +
+                                        sizeof (udp_header_t));
+              break;
 
-	    case OUTER_HEADER_REMOVAL_GTP:	/* GTP-U/UDP/IP */
-	      switch (upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK)
-		{
-		case BUFFER_GTP_UDP_IP4:
-		case BUFFER_GTP_UDP_IP6:
-		  vlib_buffer_advance (b,
-				       upf_buffer_opaque (b)->
-				       gtpu.data_offset);
-		  upf_vnet_buffer_l3_hdr_offset_is_current (b);
-		  break;
+            case OUTER_HEADER_REMOVAL_GTP: /* GTP-U/UDP/IP */
+              switch (upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK)
+                {
+                case BUFFER_GTP_UDP_IP4:
+                case BUFFER_GTP_UDP_IP6:
+                  vlib_buffer_advance (
+                    b, upf_buffer_opaque (b)->gtpu.data_offset);
+                  upf_vnet_buffer_l3_hdr_offset_is_current (b);
+                  break;
 
-		default:
-		  next = UPF_INPUT_NEXT_DROP;
-		  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
-		  goto trace;
-		}
-	      break;
+                default:
+                  next = UPF_INPUT_NEXT_DROP;
+                  // error = UPF_INPUT_ERROR_INVALID_OUTER_HEADER;
+                  goto trace;
+                }
+              break;
 
-	    default:
-	      upf_vnet_buffer_l3_hdr_offset_is_current (b);
-	      break;
-	    }
+            default:
+              upf_vnet_buffer_l3_hdr_offset_is_current (b);
+              break;
+            }
 
-	trace:
-	  b->error = error ? node->errors[error] : 0;
+        trace:
+          b->error = error ? node->errors[error] : 0;
 
-	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
-	    {
-	      upf_input_trace_t *tr =
-		vlib_add_trace (vm, node, b, sizeof (*tr));
-	      tr->session_index = sidx;
-	      tr->up_seid = sess->up_seid;
-	      tr->pdr_id = pdr ? pdr->id : ~0;
-	      tr->far_id = far ? far->id : ~0;
-	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
-			   sizeof (tr->packet_data));
-	    }
-	  upf_debug ("Next: %u, Error: %u", next, error);
+          if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
+            {
+              upf_input_trace_t *tr =
+                vlib_add_trace (vm, node, b, sizeof (*tr));
+              tr->session_index = sidx;
+              tr->up_seid = sess->up_seid;
+              tr->pdr_id = pdr ? pdr->id : ~0;
+              tr->far_id = far ? far->id : ~0;
+              clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
+                           sizeof (tr->packet_data));
+            }
+          upf_debug ("Next: %u, Error: %u", next, error);
 
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next, bi, next);
-	}
+          vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+                                           n_left_to_next, bi, next);
+        }
 
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
@@ -271,16 +263,14 @@ upf_input (vlib_main_t * vm, vlib_node_runtime_t * node,
   return from_frame->n_vectors;
 }
 
-VLIB_NODE_FN (upf_ip4_input_node) (vlib_main_t * vm,
-				   vlib_node_runtime_t * node,
-				   vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip4_input_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_input (vm, node, from_frame, /* is_ip4 */ 1);
 }
 
-VLIB_NODE_FN (upf_ip6_input_node) (vlib_main_t * vm,
-				   vlib_node_runtime_t * node,
-				   vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip6_input_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_input (vm, node, from_frame, /* is_ip4 */ 0);
 }

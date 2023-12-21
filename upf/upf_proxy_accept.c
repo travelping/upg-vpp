@@ -34,30 +34,33 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 /* Statistics (not all errors) */
-#define foreach_upf_proxy_error					\
-  _(PROXY, "good packets proxy")				\
-  _(LENGTH, "inconsistent ip/tcp lengths")			\
-  _(NO_LISTENER, "no redirect server available")		\
-  _(PROCESS, "good packets process")				\
-  _(OPTIONS, "Could not parse options")				\
-  _(CREATE_SESSION_FAIL, "Sessions couldn't be allocated")      \
-  _(INVALID_FLOW, "flow entry not found")                       \
-  _(CONNECTION_EXISTS, "connection already exists")
+#define foreach_upf_proxy_error                                               \
+  _ (PROXY, "good packets proxy")                                             \
+  _ (LENGTH, "inconsistent ip/tcp lengths")                                   \
+  _ (NO_LISTENER, "no redirect server available")                             \
+  _ (PROCESS, "good packets process")                                         \
+  _ (OPTIONS, "Could not parse options")                                      \
+  _ (CREATE_SESSION_FAIL, "Sessions couldn't be allocated")                   \
+  _ (INVALID_FLOW, "flow entry not found")                                    \
+  _ (CONNECTION_EXISTS, "connection already exists")
 
 static char *upf_proxy_error_strings[] = {
-#define _(sym,string) string,
+#define _(sym, string) string,
   foreach_upf_proxy_error
 #undef _
 };
 
 typedef enum
 {
-#define _(sym,str) UPF_PROXY_ERROR_##sym,
+#define _(sym, str) UPF_PROXY_ERROR_##sym,
   foreach_upf_proxy_error
 #undef _
     UPF_PROXY_N_ERROR,
@@ -75,23 +78,20 @@ typedef struct
   u64 up_seid;
   u32 pdr_idx;
   u8 packet_data[64 - 1 * sizeof (u32)];
-}
-upf_proxy_trace_t;
+} upf_proxy_trace_t;
 
 static u8 *
-format_upf_proxy_accept_trace (u8 * s, va_list * args)
+format_upf_proxy_accept_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
   upf_proxy_trace_t *t = va_arg (*args, upf_proxy_trace_t *);
   u32 indent = format_get_indent (s);
 
-  s =
-    format (s,
-	    "upf_session%d up-seid 0x%016" PRIx64
-	    " pdr %d\n%U%U", t->session_index, t->up_seid,
-	    t->pdr_idx, format_white_space, indent,
-	    format_ip4_header, t->packet_data, sizeof (t->packet_data));
+  s = format (s, "upf_session%d up-seid 0x%016" PRIx64 " pdr %d\n%U%U",
+              t->session_index, t->up_seid, t->pdr_idx, format_white_space,
+              indent, format_ip4_header, t->packet_data,
+              sizeof (t->packet_data));
   return s;
 }
 
@@ -99,7 +99,7 @@ format_upf_proxy_accept_trace (u8 * s, va_list * args)
  * Accept a stream session. Optionally ping the server by callback.
  */
 static int
-proxy_session_stream_accept_notify (transport_connection_t * tc, u32 flow_id)
+proxy_session_stream_accept_notify (transport_connection_t *tc, u32 flow_id)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   app_worker_t *app_wrk;
@@ -111,15 +111,15 @@ proxy_session_stream_accept_notify (transport_connection_t * tc, u32 flow_id)
   if (!app)
     return -1;
 
-  app_wrk = application_get_worker (app, 0 /* default wrk only */ );
+  app_wrk = application_get_worker (app, 0 /* default wrk only */);
 
   s = session_alloc_for_connection (tc);
   s->session_state = SESSION_STATE_CREATED;
   s->app_wrk_index = app_wrk->wrk_index;
   s->opaque = flow_id;
 
-  upf_debug ("proxy session @ %p, app %p, wrk %p (idx %u), flow: 0x%08x",
-	     s, app, app_wrk, app_wrk->wrk_index, flow_id);
+  upf_debug ("proxy session @ %p, app %p, wrk %p (idx %u), flow: 0x%08x", s,
+             app, app_wrk, app_wrk->wrk_index, flow_id);
 
   if ((rv = app_worker_init_connected (app_wrk, s)))
     {
@@ -146,8 +146,8 @@ proxy_session_stream_accept_notify (transport_connection_t * tc, u32 flow_id)
  * Lookup transport connection
  */
 tcp_connection_t *
-upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
-			   u8 is_ip4, u8 is_reverse)
+upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t *b, u8 thread_index,
+                           u8 is_ip4, u8 is_reverse)
 {
   tcp_header_t *tcp;
   transport_connection_t *tconn;
@@ -159,21 +159,13 @@ upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
       ip4 = vlib_buffer_get_current (b);
       tcp = ip4_next_header (ip4);
       if (is_reverse)
-	tconn = session_lookup_connection_wt4 (fib_index,
-					       &ip4->src_address,
-					       &ip4->dst_address,
-					       tcp->src_port,
-					       tcp->dst_port,
-					       TRANSPORT_PROTO_TCP,
-					       thread_index, &is_filtered);
+        tconn = session_lookup_connection_wt4 (
+          fib_index, &ip4->src_address, &ip4->dst_address, tcp->src_port,
+          tcp->dst_port, TRANSPORT_PROTO_TCP, thread_index, &is_filtered);
       else
-	tconn = session_lookup_connection_wt4 (fib_index,
-					       &ip4->dst_address,
-					       &ip4->src_address,
-					       tcp->dst_port,
-					       tcp->src_port,
-					       TRANSPORT_PROTO_TCP,
-					       thread_index, &is_filtered);
+        tconn = session_lookup_connection_wt4 (
+          fib_index, &ip4->dst_address, &ip4->src_address, tcp->dst_port,
+          tcp->src_port, TRANSPORT_PROTO_TCP, thread_index, &is_filtered);
 
       tc = tcp_get_connection_from_transport (tconn);
       /* ASSERT (tcp_lookup_is_valid (tc, b, tcp)); */
@@ -184,21 +176,13 @@ upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
       ip6 = vlib_buffer_get_current (b);
       tcp = ip6_next_header (ip6);
       if (is_reverse)
-	tconn = session_lookup_connection_wt6 (fib_index,
-					       &ip6->src_address,
-					       &ip6->dst_address,
-					       tcp->src_port,
-					       tcp->dst_port,
-					       TRANSPORT_PROTO_TCP,
-					       thread_index, &is_filtered);
+        tconn = session_lookup_connection_wt6 (
+          fib_index, &ip6->src_address, &ip6->dst_address, tcp->src_port,
+          tcp->dst_port, TRANSPORT_PROTO_TCP, thread_index, &is_filtered);
       else
-	tconn = session_lookup_connection_wt6 (fib_index,
-					       &ip6->dst_address,
-					       &ip6->src_address,
-					       tcp->dst_port,
-					       tcp->src_port,
-					       TRANSPORT_PROTO_TCP,
-					       thread_index, &is_filtered);
+        tconn = session_lookup_connection_wt6 (
+          fib_index, &ip6->dst_address, &ip6->src_address, tcp->dst_port,
+          tcp->src_port, TRANSPORT_PROTO_TCP, thread_index, &is_filtered);
       tc = tcp_get_connection_from_transport (tconn);
       /* ASSERT (tcp_lookup_is_valid (tc, b, tcp)); */
     }
@@ -206,8 +190,8 @@ upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t * b, u8 thread_index,
 }
 
 static_always_inline uword
-upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
-			 vlib_frame_t * from_frame, int is_ip4)
+upf_proxy_accept_inline (vlib_main_t *vm, vlib_node_runtime_t *node,
+                         vlib_frame_t *from_frame, int is_ip4)
 {
   upf_main_t *gtm = &upf_main;
   flowtable_main_t *fm = &flowtable_main;
@@ -240,47 +224,47 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
       upf_debug ("flow_id: 0x%08x", flow_id);
       flow = pool_elt_at_index (fm->flows, flow_id);
       ASSERT (flow);
-      ASSERT (!pool_is_free
-	      (gtm->sessions, gtm->sessions + flow->session_index));
+      ASSERT (
+        !pool_is_free (gtm->sessions, gtm->sessions + flow->session_index));
 
       /* make sure connection_index is invalid */
       vnet_buffer (b)->tcp.connection_index = ~0;
       tcp_input_lookup_buffer (b, thread_index, &error, is_ip4,
-			       1 /* is_nolookup */ );
+                               1 /* is_nolookup */);
       upf_debug ("tcp_input_lookup error: %d", error);
       if (error != TCP_ERROR_NONE)
-	goto done;
+        goto done;
 
       tcp = tcp_buffer_hdr (b);
       upf_debug ("TCP SYN: %d", tcp_syn (tcp));
       if (PREDICT_FALSE (!tcp_syn (tcp)))
-	{
-	  error = UPF_PROXY_ERROR_NO_LISTENER;
-	  goto done;
-	}
+        {
+          error = UPF_PROXY_ERROR_NO_LISTENER;
+          goto done;
+        }
 
       fib_idx = vlib_buffer_get_ip_fib_index (b, is_ip4);
       upf_debug ("FIB: %u", fib_idx);
 
       /* Make sure connection wasn't just created */
       old_conn =
-	upf_tcp_lookup_connection (fib_idx, b, thread_index, is_ip4, 0);
+        upf_tcp_lookup_connection (fib_idx, b, thread_index, is_ip4, 0);
       if (PREDICT_FALSE (old_conn != NULL))
-	{
-	  clib_warning ("duplicate connection in upf-proxy-accept");
-	  error = UPF_PROXY_ERROR_CONNECTION_EXISTS;
-	  goto done;
-	}
+        {
+          clib_warning ("duplicate connection in upf-proxy-accept");
+          error = UPF_PROXY_ERROR_CONNECTION_EXISTS;
+          goto done;
+        }
 
       /* Create child session and send SYN-ACK */
       child = tcp_connection_alloc (thread_index);
 
       if (tcp_options_parse (tcp, &child->rcv_opts, 1))
-	{
-	  error = UPF_PROXY_ERROR_OPTIONS;
-	  tcp_connection_free (child);
-	  goto done;
-	}
+        {
+          error = UPF_PROXY_ERROR_OPTIONS;
+          tcp_connection_free (child);
+          goto done;
+        }
 
       tcp_init_w_buffer (child, b, is_ip4);
 
@@ -291,8 +275,8 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
       tcp_connection_init_vars (child);
       child->rto = TCP_RTO_MIN;
 
-      child->next_node_index = is_ip4 ?
-	pm->tcp4_server_output_next : pm->tcp6_server_output_next;
+      child->next_node_index =
+        is_ip4 ? pm->tcp4_server_output_next : pm->tcp6_server_output_next;
       /*
        * next_node_opaque is 0 when it's not initialized,
        * so let's possible to detect that for active proxy
@@ -300,14 +284,14 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
        */
       child->next_node_opaque = flow_id + 1;
       upf_debug ("Next Node: %u, Opaque (flow_id+1): 0x%08x",
-		 child->next_node_index, child->next_node_opaque);
+                 child->next_node_index, child->next_node_opaque);
 
       if (proxy_session_stream_accept_notify (&child->connection, flow_id))
-	{
-	  tcp_connection_cleanup (child);
-	  error = UPF_PROXY_ERROR_CREATE_SESSION_FAIL;
-	  goto done;
-	}
+        {
+          tcp_connection_cleanup (child);
+          error = UPF_PROXY_ERROR_CREATE_SESSION_FAIL;
+          goto done;
+        }
 
       vnet_buffer (b)->tcp.connection_index = child->c_c_index;
 
@@ -322,11 +306,11 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
 
     done:
       if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
-	{
-	  upf_proxy_trace_t *tr = vlib_add_trace (vm, node, b, sizeof (*tr));
-	  clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
-		       sizeof (tr->packet_data));
-	}
+        {
+          upf_proxy_trace_t *tr = vlib_add_trace (vm, node, b, sizeof (*tr));
+          clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
+                       sizeof (tr->packet_data));
+        }
     }
 
   vlib_buffer_free (vm, first_buffer, from_frame->n_vectors);
@@ -334,23 +318,20 @@ upf_proxy_accept_inline (vlib_main_t * vm, vlib_node_runtime_t * node,
   return from_frame->n_vectors;
 }
 
-VLIB_NODE_FN (upf_ip4_proxy_accept_node) (vlib_main_t * vm,
-					  vlib_node_runtime_t * node,
-					  vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip4_proxy_accept_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_accept_inline (vm, node, from_frame, /* is_ip4 */ 1);
 }
 
-VLIB_NODE_FN (upf_ip6_proxy_accept_node) (vlib_main_t * vm,
-					  vlib_node_runtime_t * node,
-					  vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip6_proxy_accept_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_accept_inline (vm, node, from_frame, /* is_ip4 */ 0);
 }
 
 /* *INDENT-OFF* */
-VLIB_REGISTER_NODE (upf_ip4_proxy_accept_node) =
-{
+VLIB_REGISTER_NODE (upf_ip4_proxy_accept_node) = {
   .name = "upf-ip4-proxy-accept",
   .vector_size = sizeof (u32),
   .format_trace = format_upf_proxy_accept_trace,
@@ -362,8 +343,7 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_accept_node) =
 /* *INDENT-ON* */
 
 /* *INDENT-OFF* */
-VLIB_REGISTER_NODE (upf_ip6_proxy_accept_node) =
-{
+VLIB_REGISTER_NODE (upf_ip6_proxy_accept_node) = {
   .name = "upf-ip6-proxy-accept",
   .vector_size = sizeof (u32),
   .format_trace = format_upf_proxy_accept_trace,

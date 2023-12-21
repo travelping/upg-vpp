@@ -1,17 +1,17 @@
 /*
-* Copyright (c) 2017-2019 Cisco and/or its affiliates.
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at:
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <vnet/vnet.h>
 #include <vnet/session/session.h>
@@ -28,8 +28,11 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 typedef struct
@@ -59,7 +62,7 @@ typedef struct
 pfcp_session_server_main_t pfcp_session_server_main;
 
 static int
-pfcp_session_server_rx_callback (session_t * s)
+pfcp_session_server_rx_callback (session_t *s)
 {
   upf_main_t *gtm = &upf_main;
   session_dgram_pre_hdr_t ph;
@@ -70,56 +73,53 @@ pfcp_session_server_rx_callback (session_t * s)
   max_deq = svm_fifo_max_dequeue_cons (s->rx_fifo);
   while (max_deq >= sizeof (session_dgram_hdr_t))
     {
-      svm_fifo_peek (s->rx_fifo, 0, sizeof (ph), (u8 *) & ph);
+      svm_fifo_peek (s->rx_fifo, 0, sizeof (ph), (u8 *) &ph);
       ASSERT (ph.data_length >= ph.data_offset);
 
       len = ph.data_length - ph.data_offset;
       msg =
-	clib_mem_alloc_aligned_no_fail (sizeof (*msg), CLIB_CACHE_LINE_BYTES);
+        clib_mem_alloc_aligned_no_fail (sizeof (*msg), CLIB_CACHE_LINE_BYTES);
       memset (msg, 0, sizeof (*msg));
 
       msg->session_handle = session_handle (s);
 
       if (!ph.data_offset)
-	{
-	  app_session_transport_t at;
+        {
+          app_session_transport_t at;
 
-	  svm_fifo_peek (s->rx_fifo, sizeof (ph), sizeof (at), (u8 *) & at);
+          svm_fifo_peek (s->rx_fifo, sizeof (ph), sizeof (at), (u8 *) &at);
 
-	  msg->lcl.address = at.lcl_ip;
-	  msg->rmt.address = at.rmt_ip;
-	  msg->lcl.port = at.lcl_port;
-	  msg->rmt.port = at.rmt_port;
+          msg->lcl.address = at.lcl_ip;
+          msg->rmt.address = at.rmt_ip;
+          msg->lcl.port = at.lcl_port;
+          msg->rmt.port = at.rmt_port;
 
-	  if (at.is_ip4)
-	    {
-	      ip46_address_mask_ip4 (&msg->lcl.address);
-	      ip46_address_mask_ip4 (&msg->rmt.address);
-	    }
-	}
+          if (at.is_ip4)
+            {
+              ip46_address_mask_ip4 (&msg->lcl.address);
+              ip46_address_mask_ip4 (&msg->rmt.address);
+            }
+        }
 
       vec_validate (msg->data, len);
-      rv =
-	svm_fifo_peek (s->rx_fifo, ph.data_offset + SESSION_CONN_HDR_LEN, len,
-		       msg->data);
+      rv = svm_fifo_peek (s->rx_fifo, ph.data_offset + SESSION_CONN_HDR_LEN,
+                          len, msg->data);
 
       ph.data_offset += rv;
       if (ph.data_offset == ph.data_length)
-	svm_fifo_dequeue_drop (s->rx_fifo,
-			       ph.data_length + SESSION_CONN_HDR_LEN);
+        svm_fifo_dequeue_drop (s->rx_fifo,
+                               ph.data_length + SESSION_CONN_HDR_LEN);
       else
-	svm_fifo_overwrite_head (s->rx_fifo, (u8 *) & ph, sizeof (ph));
+        svm_fifo_overwrite_head (s->rx_fifo, (u8 *) &ph, sizeof (ph));
 
-      upf_debug ("sending event %d, %p %U:%d - %U:%d, data %p",
-		 ph.data_offset, msg,
-		 format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
-		 clib_net_to_host_u16 (msg->rmt.port),
-		 format_ip46_address, &msg->lcl.address, IP46_TYPE_ANY,
-		 clib_net_to_host_u16 (msg->lcl.port), msg->data);
+      upf_debug ("sending event %d, %p %U:%d - %U:%d, data %p", ph.data_offset,
+                 msg, format_ip46_address, &msg->rmt.address, IP46_TYPE_ANY,
+                 clib_net_to_host_u16 (msg->rmt.port), format_ip46_address,
+                 &msg->lcl.address, IP46_TYPE_ANY,
+                 clib_net_to_host_u16 (msg->lcl.port), msg->data);
 
-      vlib_process_signal_event_mt (gtm->vlib_main,
-				    pfcp_api_process_node.index, EVENT_RX,
-				    (uword) msg);
+      vlib_process_signal_event_mt (
+        gtm->vlib_main, pfcp_api_process_node.index, EVENT_RX, (uword) msg);
 
       max_deq = svm_fifo_max_dequeue_cons (s->rx_fifo);
     }
@@ -128,37 +128,35 @@ pfcp_session_server_rx_callback (session_t * s)
 }
 
 static int
-pfcp_session_server_session_accept_callback (session_t * s)
+pfcp_session_server_session_accept_callback (session_t *s)
 {
   upf_debug ("called...");
   return -1;
 }
 
 static void
-pfcp_session_server_session_disconnect_callback (session_t * s)
+pfcp_session_server_session_disconnect_callback (session_t *s)
 {
   upf_debug ("called...");
 }
 
 static void
-pfcp_session_server_session_reset_callback (session_t * s)
+pfcp_session_server_session_reset_callback (session_t *s)
 {
   upf_debug ("called...");
 }
 
 static int
-pfcp_session_server_session_connected_callback (u32 app_index,
-						u32 api_context,
-						session_t * s,
-						session_error_t err)
+pfcp_session_server_session_connected_callback (u32 app_index, u32 api_context,
+                                                session_t *s,
+                                                session_error_t err)
 {
   upf_debug ("called...");
   return -1;
 }
 
 static int
-pfcp_session_server_add_segment_callback (u32 client_index,
-					  u64 segment_handle)
+pfcp_session_server_add_segment_callback (u32 client_index, u64 segment_handle)
 {
   return 0;
 }
@@ -167,8 +165,7 @@ static session_cb_vft_t pfcp_session_server_session_cb_vft = {
   .session_accept_callback = pfcp_session_server_session_accept_callback,
   .session_disconnect_callback =
     pfcp_session_server_session_disconnect_callback,
-  .session_connected_callback =
-    pfcp_session_server_session_connected_callback,
+  .session_connected_callback = pfcp_session_server_session_connected_callback,
   .add_segment_callback = pfcp_session_server_add_segment_callback,
   .builtin_app_rx_callback = pfcp_session_server_rx_callback,
   .session_reset_callback = pfcp_session_server_session_reset_callback
@@ -181,7 +178,7 @@ pfcp_session_server_session_cleanup_cb (void *ps_handlep)
 }
 
 static void
-pfcp_expired_timers_dispatch (u32 * expired_timers)
+pfcp_expired_timers_dispatch (u32 *expired_timers)
 {
   u32 ps_handle;
   int i;
@@ -191,14 +188,14 @@ pfcp_expired_timers_dispatch (u32 * expired_timers)
       /* Get session handle. The first bit is the timer id */
       ps_handle = expired_timers[i] & 0x7FFFFFFF;
       session_send_rpc_evt_to_thread (ps_handle >> 24,
-				      pfcp_session_server_session_cleanup_cb,
-				      uword_to_pointer (ps_handle, void *));
+                                      pfcp_session_server_session_cleanup_cb,
+                                      uword_to_pointer (ps_handle, void *));
     }
 }
 
 static uword
-pfcp_session_server_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
-			     vlib_frame_t * f)
+pfcp_session_server_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
+                             vlib_frame_t *f)
 {
   pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
   f64 now, timeout = 1.0;
@@ -209,7 +206,7 @@ pfcp_session_server_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
     {
       vlib_process_wait_for_event_or_clock (vm, timeout);
       now = vlib_time_now (vm);
-      event_type = vlib_process_get_events (vm, (uword **) & event_data);
+      event_type = vlib_process_get_events (vm, (uword **) &event_data);
 
       /* expire timers */
       clib_spinlock_lock (&pfcp_session_server_main.tw_lock);
@@ -222,8 +219,7 @@ pfcp_session_server_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
 }
 
 /* *INDENT-OFF* */
-VLIB_REGISTER_NODE (pfcp_session_server_process_node) =
-{
+VLIB_REGISTER_NODE (pfcp_session_server_process_node) = {
   .function = pfcp_session_server_process,
   .type = VLIB_NODE_TYPE_PROCESS,
   .name = "pfcp-server-process",
@@ -232,7 +228,7 @@ VLIB_REGISTER_NODE (pfcp_session_server_process_node) =
 /* *INDENT-ON* */
 
 static int
-pfcp_server_attach (vlib_main_t * vm)
+pfcp_server_attach (vlib_main_t *vm)
 {
   pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
   u64 options[APP_OPTIONS_N_OPTIONS];
@@ -241,7 +237,7 @@ pfcp_server_attach (vlib_main_t * vm)
   if (pssm->app_index != ~0)
     return 0;
 
-  vnet_session_enable_disable (vm, 1 /* turn on TCP, etc. */ );
+  vnet_session_enable_disable (vm, 1 /* turn on TCP, etc. */);
 
   clib_memset (a, 0, sizeof (*a));
   clib_memset (options, 0, sizeof (options));
@@ -254,7 +250,7 @@ pfcp_server_attach (vlib_main_t * vm)
   a->options[APP_OPTIONS_ADD_SEGMENT_SIZE] = pssm->private_segment_size;
   a->options[APP_OPTIONS_RX_FIFO_SIZE] = pssm->fifo_size;
   a->options[APP_OPTIONS_TX_FIFO_SIZE] = pssm->fifo_size;
-  a->options[APP_OPTIONS_MAX_FIFO_SIZE] = pssm->fifo_size;	// FIXME
+  a->options[APP_OPTIONS_MAX_FIFO_SIZE] = pssm->fifo_size; // FIXME
   a->options[APP_OPTIONS_FLAGS] = APP_OPTIONS_FLAGS_IS_BUILTIN;
   a->options[APP_OPTIONS_PREALLOC_FIFO_PAIRS] = pssm->prealloc_fifos;
 
@@ -272,7 +268,7 @@ pfcp_server_attach (vlib_main_t * vm)
 }
 
 int
-vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index, u8 add)
+vnet_upf_pfcp_endpoint_add_del (ip46_address_t *ip, u32 fib_index, u8 add)
 {
   pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
   upf_main_t *gtm = &upf_main;
@@ -290,7 +286,7 @@ vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index, u8 add)
       vnet_listen_args_t _a, *a = &_a;
 
       if (p)
-	return VNET_API_ERROR_VALUE_EXIST;
+        return VNET_API_ERROR_VALUE_EXIST;
 
       pfcp_server_attach (pssm->vlib_main);
 
@@ -305,14 +301,14 @@ vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index, u8 add)
       a->sep_ext.port = clib_host_to_net_u16 (UDP_DST_PORT_PFCP);
 
       if ((rv = vnet_listen (a)) == 0)
-	mhash_set (&gtm->pfcp_endpoint_index, &key, a->handle, NULL);
+        mhash_set (&gtm->pfcp_endpoint_index, &key, a->handle, NULL);
     }
   else
     {
       vnet_unlisten_args_t _a, *a = &_a;
 
       if (!p)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       clib_memset (a, 0, sizeof (*a));
 
@@ -328,11 +324,11 @@ vnet_upf_pfcp_endpoint_add_del (ip46_address_t * ip, u32 fib_index, u8 add)
 
 int
 pfcp_session_server_apply_config (u64 segment_size, u32 prealloc_fifos,
-				  u32 fifo_size)
+                                  u32 fifo_size)
 {
   pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
 
-  if (pssm->app_index != (u32) ~ 0)
+  if (pssm->app_index != (u32) ~0)
     {
       clib_warning ("PFCP Server already running");
       return 1;
@@ -346,8 +342,8 @@ pfcp_session_server_apply_config (u64 segment_size, u32 prealloc_fifos,
 }
 
 void
-pfcp_session_server_get_config (u64 * segment_size, u32 * prealloc_fifos,
-				u32 * fifo_size)
+pfcp_session_server_get_config (u64 *segment_size, u32 *prealloc_fifos,
+                                u32 *fifo_size)
 {
   pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
 
@@ -357,9 +353,8 @@ pfcp_session_server_get_config (u64 * segment_size, u32 * prealloc_fifos,
 }
 
 static clib_error_t *
-pfcp_session_server_set_command_fn (vlib_main_t * vm,
-				    unformat_input_t * input,
-				    vlib_cli_command_t * cmd)
+pfcp_session_server_set_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                                    vlib_cli_command_t *cmd)
 {
   pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
   unformat_input_t _line_input, *line_input = &_line_input;
@@ -374,22 +369,22 @@ pfcp_session_server_set_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "prealloc-fifos %d", &prealloc_fifos))
-	;
+        ;
       else if (unformat (line_input, "private-segment-size %U",
-			 unformat_memory_size, &seg_size))
-	{
-	  if (seg_size >= 0x100000000ULL)
-	    {
-	      vlib_cli_output (vm, "private segment size %llu, too large",
-			       seg_size);
-	      return 0;
-	    }
-	}
+                         unformat_memory_size, &seg_size))
+        {
+          if (seg_size >= 0x100000000ULL)
+            {
+              vlib_cli_output (vm, "private segment size %llu, too large",
+                               seg_size);
+              return 0;
+            }
+        }
       else if (unformat (line_input, "fifo-size %d", &fifo_size))
-	fifo_size <<= 10;
+        fifo_size <<= 10;
       else
-	return clib_error_return (0, "unknown input `%U'",
-				  format_unformat_error, line_input);
+        return clib_error_return (0, "unknown input `%U'",
+                                  format_unformat_error, line_input);
     }
   unformat_free (line_input);
 
@@ -400,8 +395,7 @@ pfcp_session_server_set_command_fn (vlib_main_t * vm,
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (pfcp_session_server_set_command, static) =
-{
+VLIB_CLI_COMMAND (pfcp_session_server_set_command, static) = {
   .path = "upf pfcp server set",
   .short_help = "upf pfcp server set",
   .function = pfcp_session_server_set_command_fn,
@@ -409,7 +403,7 @@ VLIB_CLI_COMMAND (pfcp_session_server_set_command, static) =
 /* *INDENT-ON* */
 
 static clib_error_t *
-pfcp_session_server_main_init (vlib_main_t * vm)
+pfcp_session_server_main_init (vlib_main_t *vm)
 {
   pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
   vlib_thread_main_t *vtm = vlib_get_thread_main ();
@@ -423,50 +417,49 @@ pfcp_session_server_main_init (vlib_main_t * vm)
   pssm->fifo_size = 64 << 10;
   pssm->private_segment_size = 256 << 20;
 
-  num_threads = 1 /* main thread */  + vtm->n_threads;
+  num_threads = 1 /* main thread */ + vtm->n_threads;
   vec_validate (pssm->vpp_queue, num_threads - 1);
 
   clib_spinlock_init (&pssm->tw_lock);
 
   /* Init timer wheel and process */
   tw_timer_wheel_init_2t_1w_2048sl (&pssm->tw, pfcp_expired_timers_dispatch,
-				    1 /* timer interval */ , ~0);
+                                    1 /* timer interval */, ~0);
   vlib_node_set_state (vm, pfcp_session_server_process_node.index,
-		       VLIB_NODE_STATE_POLLING);
+                       VLIB_NODE_STATE_POLLING);
 
   return 0;
 }
 
 void
-vnet_upf_pfcp_set_polling (vlib_main_t * vm, u8 polling)
+vnet_upf_pfcp_set_polling (vlib_main_t *vm, u8 polling)
 {
   if (!polling)
     {
-      clib_warning
-	("Using interrupt mode for the PFCP server. This mode is not "
-	 "recommended for production.");
+      clib_warning (
+        "Using interrupt mode for the PFCP server. This mode is not "
+        "recommended for production.");
       vlib_node_set_state (vm, pfcp_session_server_process_node.index,
-			   VLIB_NODE_STATE_INTERRUPT);
+                           VLIB_NODE_STATE_INTERRUPT);
       vlib_node_set_state (vm, flowtable_process_node.index,
-			   VLIB_NODE_STATE_POLLING);
+                           VLIB_NODE_STATE_POLLING);
     }
   else
     {
       vlib_node_set_state (vm, pfcp_session_server_process_node.index,
-			   VLIB_NODE_STATE_POLLING);
+                           VLIB_NODE_STATE_POLLING);
       /* no need to expire the flows on timer when there's enough traffic */
       vlib_node_set_state (vm, flowtable_process_node.index,
-			   VLIB_NODE_STATE_DISABLED);
+                           VLIB_NODE_STATE_DISABLED);
     }
-
 }
 
 VLIB_INIT_FUNCTION (pfcp_session_server_main_init);
 
 /*
-* fd.io coding-style-patch-verification: ON
-*
-* Local Variables:
-* eval: (c-set-style "gnu")
-* End:
-*/
+ * fd.io coding-style-patch-verification: ON
+ *
+ * Local Variables:
+ * eval: (c-set-style "gnu")
+ * End:
+ */

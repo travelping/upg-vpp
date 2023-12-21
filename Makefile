@@ -23,10 +23,8 @@ version:
 	  rm -f "$${ver_tmp}"; \
 	fi
 
-# TODO: checktyle shouldn't require VPP checkout but presently it's
-# needed for getting the build image tag
 checkstyle:
-	SKIP_VPP_SOURCE_CHECK=1 hack/buildenv.sh hack/checkstyle.sh
+	find . -name "*.c" -or -name "*.h" | xargs clang-format-11 -n --Werror
 
 ci-build: version
 	hack/ci-build.sh

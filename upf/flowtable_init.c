@@ -25,8 +25,11 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 #include "flowtable.h"
@@ -65,7 +68,7 @@ flowtable_max_lifetime_update (u16 value)
 }
 
 static clib_error_t *
-flowtable_init_cpu (flowtable_main_t * fm, u32 cpu_index)
+flowtable_init_cpu (flowtable_main_t *fm, u32 cpu_index)
 {
   int i;
   flow_entry_t *f;
@@ -75,22 +78,23 @@ flowtable_init_cpu (flowtable_main_t * fm, u32 cpu_index)
   /*
    * As advised in the thread below :
    * https://lists.fd.io/pipermail/vpp-dev/2016-October/002787.html
-   * hashtable is configured to alloc (NUM_BUCKETS * CLIB_CACHE_LINE_BYTES) Bytes
-   * with (flow_count / (BIHASH_KVP_PER_PAGE / 2)) Buckets
+   * hashtable is configured to alloc (NUM_BUCKETS * CLIB_CACHE_LINE_BYTES)
+   * Bytes with (flow_count / (BIHASH_KVP_PER_PAGE / 2)) Buckets
    */
   u32 nbuckets = 1 << (fm->log2_size - (BIHASH_KVP_PER_PAGE / 2));
   uword memory_size = nbuckets * CLIB_CACHE_LINE_BYTES * 6;
 
   /* init hashtable */
-  clib_bihash_init_48_8 (&fmt->flows_ht, "flow hash table",
-			 nbuckets, memory_size);
+  clib_bihash_init_48_8 (&fmt->flows_ht, "flow hash table", nbuckets,
+                         memory_size);
   upf_debug ("nbuckets %u memory_size %u", nbuckets, memory_size);
 
   /* init timer wheel */
   fmt->time_index = ~0;
   fmt->next_check = ~0;
 
-  /* alloc TIMER_MAX_LIFETIME heads from the timers pool and fill them with defaults */
+  /* alloc TIMER_MAX_LIFETIME heads from the timers pool and fill them with
+   * defaults */
   for (u32 n = 0; n < TIMER_MAX_LIFETIME; n++)
     {
       dlist_elt_t *timer;
@@ -100,23 +104,23 @@ flowtable_init_cpu (flowtable_main_t * fm, u32 cpu_index)
   upf_debug ("POOL SIZE %u", pool_elts (fmt->timers));
 
   pool_foreach (timer_slot, fmt->timers)
-  {
-    u32 timer_slot_head_index = timer_slot - fmt->timers;
+    {
+      u32 timer_slot_head_index = timer_slot - fmt->timers;
 
-    clib_dlist_init (fmt->timers, timer_slot_head_index);
-  }
+      clib_dlist_init (fmt->timers, timer_slot_head_index);
+    }
 
   /* fill flow entry cache */
   if (pthread_spin_lock (&fm->flows_lock) == 0)
     {
       for (i = 0; i < FLOW_CACHE_SZ; i++)
-	{
-	  pool_get_aligned (fm->flows, f, CLIB_CACHE_LINE_BYTES);
+        {
+          pool_get_aligned (fm->flows, f, CLIB_CACHE_LINE_BYTES);
 #if CLIB_DEBUG > 0
-	  f->cpu_index = cpu_index;
+          f->cpu_index = cpu_index;
 #endif
-	  vec_add1 (fmt->flow_cache, f - fm->flows);
-	}
+          vec_add1 (fmt->flow_cache, f - fm->flows);
+        }
       fm->flows_cpt += FLOW_CACHE_SZ;
 
       pthread_spin_unlock (&fm->flows_lock);
@@ -126,7 +130,7 @@ flowtable_init_cpu (flowtable_main_t * fm, u32 cpu_index)
 }
 
 clib_error_t *
-flowtable_init (vlib_main_t * vm)
+flowtable_init (vlib_main_t *vm)
 {
   u32 cpu_index;
   clib_error_t *error = 0;
@@ -150,7 +154,7 @@ flowtable_init (vlib_main_t * vm)
 
   /* Init flows counter per cpu */
   vlib_validate_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
-				0);
+                                0);
   vlib_zero_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER], 0);
 
   vec_validate (fm->per_cpu, tm->n_vlib_mains - 1);
@@ -158,14 +162,14 @@ flowtable_init (vlib_main_t * vm)
     {
       error = flowtable_init_cpu (fm, cpu_index);
       if (error)
-	return error;
+        return error;
     }
 
   return error;
 }
 
 static clib_error_t *
-flowtable_config_fn (vlib_main_t * vm, unformat_input_t * input)
+flowtable_config_fn (vlib_main_t *vm, unformat_input_t *input)
 {
   flowtable_main_t *fm = &flowtable_main;
   fm->log2_size = FLOWTABLE_DEFAULT_LOG2_SIZE;
@@ -173,17 +177,17 @@ flowtable_config_fn (vlib_main_t * vm, unformat_input_t * input)
     {
       u32 log2_size;
       if (unformat (input, "log2-size %u", &log2_size))
-	{
-	  if (log2_size < 5)
-	    return clib_error_return (0, "flowtable log2 size too small");
-	  else if (log2_size > 31)
-	    return clib_error_return (0, "flowtable log2 size too large");
-	  else
-	    fm->log2_size = log2_size;
-	}
+        {
+          if (log2_size < 5)
+            return clib_error_return (0, "flowtable log2 size too small");
+          else if (log2_size > 31)
+            return clib_error_return (0, "flowtable log2 size too large");
+          else
+            fm->log2_size = log2_size;
+        }
       else
-	return clib_error_return (0, "unknown input `%U'",
-				  format_unformat_error, input);
+        return clib_error_return (0, "unknown input `%U'",
+                                  format_unformat_error, input);
     }
   return 0;
 }

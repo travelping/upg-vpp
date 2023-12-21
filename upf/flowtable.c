@@ -28,19 +28,22 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 #define FLOWTABLE_PROCESS_WAIT 1
 
 vlib_node_registration_t upf_flow_node;
 
-flow_event_handler_t flowtable_handlers[FLOW_NUM_EVENTS <<
-					FLOWTABLE_MAX_EVENT_HANDLERS_LOG2];
+flow_event_handler_t
+  flowtable_handlers[FLOW_NUM_EVENTS << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2];
 
 void
-flowtable_add_event_handler (flowtable_main_t * fm, flow_event_t event,
-			     flow_event_handler_t handler)
+flowtable_add_event_handler (flowtable_main_t *fm, flow_event_t event,
+                             flow_event_handler_t handler)
 {
   ASSERT (event >= 0 && event < FLOW_NUM_EVENTS);
   u32 start = event << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2;
@@ -55,7 +58,7 @@ flowtable_add_event_handler (flowtable_main_t * fm, flow_event_t event,
 }
 
 always_inline void
-flow_entry_cache_fill (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
+flow_entry_cache_fill (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt)
 {
   u32 cpu_index = os_get_thread_index ();
   int i;
@@ -64,17 +67,17 @@ flow_entry_cache_fill (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
   if (pthread_spin_lock (&fm->flows_lock) == 0)
     {
       if (PREDICT_FALSE (fm->flows_cpt > fm->flows_max))
-	{
-	  pthread_spin_unlock (&fm->flows_lock);
-	  return;
-	}
+        {
+          pthread_spin_unlock (&fm->flows_lock);
+          return;
+        }
 
       for (i = 0; i < FLOW_CACHE_SZ; i++)
-	{
-	  pool_get_aligned (fm->flows, f, CLIB_CACHE_LINE_BYTES);
-	  f->cpu_index = cpu_index;
-	  vec_add1 (fmt->flow_cache, f - fm->flows);
-	}
+        {
+          pool_get_aligned (fm->flows, f, CLIB_CACHE_LINE_BYTES);
+          f->cpu_index = cpu_index;
+          vec_add1 (fmt->flow_cache, f - fm->flows);
+        }
       fm->flows_cpt += FLOW_CACHE_SZ;
 
       pthread_spin_unlock (&fm->flows_lock);
@@ -82,7 +85,7 @@ flow_entry_cache_fill (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
 }
 
 always_inline void
-flow_entry_cache_empty (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
+flow_entry_cache_empty (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt)
 {
 #if CLIB_DEBUG > 0
   u32 cpu_index = os_get_thread_index ();
@@ -92,18 +95,18 @@ flow_entry_cache_empty (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
   if (pthread_spin_lock (&fm->flows_lock) == 0)
     {
       for (i = vec_len (fmt->flow_cache) - 1; i > FLOW_CACHE_SZ; i--)
-	{
-	  u32 f_index = vec_pop (fmt->flow_cache);
+        {
+          u32 f_index = vec_pop (fmt->flow_cache);
 
-	  upf_debug ("releasing flow %p, index %u",
-		     pool_elt_at_index (fm->flows, f_index), f_index);
+          upf_debug ("releasing flow %p, index %u",
+                     pool_elt_at_index (fm->flows, f_index), f_index);
 #if CLIB_DEBUG > 0
-	  ASSERT (pool_elt_at_index (fm->flows, f_index)->cpu_index ==
-		  cpu_index);
+          ASSERT (pool_elt_at_index (fm->flows, f_index)->cpu_index ==
+                  cpu_index);
 #endif
 
-	  pool_put_index (fm->flows, f_index);
-	}
+          pool_put_index (fm->flows, f_index);
+        }
       fm->flows_cpt -= FLOW_CACHE_SZ;
 
       pthread_spin_unlock (&fm->flows_lock);
@@ -111,7 +114,7 @@ flow_entry_cache_empty (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
 }
 
 always_inline flow_entry_t *
-flow_entry_alloc (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
+flow_entry_alloc (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt)
 {
   u32 f_index;
   flow_entry_t *f;
@@ -130,8 +133,8 @@ flow_entry_alloc (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt)
 }
 
 always_inline void
-flow_entry_free (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
-		 flow_entry_t * f)
+flow_entry_free (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
+                 flow_entry_t *f)
 {
   ASSERT (f->cpu_index == os_get_thread_index ());
 
@@ -145,9 +148,9 @@ flow_entry_free (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 }
 
 always_inline void
-flowtable_entry_remove_internal (flowtable_main_t * fm,
-				 flowtable_main_per_cpu_t * fmt,
-				 flow_entry_t * f, u32 now)
+flowtable_entry_remove_internal (flowtable_main_t *fm,
+                                 flowtable_main_per_cpu_t *fmt,
+                                 flow_entry_t *f, u32 now)
 {
   clib_bihash_kv_48_8_t kv;
 
@@ -162,30 +165,30 @@ flowtable_entry_remove_internal (flowtable_main_t * fm,
 
   /* hashtable unlink */
   clib_memcpy (kv.key, f->key.key, sizeof (kv.key));
-  clib_bihash_add_del_48_8 (&fmt->flows_ht, &kv, 0 /* is_add */ );
+  clib_bihash_add_del_48_8 (&fmt->flows_ht, &kv, 0 /* is_add */);
 
   /* free to flow cache && pool (last) */
   flow_entry_free (fm, fmt, f);
 }
 
 always_inline bool
-expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
-		    flow_entry_t * f, dlist_elt_t * e, u32 now)
+expire_single_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
+                    flow_entry_t *f, dlist_elt_t *e, u32 now)
 {
   bool keep = f->active + f->lifetime > now;
   ASSERT (f->timer_index == (e - fmt->timers));
   ASSERT (f->active <= now);
 
-  upf_debug ("Flow Timeout Check %d: %u (%u) > %u (%u)",
-	     f - fm->flows, f->active + f->lifetime,
-	     (f->active + f->lifetime) % fm->timer_max_lifetime,
-	     now, fmt->time_index);
-  if (!keep && flowtable_handle_event (fm, f, FLOW_EVENT_EXPIRE, FT_ORIGIN,
-				       now) != 0)
+  upf_debug ("Flow Timeout Check %d: %u (%u) > %u (%u)", f - fm->flows,
+             f->active + f->lifetime,
+             (f->active + f->lifetime) % fm->timer_max_lifetime, now,
+             fmt->time_index);
+  if (!keep &&
+      flowtable_handle_event (fm, f, FLOW_EVENT_EXPIRE, FT_ORIGIN, now) != 0)
     {
       /* flow still in use, wait for another lifetime */
       upf_debug ("Flow %d: expiration blocked by the event handler",
-		 f - fm->flows);
+                 f - fm->flows);
       f->active += f->lifetime;
       keep = true;
     }
@@ -197,17 +200,17 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
       u32 timer_slot_head_index;
 
       timer_slot_head_index =
-	(f->active + f->lifetime) % fm->timer_max_lifetime;
+        (f->active + f->lifetime) % fm->timer_max_lifetime;
       if (timer_slot_head_index != f->timer_index)
-	{
-	  upf_debug ("Flow Reshedule %d to %u", f - fm->flows,
-		     timer_slot_head_index);
-	  /* timers unlink */
-	  clib_dlist_remove (fmt->timers, f->timer_index);
-	  clib_dlist_addtail (fmt->timers, timer_slot_head_index,
-			      f->timer_index);
-	  return true;
-	}
+        {
+          upf_debug ("Flow Reshedule %d to %u", f - fm->flows,
+                     timer_slot_head_index);
+          /* timers unlink */
+          clib_dlist_remove (fmt->timers, f->timer_index);
+          clib_dlist_addtail (fmt->timers, timer_slot_head_index,
+                              f->timer_index);
+          return true;
+        }
 
       return false;
     }
@@ -219,8 +222,8 @@ expire_single_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 }
 
 u64
-flowtable_timer_expire (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
-			u32 now)
+flowtable_timer_expire (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
+                        u32 now)
 {
   u32 t;
   flow_entry_t *f;
@@ -255,7 +258,7 @@ flowtable_timer_expire (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
        * call.
        */
       if (PREDICT_TRUE (now < fmt->next_check))
-	return 0;
+        return 0;
 
       /* check the skipped slots */
       t = fmt->next_check;
@@ -265,22 +268,22 @@ flowtable_timer_expire (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
     {
       u32 time_slot_curr_index = t % fm->timer_max_lifetime;
       if (PREDICT_TRUE (!dlist_is_empty (fmt->timers, time_slot_curr_index)))
-	{
-	  time_slot_curr =
-	    pool_elt_at_index (fmt->timers, time_slot_curr_index);
+        {
+          time_slot_curr =
+            pool_elt_at_index (fmt->timers, time_slot_curr_index);
 
-	  index = time_slot_curr->next;
-	  while (index != time_slot_curr_index
-		 && expire_cpt < TIMER_MAX_EXPIRE)
-	    {
-	      e = pool_elt_at_index (fmt->timers, index);
-	      f = pool_elt_at_index (fm->flows, e->value);
+          index = time_slot_curr->next;
+          while (index != time_slot_curr_index &&
+                 expire_cpt < TIMER_MAX_EXPIRE)
+            {
+              e = pool_elt_at_index (fmt->timers, index);
+              f = pool_elt_at_index (fm->flows, e->value);
 
-	      index = e->next;
-	      if (expire_single_flow (fm, fmt, f, e, now))
-		expire_cpt++;
-	    }
-	}
+              index = e->next;
+              if (expire_single_flow (fm, fmt, f, e, now))
+                expire_cpt++;
+            }
+        }
 
       /*
        * If max N of expirations has been reached, the timer wheel
@@ -288,7 +291,7 @@ flowtable_timer_expire (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
        * the next flowtable_timer_expire() call
        */
       if (expire_cpt == TIMER_MAX_EXPIRE)
-	break;
+        break;
     }
 
   fmt->next_check = t;
@@ -297,7 +300,7 @@ flowtable_timer_expire (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt,
 }
 
 static inline u16
-flowtable_lifetime_calculate (flowtable_main_t * fm, flow_key_t const *key)
+flowtable_lifetime_calculate (flowtable_main_t *fm, flow_key_t const *key)
 {
   switch (key->proto)
     {
@@ -312,15 +315,15 @@ flowtable_lifetime_calculate (flowtable_main_t * fm, flow_key_t const *key)
 
     default:
       return ip46_address_is_ip4 (&key->ip[FT_ORIGIN]) ?
-	fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV4] :
-	fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV6];
+               fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV4] :
+               fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV6];
     }
 
   return fm->timer_lifetime[FT_TIMEOUT_TYPE_UNKNOWN];
 }
 
 static void
-recycle_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt, u32 now)
+recycle_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt, u32 now)
 {
   u32 next;
 
@@ -331,10 +334,10 @@ recycle_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt, u32 now)
       u32 slot_index = next;
 
       if (PREDICT_FALSE (dlist_is_empty (fmt->timers, slot_index)))
-	{
-	  next = (next + 1) % fm->timer_max_lifetime;
-	  continue;
-	}
+        {
+          next = (next + 1) % fm->timer_max_lifetime;
+          continue;
+        }
       dlist_elt_t *head = pool_elt_at_index (fmt->timers, slot_index);
       dlist_elt_t *e = pool_elt_at_index (fmt->timers, head->next);
 
@@ -351,7 +354,7 @@ recycle_flow (flowtable_main_t * fm, flowtable_main_per_cpu_t * fmt, u32 now)
 }
 
 void
-flowtable_entry_remove (flowtable_main_t * fm, flow_entry_t * f, u32 now)
+flowtable_entry_remove (flowtable_main_t *fm, flow_entry_t *f, u32 now)
 {
   flowtable_main_per_cpu_t *fmt = &fm->per_cpu[f->cpu_index];
   flowtable_entry_remove_internal (fm, fmt, f, now);
@@ -359,19 +362,17 @@ flowtable_entry_remove (flowtable_main_t * fm, flow_entry_t * f, u32 now)
 
 /* TODO: replace with a more appropriate hashtable */
 u32
-flowtable_entry_lookup_create (flowtable_main_t * fm,
-			       flowtable_main_per_cpu_t * fmt,
-			       clib_bihash_kv_48_8_t * kv,
-			       u64 timestamp_ns, u32 const now,
-			       u8 is_reverse, u16 generation,
-			       u32 session_index, int *created)
+flowtable_entry_lookup_create (flowtable_main_t *fm,
+                               flowtable_main_per_cpu_t *fmt,
+                               clib_bihash_kv_48_8_t *kv, u64 timestamp_ns,
+                               u32 const now, u8 is_reverse, u16 generation,
+                               u32 session_index, int *created)
 {
   flow_entry_t *f;
   dlist_elt_t *timer_entry;
   upf_main_t *gtm = &upf_main;
 
-  if (PREDICT_FALSE
-      (clib_bihash_search_inline_48_8 (&fmt->flows_ht, kv) == 0))
+  if (PREDICT_FALSE (clib_bihash_search_inline_48_8 (&fmt->flows_ht, kv) == 0))
     {
       return kv->value;
     }
@@ -383,13 +384,13 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
       recycle_flow (fm, fmt, now);
       f = flow_entry_alloc (fm, fmt);
       if (PREDICT_FALSE (f == NULL))
-	{
-	  clib_error ("flowtable failed to recycle a flow");
+        {
+          clib_error ("flowtable failed to recycle a flow");
 
-	  vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
-				       FLOWTABLE_ERROR_RECYCLE, 1);
-	  return ~0;
-	}
+          vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
+                                       FLOWTABLE_ERROR_RECYCLE, 1);
+          return ~0;
+        }
     }
 
   *created = 1;
@@ -427,44 +428,43 @@ flowtable_entry_lookup_create (flowtable_main_t * fm,
 
   /* insert in timer list */
   pool_get (fmt->timers, timer_entry);
-  timer_entry->value = f - fm->flows;	/* index within the flow pool */
-  f->timer_index = timer_entry - fmt->timers;	/* index within the timer pool */
+  timer_entry->value = f - fm->flows;         /* index within the flow pool */
+  f->timer_index = timer_entry - fmt->timers; /* index within the timer pool */
   timer_wheel_insert_flow (fm, fmt, f);
   upf_debug ("Flow Created: fidx %d timer_index %d", f - fm->flows,
-	     f->timer_index);
+             f->timer_index);
 
   vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
-				 vlib_get_thread_index (), 0, 1);
+                                 vlib_get_thread_index (), 0, 1);
 
   /* insert in hash */
   kv->value = f - fm->flows;
-  clib_bihash_add_del_48_8 (&fmt->flows_ht, kv, 1 /* is_add */ );
+  clib_bihash_add_del_48_8 (&fmt->flows_ht, kv, 1 /* is_add */);
 
   return kv->value;
 }
 
 void
-timer_wheel_index_update (flowtable_main_t * fm,
-			  flowtable_main_per_cpu_t * fmt, u32 now)
+timer_wheel_index_update (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
+                          u32 now)
 {
   fmt->time_index = now % fm->timer_max_lifetime;
 }
 
 u8 *
-format_flow_key (u8 * s, va_list * args)
+format_flow_key (u8 *s, va_list *args)
 {
   flow_key_t *key = va_arg (*args, flow_key_t *);
 
-  return format (s, "proto 0x%x, %U:%u <-> %U:%u, seid 0x%016llx",
-		 key->proto,
-		 format_ip46_address, &key->ip[FT_ORIGIN], IP46_TYPE_ANY,
-		 clib_net_to_host_u16 (key->port[FT_ORIGIN]),
-		 format_ip46_address, &key->ip[FT_REVERSE], IP46_TYPE_ANY,
-		 clib_net_to_host_u16 (key->port[FT_REVERSE]), key->up_seid);
+  return format (s, "proto 0x%x, %U:%u <-> %U:%u, seid 0x%016llx", key->proto,
+                 format_ip46_address, &key->ip[FT_ORIGIN], IP46_TYPE_ANY,
+                 clib_net_to_host_u16 (key->port[FT_ORIGIN]),
+                 format_ip46_address, &key->ip[FT_REVERSE], IP46_TYPE_ANY,
+                 clib_net_to_host_u16 (key->port[FT_REVERSE]), key->up_seid);
 }
 
 u8 *
-format_flow (u8 * s, va_list * args)
+format_flow (u8 *s, va_list *args)
 {
   flow_entry_t *flow = va_arg (*args, flow_entry_t *);
   int is_reverse = flow->is_reverse;
@@ -477,7 +477,7 @@ format_flow (u8 * s, va_list * args)
   if (flow->application_id != ~0)
     {
       upf_adf_app_t *app =
-	pool_elt_at_index (sm->upf_apps, flow->application_id);
+        pool_elt_at_index (sm->upf_apps, flow->application_id);
       app_name = format (0, "%v", app->name);
     }
   else
@@ -485,15 +485,15 @@ format_flow (u8 * s, va_list * args)
 #if CLIB_DEBUG > 0
   s = format (s, "Flow %d: ", flow - fm->flows);
 #endif
-  s = format (s, "%U, UL pkt %u, DL pkt %u, "
-	      "Forward PDR %u, Reverse PDR %u, "
-	      "app %v, lifetime %u, proxy %d, spliced %d nat port %d",
-	      format_flow_key, &flow->key,
-	      flow->stats[is_reverse].pkts,
-	      flow->stats[is_reverse ^ FT_REVERSE].pkts,
-	      flow_pdr_id (flow, FT_ORIGIN),
-	      flow_pdr_id (flow, FT_REVERSE), app_name, flow->lifetime,
-	      flow->is_l3_proxy, flow->is_spliced, flow->nat_sport);
+  s = format (s,
+              "%U, UL pkt %u, DL pkt %u, "
+              "Forward PDR %u, Reverse PDR %u, "
+              "app %v, lifetime %u, proxy %d, spliced %d nat port %d",
+              format_flow_key, &flow->key, flow->stats[is_reverse].pkts,
+              flow->stats[is_reverse ^ FT_REVERSE].pkts,
+              flow_pdr_id (flow, FT_ORIGIN), flow_pdr_id (flow, FT_REVERSE),
+              app_name, flow->lifetime, flow->is_l3_proxy, flow->is_spliced,
+              flow->nat_sport);
 #if CLIB_DEBUG > 0
   s = format (s, ", dont_splice %d", flow->dont_splice);
 #endif
@@ -529,9 +529,8 @@ vnet_upf_get_flow_timeout (flowtable_timeout_type_t type)
 }
 
 static clib_error_t *
-upf_flow_timeout_command_fn (vlib_main_t * vm,
-			     unformat_input_t * input,
-			     vlib_cli_command_t * cmd)
+upf_flow_timeout_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                             vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   u16 timeout = 0;
@@ -545,35 +544,35 @@ upf_flow_timeout_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "ip4 %u", &timeout))
-	{
-	  type = FT_TIMEOUT_TYPE_IPV4;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_IPV4;
+          break;
+        }
       if (unformat (line_input, "ip6 %u", &timeout))
-	{
-	  type = FT_TIMEOUT_TYPE_IPV6;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_IPV6;
+          break;
+        }
       if (unformat (line_input, "icmp %u", &timeout))
-	{
-	  type = FT_TIMEOUT_TYPE_ICMP;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_ICMP;
+          break;
+        }
       if (unformat (line_input, "udp %u", &timeout))
-	{
-	  type = FT_TIMEOUT_TYPE_UDP;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_UDP;
+          break;
+        }
       if (unformat (line_input, "tcp %u", &timeout))
-	{
-	  type = FT_TIMEOUT_TYPE_TCP;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_TCP;
+          break;
+        }
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   error = vnet_upf_flow_timeout_update (type, timeout);
@@ -585,18 +584,17 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_flow_timeout_command, static) =
-{
+VLIB_CLI_COMMAND (upf_flow_timeout_command, static) = {
   .path = "upf flow timeout",
-  .short_help = "upf flow timeout (default | ip4 | ip6 | icmp | udp | tcp) <seconds>",
+  .short_help =
+    "upf flow timeout (default | ip4 | ip6 | icmp | udp | tcp) <seconds>",
   .function = upf_flow_timeout_command_fn,
 };
 /* *INDENT-ON* */
 
 static clib_error_t *
-upf_show_flow_timeout_command_fn (vlib_main_t * vm,
-				  unformat_input_t * input,
-				  vlib_cli_command_t * cmd)
+upf_show_flow_timeout_command_fn (vlib_main_t *vm, unformat_input_t *input,
+                                  vlib_cli_command_t *cmd)
 {
   unformat_input_t _line_input, *line_input = &_line_input;
   u16 timeout = 0;
@@ -610,35 +608,35 @@ upf_show_flow_timeout_command_fn (vlib_main_t * vm,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "ip4"))
-	{
-	  type = FT_TIMEOUT_TYPE_IPV4;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_IPV4;
+          break;
+        }
       if (unformat (line_input, "ip6"))
-	{
-	  type = FT_TIMEOUT_TYPE_IPV6;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_IPV6;
+          break;
+        }
       if (unformat (line_input, "icmp"))
-	{
-	  type = FT_TIMEOUT_TYPE_ICMP;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_ICMP;
+          break;
+        }
       if (unformat (line_input, "udp"))
-	{
-	  type = FT_TIMEOUT_TYPE_UDP;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_UDP;
+          break;
+        }
       if (unformat (line_input, "tcp"))
-	{
-	  type = FT_TIMEOUT_TYPE_TCP;
-	  break;
-	}
+        {
+          type = FT_TIMEOUT_TYPE_TCP;
+          break;
+        }
       else
-	{
-	  error = unformat_parse_error (line_input);
-	  goto done;
-	}
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
     }
 
   timeout = vnet_upf_get_flow_timeout (type);
@@ -651,8 +649,7 @@ done:
 }
 
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_flow_timeout_command, static) =
-{
+VLIB_CLI_COMMAND (upf_show_flow_timeout_command, static) = {
   .path = "show upf flow timeout",
   .short_help = "upf flow timeout (default | ip4 | ip6 | icmp | udp | tcp)",
   .function = upf_show_flow_timeout_command_fn,
@@ -660,8 +657,7 @@ VLIB_CLI_COMMAND (upf_show_flow_timeout_command, static) =
 /* *INDENT-ON* */
 
 static uword
-flowtable_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
-		   vlib_frame_t * f)
+flowtable_process (vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
 {
   flowtable_main_t *fm = &flowtable_main;
 
@@ -673,15 +669,14 @@ flowtable_process (vlib_main_t * vm, vlib_node_runtime_t * rt,
       // (although this is only needed for debugging)
       u32 cpu_index = os_get_thread_index ();
       flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
-      (void) vlib_process_wait_for_event_or_clock (vm,
-						   FLOWTABLE_PROCESS_WAIT);
+      (void) vlib_process_wait_for_event_or_clock (vm, FLOWTABLE_PROCESS_WAIT);
       vlib_worker_thread_barrier_sync (vm);
       timer_wheel_index_update (fm, fmt, current_time);
       num_expired = flowtable_timer_expire (fm, fmt, current_time);
       if (num_expired > 0)
-	upf_debug ("expired %d flows", num_expired);
+        upf_debug ("expired %d flows", num_expired);
       vlib_node_increment_counter (vm, rt->node_index,
-				   FLOWTABLE_ERROR_TIMER_EXPIRE, num_expired);
+                                   FLOWTABLE_ERROR_TIMER_EXPIRE, num_expired);
       vlib_worker_thread_barrier_release (vm);
     }
 

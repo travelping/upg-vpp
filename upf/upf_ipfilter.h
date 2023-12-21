@@ -20,7 +20,7 @@
 
 #include "upf.h"
 
-uword unformat_ipfilter (unformat_input_t * i, va_list * args);
-u8 *format_ipfilter (u8 * s, va_list * args);
+uword unformat_ipfilter (unformat_input_t *i, va_list *args);
+u8 *format_ipfilter (u8 *s, va_list *args);
 
 #endif
