@@ -22,6 +22,6 @@ case "${BUILD_TYPE}" in
      ;;
 esac
 
-cmake -DCMAKE_BUILD_TYPE="${btype}" -DCMAKE_INSTALL_PREFIX=/usr /src
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE="${btype}" -DCMAKE_INSTALL_PREFIX=/usr /src
 
 make -C /src/build-root "$@"
