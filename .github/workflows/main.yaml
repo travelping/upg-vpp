@@ -108,7 +108,7 @@ jobs:
     - name: Check the code style
       uses: docker://alpine
       with:
-        args: /bin/sh -c "apk update && apk add clang17-extra-tools && make checkstyle"
+        args: /bin/sh -c "apk update && apk add clang17-extra-tools make && make checkstyle"
 
   integration:
     runs-on: ["self-hosted", "hugepages"]
