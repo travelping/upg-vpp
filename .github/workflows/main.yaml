@@ -90,10 +90,6 @@ jobs:
       uses: docker://alpine
       with:
         args: /bin/sh -c "rm -rf /github/workspace/.* 2>/dev/null || rm -rf /github/workspace/*"
-    - name: Install deps
-      uses: docker://alpine
-      with:
-        args: /bin/sh -c "apk update && apk add clang17-extra-tools"
     - name: Login to the registry
       uses: docker/login-action@v1
       with:
@@ -106,9 +102,7 @@ jobs:
         # the checkstyle script needs a bit of git history
         fetch-depth: 2
     - name: Check the code style
-      uses: docker://alpine
-      run: |
-        make checkstyle
+      run: make checkstyle
 
   integration:
     runs-on: ["self-hosted", "hugepages"]
