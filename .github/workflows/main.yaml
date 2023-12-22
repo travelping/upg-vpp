@@ -105,10 +105,14 @@ jobs:
       with:
         # the checkstyle script needs a bit of git history
         fetch-depth: 2
-    - name: Check the code style
-      uses: docker://alpine
+    # - name: Check the code style
+    #   uses: docker://alpine
+    #   with:
+    #     args: /bin/sh -c "apk update && apk add clang17-extra-tools make && make checkstyle"
+    - uses: jidicula/clang-format-action@v4.11.0
       with:
-        args: /bin/sh -c "apk update && apk add clang17-extra-tools make && make checkstyle"
+        clang-format-version: '11'
+        check-path: 'upf'
 
   integration:
     runs-on: ["self-hosted", "hugepages"]
