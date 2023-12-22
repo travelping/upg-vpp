@@ -64,10 +64,6 @@ format_flags (u8 *s, va_list *args)
       if (!ISSET_BIT (flags, i))
         continue;
 
-
-
-
-
       if (!first)
         s = format (s, ",");
 
@@ -247,7 +243,7 @@ format_pfcp_msg_hdr (u8 *s, va_list *args)
 #define put_ie_vendor_hdr(V, TYPE, VEND, LEN, P)                              \
   do                                                                          \
     {                                                                         \
-      set_ie_vendor_hdr_type ((V), (TYPE) &0x8000, (P));                      \
+      set_ie_vendor_hdr_type ((V), (TYPE) & 0x8000, (P));                     \
       set_ie_vendor_hdr_length ((V), (LEN), (P));                             \
       set_ie_vendor_hdr_vendor ((V), (VEND), (P));                            \
       (P) += sizeof (pfcp_ie_vendor_t);                                       \
@@ -304,7 +300,7 @@ format_pfcp_msg_hdr (u8 *s, va_list *args)
     {                                                                         \
       (V)[_vec_len ((V))] = (I) >> 16;                                        \
       (V)[_vec_len ((V)) + 1] = ((I) >> 8) & 0xff;                            \
-      (V)[_vec_len ((V)) + 2] = (I) &0xff;                                    \
+      (V)[_vec_len ((V)) + 2] = (I) & 0xff;                                   \
       _vec_find ((V))->len += 3;                                              \
     }                                                                         \
   while (0)
@@ -338,7 +334,7 @@ format_pfcp_msg_hdr (u8 *s, va_list *args)
       (V)[_vec_len ((V)) + 1] = ((I) >> 24) & 0xff;                           \
       (V)[_vec_len ((V)) + 2] = ((I) >> 16) & 0xff;                           \
       (V)[_vec_len ((V)) + 3] = ((I) >> 8) & 0xff;                            \
-      (V)[_vec_len ((V)) + 4] = (I) &0xff;                                    \
+      (V)[_vec_len ((V)) + 4] = (I) & 0xff;                                   \
       _vec_find ((V))->len += 5;                                              \
     }                                                                         \
   while (0)

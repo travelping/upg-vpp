@@ -90,10 +90,6 @@ jobs:
       uses: docker://alpine
       with:
         args: /bin/sh -c "rm -rf /github/workspace/.* 2>/dev/null || rm -rf /github/workspace/*"
-    - name: Install deps
-      uses: docker://alpine
-      with:
-        args: /bin/sh -c "apk update && apk add clang17-extra-tools alpine-sdk"
     - name: Login to the registry
       uses: docker/login-action@v1
       with:
@@ -103,13 +99,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
       with:
-        # the checkstyle script needs a bit of git history
-        fetch-depth: 2
-    # - name: Check the code style
-    #   uses: docker://alpine
-    #   with:
-    #     args: /bin/sh -c "apk update && apk add clang17-extra-tools make && make checkstyle"
-    - uses: jidicula/clang-format-action@v4.11.0
+    - name: Check the code style
+      uses: jidicula/clang-format-action@v4.11.0
       with:
         clang-format-version: '11'
         check-path: 'upf'
