@@ -106,7 +106,9 @@ jobs:
         # the checkstyle script needs a bit of git history
         fetch-depth: 2
     - name: Check the code style
-      run: make checkstyle
+      uses: docker://alpine
+      with:
+        args: /bin/sh -c "make checkstyle"
 
   integration:
     runs-on: ["self-hosted", "hugepages"]
