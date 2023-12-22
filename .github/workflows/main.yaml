@@ -102,7 +102,6 @@ jobs:
       uses: jidicula/clang-format-action@v4.11.0
       with:
         clang-format-version: '11'
-        check-path: 'upf'
 
   integration:
     runs-on: ["self-hosted", "hugepages"]
