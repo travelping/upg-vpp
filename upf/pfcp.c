@@ -64,6 +64,10 @@ format_flags (u8 *s, va_list *args)
       if (!ISSET_BIT (flags, i))
         continue;
 
+
+
+
+
       if (!first)
         s = format (s, ",");
 
