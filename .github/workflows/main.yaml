@@ -98,7 +98,6 @@ jobs:
         password: ${{ secrets.CUR_REGISTRY_PASSWORD }}
     - name: Checkout
       uses: actions/checkout@v2
-      with:
     - name: Check the code style
       uses: jidicula/clang-format-action@v4.11.0
       with:
