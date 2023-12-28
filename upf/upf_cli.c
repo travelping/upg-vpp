@@ -1792,6 +1792,83 @@ VLIB_CLI_COMMAND (upf_show_pfcp_heartbeat_config_command, static) =
 };
 /* *INDENT-ON* */
 
+static clib_error_t *
+set_ip_gtpu_upf_bypass (u32 is_ip6,
+                    unformat_input_t * input, vlib_cli_command_t * cmd)
+{
+  unformat_input_t _line_input, *line_input = &_line_input;
+  vnet_main_t *vnm = vnet_get_main ();
+  clib_error_t *error = 0;
+  u32 sw_if_index, is_enable;
+
+  sw_if_index = ~0;
+  is_enable = 1;
+
+  if (!unformat_user (input, unformat_line_input, line_input))
+    return 0;
+
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat_user
+          (line_input, unformat_vnet_sw_interface, vnm, &sw_if_index))
+        ;
+      else if (unformat (line_input, "del"))
+        is_enable = 0;
+      else
+        {
+          error = unformat_parse_error (line_input);
+          goto done;
+        }
+    }
+
+  if (~0 == sw_if_index)
+    {
+      error = clib_error_return (0, "unknown interface `%U'",
+                                 format_unformat_error, line_input);
+      goto done;
+    }
+
+  if (is_ip6)
+    vnet_feature_enable_disable ("ip6-unicast", "ip6-gtpu-upf-bypass",
+                                 sw_if_index, is_enable, 0, 0);
+  else
+    vnet_feature_enable_disable ("ip4-unicast", "ip4-gtpu-upf-bypass",
+                                 sw_if_index, is_enable, 0, 0);
+
+done:
+  unformat_free (line_input);
+
+  return error;
+}
+
+static clib_error_t *
+set_ip4_gtpu_upf_bypass (vlib_main_t * vm,
+                     unformat_input_t * input, vlib_cli_command_t * cmd)
+{
+  return set_ip_gtpu_upf_bypass (0, input, cmd);
+}
+
+/* *INDENT-OFF* */
+VLIB_CLI_COMMAND (set_interface_ip_gtpu_upf_bypass_command, static) = {
+  .path = "set interface ip gtpu-upf-bypass",
+  .function = set_ip4_gtpu_upf_bypass,
+  .short_help = "set interface ip gtpu-upf-bypass <interface> [del]",
+};
+/* *INDENT-ON* */
+
+static clib_error_t *
+set_ip6_gtpu_upf_bypass (vlib_main_t * vm,
+                     unformat_input_t * input, vlib_cli_command_t * cmd)
+{
+  return set_ip_gtpu_upf_bypass (1, input, cmd);
+}
+
+VLIB_CLI_COMMAND (set_interface_ip6_gtpu_upf_bypass_command, static) = {
+  .path = "set interface ip6 gtpu-upf-bypass",
+  .function = set_ip6_gtpu_upf_bypass,
+  .short_help = "set interface ip6 gtpu-upf-bypass <interface> [del]",
+};
+
 /*
  * fd.io coding-style-patch-verification: ON
  *
