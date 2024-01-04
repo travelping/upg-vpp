@@ -320,13 +320,14 @@ test_upf_command_fn (vlib_main_t *vm, unformat_input_t *input,
     return clib_error_return (0, "test failed");
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (test_upf_command, static) = {
-  .path = "test upf",
-  .short_help = "test upf [debug]",
-  .function = test_upf_command_fn,
-};
-/* *INDENT-ON* */
+/* clang-format off */
+VLIB_CLI_COMMAND (test_upf_command, static) =
+  {
+    .path = "test upf",
+    .short_help = "test upf [debug]",
+    .function = test_upf_command_fn,
+  };
+/* clang-format on */
 
 /*
   TODO: test intersecting rules

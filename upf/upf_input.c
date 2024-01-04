@@ -275,7 +275,7 @@ VLIB_NODE_FN (upf_ip6_input_node)
   return upf_input (vm, node, from_frame, /* is_ip4 */ 0);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_input_node) = {
   .name = "upf-ip4-input",
   .vector_size = sizeof (u32),
@@ -289,9 +289,9 @@ VLIB_REGISTER_NODE (upf_ip4_input_node) = {
     [UPF_INPUT_NEXT_UPF_FORWARD] = "upf-ip4-forward",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_input_node) = {
   .name = "upf-ip6-input",
   .vector_size = sizeof (u32),
@@ -305,7 +305,7 @@ VLIB_REGISTER_NODE (upf_ip6_input_node) = {
     [UPF_INPUT_NEXT_UPF_FORWARD] = "upf-ip6-forward",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

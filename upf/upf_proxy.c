@@ -1215,7 +1215,7 @@ active_open_tx_callback (session_t *s)
   return tx_callback_inline (s, 1);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 static session_cb_vft_t active_open_clients = {
   .session_reset_callback = active_open_reset_callback,
   .session_connected_callback = active_open_connected_callback,
@@ -1227,7 +1227,7 @@ static session_cb_vft_t active_open_clients = {
   .session_cleanup_callback = active_open_session_cleanup_callback,
   .fifo_tuning_callback = common_fifo_tuning_callback
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static int
 proxy_server_attach ()

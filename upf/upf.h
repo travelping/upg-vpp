@@ -176,20 +176,22 @@ typedef struct
   u8 next_ext_type;
 } gtpu_header_t;
 
-/* *INDENT-OFF* */
-typedef CLIB_PACKED (struct {
+/* clang-format off */
+typedef CLIB_PACKED (struct
+{
   u8 type;
   u8 len;
   u16 pad;
 }) gtpu_ext_header_t;
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
-typedef CLIB_PACKED (struct {
+/* clang-format off */
+typedef CLIB_PACKED (struct
+{
   u8 ie_type;
   u8 restart_counter;
 }) gtpu_ie_recovery_t;
-/* *INDENT-ON* */
+/* clang-format on */
 
 #define GTPU_V1_HDR_LEN 8
 
@@ -220,76 +222,78 @@ typedef CLIB_PACKED (struct {
 #define GTPU_IE_TEID_I      16
 #define GTPU_IE_GSN_ADDRESS 133
 
-/* *INDENT-OFF* */
-typedef CLIB_PACKED (struct {
+/* clang-format off */
+typedef CLIB_PACKED(struct
+{
   u8 id;
   u8 data[];
 }) gtpu_tv_ie_t;
 
-typedef CLIB_PACKED (struct {
+typedef CLIB_PACKED(struct
+{
   u8 id;
   u16 len;
   u8 data[];
 }) gtpu_tlv_ie_t;
 
-typedef CLIB_PACKED (struct {
-  ip4_header_t ip4;   /* 20 bytes */
-  udp_header_t udp;   /* 8 bytes */
-  gtpu_header_t gtpu; /* 8 bytes */
+typedef CLIB_PACKED(struct
+{
+  ip4_header_t ip4;            /* 20 bytes */
+  udp_header_t udp;            /* 8 bytes */
+  gtpu_header_t gtpu;	       /* 8 bytes */
 }) ip4_gtpu_header_t;
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
-typedef CLIB_PACKED (struct {
-  ip6_header_t ip6;   /* 40 bytes */
-  udp_header_t udp;   /* 8 bytes */
-  gtpu_header_t gtpu; /* 8 bytes */
+/* clang-format off */
+typedef CLIB_PACKED(struct
+{
+  ip6_header_t ip6;            /* 40 bytes */
+  udp_header_t udp;            /* 8 bytes */
+  gtpu_header_t gtpu;     /* 8 bytes */
 }) ip6_gtpu_header_t;
-/* *INDENT-ON* */
+/* clang-format on */
 
 /* Packed so that the mhash key doesn't include uninitialized pad bytes */
-/* *INDENT-OFF* */
+/* clang-format off */
 typedef CLIB_PACKED (struct {
   ip46_address_t addr;
   u32 fib_index;
 }) ip46_address_fib_t;
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
-typedef CLIB_PACKED (struct {
+/* clang-format off */
+typedef CLIB_PACKED
+(struct {
   /*
    * Key fields: src intf and gtpu teid on incoming gtpu packet
    * all fields in NET byte order
    */
-  union
-  {
-    struct
-    {
+  union {
+    struct {
       u32 src_intf;
       u32 teid;
     };
     u64 as_u64;
   };
 }) gtpu_intf_tunnel_key_t;
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
-typedef CLIB_PACKED (struct {
+/* clang-format off */
+typedef CLIB_PACKED
+(struct {
   /*
    * Key fields: ip src and gtpu teid on incoming gtpu packet
    * all fields in NET byte order
    */
-  union
-  {
-    struct
-    {
+  union {
+    struct {
       u32 dst;
       u32 teid;
     };
     u64 as_u64;
   };
 }) gtpu4_tunnel_key_t;
-/* *INDENT-ON* */
+/* clang-format on */
 
 typedef struct
 {
@@ -297,8 +301,9 @@ typedef struct
   u32 rule_index;
 } gtpu4_endp_rule_t;
 
-/* *INDENT-OFF* */
-typedef CLIB_PACKED (struct {
+/* clang-format off */
+typedef CLIB_PACKED
+(struct {
   /*
    * Key fields: ip src and gtpu teid on incoming gtpu packet
    * all fields in NET byte order
@@ -306,7 +311,7 @@ typedef CLIB_PACKED (struct {
   ip6_address_t dst;
   u32 teid;
 }) gtpu6_tunnel_key_t;
-/* *INDENT-ON* */
+/* clang-format on */
 
 typedef struct
 {

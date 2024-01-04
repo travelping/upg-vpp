@@ -96,14 +96,14 @@ upf_interface_admin_up_down (vnet_main_t *vnm, u32 hw_if_index, u32 flags)
   return /* no error */ 0;
 }
 
-/* *INDENT-OFF* */
-VNET_DEVICE_CLASS (gtpu_device_class, static) = {
+/* clang-format off */
+VNET_DEVICE_CLASS (gtpu_device_class,static) = {
   .name = "GTPU",
   .format_device_name = format_upf_device_name,
   .format_tx_trace = format_upf_encap_trace,
   .admin_up_down_function = upf_interface_admin_up_down,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static u8 *
 format_gtpu_header_with_length (u8 *s, va_list *args)
@@ -113,14 +113,15 @@ format_gtpu_header_with_length (u8 *s, va_list *args)
   return s;
 }
 
-/* *INDENT-OFF* */
-VNET_HW_INTERFACE_CLASS (gtpu_hw_class) = {
+/* clang-format off */
+VNET_HW_INTERFACE_CLASS (gtpu_hw_class) =
+{
   .name = "GTPU",
   .format_header = format_gtpu_header_with_length,
   .build_rewrite = default_build_rewrite,
   .flags = VNET_HW_INTERFACE_CLASS_FLAG_P2P,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static int
 vnet_upf_create_nwi_if (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
@@ -510,14 +511,13 @@ pfcp_release_association (upf_node_assoc_t *n)
       u32 alt_node_count = vec_len (smf_alt_node_ids);
       u32 rand_seed = unix_time_now_nsec ();
 
-      /* *INDENT-OFF* */
+      /* clang-format off */
       upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
         ASSERT (sx->assoc.node == node_id);
 
         u32 random_idx = random_u32 (&rand_seed) % alt_node_count;
         u32 new_node_idx = vec_elt (smf_alt_node_ids, random_idx);
-        upf_node_assoc_t *new_node =
-          pool_elt_at_index (gtm->nodes, new_node_idx);
+        upf_node_assoc_t *new_node = pool_elt_at_index (gtm->nodes, new_node_idx);
 
         sx->flags |= UPF_SESSION_LOST_CP;
 
@@ -525,25 +525,24 @@ pfcp_release_association (upf_node_assoc_t *n)
         node_assoc_attach_session (new_node, sx);
 
         /* mark all in-flight session requests */
-        upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor,
-                           &sx->requests, {
-                             req->flags.is_migrated_in_smfset = 1;
-                             req->node = new_node_idx;
-                           });
+        upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
+          req->flags.is_migrated_in_smfset = 1;
+          req->node = new_node_idx;
+        });
       });
-      /* *INDENT-ON* */
+      /* clang-format on */
     }
   else
     {
       /* remove sessions */
-      /* *INDENT-OFF* */
-      upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
+      /* clang-format off */
+      upf_llist_foreach(sx, gtm->sessions, assoc.anchor, sessions, {
         ASSERT (sx->assoc.node == node_id);
 
         pfcp_disable_session (sx);
         pfcp_free_session (sx);
       });
-      /* *INDENT-ON* */
+      /* clang-format on */
     }
   vec_free (smf_alt_node_ids);
 
@@ -643,10 +642,11 @@ pfcp_node_exit_smf_set (upf_node_assoc_t *n)
     }
   else
     {
-      /* *INDENT-OFF* */
-      upf_llist_foreach (el, gtm->nodes, smf_set.anchor, &smfs->nodes,
-                         { vec_add1 (alternatives, el - gtm->nodes); });
-      /* *INDENT-ON* */
+      /* clang-format off */
+      upf_llist_foreach(el, gtm->nodes, smf_set.anchor, &smfs->nodes, {
+        vec_add1 (alternatives, el - gtm->nodes);
+      });
+      /* clang-format on */
       return alternatives;
     }
 }
@@ -1295,14 +1295,12 @@ pfcp_disable_session (upf_session_t *sx)
   upf_pfcp_session_stop_up_inactivity_timer (&active->inactivity_timer);
 
   /* detach all requests */
-  /* *INDENT-OFF* */
-  upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor,
-                     &sx->requests, {
-                       upf_session_requests_list_remove (
-                         pfcp_server_main.msg_pool, &sx->requests, req);
-                       req->session.idx = ~0;
-                     });
-  /* *INDENT-ON* */
+  /* clang-format off */
+  upf_llist_foreach (req, pfcp_server_main.msg_pool, session.anchor, &sx->requests, {
+    upf_session_requests_list_remove (pfcp_server_main.msg_pool, &sx->requests, req);
+    req->session.idx = ~0;
+  });
+  /* clang-format on */
 
   vlib_decrement_simple_counter (
     &gtm->upf_simple_counters[UPF_SESSIONS_COUNTER], vlib_get_thread_index (),
@@ -1341,14 +1339,14 @@ pfcp_free_session (upf_session_t *sx)
    * Remove the flows belonging to the session before freeing the
    * session, so flow reporting can still be done on these flows
    */
-  /* *INDENT-OFF* */
-  upf_llist_foreach (f, fm->flows, session_list_anchor, &sx->flows, {
+  /* clang-format off */
+  upf_llist_foreach(f, fm->flows, session_list_anchor, &sx->flows, {
     flowtable_entry_remove (fm, f, now);
 
     /* make sure session_flow_unlink_handler has been called */
     ASSERT (!session_flows_list_el_is_part_of_list (f));
   });
-  /* *INDENT-ON* */
+  /* clang-format on */
 
   ASSERT (session_flows_list_is_empty (&sx->flows));
 
@@ -1439,10 +1437,12 @@ session_flow_unlink_handler (flowtable_main_t *fm, flow_entry_t *flow,
     return 0;                                                                 \
   }
 
-/* *INDENT-OFF* */
-pfcp_rule_vector_fns (pdr, ({})) pfcp_rule_vector_fns (far, ({}))
-  pfcp_rule_vector_fns (urr, ({})) pfcp_rule_vector_fns (qer, ({}))
-  /* *INDENT-ON* */
+/* clang-format off */
+pfcp_rule_vector_fns(pdr, ({}))
+pfcp_rule_vector_fns(far, ({}))
+pfcp_rule_vector_fns(urr, ({}))
+pfcp_rule_vector_fns(qer, ({}))
+  /* clang-format on */
 
   void pfcp_send_end_marker (upf_session_t *sx, u16 far_id)
 {
@@ -3116,16 +3116,14 @@ format_pfcp_session (u8 *s, va_list *args)
       else
         s = format (s, "URR: %u\n", urr->id);
 
-      /* *INDENT-OFF* */
-      s = format (s,
-                  "  Measurement Method: %04x == %U\n"
-                  "  Reporting Triggers: %04x == %U\n"
-                  "  Status: %d == %U\n",
-                  urr->methods, format_flags, (u64) urr->methods,
-                  urr_method_flags, urr->triggers, format_flags,
-                  (u64) urr->triggers, urr_trigger_flags, urr->status,
-                  format_flags, (u64) urr->status, urr_status_flags);
-      /* *INDENT-ON* */
+      /* clang-format off */
+    s = format (s, "  Measurement Method: %04x == %U\n"
+		   "  Reporting Triggers: %04x == %U\n"
+		   "  Status: %d == %U\n",
+		   urr->methods, format_flags, (u64)urr->methods, urr_method_flags,
+		   urr->triggers, format_flags, (u64)urr->triggers, urr_trigger_flags,
+		   urr->status, format_flags, (u64)urr->status, urr_status_flags);
+      /* clang-format on */
 
       if (urr->triggers & REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
         {
@@ -3157,22 +3155,18 @@ format_pfcp_session (u8 *s, va_list *args)
         {
           urr_volume_t *v = &urr->volume;
 
-          /* *INDENT-OFF* */
-          s = format (s,
-                      "  Volume\n"
-                      "    Up:    %U\n           %U\n"
-                      "    Down:  %U\n           %U\n"
-                      "    Total: %U\n           %U\n",
-                      format_urr_counter, &v->measure, &v->threshold,
-                      offsetof (urr_counter_t, ul), format_urr_quota,
-                      &v->measure, &v->quota, offsetof (urr_counter_t, ul),
-                      format_urr_counter, &v->measure, &v->threshold,
-                      offsetof (urr_counter_t, dl), format_urr_quota,
-                      &v->measure, &v->quota, offsetof (urr_counter_t, dl),
-                      format_urr_counter, &v->measure, &v->threshold,
-                      offsetof (urr_counter_t, total), format_urr_quota,
-                      &v->measure, &v->quota, offsetof (urr_counter_t, total));
-          /* *INDENT-ON* */
+          /* clang-format off */
+	  s = format (s, "  Volume\n"
+		      "    Up:    %U\n           %U\n"
+		      "    Down:  %U\n           %U\n"
+		      "    Total: %U\n           %U\n",
+		      format_urr_counter, &v->measure, &v->threshold, offsetof(urr_counter_t, ul),
+		      format_urr_quota,   &v->measure, &v->quota, offsetof(urr_counter_t, ul),
+		      format_urr_counter, &v->measure, &v->threshold, offsetof(urr_counter_t, dl),
+		      format_urr_quota,   &v->measure, &v->quota, offsetof(urr_counter_t, dl),
+		      format_urr_counter, &v->measure, &v->threshold, offsetof(urr_counter_t, total),
+		      format_urr_quota,   &v->measure, &v->quota, offsetof(urr_counter_t, total));
+          /* clang-format on */
         }
       if (urr->measurement_period.base != 0)
         {
@@ -3255,16 +3249,16 @@ format_pfcp_session (u8 *s, va_list *args)
     }
   vec_foreach (qer, rules->qer)
     {
-      /* *INDENT-OFF* */
-      s = format (s,
-                  "QER: %u\n"
-                  "  UL Gate: %d == %U\n"
-                  "  DL Gate: %d == %U\n",
-                  qer->id, qer->gate_status[UPF_UL], format_flags,
-                  (u64) qer->gate_status[UPF_UL], qer_gate_status_flags,
-                  qer->gate_status[UPF_DL], format_flags,
-                  (u64) qer->gate_status[UPF_DL], qer_gate_status_flags);
-      /* *INDENT-ON* */
+      /* clang-format off */
+      s = format (s, "QER: %u\n"
+		  "  UL Gate: %d == %U\n"
+		  "  DL Gate: %d == %U\n",
+		  qer->id,
+		  qer->gate_status[UPF_UL],
+		  format_flags, (u64)qer->gate_status[UPF_UL], qer_gate_status_flags,
+		  qer->gate_status[UPF_DL],
+		  format_flags, (u64)qer->gate_status[UPF_DL], qer_gate_status_flags);
+      /* clang-format on */
     }
   return s;
 }
@@ -3296,16 +3290,16 @@ format_pfcp_node_association (u8 *s, va_list *args)
 
   if (verbose)
     {
-      /* *INDENT-OFF* */
-      upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
-        if (i > 0 && (i % 8) == 0)
-          s = format (s, "\n            ");
+      /* clang-format off */
+    upf_llist_foreach (sx, gtm->sessions, assoc.anchor, sessions, {
+      if (i > 0 && (i % 8) == 0)
+        s = format (s, "\n            ");
 
-        s = format (s, " 0x%016" PRIx64, sx->up_seid);
+      s = format (s, " 0x%016" PRIx64, sx->up_seid);
 
-        i++;
-      });
-      /* *INDENT-ON* */
+      i++;
+    });
+      /* clang-format on */
     }
 
   if (verbose)

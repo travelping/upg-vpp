@@ -582,7 +582,7 @@ VLIB_NODE_FN (upf_ip6_classify_node)
   return upf_classify_fn (vm, node, from_frame, /* is_ip4 */ 0);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_classify_node) = {
   .name = "upf-ip4-classify",
   .vector_size = sizeof (u32),
@@ -598,9 +598,9 @@ VLIB_REGISTER_NODE (upf_ip4_classify_node) = {
     [UPF_CLASSIFY_NEXT_PROXY]   = "upf-ip4-proxy-input",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_classify_node) = {
   .name = "upf-ip6-classify",
   .vector_size = sizeof (u32),
@@ -616,7 +616,7 @@ VLIB_REGISTER_NODE (upf_ip6_classify_node) = {
     [UPF_CLASSIFY_NEXT_PROXY]   = "upf-ip6-proxy-input",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

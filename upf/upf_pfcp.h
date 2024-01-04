@@ -52,10 +52,12 @@ int session_flow_unlink_handler (flowtable_main_t *fm, flow_entry_t *flow,
   int pfcp_sort_##t##s (struct rules *rules);                                 \
   int pfcp_delete_##t (upf_session_t *sx, u32 t##_id);
 
-/* *INDENT-OFF* */
-pfcp_rule_vector_fns (pdr) pfcp_rule_vector_fns (far)
-  pfcp_rule_vector_fns (urr) pfcp_rule_vector_fns (qer)
-/* *INDENT-ON* */
+/* clang-format off */
+pfcp_rule_vector_fns (pdr)
+pfcp_rule_vector_fns (far)
+pfcp_rule_vector_fns (urr)
+pfcp_rule_vector_fns (qer)
+/* clang-format on */
 
 #undef pfcp_rule_vector_fns
 #define vec_bsearch(k, v, compar)                                             \

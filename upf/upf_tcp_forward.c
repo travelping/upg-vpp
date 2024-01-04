@@ -355,7 +355,7 @@ VLIB_NODE_FN (upf_tcp6_forward_node)
   return upf_tcp_forward (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 0);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_tcp4_forward_node) = {
   .name = "upf-tcp4-forward",
   .vector_size = sizeof (u32),
@@ -369,9 +369,9 @@ VLIB_REGISTER_NODE (upf_tcp4_forward_node) = {
     [UPF_TCP_FORWARD_NEXT_FORWARD] = "upf-ip4-forward",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_tcp6_forward_node) = {
   .name = "upf-tcp6-forward",
   .vector_size = sizeof (u32),
@@ -385,7 +385,7 @@ VLIB_REGISTER_NODE (upf_tcp6_forward_node) = {
     [UPF_TCP_FORWARD_NEXT_FORWARD] = "upf-ip6-forward",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

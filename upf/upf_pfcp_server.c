@@ -1718,16 +1718,16 @@ pfcp_server_main_init (vlib_main_t *vm)
   return 0;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (pfcp_api_process_node) = {
-  .function = pfcp_process,
-  .type = VLIB_NODE_TYPE_PROCESS,
-  .process_log2_n_stack_bytes = 16,
-  .runtime_data_bytes = sizeof (void *),
-  .name = "pfcp-api",
+    .function = pfcp_process,
+    .type = VLIB_NODE_TYPE_PROCESS,
+    .process_log2_n_stack_bytes = 16,
+    .runtime_data_bytes = sizeof (void *),
+    .name = "pfcp-api",
 };
 
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

@@ -218,14 +218,15 @@ pfcp_session_server_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
   return 0;
 }
 
-/* *INDENT-OFF* */
-VLIB_REGISTER_NODE (pfcp_session_server_process_node) = {
+/* clang-format off */
+VLIB_REGISTER_NODE (pfcp_session_server_process_node) =
+{
   .function = pfcp_session_server_process,
   .type = VLIB_NODE_TYPE_PROCESS,
   .name = "pfcp-server-process",
   .state = VLIB_NODE_STATE_DISABLED,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static int
 pfcp_server_attach (vlib_main_t *vm)
@@ -394,13 +395,14 @@ pfcp_session_server_set_command_fn (vlib_main_t *vm, unformat_input_t *input,
   return 0;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (pfcp_session_server_set_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (pfcp_session_server_set_command, static) =
+{
   .path = "upf pfcp server set",
   .short_help = "upf pfcp server set",
   .function = pfcp_session_server_set_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 pfcp_session_server_main_init (vlib_main_t *vm)

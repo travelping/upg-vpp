@@ -583,14 +583,14 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_flow_timeout_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_flow_timeout_command, static) =
+{
   .path = "upf flow timeout",
-  .short_help =
-    "upf flow timeout (default | ip4 | ip6 | icmp | udp | tcp) <seconds>",
+  .short_help = "upf flow timeout (default | ip4 | ip6 | icmp | udp | tcp) <seconds>",
   .function = upf_flow_timeout_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_flow_timeout_command_fn (vlib_main_t *vm, unformat_input_t *input,
@@ -648,13 +648,14 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_flow_timeout_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_flow_timeout_command, static) =
+{
   .path = "show upf flow timeout",
   .short_help = "upf flow timeout (default | ip4 | ip6 | icmp | udp | tcp)",
   .function = upf_show_flow_timeout_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static uword
 flowtable_process (vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
@@ -683,7 +684,7 @@ flowtable_process (vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
   return 0;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (flowtable_process_node) = {
   .function = flowtable_process,
   .type = VLIB_NODE_TYPE_PROCESS,

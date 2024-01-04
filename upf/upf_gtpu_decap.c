@@ -851,7 +851,7 @@ static char *upf_gtpu_error_strings[] = {
 #undef _
 };
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_gtpu4_input_node) = {
   .name = "upf-gtpu4-input",
   /* Takes a vector of packets. */
@@ -875,9 +875,9 @@ VLIB_REGISTER_NODE (upf_gtpu4_input_node) = {
   .format_trace = format_gtpu_rx_trace,
   // $$$$ .unformat_buffer = unformat_gtpu_header,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_gtpu6_input_node) = {
   .name = "upf-gtpu6-input",
   /* Takes a vector of packets. */
@@ -901,7 +901,7 @@ VLIB_REGISTER_NODE (upf_gtpu6_input_node) = {
   .format_trace = format_gtpu_rx_trace,
   // $$$$ .unformat_buffer = unformat_gtpu_header,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 typedef struct
 {
@@ -1139,7 +1139,7 @@ VLIB_NODE_FN (upf_gtp_error_ind_node)
   return frame->n_vectors;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_gtp_error_ind_node) = {
   .name = "upf-gtp-error-indication",
   .flags = VLIB_NODE_FLAG_IS_DROP,
@@ -1147,7 +1147,7 @@ VLIB_REGISTER_NODE (upf_gtp_error_ind_node) = {
   //  .format_buffer = format_ip4_header,
   .format_trace = format_gtpu_error_ind_trace,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /****************************************************************************/
 
@@ -1445,7 +1445,7 @@ VLIB_NODE_FN (upf_gtp_ip6_echo_req_node)
   return frame->n_vectors;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_gtp_ip4_echo_req_node) = {
   .name = "upf-gtp-ip4-echo-request",
   .vector_size = sizeof (u32),
@@ -1460,9 +1460,9 @@ VLIB_REGISTER_NODE (upf_gtp_ip4_echo_req_node) = {
     [UPF_GTPU_ECHO_REQ_NEXT_REPLY] = "ip4-load-balance",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_gtp_ip6_echo_req_node) = {
   .name = "upf-gtp-ip6-echo-request",
   .vector_size = sizeof (u32),
@@ -1477,7 +1477,7 @@ VLIB_REGISTER_NODE (upf_gtp_ip6_echo_req_node) = {
     [UPF_GTPU_ECHO_REQ_NEXT_REPLY] = "ip6-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /****************************************************************************/
 
@@ -1916,7 +1916,7 @@ VLIB_NODE_FN (ip4_gtpu_upf_bypass_node)
   return ip_gtpu_upf_bypass_inline (vm, node, frame, /* is_ip4 */ 1);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (ip4_gtpu_upf_bypass_node) = {
   .name = "ip4-gtpu-upf-bypass",
   .vector_size = sizeof (u32),
@@ -1930,7 +1930,7 @@ VLIB_REGISTER_NODE (ip4_gtpu_upf_bypass_node) = {
   .format_buffer = format_ip4_header,
   .format_trace = format_ip4_forward_next_trace,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 #ifndef CLIB_MARCH_VARIANT
 /* Dummy init function to get us linked in. */
@@ -1949,7 +1949,7 @@ VLIB_NODE_FN (ip6_gtpu_upf_bypass_node)
   return ip_gtpu_upf_bypass_inline (vm, node, frame, /* is_ip4 */ 0);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (ip6_gtpu_upf_bypass_node) = {
   .name = "ip6-gtpu-upf_bypass",
   .vector_size = sizeof (u32),
@@ -1963,7 +1963,7 @@ VLIB_REGISTER_NODE (ip6_gtpu_upf_bypass_node) = {
   .format_buffer = format_ip6_header,
   .format_trace = format_ip6_forward_next_trace,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 #ifndef CLIB_MARCH_VARIANT
 /* Dummy init function to get us linked in. */

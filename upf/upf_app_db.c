@@ -111,28 +111,27 @@ upf_adf_create_update_db (upf_adf_app_t *app)
       entry->fib_index_ip6 = ~0;
     }
 
-  /* *INDENT-OFF* */
-  hash_foreach (
-    rule_index, index, app->rules_by_id, ({
-      rule = pool_elt_at_index (app->rules, index);
+  /* clang-format off */
+  hash_foreach(rule_index, index, app->rules_by_id,
+  ({
+     rule = pool_elt_at_index(app->rules, index);
 
-      if (rule->regex)
-        {
-          regex_t regex = vec_dup (rule->regex);
+     if (rule->regex)
+     {
+       regex_t regex = vec_dup(rule->regex);
 
-          adf_debug ("app id: %u, regex: %s", app - gtm->upf_apps, regex);
-          vec_add1 (entry->expressions, regex);
-          vec_add1 (entry->flags, HS_FLAG_SINGLEMATCH);
-          vec_add1 (entry->ids, rule->id);
-        }
-      else
-        {
-          adf_debug ("app id: %u, ip filter: %U", app - gtm->upf_apps,
-                     format_ipfilter, &rule->acl_rule);
-          vec_add1 (entry->acl, rule->acl_rule);
-        }
-    }));
-  /* *INDENT-ON* */
+       adf_debug("app id: %u, regex: %s", app - gtm->upf_apps, regex);
+       vec_add1(entry->expressions, regex);
+       vec_add1(entry->flags, HS_FLAG_SINGLEMATCH);
+       vec_add1(entry->ids, rule->id);
+     }
+     else
+     {
+       adf_debug("app id: %u, ip filter: %U", app - gtm->upf_apps, format_ipfilter, &rule->acl_rule);
+       vec_add1(entry->acl, rule->acl_rule);
+     }
+  }));
+  /* clang-format on */
 
   ASSERT (vec_len (entry->acl) ? app->flags & UPF_ADR_IP_RULES :
                                  !(app->flags & UPF_ADR_IP_RULES));
@@ -344,14 +343,14 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_adf_app_add_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_adf_app_add_command, static) =
+{
   .path = "upf adf app",
-  .short_help =
-    "upf adf app <add|update> session <id> pdr <id> name <app name>",
+  .short_help = "upf adf app <add|update> session <id> pdr <id> name <app name>",
   .function = upf_adf_app_add_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_adf_url_test_command_fn (vlib_main_t *vm, unformat_input_t *input,
@@ -407,13 +406,14 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_adf_url_test_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_adf_url_test_command, static) =
+{
   .path = "upf adf test db",
   .short_help = "upf adf test db [<id> | name <name>] url <url>",
   .function = upf_adf_url_test_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_adf_show_db_command_fn (vlib_main_t *vm, unformat_input_t *input,
@@ -469,13 +469,14 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_adf_show_db_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_adf_show_db_command, static) =
+{
   .path = "show upf adf app",
   .short_help = "show upf adf app <name>",
   .function = upf_adf_show_db_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /* Action function shared between message handler and debug CLI */
 
@@ -542,14 +543,14 @@ vnet_upf_app_add_del (u8 *name, u32 flags, u8 add)
       if (upf_adf_adr_ref_count (app->db_index) != 0)
         return VNET_API_ERROR_INSTANCE_IN_USE;
 
-      /* *INDENT-OFF* */
-      hash_foreach (rule_index, index, app->rules_by_id, ({
-                      upf_adr_t *rule = NULL;
-                      rule = pool_elt_at_index (app->rules, index);
-                      vnet_upf_rule_add_del (app->name, rule->id, 0, NULL,
-                                             NULL);
-                    }));
-      /* *INDENT-ON* */
+      /* clang-format off */
+      hash_foreach(rule_index, index, app->rules_by_id,
+      ({
+	 upf_adr_t *rule = NULL;
+	 rule = pool_elt_at_index(app->rules, index);
+	 vnet_upf_rule_add_del(app->name, rule->id, 0, NULL, NULL);
+      }));
+      /* clang-format on */
 
       hash_unset_mem (sm->upf_app_by_name, app->name);
       if (app->db_index != ~0)
@@ -633,13 +634,14 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_app_add_del_command, static) = {
-  .path = "create upf application",
-  .short_help = "create upf application name <name> [proxy] [add|del]",
-  .function = upf_app_add_del_command_fn,
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_app_add_del_command, static) =
+{
+ .path = "create upf application",
+ .short_help = "create upf application name <name> [proxy] [add|del]",
+ .function = upf_app_add_del_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static int
 vnet_upf_rule_add_del (u8 *app_name, u32 rule_index, u8 add, regex_t regex,
@@ -796,14 +798,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_application_rule_add_del_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_application_rule_add_del_command, static) =
+{
   .path = "upf application",
   .short_help = "upf application <name> rule <id> (add | del) "
-                "[l7 regex <regex> | ipfilter <ipfilter>]",
+  "[l7 regex <regex> | ipfilter <ipfilter>]",
   .function = upf_application_rule_add_del_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 u8 *
 format_upf_adr (u8 *s, va_list *args)
@@ -827,12 +830,13 @@ upf_show_rules (vlib_main_t *vm, upf_adf_app_t *app)
   u32 rule_index = 0;
   upf_adr_t *rule = NULL;
 
-  /* *INDENT-OFF* */
-  hash_foreach (rule_index, index, app->rules_by_id, ({
-                  rule = pool_elt_at_index (app->rules, index);
-                  vlib_cli_output (vm, "%U", format_upf_adr, rule);
-                }));
-  /* *INDENT-ON* */
+  /* clang-format off */
+  hash_foreach(rule_index, index, app->rules_by_id,
+  ({
+     rule = pool_elt_at_index(app->rules, index);
+     vlib_cli_output (vm, "%U", format_upf_adr, rule);
+  }));
+  /* clang-format on */
 }
 
 static clib_error_t *
@@ -881,13 +885,14 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_app_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_app_command, static) =
+{
   .path = "show upf application",
   .short_help = "show upf application <name>",
   .function = upf_show_app_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_apps_command_fn (vlib_main_t *vm, unformat_input_t *input,
@@ -922,29 +927,31 @@ upf_show_apps_command_fn (vlib_main_t *vm, unformat_input_t *input,
       unformat_free (line_input);
     }
 
-  /* *INDENT-OFF* */
-  hash_foreach (name, index, sm->upf_app_by_name, ({
-                  upf_adf_app_t *app = NULL;
-                  app = pool_elt_at_index (sm->upf_apps, index);
-                  vlib_cli_output (vm, "app: %v", app->name);
+  /* clang-format off */
+  hash_foreach(name, index, sm->upf_app_by_name,
+  ({
+     upf_adf_app_t *app = NULL;
+     app = pool_elt_at_index(sm->upf_apps, index);
+     vlib_cli_output (vm, "app: %v", app->name);
 
-                  if (verbose)
-                    {
-                      upf_show_rules (vm, app);
-                    }
-                }));
-  /* *INDENT-ON* */
+     if (verbose)
+       {
+	 upf_show_rules(vm, app);
+       }
+  }));
+  /* clang-format on */
 
   return NULL;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_apps_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_apps_command, static) =
+{
   .path = "show upf applications",
   .short_help = "show upf applications [verbose]",
   .function = upf_show_apps_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 int
 upf_update_app (upf_main_t *sm, u8 *app_name, u32 num_rules, u32 *ids,
@@ -967,14 +974,15 @@ upf_update_app (upf_main_t *sm, u8 *app_name, u32 num_rules, u32 *ids,
   if (upf_adf_adr_ref_count (app->db_index) != 0)
     return VNET_API_ERROR_INSTANCE_IN_USE;
 
-  /* *INDENT-OFF* */
-  hash_foreach (rule_index, index, app->rules_by_id, ({
-                  rule = pool_elt_at_index (app->rules, index);
-                  vec_free (rule->regex);
-                  clib_memset (rule, 0, sizeof (*rule));
-                  pool_put_index (app->rules, index);
-                }));
-  /* *INDENT-ON* */
+  /* clang-format off */
+  hash_foreach(rule_index, index, app->rules_by_id,
+  ({
+    rule = pool_elt_at_index(app->rules, index);
+    vec_free (rule->regex);
+    clib_memset (rule, 0, sizeof (*rule));
+    pool_put_index (app->rules, index);
+  }));
+  /* clang-format on */
 
   hash_free (app->rules_by_id);
   app->rules_by_id = hash_create (num_rules, sizeof (uword));

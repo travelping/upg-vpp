@@ -583,7 +583,7 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node)
   return from_frame->n_vectors;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_session_dpo_node) = {
   .name = "upf-ip4-session-dpo",
   .vector_size = sizeof (u32),
@@ -618,7 +618,7 @@ VLIB_REGISTER_NODE (upf_ip6_session_dpo_node) = {
   },
 };
 
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

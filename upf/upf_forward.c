@@ -368,41 +368,45 @@ VLIB_NODE_FN (upf_ip6_forward_node)
                       0);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_forward_node) = {
   .name = "upf-ip4-forward",
   .vector_size = sizeof (u32),
   .format_trace = format_upf_forward_trace,
   .type = VLIB_NODE_TYPE_INTERNAL,
-  .n_errors = ARRAY_LEN (upf_forward_error_strings),
+  .n_errors = ARRAY_LEN(upf_forward_error_strings),
   .error_strings = upf_forward_error_strings,
   .n_next_nodes = UPF_FORWARD_N_NEXT,
-  .next_nodes = { [UPF_FORWARD_NEXT_DROP] = "error-drop",
-                  [UPF_FORWARD_NEXT_GTP_IP4_ENCAP] = "upf4-encap",
-                  [UPF_FORWARD_NEXT_GTP_IP6_ENCAP] = "upf6-encap",
-                  [UPF_FORWARD_NEXT_IP_INPUT] = "ip4-input",
-                  [UPF_FORWARD_NEXT_IP_REWRITE] = "ip4-rewrite",
-                  [UPF_FORWARD_NEXT_IP_LOOKUP] = "ip4-lookup" },
+  .next_nodes = {
+    [UPF_FORWARD_NEXT_DROP]          = "error-drop",
+    [UPF_FORWARD_NEXT_GTP_IP4_ENCAP] = "upf4-encap",
+    [UPF_FORWARD_NEXT_GTP_IP6_ENCAP] = "upf6-encap",
+    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip4-input",
+    [UPF_FORWARD_NEXT_IP_REWRITE]    = "ip4-rewrite",
+    [UPF_FORWARD_NEXT_IP_LOOKUP]     = "ip4-lookup"
+  },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_forward_node) = {
   .name = "upf-ip6-forward",
   .vector_size = sizeof (u32),
   .format_trace = format_upf_forward_trace,
   .type = VLIB_NODE_TYPE_INTERNAL,
-  .n_errors = ARRAY_LEN (upf_forward_error_strings),
+  .n_errors = ARRAY_LEN(upf_forward_error_strings),
   .error_strings = upf_forward_error_strings,
   .n_next_nodes = UPF_FORWARD_N_NEXT,
-  .next_nodes = { [UPF_FORWARD_NEXT_DROP] = "error-drop",
-                  [UPF_FORWARD_NEXT_GTP_IP4_ENCAP] = "upf4-encap",
-                  [UPF_FORWARD_NEXT_GTP_IP6_ENCAP] = "upf6-encap",
-                  [UPF_FORWARD_NEXT_IP_INPUT] = "ip6-input",
-                  [UPF_FORWARD_NEXT_IP_REWRITE] = "ip6-rewrite",
-                  [UPF_FORWARD_NEXT_IP_LOOKUP] = "ip6-lookup" },
+  .next_nodes = {
+    [UPF_FORWARD_NEXT_DROP]          = "error-drop",
+    [UPF_FORWARD_NEXT_GTP_IP4_ENCAP] = "upf4-encap",
+    [UPF_FORWARD_NEXT_GTP_IP6_ENCAP] = "upf6-encap",
+    [UPF_FORWARD_NEXT_IP_INPUT]      = "ip6-input",
+    [UPF_FORWARD_NEXT_IP_REWRITE]    = "ip6-rewrite",
+    [UPF_FORWARD_NEXT_IP_LOOKUP]     = "ip6-lookup"
+  },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

@@ -275,13 +275,14 @@ vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t *mp)
   data_len = vec_len (reply_data);
 
 reply:
-  /* *INDENT-OFF* */
-  REPLY_MACRO3_ZERO (VL_API_UPF_PFCP_REENCODE_REPLY, data_len, {
+  /* clang-format off */
+  REPLY_MACRO3_ZERO (VL_API_UPF_PFCP_REENCODE_REPLY, data_len,
+  {
     rmp->packet_len = clib_host_to_net_u32 (data_len);
     if (data_len)
       clib_memcpy (rmp->packet, reply_data, data_len);
   });
-  /* *INDENT-ON* */
+  /* clang-format on */
 
   pfcp_free_dmsg_contents (&dmsg);
   vec_free (reply_data);
@@ -316,13 +317,14 @@ vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t *mp)
   text_len = vec_len (s);
 
 reply:
-  /* *INDENT-OFF* */
-  REPLY_MACRO3_ZERO (VL_API_UPF_PFCP_FORMAT_REPLY, text_len, {
+  /* clang-format off */
+  REPLY_MACRO3_ZERO (VL_API_UPF_PFCP_FORMAT_REPLY, text_len,
+  {
     rmp->text_len = clib_host_to_net_u32 (text_len);
     if (text_len)
       clib_memcpy (rmp->text, s, text_len);
   });
-  /* *INDENT-ON* */
+  /* clang-format on */
 
   if (s != 0)
     vec_free (s);
@@ -712,11 +714,12 @@ vl_api_upf_pfcp_endpoint_dump_t_handler (vl_api_upf_pfcp_endpoint_dump_t *mp)
     {
       return;
     }
-  /* *INDENT-OFF* */
-  mhash_foreach (key, v, &sm->pfcp_endpoint_index, ({
-                   send_upf_pfcp_endpoint_details (reg, key, mp->context);
-                 }));
-  /* *INDENT-ON* */
+  /* clang-format off */
+  mhash_foreach(key, v, &sm->pfcp_endpoint_index,
+  ({
+    send_upf_pfcp_endpoint_details (reg, key, mp->context);
+  }));
+  /* clang-format on */
 }
 
 /* API message handler */

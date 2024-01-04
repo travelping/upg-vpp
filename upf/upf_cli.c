@@ -123,13 +123,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_pfcp_endpoint_ip_add_del_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_pfcp_endpoint_ip_add_del_command, static) =
+{
   .path = "upf pfcp endpoint ip",
-  .short_help = "upf pfcp endpoint ip <address> [vrf <table-id>] [del]",
+  .short_help =
+  "upf pfcp endpoint ip <address> [vrf <table-id>] [del]",
   .function = upf_pfcp_endpoint_ip_add_del_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_pfcp_show_endpoint_command_fn (vlib_main_t *vm,
@@ -157,24 +159,26 @@ upf_pfcp_show_endpoint_command_fn (vlib_main_t *vm,
   vlib_cli_output (vm, "Endpoints: %d\n",
                    mhash_elts (&gtm->pfcp_endpoint_index));
 
-  /* *INDENT-OFF* */
-  mhash_foreach (key, v, &gtm->pfcp_endpoint_index, ({
-                   vlib_cli_output (vm, "  %U: %u\n", format_pfcp_endpoint_key,
-                                    key, *v);
-                 }));
-  /* *INDENT-ON* */
+  /* clang-format off */
+  mhash_foreach(key, v, &gtm->pfcp_endpoint_index,
+  ({
+    vlib_cli_output (vm, "  %U: %u\n", format_pfcp_endpoint_key, key, *v);
+  }));
+  /* clang-format on */
 
 done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_pfcp_show_endpoint_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_pfcp_show_endpoint_command, static) =
+{
   .path = "show upf pfcp endpoint",
-  .short_help = "show upf pfcp endpoint",
+  .short_help =
+  "show upf pfcp endpoint",
   .function = upf_pfcp_show_endpoint_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_pfcp_policer_set_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -207,14 +211,15 @@ upf_pfcp_policer_set_fn (vlib_main_t *vm, unformat_input_t *main_input,
   return NULL;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_pfcp_policer_set, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_pfcp_policer_set, static) =
+{
   .path = "upf pfcp policer set",
   .short_help =
-    "upf pfcp policer set cir-pps <packet-per-second> cb-ms <burst-ms>",
+  "upf pfcp policer set cir-pps <packet-per-second> cb-ms <burst-ms>",
   .function = upf_pfcp_policer_set_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_ueip_pool_add_del_command_fn (vlib_main_t *vm,
@@ -290,13 +295,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_ueip_pool_add_del_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_ueip_pool_add_del_command, static) =
+{
   .path = "upf ueip pool",
-  .short_help = "upf ueip pool nwi <nwi-name> id <identity> [del]",
+  .short_help =
+  "upf ueip pool nwi <nwi-name> id <identity> [del]",
   .function = upf_ueip_pool_add_del_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_nat_pool_add_del_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -369,15 +376,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_nat_pool_add_del_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_nat_pool_add_del_command, static) =
+{
   .path = "upf nat pool",
-  .short_help = "upf nat pool nwi <nwi-name> <ip4-addr-start> - "
-                "<ip4-addr-end> min_port <min-port> max_port <max-port> "
-                "block_size <port-block-size> name <name> [del]",
+  .short_help =
+  "upf nat pool nwi <nwi-name> <ip4-addr-start> - <ip4-addr-end> min_port <min-port> max_port <max-port> block_size <port-block-size> name <name> [del]",
   .function = upf_nat_pool_add_del_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_nwi_add_del_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -481,20 +488,22 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_nwi_add_del_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_nwi_add_del_command, static) =
+{
   .path = "upf nwi",
-  .short_help = "upf nwi name <name> [table <table-id>] [vrf <vrf-id>] "
-                "[ipfix-policy <name>] "
-                "[ipfix-collector-ip <ip>] "
-                "[ipfix-report-interval <secs>] "
-                "[observation-domain-id <id>] "
-                "[observation-domain-name <name>] "
-                "[observation-point-id <id>] "
-                "[del]",
+  .short_help =
+  "upf nwi name <name> [table <table-id>] [vrf <vrf-id>] "
+  "[ipfix-policy <name>] "
+  "[ipfix-collector-ip <ip>] "
+  "[ipfix-report-interval <secs>] "
+  "[observation-domain-id <id>] "
+  "[observation-domain-name <name>] "
+  "[observation-point-id <id>] "
+  "[del]",
   .function = upf_nwi_add_del_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_nwi_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -551,13 +560,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_nwi_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_nwi_command, static) =
+{
   .path = "show upf nwi",
-  .short_help = "show upf nwi",
+  .short_help =
+  "show upf nwi",
   .function = upf_show_nwi_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 #if 0
 static void
@@ -611,7 +622,7 @@ vtep_if_address_add_del (u32 sw_if_index, u8 add)
   ip4_address_t *ip4;
   ip6_address_t *ip6;
 
-  /* *INDENT-OFF* */
+  /* clang-format off */
   foreach_ip_interface_address (lm4, ia, sw_if_index, 1 /* unnumbered */ ,
   ({
     ip4 = ip_interface_address_get_address (lm4, ia);
@@ -622,7 +633,7 @@ vtep_if_address_add_del (u32 sw_if_index, u8 add)
     ip6 = ip_interface_address_get_address (lm6, ia);
     vtep_ip6_ref(ip6, add);
   }));
-  /* *INDENT-ON* */
+  /* clang-format on */
 }
 #endif
 
@@ -691,14 +702,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_tdf_ul_table_add_del_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_tdf_ul_table_add_del_command, static) =
+{
   .path = "upf tdf ul table",
-  .short_help = "upf tdf ul table vrf <table-id> [ip4|ip6] table-id "
-                "<src-lookup-table-id> [del]",
+  .short_help =
+  "upf tdf ul table vrf <table-id> [ip4|ip6] table-id <src-lookup-table-id> [del]",
   .function = upf_tdf_ul_table_add_del_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_tdf_ul_table_show_fn (vlib_main_t *vm, unformat_input_t *input,
@@ -727,13 +739,13 @@ upf_tdf_ul_table_show_fn (vlib_main_t *vm, unformat_input_t *input,
   return (NULL);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_CLI_COMMAND (upf_tdf_ul_table_show_command, static) = {
   .path = "show upf tdf ul tables",
   .short_help = "Show UPF TDF UpLink tables",
   .function = upf_tdf_ul_table_show_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_tdf_ul_enable_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -776,13 +788,13 @@ upf_tdf_ul_enable_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
   return NULL;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_CLI_COMMAND (upf_tdf_ul_enable_command, static) = {
-  .path = "upf tdf ul enable",
-  .short_help = "UPF TDF UpLink [enable|disable] [ip4|ip6] <interface>",
-  .function = upf_tdf_ul_enable_command_fn,
+    .path = "upf tdf ul enable",
+    .short_help = "UPF TDF UpLink [enable|disable] [ip4|ip6] <interface>",
+    .function = upf_tdf_ul_enable_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_spec_release_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -807,13 +819,13 @@ upf_spec_release_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
   return NULL;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_CLI_COMMAND (upf_spec_release_command, static) = {
-  .path = "upf specification",
-  .short_help = "upf specification release [MAJOR.MINOR.PATCH]",
-  .function = upf_spec_release_command_fn,
+    .path = "upf specification",
+    .short_help = "upf specification release [MAJOR.MINOR.PATCH]",
+    .function = upf_spec_release_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_spec_release_command_fn (vlib_main_t *vm,
@@ -825,13 +837,15 @@ upf_show_spec_release_command_fn (vlib_main_t *vm,
   return NULL;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_spec_release_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_spec_release_command, static) =
+{
   .path = "show upf specification release",
-  .short_help = "show upf specification release",
+  .short_help =
+  "show upf specification release",
   .function = upf_show_spec_release_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -878,14 +892,13 @@ upf_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
   return NULL;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_CLI_COMMAND (upf_node_id_command, static) = {
-  .path = "upf node-id",
-  .short_help =
-    "upf node-id ( fqdn <fqdn> | ip4 <ip4-addr> | ip6 <ip6-addr> )",
-  .function = upf_node_id_command_fn,
+    .path = "upf node-id",
+    .short_help = "upf node-id ( fqdn <fqdn> | ip4 <ip4-addr> | ip6 <ip6-addr> )",
+    .function = upf_node_id_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -896,13 +909,15 @@ upf_show_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
   return NULL;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_node_id_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_node_id_command, static) =
+{
   .path = "show upf node-id",
-  .short_help = "show upf node-id",
+  .short_help =
+  "show upf node-id",
   .function = upf_show_node_id_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_gtpu_endpoint_add_del_command_fn (vlib_main_t *vm,
@@ -1009,15 +1024,16 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_gtpu_endpoint_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_gtpu_endpoint_command, static) =
+{
   .path = "upf gtpu endpoint",
   .short_help =
-    "upf gtpu endpoint [ip <v4 address>] [ip6 <v6 address>] [nwi <name>]"
-    " [src access | core | sgi | cp] [teid <teid>/<mask>] [del]",
+  "upf gtpu endpoint [ip <v4 address>] [ip6 <v6 address>] [nwi <name>]"
+  " [src access | core | sgi | cp] [teid <teid>/<mask>] [del]",
   .function = upf_gtpu_endpoint_add_del_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_gtpu_endpoint_command_fn (vlib_main_t *vm,
@@ -1060,13 +1076,15 @@ upf_show_gtpu_endpoint_command_fn (vlib_main_t *vm,
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_gtpu_endpoint_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_gtpu_endpoint_command, static) =
+{
   .path = "show upf gtpu endpoint",
-  .short_help = "show upf gtpu endpoint",
+  .short_help =
+  "show upf gtpu endpoint",
   .function = upf_show_gtpu_endpoint_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 typedef struct
 {
@@ -1210,13 +1228,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_session_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_session_command, static) =
+{
   .path = "show upf session",
-  .short_help = "show upf session [up seid 0x... [flows]] [limit N]",
+  .short_help =
+  "show upf session [up seid 0x... [flows]] [limit N]",
   .function = upf_show_session_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_assoc_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -1304,13 +1324,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_assoc_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_assoc_command, static) =
+{
   .path = "show upf association",
-  .short_help = "show upf association",
+  .short_help =
+  "show upf association",
   .function = upf_show_assoc_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_flows_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -1351,13 +1373,14 @@ done:
   return NULL;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_flows_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_flows_command, static) =
+{
   .path = "show upf flows",
   .short_help = "show upf flows [limit N]",
   .function = upf_show_flows_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_bihash_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -1420,14 +1443,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_bihash_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_bihash_command, static) =
+{
   .path = "show upf bihash",
-  .short_help = "show upf bihash <v4-tunnel-by-key | v6-tunnel-by-key | "
-                "qer-by-id | peer-index-by-ip> [detail|verbose]",
+  .short_help =
+  "show upf bihash <v4-tunnel-by-key | v6-tunnel-by-key | qer-by-id | peer-index-by-ip> [detail|verbose]",
   .function = upf_show_bihash_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_proxy_set_command_fn (vlib_main_t *vm, unformat_input_t *input,
@@ -1475,16 +1499,17 @@ upf_proxy_set_command_fn (vlib_main_t *vm, unformat_input_t *input,
     return 0;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_proxy_set_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_proxy_set_command, static) =
+{
   .path = "set upf proxy",
   .short_help = "set upf proxy [mss <nn>] [fifo-size <nn>[k|m]]"
-                "[max-fifo-size <nn>[k|m]][high-watermark <nn>]"
-                "[low-watermark <nn>][prealloc-fifos <nn>]"
-                "[private-segment-size <mem>][private-segment-count <nn>]",
+      "[max-fifo-size <nn>[k|m]][high-watermark <nn>]"
+      "[low-watermark <nn>][prealloc-fifos <nn>]"
+      "[private-segment-size <mem>][private-segment-count <nn>]",
   .function = upf_proxy_set_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_proxy_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -1524,14 +1549,15 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_proxy_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_proxy_command, static) =
+{
   .path = "show upf proxy",
   .short_help = "show upf proxy",
   .function = upf_show_proxy_command_fn,
 };
 
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_proxy_session_command_fn (vlib_main_t *vm,
@@ -1564,13 +1590,14 @@ done:
   return error;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_proxy_session_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_proxy_session_command, static) =
+{
   .path = "show upf proxy sessions",
   .short_help = "show upf proxy sessions",
   .function = upf_show_proxy_session_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_policy_command_fn (vlib_main_t *vm, unformat_input_t *input,
@@ -1612,13 +1639,14 @@ upf_show_policy_command_fn (vlib_main_t *vm, unformat_input_t *input,
   return (NULL);
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_policy_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_policy_command, static) =
+{
   .path = "show upf policy",
   .short_help = "show upf policy",
   .function = upf_show_policy_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_policy_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
@@ -1658,14 +1686,14 @@ upf_policy_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
   return (NULL);
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_add_policy_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_add_policy_command, static) =
+{
   .path = "upf policy",
-  .short_help =
-    "upf policy [add|del] id <policy_id> via <next_hop> <interface>",
+  .short_help = "upf policy [add|del] id <policy_id> via <next_hop> <interface>",
   .function = upf_policy_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_pfcp_heartbeat_config_command_fn (vlib_main_t *vm,
@@ -1699,13 +1727,13 @@ upf_pfcp_heartbeat_config_command_fn (vlib_main_t *vm,
   return error;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_CLI_COMMAND (upf_pfcp_heartbeat_config_command, static) = {
-  .path = "upf pfcp heartbeat-config",
-  .short_help = "upf pfcp heartbeat-config timeout <sec> retries <count>",
-  .function = upf_pfcp_heartbeat_config_command_fn,
+    .path = "upf pfcp heartbeat-config",
+    .short_help = "upf pfcp heartbeat-config timeout <sec> retries <count>",
+    .function = upf_pfcp_heartbeat_config_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 static clib_error_t *
 upf_show_pfcp_heartbeat_config_command_fn (vlib_main_t *vm,
@@ -1718,13 +1746,15 @@ upf_show_pfcp_heartbeat_config_command_fn (vlib_main_t *vm,
   return NULL;
 }
 
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (upf_show_pfcp_heartbeat_config_command, static) = {
+/* clang-format off */
+VLIB_CLI_COMMAND (upf_show_pfcp_heartbeat_config_command, static) =
+{
   .path = "show upf heartbeat-config",
-  .short_help = "show upf heartbeat-config",
+  .short_help =
+  "show upf heartbeat-config",
   .function = upf_show_pfcp_heartbeat_config_command_fn,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

@@ -330,8 +330,9 @@ VLIB_NODE_FN (upf_ip6_proxy_accept_node)
   return upf_proxy_accept_inline (vm, node, from_frame, /* is_ip4 */ 0);
 }
 
-/* *INDENT-OFF* */
-VLIB_REGISTER_NODE (upf_ip4_proxy_accept_node) = {
+/* clang-format off */
+VLIB_REGISTER_NODE (upf_ip4_proxy_accept_node) =
+{
   .name = "upf-ip4-proxy-accept",
   .vector_size = sizeof (u32),
   .format_trace = format_upf_proxy_accept_trace,
@@ -340,10 +341,11 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_accept_node) = {
   .error_strings = upf_proxy_error_strings,
   .n_next_nodes = 0,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
-VLIB_REGISTER_NODE (upf_ip6_proxy_accept_node) = {
+/* clang-format off */
+VLIB_REGISTER_NODE (upf_ip6_proxy_accept_node) =
+{
   .name = "upf-ip6-proxy-accept",
   .vector_size = sizeof (u32),
   .format_trace = format_upf_proxy_accept_trace,
@@ -352,7 +354,7 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_accept_node) = {
   .error_strings = upf_proxy_error_strings,
   .n_next_nodes = 0,
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

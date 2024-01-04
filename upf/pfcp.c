@@ -4958,1287 +4958,1397 @@ encode_bbf_up_function_features (void *p, u8 **vec)
 
 /**********************************************************/
 
-/* *INDENT-OFF* */
-static struct pfcp_group_ie_def pfcp_create_pdr_group[] = {
-  [CREATE_PDR_PDR_ID] = { .type = PFCP_IE_PDR_ID,
-                          .offset = offsetof (pfcp_create_pdr_t, pdr_id) },
-  [CREATE_PDR_PRECEDENCE] = { .type = PFCP_IE_PRECEDENCE,
-                              .offset =
-                                offsetof (pfcp_create_pdr_t, precedence) },
-  [CREATE_PDR_PDI] = { .type = PFCP_IE_PDI,
-                       .offset = offsetof (pfcp_create_pdr_t, pdi) },
-  [CREATE_PDR_OUTER_HEADER_REMOVAL] = { .type = PFCP_IE_OUTER_HEADER_REMOVAL,
-                                        .offset =
-                                          offsetof (pfcp_create_pdr_t,
-                                                    outer_header_removal) },
-  [CREATE_PDR_FAR_ID] = { .type = PFCP_IE_FAR_ID,
-                          .offset = offsetof (pfcp_create_pdr_t, far_id) },
-  [CREATE_PDR_URR_ID] = { .type = PFCP_IE_URR_ID,
-                          .is_array = true,
-                          .offset = offsetof (pfcp_create_pdr_t, urr_id) },
-  [CREATE_PDR_QER_ID] = { .type = PFCP_IE_QER_ID,
-                          .is_array = true,
-                          .offset = offsetof (pfcp_create_pdr_t, qer_id) },
-  [CREATE_PDR_ACTIVATE_PREDEFINED_RULES] = { .type =
-                                               PFCP_IE_ACTIVATE_PREDEFINED_RULES,
-                                             .offset = offsetof (
-                                               pfcp_create_pdr_t,
-                                               activate_predefined_rules) },
-  [CREATE_PDR_ACTIVATION_TIME] = { .type = PFCP_IE_ACTIVATION_TIME,
-                                   .offset = offsetof (pfcp_create_pdr_t,
-                                                       activation_time) },
-  [CREATE_PDR_DEACTIVATION_TIME] = { .type = PFCP_IE_DEACTIVATION_TIME,
-                                     .offset = offsetof (pfcp_create_pdr_t,
-                                                         deactivation_time) },
-  [CREATE_PDR_MAR_ID] = { .type = PFCP_IE_MAR_ID,
-                          .offset = offsetof (pfcp_create_pdr_t, mar_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_pdi_group[] = {
-  [PDI_SOURCE_INTERFACE] = { .type = PFCP_IE_SOURCE_INTERFACE,
-                             .offset =
-                               offsetof (pfcp_pdi_t, source_interface) },
-  [PDI_F_TEID] = { .type = PFCP_IE_F_TEID,
-                   .offset = offsetof (pfcp_pdi_t, f_teid) },
-  [PDI_NETWORK_INSTANCE] = { .type = PFCP_IE_NETWORK_INSTANCE,
-                             .offset =
-                               offsetof (pfcp_pdi_t, network_instance) },
-  [PDI_UE_IP_ADDRESS] = { .type = PFCP_IE_UE_IP_ADDRESS,
-                          .offset = offsetof (pfcp_pdi_t, ue_ip_address) },
-  [PDI_SDF_FILTER] = { .type = PFCP_IE_SDF_FILTER,
-                       .is_array = true,
-                       .offset = offsetof (pfcp_pdi_t, sdf_filter) },
-  [PDI_APPLICATION_ID] = { .type = PFCP_IE_APPLICATION_ID,
-                           .offset = offsetof (pfcp_pdi_t, application_id) },
-  [PDI_ETHERNET_PDU_SESSION_INFORMATION] = { .type =
-                                               PFCP_IE_ETHERNET_PDU_SESSION_INFORMATION,
-                                             .offset = offsetof (
-                                               pfcp_pdi_t,
-                                               ethernet_pdu_session_information) },
-  [PDI_ETHERNET_PACKET_FILTER] = { .type = PFCP_IE_ETHERNET_PACKET_FILTER,
-                                   .offset = offsetof (
-                                     pfcp_pdi_t, ethernet_packet_filter) },
-  [PDI_QFI] = { .type = PFCP_IE_QFI, .offset = offsetof (pfcp_pdi_t, qfi) },
-  [PDI_FRAMED_ROUTE] = { .type = PFCP_IE_FRAMED_ROUTE,
-                         .is_array = true,
-                         .offset = offsetof (pfcp_pdi_t, framed_route) },
-  [PDI_FRAMED_ROUTING] = { .type = PFCP_IE_FRAMED_ROUTING,
-                           .offset = offsetof (pfcp_pdi_t, framed_routing) },
-  [PDI_FRAMED_IPV6_ROUTE] = { .type = PFCP_IE_FRAMED_IPV6_ROUTE,
-                              .is_array = true,
-                              .offset =
-                                offsetof (pfcp_pdi_t, framed_ipv6_route) },
-  [PDI_SOURCE_INTERFACE_TYPE] = { .type = PFCP_IE_TGPP_INTERFACE_TYPE,
-                                  .offset = offsetof (pfcp_pdi_t,
-                                                      source_interface_type) },
-};
-
-static struct pfcp_group_ie_def pfcp_create_far_group[] = {
-  [CREATE_FAR_FAR_ID] = { .type = PFCP_IE_FAR_ID,
-                          .offset = offsetof (pfcp_create_far_t, far_id) },
-  [CREATE_FAR_APPLY_ACTION] = { .type = PFCP_IE_APPLY_ACTION,
-                                .offset =
-                                  offsetof (pfcp_create_far_t, apply_action) },
-  [CREATE_FAR_FORWARDING_PARAMETERS] = { .type = PFCP_IE_FORWARDING_PARAMETERS,
-                                         .offset =
-                                           offsetof (pfcp_create_far_t,
-                                                     forwarding_parameters) },
-  [CREATE_FAR_DUPLICATING_PARAMETERS] = { .type =
-                                            PFCP_IE_DUPLICATING_PARAMETERS,
-                                          .offset = offsetof (
-                                            pfcp_create_far_t,
-                                            duplicating_parameters) },
-  [CREATE_FAR_BAR_ID] = { .type = PFCP_IE_BAR_ID,
-                          .offset = offsetof (pfcp_create_far_t, bar_id) },
-  [CREATE_FAR_TP_IPFIX_POLICY] = { .type = PFCP_IE_TP_IPFIX_POLICY,
-                                   .vendor = VENDOR_TRAVELPING,
-                                   .offset = offsetof (pfcp_create_far_t,
-                                                       ipfix_policy) },
-};
-
-static struct pfcp_group_ie_def pfcp_forwarding_parameters_group[] = {
-  [FORWARDING_PARAMETERS_DESTINATION_INTERFACE] = { .type =
-                                                      PFCP_IE_DESTINATION_INTERFACE,
-                                                    .offset = offsetof (
-                                                      pfcp_forwarding_parameters_t,
-                                                      destination_interface) },
-  [FORWARDING_PARAMETERS_NETWORK_INSTANCE] = { .type =
-                                                 PFCP_IE_NETWORK_INSTANCE,
-                                               .offset = offsetof (
-                                                 pfcp_forwarding_parameters_t,
-                                                 network_instance) },
-  [FORWARDING_PARAMETERS_REDIRECT_INFORMATION] = { .type =
-                                                     PFCP_IE_REDIRECT_INFORMATION,
-                                                   .offset = offsetof (
-                                                     pfcp_forwarding_parameters_t,
-                                                     redirect_information) },
-  [FORWARDING_PARAMETERS_OUTER_HEADER_CREATION] = { .type =
-                                                      PFCP_IE_OUTER_HEADER_CREATION,
-                                                    .offset = offsetof (
-                                                      pfcp_forwarding_parameters_t,
-                                                      outer_header_creation) },
-  [FORWARDING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = { .type =
-                                                        PFCP_IE_TRANSPORT_LEVEL_MARKING,
-                                                      .offset = offsetof (
-                                                        pfcp_forwarding_parameters_t,
-                                                        transport_level_marking) },
-  [FORWARDING_PARAMETERS_FORWARDING_POLICY] = { .type =
-                                                  PFCP_IE_FORWARDING_POLICY,
-                                                .offset = offsetof (
-                                                  pfcp_forwarding_parameters_t,
-                                                  forwarding_policy) },
-  [FORWARDING_PARAMETERS_HEADER_ENRICHMENT] = { .type =
-                                                  PFCP_IE_HEADER_ENRICHMENT,
-                                                .offset = offsetof (
-                                                  pfcp_forwarding_parameters_t,
-                                                  header_enrichment) },
-  [FORWARDING_PARAMETERS_LINKED_TRAFFIC_ENDPOINT_ID] = { .type =
-                                                           PFCP_IE_TRAFFIC_ENDPOINT_ID,
-                                                         .offset = offsetof (
-                                                           pfcp_forwarding_parameters_t,
-                                                           linked_traffic_endpoint_id) },
-  [FORWARDING_PARAMETERS_PROXYING] = { .type = PFCP_IE_PROXYING,
-                                       .offset = offsetof (
-                                         pfcp_forwarding_parameters_t,
-                                         proxying) },
-  [FORWARDING_PARAMETERS_DESTINATION_INTERFACE_TYPE] = { .type =
-                                                           PFCP_IE_TGPP_INTERFACE_TYPE,
-                                                         .offset = offsetof (
-                                                           pfcp_forwarding_parameters_t,
-                                                           destination_interface_type) },
-  [FORWARDING_PARAMETERS_BBF_APPLY_ACTION] = { .type =
-                                                 PFCP_IE_BBF_APPLY_ACTION,
-                                               .vendor = VENDOR_BBF,
-                                               .offset = offsetof (
-                                                 pfcp_forwarding_parameters_t,
-                                                 bbf_apply_action) },
-  [FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK] = { .type =
-                                                   PFCP_IE_BBF_NAT_PORT_BLOCK,
-                                                 .vendor = VENDOR_BBF,
-                                                 .offset = offsetof (
-                                                   pfcp_forwarding_parameters_t,
-                                                   nat_port_block) },
-};
-
-static struct pfcp_group_ie_def pfcp_duplicating_parameters_group[] = {
-  [DUPLICATING_PARAMETERS_DESTINATION_INTERFACE] = { .type =
-                                                       PFCP_IE_DESTINATION_INTERFACE,
-                                                     .offset = offsetof (
-                                                       pfcp_duplicating_parameters_t,
-                                                       destination_interface) },
-  [DUPLICATING_PARAMETERS_OUTER_HEADER_CREATION] = { .type =
-                                                       PFCP_IE_OUTER_HEADER_CREATION,
-                                                     .offset = offsetof (
-                                                       pfcp_duplicating_parameters_t,
-                                                       outer_header_creation) },
-  [DUPLICATING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = { .type =
-                                                         PFCP_IE_TRANSPORT_LEVEL_MARKING,
-                                                       .offset = offsetof (
-                                                         pfcp_duplicating_parameters_t,
-                                                         transport_level_marking) },
-  [DUPLICATING_PARAMETERS_FORWARDING_POLICY] = { .type =
-                                                   PFCP_IE_FORWARDING_POLICY,
-                                                 .offset = offsetof (
-                                                   pfcp_duplicating_parameters_t,
-                                                   forwarding_policy) },
-};
-
-static struct pfcp_group_ie_def pfcp_create_urr_group[] = {
-  [CREATE_URR_URR_ID] = { .type = PFCP_IE_URR_ID,
-                          .offset = offsetof (pfcp_create_urr_t, urr_id) },
-  [CREATE_URR_MEASUREMENT_METHOD] = { .type = PFCP_IE_MEASUREMENT_METHOD,
-                                      .offset =
-                                        offsetof (pfcp_create_urr_t,
-                                                  measurement_method) },
-  [CREATE_URR_REPORTING_TRIGGERS] = { .type = PFCP_IE_REPORTING_TRIGGERS,
-                                      .offset =
-                                        offsetof (pfcp_create_urr_t,
-                                                  reporting_triggers) },
-  [CREATE_URR_MEASUREMENT_PERIOD] = { .type = PFCP_IE_MEASUREMENT_PERIOD,
-                                      .offset =
-                                        offsetof (pfcp_create_urr_t,
-                                                  measurement_period) },
-  [CREATE_URR_VOLUME_THRESHOLD] = { .type = PFCP_IE_VOLUME_THRESHOLD,
-                                    .offset = offsetof (pfcp_create_urr_t,
-                                                        volume_threshold) },
-  [CREATE_URR_VOLUME_QUOTA] = { .type = PFCP_IE_VOLUME_QUOTA,
-                                .offset =
-                                  offsetof (pfcp_create_urr_t, volume_quota) },
-  [CREATE_URR_TIME_THRESHOLD] = { .type = PFCP_IE_TIME_THRESHOLD,
-                                  .offset = offsetof (pfcp_create_urr_t,
-                                                      time_threshold) },
-  [CREATE_URR_TIME_QUOTA] = { .type = PFCP_IE_TIME_QUOTA,
-                              .offset =
-                                offsetof (pfcp_create_urr_t, time_quota) },
-  [CREATE_URR_QUOTA_HOLDING_TIME] = { .type = PFCP_IE_QUOTA_HOLDING_TIME,
-                                      .offset =
-                                        offsetof (pfcp_create_urr_t,
-                                                  quota_holding_time) },
-  [CREATE_URR_DROPPED_DL_TRAFFIC_THRESHOLD] = { .type =
-                                                  PFCP_IE_DROPPED_DL_TRAFFIC_THRESHOLD,
-                                                .offset = offsetof (
-                                                  pfcp_create_urr_t,
-                                                  dropped_dl_traffic_threshold) },
-  [CREATE_URR_QUOTA_VALIDITY_TIME] = { .type = PFCP_IE_QUOTA_VALIDITY_TIME,
-                                       .offset =
-                                         offsetof (pfcp_create_urr_t,
-                                                   quota_validity_time) },
-  [CREATE_URR_MONITORING_TIME] = { .type = PFCP_IE_MONITORING_TIME,
-                                   .offset = offsetof (pfcp_create_urr_t,
-                                                       monitoring_time) },
-  [CREATE_URR_SUBSEQUENT_VOLUME_THRESHOLD] = { .type =
-                                                 PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD,
-                                               .offset = offsetof (
-                                                 pfcp_create_urr_t,
-                                                 subsequent_volume_threshold) },
-  [CREATE_URR_SUBSEQUENT_TIME_THRESHOLD] = { .type =
-                                               PFCP_IE_SUBSEQUENT_TIME_THRESHOLD,
-                                             .offset = offsetof (
-                                               pfcp_create_urr_t,
-                                               subsequent_time_threshold) },
-  [CREATE_URR_INACTIVITY_DETECTION_TIME] = { .type =
-                                               PFCP_IE_INACTIVITY_DETECTION_TIME,
-                                             .offset = offsetof (
-                                               pfcp_create_urr_t,
-                                               inactivity_detection_time) },
-  [CREATE_URR_LINKED_URR_ID] = { .type = PFCP_IE_LINKED_URR_ID,
-                                 .is_array = true,
-                                 .offset = offsetof (pfcp_create_urr_t,
-                                                     linked_urr_id) },
-  [CREATE_URR_MEASUREMENT_INFORMATION] = { .type =
-                                             PFCP_IE_MEASUREMENT_INFORMATION,
-                                           .offset = offsetof (
-                                             pfcp_create_urr_t,
-                                             measurement_information) },
-  [CREATE_URR_TIME_QUOTA_MECHANISM] = { .type = PFCP_IE_TIME_QUOTA_MECHANISM,
-                                        .offset =
-                                          offsetof (pfcp_create_urr_t,
-                                                    time_quota_mechanism) },
-  [CREATE_URR_AGGREGATED_URRS] = { .type = PFCP_IE_AGGREGATED_URRS,
-                                   .offset = offsetof (pfcp_create_urr_t,
-                                                       aggregated_urrs) },
-  [CREATE_URR_FAR_ID_FOR_QUOTE_ACTION] = { .type = PFCP_IE_FAR_ID,
-                                           .offset = offsetof (
-                                             pfcp_create_urr_t,
-                                             far_id_for_quota_action) },
-  [CREATE_URR_ETHERNET_INACTIVITY_TIMER] = { .type =
-                                               PFCP_IE_ETHERNET_INACTIVITY_TIMER,
-                                             .offset = offsetof (
-                                               pfcp_create_urr_t,
-                                               ethernet_inactivity_timer) },
-  [CREATE_URR_ADDITIONAL_MONITORING_TIME] = { .type =
-                                                PFCP_IE_ADDITIONAL_MONITORING_TIME,
-                                              .is_array = true,
-                                              .offset = offsetof (
-                                                pfcp_create_urr_t,
-                                                additional_monitoring_time) },
-};
-
-static struct pfcp_group_ie_def pfcp_create_qer_group[] = {
-  [CREATE_QER_QER_ID] = { .type = PFCP_IE_QER_ID,
-                          .offset = offsetof (pfcp_create_qer_t, qer_id) },
-  [CREATE_QER_QER_CORRELATION_ID] = { .type = PFCP_IE_QER_CORRELATION_ID,
-                                      .offset =
-                                        offsetof (pfcp_create_qer_t,
-                                                  qer_correlation_id) },
-  [CREATE_QER_GATE_STATUS] = { .type = PFCP_IE_GATE_STATUS,
-                               .offset =
-                                 offsetof (pfcp_create_qer_t, gate_status) },
-  [CREATE_QER_MBR] = { .type = PFCP_IE_MBR,
-                       .offset = offsetof (pfcp_create_qer_t, mbr) },
-  [CREATE_QER_GBR] = { .type = PFCP_IE_GBR,
-                       .offset = offsetof (pfcp_create_qer_t, gbr) },
-  [CREATE_QER_PACKET_RATE] = { .type = PFCP_IE_PACKET_RATE,
-                               .offset =
-                                 offsetof (pfcp_create_qer_t, packet_rate) },
-  [CREATE_QER_DL_FLOW_LEVEL_MARKING] = { .type = PFCP_IE_DL_FLOW_LEVEL_MARKING,
-                                         .offset =
-                                           offsetof (pfcp_create_qer_t,
-                                                     dl_flow_level_marking) },
-  [CREATE_QER_QOS_FLOW_IDENTIFIER] = { .type = PFCP_IE_QFI,
-                                       .offset =
-                                         offsetof (pfcp_create_qer_t,
-                                                   qos_flow_identifier) },
-  [CREATE_QER_REFLECTIVE_QOS] = { .type = PFCP_IE_RQI,
-                                  .offset = offsetof (pfcp_create_qer_t,
-                                                      reflective_qos) },
-  [CREATE_QER_PAGING_POLICY_INDICATOR] = { .type =
-                                             PFCP_IE_PAGING_POLICY_INDICATOR,
-                                           .offset = offsetof (
-                                             pfcp_create_qer_t,
-                                             paging_policy_indicator) },
-  [CREATE_QER_AVERAGING_WINDOW] = { .type = PFCP_IE_AVERAGING_WINDOW,
-                                    .offset = offsetof (pfcp_create_qer_t,
-                                                        averaging_window) },
-};
-
-static struct pfcp_group_ie_def pfcp_created_pdr_group[] = {
-  [CREATED_PDR_PDR_ID] = { .type = PFCP_IE_PDR_ID,
-                           .offset = offsetof (pfcp_created_pdr_t, pdr_id) },
-  [CREATED_PDR_F_TEID] = { .type = PFCP_IE_F_TEID,
-                           .offset = offsetof (pfcp_created_pdr_t, f_teid) },
-  [CREATED_PDR_UE_IP_ADDRESS] = { .type = PFCP_IE_UE_IP_ADDRESS,
-                                  .offset = offsetof (pfcp_created_pdr_t,
-                                                      ue_ip_address) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_pdr_group[] = {
-  [UPDATE_PDR_PDR_ID] = { .type = PFCP_IE_PDR_ID,
-                          .offset = offsetof (pfcp_update_pdr_t, pdr_id) },
-  [UPDATE_PDR_OUTER_HEADER_REMOVAL] = { .type = PFCP_IE_OUTER_HEADER_REMOVAL,
-                                        .offset =
-                                          offsetof (pfcp_update_pdr_t,
-                                                    outer_header_removal) },
-  [UPDATE_PDR_PRECEDENCE] = { .type = PFCP_IE_PRECEDENCE,
-                              .offset =
-                                offsetof (pfcp_update_pdr_t, precedence) },
-  [UPDATE_PDR_PDI] = { .type = PFCP_IE_PDI,
-                       .offset = offsetof (pfcp_update_pdr_t, pdi) },
-  [UPDATE_PDR_FAR_ID] = { .type = PFCP_IE_FAR_ID,
-                          .offset = offsetof (pfcp_update_pdr_t, far_id) },
-  [UPDATE_PDR_URR_ID] = { .type = PFCP_IE_URR_ID,
-                          .is_array = true,
-                          .offset = offsetof (pfcp_update_pdr_t, urr_id) },
-  [UPDATE_PDR_QER_ID] = { .type = PFCP_IE_QER_ID,
-                          .is_array = true,
-                          .offset = offsetof (pfcp_update_pdr_t, qer_id) },
-  [UPDATE_PDR_ACTIVATE_PREDEFINED_RULES] = { .type =
-                                               PFCP_IE_ACTIVATE_PREDEFINED_RULES,
-                                             .offset = offsetof (
-                                               pfcp_update_pdr_t,
-                                               activate_predefined_rules) },
-  [UPDATE_PDR_DEACTIVATE_PREDEFINED_RULES] = { .type =
-                                                 PFCP_IE_DEACTIVATE_PREDEFINED_RULES,
-                                               .offset = offsetof (
-                                                 pfcp_update_pdr_t,
-                                                 deactivate_predefined_rules) },
-  [UPDATE_PDR_ACTIVATION_TIME] = { .type = PFCP_IE_ACTIVATION_TIME,
-                                   .offset = offsetof (pfcp_update_pdr_t,
-                                                       activation_time) },
-  [UPDATE_PDR_DEACTIVATION_TIME] = { .type = PFCP_IE_DEACTIVATION_TIME,
-                                     .offset = offsetof (pfcp_update_pdr_t,
-                                                         deactivation_time) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_far_group[] = {
-  [UPDATE_FAR_FAR_ID] = { .type = PFCP_IE_FAR_ID,
-                          .offset = offsetof (pfcp_update_far_t, far_id) },
-  [UPDATE_FAR_APPLY_ACTION] = { .type = PFCP_IE_APPLY_ACTION,
-                                .offset =
-                                  offsetof (pfcp_update_far_t, apply_action) },
-  [UPDATE_FAR_UPDATE_FORWARDING_PARAMETERS] = { .type =
-                                                  PFCP_IE_UPDATE_FORWARDING_PARAMETERS,
-                                                .offset = offsetof (
-                                                  pfcp_update_far_t,
-                                                  update_forwarding_parameters) },
-  [UPDATE_FAR_UPDATE_DUPLICATING_PARAMETERS] = { .type =
-                                                   PFCP_IE_UPDATE_DUPLICATING_PARAMETERS,
-                                                 .offset = offsetof (
-                                                   pfcp_update_far_t,
-                                                   update_duplicating_parameters) },
-  [UPDATE_FAR_BAR_ID] = { .type = PFCP_IE_BAR_ID,
-                          .offset = offsetof (pfcp_update_far_t, bar_id) },
-  [UPDATE_FAR_TP_IPFIX_POLICY] = { .type = PFCP_IE_TP_IPFIX_POLICY,
-                                   .vendor = VENDOR_TRAVELPING,
-                                   .offset = offsetof (pfcp_update_far_t,
-                                                       ipfix_policy) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_forwarding_parameters_group[] = {
-  [UPDATE_FORWARDING_PARAMETERS_DESTINATION_INTERFACE] = { .type =
-                                                             PFCP_IE_DESTINATION_INTERFACE,
-                                                           .offset = offsetof (
-                                                             pfcp_update_forwarding_parameters_t,
-                                                             destination_interface) },
-  [UPDATE_FORWARDING_PARAMETERS_NETWORK_INSTANCE] = { .type =
-                                                        PFCP_IE_NETWORK_INSTANCE,
-                                                      .offset = offsetof (
-                                                        pfcp_update_forwarding_parameters_t,
-                                                        network_instance) },
-  [UPDATE_FORWARDING_PARAMETERS_REDIRECT_INFORMATION] = { .type =
-                                                            PFCP_IE_REDIRECT_INFORMATION,
-                                                          .offset = offsetof (
-                                                            pfcp_update_forwarding_parameters_t,
-                                                            redirect_information) },
-  [UPDATE_FORWARDING_PARAMETERS_OUTER_HEADER_CREATION] = { .type =
-                                                             PFCP_IE_OUTER_HEADER_CREATION,
-                                                           .offset = offsetof (
-                                                             pfcp_update_forwarding_parameters_t,
-                                                             outer_header_creation) },
-  [UPDATE_FORWARDING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = { .type =
-                                                               PFCP_IE_TRANSPORT_LEVEL_MARKING,
-                                                             .offset = offsetof (
-                                                               pfcp_update_forwarding_parameters_t,
-                                                               transport_level_marking) },
-  [UPDATE_FORWARDING_PARAMETERS_FORWARDING_POLICY] = { .type =
-                                                         PFCP_IE_FORWARDING_POLICY,
-                                                       .offset = offsetof (
-                                                         pfcp_update_forwarding_parameters_t,
-                                                         forwarding_policy) },
-  [UPDATE_FORWARDING_PARAMETERS_HEADER_ENRICHMENT] = { .type =
-                                                         PFCP_IE_HEADER_ENRICHMENT,
-                                                       .offset = offsetof (
-                                                         pfcp_update_forwarding_parameters_t,
-                                                         header_enrichment) },
-  [UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS] = { .type =
-                                                       PFCP_IE_PFCPSMREQ_FLAGS,
-                                                     .offset = offsetof (
-                                                       pfcp_update_forwarding_parameters_t,
-                                                       pfcpsmreq_flags) },
-  [UPDATE_FORWARDING_PARAMETERS_LINKED_TRAFFIC_ENDPOINT_ID] = { .type =
-                                                                  PFCP_IE_TRAFFIC_ENDPOINT_ID,
-                                                                .offset = offsetof (
-                                                                  pfcp_update_forwarding_parameters_t,
-                                                                  linked_traffic_endpoint_id) },
-  [UPDATE_FORWARDING_PARAMETERS_DESTINATION_INTERFACE_TYPE] = { .type =
-                                                                  PFCP_IE_TGPP_INTERFACE_TYPE,
-                                                                .offset = offsetof (
-                                                                  pfcp_update_forwarding_parameters_t,
-                                                                  destination_interface_type) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_bar_response_group[] = {
-  [UPDATE_BAR_RESPONSE_BAR_ID] = { .type = PFCP_IE_BAR_ID,
-                                   .offset = offsetof (
-                                     pfcp_update_bar_response_t, bar_id) },
-  [UPDATE_BAR_RESPONSE_DOWNLINK_DATA_NOTIFICATION_DELAY] = { .type =
-                                                               PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY,
-                                                             .offset = offsetof (
-                                                               pfcp_update_bar_response_t,
-                                                               downlink_data_notification_delay) },
-  [UPDATE_BAR_RESPONSE_DL_BUFFERING_DURATION] = { .type =
-                                                    PFCP_IE_DL_BUFFERING_DURATION,
-                                                  .offset = offsetof (
-                                                    pfcp_update_bar_response_t,
-                                                    dl_buffering_duration) },
-  [UPDATE_BAR_RESPONSE_DL_BUFFERING_SUGGESTED_PACKET_COUNT] = { .type =
-                                                                  PFCP_IE_DL_BUFFERING_SUGGESTED_PACKET_COUNT,
-                                                                .offset = offsetof (
-                                                                  pfcp_update_bar_response_t,
-                                                                  dl_buffering_suggested_packet_count) },
-  [UPDATE_BAR_RESPONSE_SUGGESTED_BUFFERING_PACKETS_COUNT] = { .type =
-                                                                PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT,
-                                                              .offset = offsetof (
-                                                                pfcp_update_bar_response_t,
-                                                                suggested_buffering_packets_count) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_urr_group[] = {
-  [UPDATE_URR_URR_ID] = { .type = PFCP_IE_URR_ID,
-                          .offset = offsetof (pfcp_update_urr_t, urr_id) },
-  [UPDATE_URR_MEASUREMENT_METHOD] = { .type = PFCP_IE_MEASUREMENT_METHOD,
-                                      .offset =
-                                        offsetof (pfcp_update_urr_t,
-                                                  measurement_method) },
-  [UPDATE_URR_REPORTING_TRIGGERS] = { .type = PFCP_IE_REPORTING_TRIGGERS,
-                                      .offset =
-                                        offsetof (pfcp_update_urr_t,
-                                                  reporting_triggers) },
-  [UPDATE_URR_MEASUREMENT_PERIOD] = { .type = PFCP_IE_MEASUREMENT_PERIOD,
-                                      .offset =
-                                        offsetof (pfcp_update_urr_t,
-                                                  measurement_period) },
-  [UPDATE_URR_VOLUME_THRESHOLD] = { .type = PFCP_IE_VOLUME_THRESHOLD,
-                                    .offset = offsetof (pfcp_update_urr_t,
-                                                        volume_threshold) },
-  [UPDATE_URR_VOLUME_QUOTA] = { .type = PFCP_IE_VOLUME_QUOTA,
-                                .offset =
-                                  offsetof (pfcp_update_urr_t, volume_quota) },
-  [UPDATE_URR_TIME_THRESHOLD] = { .type = PFCP_IE_TIME_THRESHOLD,
-                                  .offset = offsetof (pfcp_update_urr_t,
-                                                      time_threshold) },
-  [UPDATE_URR_TIME_QUOTA] = { .type = PFCP_IE_TIME_QUOTA,
-                              .offset =
-                                offsetof (pfcp_update_urr_t, time_quota) },
-  [UPDATE_URR_QUOTA_HOLDING_TIME] = { .type = PFCP_IE_QUOTA_HOLDING_TIME,
-                                      .offset =
-                                        offsetof (pfcp_update_urr_t,
-                                                  quota_holding_time) },
-  [UPDATE_URR_DROPPED_DL_TRAFFIC_THRESHOLD] = { .type =
-                                                  PFCP_IE_DROPPED_DL_TRAFFIC_THRESHOLD,
-                                                .offset = offsetof (
-                                                  pfcp_update_urr_t,
-                                                  dropped_dl_traffic_threshold) },
-  [UPDATE_URR_QUOTA_VALIDITY_TIME] = { .type = PFCP_IE_QUOTA_VALIDITY_TIME,
-                                       .offset =
-                                         offsetof (pfcp_update_urr_t,
-                                                   quota_validity_time) },
-  [UPDATE_URR_MONITORING_TIME] = { .type = PFCP_IE_MONITORING_TIME,
-                                   .offset = offsetof (pfcp_update_urr_t,
-                                                       monitoring_time) },
-  [UPDATE_URR_SUBSEQUENT_VOLUME_THRESHOLD] = { .type =
-                                                 PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD,
-                                               .offset = offsetof (
-                                                 pfcp_update_urr_t,
-                                                 subsequent_volume_threshold) },
-  [UPDATE_URR_SUBSEQUENT_TIME_THRESHOLD] = { .type =
-                                               PFCP_IE_SUBSEQUENT_TIME_THRESHOLD,
-                                             .offset = offsetof (
-                                               pfcp_update_urr_t,
-                                               subsequent_time_threshold) },
-  [UPDATE_URR_INACTIVITY_DETECTION_TIME] = { .type =
-                                               PFCP_IE_INACTIVITY_DETECTION_TIME,
-                                             .offset = offsetof (
-                                               pfcp_update_urr_t,
-                                               inactivity_detection_time) },
-  [UPDATE_URR_LINKED_URR_ID] = { .type = PFCP_IE_LINKED_URR_ID,
-                                 .is_array = true,
-                                 .offset = offsetof (pfcp_update_urr_t,
-                                                     linked_urr_id) },
-  [UPDATE_URR_MEASUREMENT_INFORMATION] = { .type =
-                                             PFCP_IE_MEASUREMENT_INFORMATION,
-                                           .offset = offsetof (
-                                             pfcp_update_urr_t,
-                                             measurement_information) },
-  [UPDATE_URR_TIME_QUOTA_MECHANISM] = { .type = PFCP_IE_TIME_QUOTA_MECHANISM,
-                                        .offset =
-                                          offsetof (pfcp_update_urr_t,
-                                                    time_quota_mechanism) },
-  [UPDATE_URR_AGGREGATED_URRS] = { .type = PFCP_IE_AGGREGATED_URRS,
-                                   .offset = offsetof (pfcp_update_urr_t,
-                                                       aggregated_urrs) },
-  [UPDATE_URR_FAR_ID_FOR_QUOTE_ACTION] = { .type = PFCP_IE_FAR_ID,
-                                           .offset = offsetof (
-                                             pfcp_update_urr_t,
-                                             far_id_for_quota_action) },
-  [UPDATE_URR_ETHERNET_INACTIVITY_TIMER] = { .type =
-                                               PFCP_IE_ETHERNET_INACTIVITY_TIMER,
-                                             .offset = offsetof (
-                                               pfcp_update_urr_t,
-                                               ethernet_inactivity_timer) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_qer_group[] = {
-  [UPDATE_QER_QER_ID] = { .type = PFCP_IE_QER_ID,
-                          .offset = offsetof (pfcp_update_qer_t, qer_id) },
-  [UPDATE_QER_QER_CORRELATION_ID] = { .type = PFCP_IE_QER_CORRELATION_ID,
-                                      .offset =
-                                        offsetof (pfcp_update_qer_t,
-                                                  qer_correlation_id) },
-  [UPDATE_QER_GATE_STATUS] = { .type = PFCP_IE_GATE_STATUS,
-                               .offset =
-                                 offsetof (pfcp_update_qer_t, gate_status) },
-  [UPDATE_QER_MBR] = { .type = PFCP_IE_MBR,
-                       .offset = offsetof (pfcp_update_qer_t, mbr) },
-  [UPDATE_QER_GBR] = { .type = PFCP_IE_GBR,
-                       .offset = offsetof (pfcp_update_qer_t, gbr) },
-  [UPDATE_QER_PACKET_RATE] = { .type = PFCP_IE_PACKET_RATE,
-                               .offset =
-                                 offsetof (pfcp_update_qer_t, packet_rate) },
-  [UPDATE_QER_DL_FLOW_LEVEL_MARKING] = { .type = PFCP_IE_DL_FLOW_LEVEL_MARKING,
-                                         .offset =
-                                           offsetof (pfcp_update_qer_t,
-                                                     dl_flow_level_marking) },
-  [UPDATE_QER_QOS_FLOW_IDENTIFIER] = { .type = PFCP_IE_QFI,
-                                       .offset =
-                                         offsetof (pfcp_update_qer_t,
-                                                   qos_flow_identifier) },
-  [UPDATE_QER_REFLECTIVE_QOS] = { .type = PFCP_IE_RQI,
-                                  .offset = offsetof (pfcp_update_qer_t,
-                                                      reflective_qos) },
-  [UPDATE_QER_PAGING_POLICY_INDICATOR] = { .type =
-                                             PFCP_IE_PAGING_POLICY_INDICATOR,
-                                           .offset = offsetof (
-                                             pfcp_update_qer_t,
-                                             paging_policy_indicator) },
-  [UPDATE_QER_AVERAGING_WINDOW] = { .type = PFCP_IE_AVERAGING_WINDOW,
-                                    .offset = offsetof (pfcp_update_qer_t,
-                                                        averaging_window) },
-};
-
-static struct pfcp_group_ie_def pfcp_remove_pdr_group[] = {
-  [REMOVE_PDR_PDR_ID] = { .type = PFCP_IE_PDR_ID,
-                          .offset = offsetof (pfcp_remove_pdr_t, pdr_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_remove_far_group[] = {
-  [REMOVE_FAR_FAR_ID] = { .type = PFCP_IE_FAR_ID,
-                          .offset = offsetof (pfcp_remove_far_t, far_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_remove_urr_group[] = {
-  [REMOVE_URR_URR_ID] = { .type = PFCP_IE_URR_ID,
-                          .offset = offsetof (pfcp_remove_urr_t, urr_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_remove_qer_group[] = {
-  [REMOVE_QER_QER_ID] = { .type = PFCP_IE_QER_ID,
-                          .offset = offsetof (pfcp_remove_qer_t, qer_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_load_control_information_group[] = {
-  [LOAD_CONTROL_INFORMATION_SEQUENCE_NUMBER] = { .type =
-                                                   PFCP_IE_SEQUENCE_NUMBER,
-                                                 .offset = offsetof (
-                                                   pfcp_load_control_information_t,
-                                                   sequence_number) },
-  [LOAD_CONTROL_INFORMATION_METRIC] = { .type = PFCP_IE_METRIC,
-                                        .offset = offsetof (
-                                          pfcp_load_control_information_t,
-                                          metric) },
-};
-
-static struct pfcp_group_ie_def pfcp_overload_control_information_group[] = {
-  [OVERLOAD_CONTROL_INFORMATION_SEQUENCE_NUMBER] = { .type =
-                                                       PFCP_IE_SEQUENCE_NUMBER,
-                                                     .offset = offsetof (
-                                                       pfcp_overload_control_information_t,
-                                                       sequence_number) },
-  [OVERLOAD_CONTROL_INFORMATION_METRIC] = { .type = PFCP_IE_METRIC,
-                                            .offset = offsetof (
-                                              pfcp_overload_control_information_t,
-                                              metric) },
-  [OVERLOAD_CONTROL_INFORMATION_TIMER] = { .type = PFCP_IE_TIMER,
-                                           .offset = offsetof (
-                                             pfcp_overload_control_information_t,
-                                             timer) },
-  [OVERLOAD_CONTROL_INFORMATION_OCI_FLAGS] = { .type = PFCP_IE_OCI_FLAGS,
-                                               .offset = offsetof (
-                                                 pfcp_overload_control_information_t,
-                                                 oci_flags) },
-};
-
-static struct pfcp_group_ie_def pfcp_application_id_pfds_group[] = {
-  [APPLICATION_ID_PFDS_APPLICATION_ID] = { .type = PFCP_IE_APPLICATION_ID,
-                                           .offset = offsetof (
-                                             pfcp_application_id_pfds_t,
-                                             application_id) },
-  [APPLICATION_ID_PFDS_PFD] = { .type = PFCP_IE_PFD,
-                                .is_array = true,
-                                .offset =
-                                  offsetof (pfcp_application_id_pfds_t, pfd) },
-};
-
-static struct pfcp_group_ie_def pfcp_pfd_group[] = {
-  [PFD_PFD_CONTENTS] = { .type = PFCP_IE_PFD_CONTENTS,
-                         .is_array = true,
-                         .offset = offsetof (pfcp_pfd_t, pfd_contents) },
-};
-
-static struct pfcp_group_ie_def pfcp_application_detection_information_group[] = {
-  [APPLICATION_DETECTION_INFORMATION_APPLICATION_ID] = { .type =
-                                                           PFCP_IE_APPLICATION_ID,
-                                                         .offset = offsetof (
-                                                           pfcp_application_detection_information_t,
-                                                           application_id) },
-  [APPLICATION_DETECTION_INFORMATION_APPLICATION_INSTANCE_ID] = { .type =
-                                                                    PFCP_IE_APPLICATION_INSTANCE_ID,
-                                                                  .offset = offsetof (
-                                                                    pfcp_application_detection_information_t,
-                                                                    application_instance_id) },
-  [APPLICATION_DETECTION_INFORMATION_FLOW_INFORMATION] = { .type =
-                                                             PFCP_IE_FLOW_INFORMATION,
-                                                           .offset = offsetof (
-                                                             pfcp_application_detection_information_t,
-                                                             flow_information) },
-};
-
-static struct pfcp_group_ie_def pfcp_query_urr_group[] = {
-  [QUERY_URR_URR_ID] = { .type = PFCP_IE_URR_ID,
-                         .offset = offsetof (pfcp_query_urr_t, urr_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_usage_report_smr_group[] = {
-  [USAGE_REPORT_URR_ID] = { .type = PFCP_IE_URR_ID,
-                            .offset = offsetof (pfcp_usage_report_t, urr_id) },
-  [USAGE_REPORT_UR_SEQN] = { .type = PFCP_IE_UR_SEQN,
-                             .offset =
-                               offsetof (pfcp_usage_report_t, ur_seqn) },
-  [USAGE_REPORT_USAGE_REPORT_TRIGGER] = { .type = PFCP_IE_USAGE_REPORT_TRIGGER,
-                                          .offset =
-                                            offsetof (pfcp_usage_report_t,
-                                                      usage_report_trigger) },
-  [USAGE_REPORT_START_TIME] = { .type = PFCP_IE_START_TIME,
-                                .offset =
-                                  offsetof (pfcp_usage_report_t, start_time) },
-  [USAGE_REPORT_END_TIME] = { .type = PFCP_IE_END_TIME,
-                              .offset =
-                                offsetof (pfcp_usage_report_t, end_time) },
-  [USAGE_REPORT_VOLUME_MEASUREMENT] = { .type = PFCP_IE_VOLUME_MEASUREMENT,
-                                        .offset =
-                                          offsetof (pfcp_usage_report_t,
-                                                    volume_measurement) },
-  [USAGE_REPORT_DURATION_MEASUREMENT] = { .type = PFCP_IE_DURATION_MEASUREMENT,
-                                          .offset =
-                                            offsetof (pfcp_usage_report_t,
-                                                      duration_measurement) },
-  [USAGE_REPORT_TIME_OF_FIRST_PACKET] = { .type = PFCP_IE_TIME_OF_FIRST_PACKET,
-                                          .offset =
-                                            offsetof (pfcp_usage_report_t,
-                                                      time_of_first_packet) },
-  [USAGE_REPORT_TIME_OF_LAST_PACKET] = { .type = PFCP_IE_TIME_OF_LAST_PACKET,
-                                         .offset =
-                                           offsetof (pfcp_usage_report_t,
-                                                     time_of_last_packet) },
-  [USAGE_REPORT_USAGE_INFORMATION] = { .type = PFCP_IE_USAGE_INFORMATION,
-                                       .offset =
-                                         offsetof (pfcp_usage_report_t,
-                                                   usage_information) },
-  [USAGE_REPORT_QUERY_URR_REFERENCE] = { .type = PFCP_IE_QUERY_URR_REFERENCE,
-                                         .offset =
-                                           offsetof (pfcp_usage_report_t,
-                                                     query_urr_reference) },
-  [USAGE_REPORT_EVENT_TIME_STAMP] = { .type = PFCP_IE_EVENT_TIME_STAMP,
-                                      .is_array = true,
-                                      .offset = offsetof (pfcp_usage_report_t,
-                                                          event_time_stamp) },
-  [USAGE_REPORT_ETHERNET_TRAFFIC_INFORMATION] = { .type =
-                                                    PFCP_IE_ETHERNET_TRAFFIC_INFORMATION,
-                                                  .offset = offsetof (
-                                                    pfcp_usage_report_t,
-                                                    ethernet_traffic_information) },
-  [USAGE_REPORT_TP_NOW] = { .type = PFCP_IE_TP_NOW,
-                            .vendor = VENDOR_TRAVELPING,
-                            .offset = offsetof (pfcp_usage_report_t, tp_now) },
-  [USAGE_REPORT_TP_START_TIME] = { .type = PFCP_IE_TP_START_TIME,
-                                   .vendor = VENDOR_TRAVELPING,
-                                   .offset = offsetof (pfcp_usage_report_t,
-                                                       tp_start_time) },
-  [USAGE_REPORT_TP_END_TIME] = { .type = PFCP_IE_TP_END_TIME,
-                                 .vendor = VENDOR_TRAVELPING,
-                                 .offset = offsetof (pfcp_usage_report_t,
-                                                     tp_end_time) },
-};
-
-static struct pfcp_group_ie_def pfcp_usage_report_sdr_group[] = {
-  [USAGE_REPORT_URR_ID] = { .type = PFCP_IE_URR_ID,
-                            .offset = offsetof (pfcp_usage_report_t, urr_id) },
-  [USAGE_REPORT_UR_SEQN] = { .type = PFCP_IE_UR_SEQN,
-                             .offset =
-                               offsetof (pfcp_usage_report_t, ur_seqn) },
-  [USAGE_REPORT_USAGE_REPORT_TRIGGER] = { .type = PFCP_IE_USAGE_REPORT_TRIGGER,
-                                          .offset =
-                                            offsetof (pfcp_usage_report_t,
-                                                      usage_report_trigger) },
-  [USAGE_REPORT_START_TIME] = { .type = PFCP_IE_START_TIME,
-                                .offset =
-                                  offsetof (pfcp_usage_report_t, start_time) },
-  [USAGE_REPORT_END_TIME] = { .type = PFCP_IE_END_TIME,
-                              .offset =
-                                offsetof (pfcp_usage_report_t, end_time) },
-  [USAGE_REPORT_VOLUME_MEASUREMENT] = { .type = PFCP_IE_VOLUME_MEASUREMENT,
-                                        .offset =
-                                          offsetof (pfcp_usage_report_t,
-                                                    volume_measurement) },
-  [USAGE_REPORT_DURATION_MEASUREMENT] = { .type = PFCP_IE_DURATION_MEASUREMENT,
-                                          .offset =
-                                            offsetof (pfcp_usage_report_t,
-                                                      duration_measurement) },
-  [USAGE_REPORT_TIME_OF_FIRST_PACKET] = { .type = PFCP_IE_TIME_OF_FIRST_PACKET,
-                                          .offset =
-                                            offsetof (pfcp_usage_report_t,
-                                                      time_of_first_packet) },
-  [USAGE_REPORT_TIME_OF_LAST_PACKET] = { .type = PFCP_IE_TIME_OF_LAST_PACKET,
-                                         .offset =
-                                           offsetof (pfcp_usage_report_t,
-                                                     time_of_last_packet) },
-  [USAGE_REPORT_USAGE_INFORMATION] = { .type = PFCP_IE_USAGE_INFORMATION,
-                                       .offset =
-                                         offsetof (pfcp_usage_report_t,
-                                                   usage_information) },
-  [USAGE_REPORT_ETHERNET_TRAFFIC_INFORMATION] = { .type =
-                                                    PFCP_IE_ETHERNET_TRAFFIC_INFORMATION,
-                                                  .offset = offsetof (
-                                                    pfcp_usage_report_t,
-                                                    ethernet_traffic_information) },
-  [USAGE_REPORT_TP_NOW] = { .type = PFCP_IE_TP_NOW,
-                            .vendor = VENDOR_TRAVELPING,
-                            .offset = offsetof (pfcp_usage_report_t, tp_now) },
-  [USAGE_REPORT_TP_START_TIME] = { .type = PFCP_IE_TP_START_TIME,
-                                   .vendor = VENDOR_TRAVELPING,
-                                   .offset = offsetof (pfcp_usage_report_t,
-                                                       tp_start_time) },
-  [USAGE_REPORT_TP_END_TIME] = { .type = PFCP_IE_TP_END_TIME,
-                                 .vendor = VENDOR_TRAVELPING,
-                                 .offset = offsetof (pfcp_usage_report_t,
-                                                     tp_end_time) },
-};
-
-static struct pfcp_group_ie_def pfcp_usage_report_srr_group[] = {
-  [USAGE_REPORT_URR_ID] = { .type = PFCP_IE_URR_ID,
-                            .offset = offsetof (pfcp_usage_report_t, urr_id) },
-  [USAGE_REPORT_UR_SEQN] = { .type = PFCP_IE_UR_SEQN,
-                             .offset =
-                               offsetof (pfcp_usage_report_t, ur_seqn) },
-  [USAGE_REPORT_USAGE_REPORT_TRIGGER] = { .type = PFCP_IE_USAGE_REPORT_TRIGGER,
-                                          .offset =
-                                            offsetof (pfcp_usage_report_t,
-                                                      usage_report_trigger) },
-  [USAGE_REPORT_START_TIME] = { .type = PFCP_IE_START_TIME,
-                                .offset =
-                                  offsetof (pfcp_usage_report_t, start_time) },
-  [USAGE_REPORT_END_TIME] = { .type = PFCP_IE_END_TIME,
-                              .offset =
-                                offsetof (pfcp_usage_report_t, end_time) },
-  [USAGE_REPORT_VOLUME_MEASUREMENT] = { .type = PFCP_IE_VOLUME_MEASUREMENT,
-                                        .offset =
-                                          offsetof (pfcp_usage_report_t,
-                                                    volume_measurement) },
-  [USAGE_REPORT_DURATION_MEASUREMENT] = { .type = PFCP_IE_DURATION_MEASUREMENT,
-                                          .offset =
-                                            offsetof (pfcp_usage_report_t,
-                                                      duration_measurement) },
-  [USAGE_REPORT_APPLICATION_DETECTION_INFORMATION] = { .type =
-                                                         PFCP_IE_APPLICATION_DETECTION_INFORMATION,
-                                                       .offset = offsetof (
-                                                         pfcp_usage_report_t,
-                                                         application_detection_information) },
-  [USAGE_REPORT_UE_IP_ADDRESS] = { .type = PFCP_IE_UE_IP_ADDRESS,
-                                   .offset = offsetof (pfcp_usage_report_t,
-                                                       ue_ip_address) },
-  [USAGE_REPORT_NETWORK_INSTANCE] = { .type = PFCP_IE_NETWORK_INSTANCE,
-                                      .offset = offsetof (pfcp_usage_report_t,
-                                                          network_instance) },
-  [USAGE_REPORT_TIME_OF_FIRST_PACKET] = { .type = PFCP_IE_TIME_OF_FIRST_PACKET,
-                                          .offset =
-                                            offsetof (pfcp_usage_report_t,
-                                                      time_of_first_packet) },
-  [USAGE_REPORT_TIME_OF_LAST_PACKET] = { .type = PFCP_IE_TIME_OF_LAST_PACKET,
-                                         .offset =
-                                           offsetof (pfcp_usage_report_t,
-                                                     time_of_last_packet) },
-  [USAGE_REPORT_USAGE_INFORMATION] = { .type = PFCP_IE_USAGE_INFORMATION,
-                                       .offset =
-                                         offsetof (pfcp_usage_report_t,
-                                                   usage_information) },
-  [USAGE_REPORT_QUERY_URR_REFERENCE] = { .type = PFCP_IE_QUERY_URR_REFERENCE,
-                                         .offset =
-                                           offsetof (pfcp_usage_report_t,
-                                                     query_urr_reference) },
-  [USAGE_REPORT_ETHERNET_TRAFFIC_INFORMATION] = { .type =
-                                                    PFCP_IE_ETHERNET_TRAFFIC_INFORMATION,
-                                                  .offset = offsetof (
-                                                    pfcp_usage_report_t,
-                                                    ethernet_traffic_information) },
-  [USAGE_REPORT_TP_NOW] = { .type = PFCP_IE_TP_NOW,
-                            .vendor = VENDOR_TRAVELPING,
-                            .offset = offsetof (pfcp_usage_report_t, tp_now) },
-  [USAGE_REPORT_TP_START_TIME] = { .type = PFCP_IE_TP_START_TIME,
-                                   .vendor = VENDOR_TRAVELPING,
-                                   .offset = offsetof (pfcp_usage_report_t,
-                                                       tp_start_time) },
-  [USAGE_REPORT_TP_END_TIME] = { .type = PFCP_IE_TP_END_TIME,
-                                 .vendor = VENDOR_TRAVELPING,
-                                 .offset = offsetof (pfcp_usage_report_t,
-                                                     tp_end_time) },
-};
-
-static struct pfcp_group_ie_def pfcp_downlink_data_report_group[] = {
-  [DOWNLINK_DATA_REPORT_PDR_ID] = { .type = PFCP_IE_PDR_ID,
-                                    .is_array = true,
-                                    .offset = offsetof (
-                                      pfcp_downlink_data_report_t, pdr_id) },
-  [DOWNLINK_DATA_REPORT_DOWNLINK_DATA_SERVICE_INFORMATION] = { .type =
-                                                                 PFCP_IE_DOWNLINK_DATA_SERVICE_INFORMATION,
-                                                               .is_array =
-                                                                 true,
-                                                               .offset = offsetof (
-                                                                 pfcp_downlink_data_report_t,
-                                                                 downlink_data_service_information) },
-};
-
-static struct pfcp_group_ie_def pfcp_create_bar_group[] = {
-  [CREATE_BAR_BAR_ID] = { .type = PFCP_IE_BAR_ID,
-                          .offset = offsetof (pfcp_create_bar_t, bar_id) },
-  [CREATE_BAR_DOWNLINK_DATA_NOTIFICATION_DELAY] = { .type =
-                                                      PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY,
-                                                    .offset = offsetof (
-                                                      pfcp_create_bar_t,
-                                                      downlink_data_notification_delay) },
-  [CREATE_BAR_SUGGESTED_BUFFERING_PACKETS_COUNT] = { .type =
-                                                       PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT,
-                                                     .offset = offsetof (
-                                                       pfcp_create_bar_t,
-                                                       suggested_buffering_packets_count) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_bar_request_group[] = {
-  [UPDATE_BAR_REQUEST_BAR_ID] = { .type = PFCP_IE_BAR_ID,
-                                  .offset = offsetof (
-                                    pfcp_update_bar_request_t, bar_id) },
-  [UPDATE_BAR_REQUEST_DOWNLINK_DATA_NOTIFICATION_DELAY] = { .type =
-                                                              PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY,
-                                                            .offset = offsetof (
-                                                              pfcp_update_bar_request_t,
-                                                              downlink_data_notification_delay) },
-  [UPDATE_BAR_REQUEST_SUGGESTED_BUFFERING_PACKETS_COUNT] = { .type =
-                                                               PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT,
-                                                             .offset = offsetof (
-                                                               pfcp_update_bar_request_t,
-                                                               suggested_buffering_packets_count) },
-};
-
-static struct pfcp_group_ie_def pfcp_remove_bar_group[] = {
-  [REMOVE_BAR_BAR_ID] = { .type = PFCP_IE_BAR_ID,
-                          .offset = offsetof (pfcp_remove_bar_t, bar_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_error_indication_report_group[] = {
-  [ERROR_INDICATION_REPORT_F_TEID] = { .type = PFCP_IE_F_TEID,
-                                       .is_array = true,
-                                       .offset = offsetof (
-                                         pfcp_error_indication_report_t,
-                                         f_teid) },
-};
-
-static struct pfcp_group_ie_def pfcp_user_plane_path_failure_report_group[] = {
-  [USER_PLANE_PATH_FAILURE_REPORT_REMOTE_GTP_U_PEER] = { .type =
-                                                           PFCP_IE_REMOTE_GTP_U_PEER,
-                                                         .is_array = true,
-                                                         .offset = offsetof (
-                                                           pfcp_user_plane_path_failure_report_t,
-                                                           remote_gtp_u_peer) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_duplicating_parameters_group[] = {
-  [UPDATE_DUPLICATING_PARAMETERS_DESTINATION_INTERFACE] = { .type =
-                                                              PFCP_IE_DESTINATION_INTERFACE,
-                                                            .offset = offsetof (
-                                                              pfcp_update_duplicating_parameters_t,
-                                                              destination_interface) },
-  [UPDATE_DUPLICATING_PARAMETERS_OUTER_HEADER_CREATION] = { .type =
-                                                              PFCP_IE_OUTER_HEADER_CREATION,
-                                                            .offset = offsetof (
-                                                              pfcp_update_duplicating_parameters_t,
-                                                              outer_header_creation) },
-  [UPDATE_DUPLICATING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = { .type =
-                                                                PFCP_IE_TRANSPORT_LEVEL_MARKING,
-                                                              .offset = offsetof (
-                                                                pfcp_update_duplicating_parameters_t,
-                                                                transport_level_marking) },
-  [UPDATE_DUPLICATING_PARAMETERS_FORWARDING_POLICY] = { .type =
-                                                          PFCP_IE_FORWARDING_POLICY,
-                                                        .offset = offsetof (
-                                                          pfcp_update_duplicating_parameters_t,
-                                                          forwarding_policy) },
-};
-
-static struct pfcp_group_ie_def pfcp_aggregated_urrs_group[] = {
-  [AGGREGATED_URRS_AGGREGATED_URR_ID] = { .type = PFCP_IE_AGGREGATED_URR_ID,
-                                          .offset =
-                                            offsetof (pfcp_aggregated_urrs_t,
-                                                      aggregated_urr_id) },
-  [AGGREGATED_URRS_MULTIPLIER] = { .type = PFCP_IE_MULTIPLIER,
-                                   .offset = offsetof (pfcp_aggregated_urrs_t,
-                                                       multiplier) },
-};
-
-static struct pfcp_group_ie_def pfcp_create_traffic_endpoint_group[] = {
-  [CREATE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = { .type =
-                                                      PFCP_IE_TRAFFIC_ENDPOINT_ID,
-                                                    .offset = offsetof (
-                                                      pfcp_create_traffic_endpoint_t,
-                                                      traffic_endpoint_id) },
-  [CREATE_TRAFFIC_ENDPOINT_F_TEID] = { .type = PFCP_IE_F_TEID,
-                                       .offset = offsetof (
-                                         pfcp_create_traffic_endpoint_t,
-                                         f_teid) },
-  [CREATE_TRAFFIC_ENDPOINT_NETWORK_INSTANCE] = { .type =
-                                                   PFCP_IE_NETWORK_INSTANCE,
-                                                 .offset = offsetof (
-                                                   pfcp_create_traffic_endpoint_t,
-                                                   network_instance) },
-  [CREATE_TRAFFIC_ENDPOINT_UE_IP_ADDRESS] = { .type = PFCP_IE_UE_IP_ADDRESS,
-                                              .offset = offsetof (
-                                                pfcp_create_traffic_endpoint_t,
-                                                ue_ip_address) },
-  [CREATE_TRAFFIC_ENDPOINT_ETHERNET_PDU_SESSION_INFORMATION] = { .type =
-                                                                   PFCP_IE_ETHERNET_PDU_SESSION_INFORMATION,
-                                                                 .offset = offsetof (
-                                                                   pfcp_create_traffic_endpoint_t,
-                                                                   ethernet_pdu_session_information) },
-  [CREATE_TRAFFIC_ENDPOINT_FRAMED_ROUTE] = { .type = PFCP_IE_FRAMED_ROUTE,
-                                             .is_array = true,
-                                             .offset = offsetof (
-                                               pfcp_create_traffic_endpoint_t,
-                                               framed_route) },
-  [CREATE_TRAFFIC_ENDPOINT_FRAMED_ROUTING] = { .type = PFCP_IE_FRAMED_ROUTING,
-                                               .offset = offsetof (
-                                                 pfcp_create_traffic_endpoint_t,
-                                                 framed_routing) },
-  [CREATE_TRAFFIC_ENDPOINT_FRAMED_IPV6_ROUTE] = { .type =
-                                                    PFCP_IE_FRAMED_IPV6_ROUTE,
-                                                  .is_array = true,
-                                                  .offset = offsetof (
-                                                    pfcp_create_traffic_endpoint_t,
-                                                    framed_ipv6_route) },
-};
-
-static struct pfcp_group_ie_def pfcp_created_traffic_endpoint_group[] = {
-  [CREATED_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = { .type =
-                                                       PFCP_IE_TRAFFIC_ENDPOINT_ID,
-                                                     .offset = offsetof (
-                                                       pfcp_created_traffic_endpoint_t,
-                                                       traffic_endpoint_id) },
-  [CREATED_TRAFFIC_ENDPOINT_F_TEID] = { .type = PFCP_IE_F_TEID,
-                                        .offset = offsetof (
-                                          pfcp_created_traffic_endpoint_t,
-                                          f_teid) },
-  [CREATED_TRAFFIC_ENDPOINT_UE_IP_ADDRESS] = { .type = PFCP_IE_UE_IP_ADDRESS,
-                                               .offset = offsetof (
-                                                 pfcp_created_traffic_endpoint_t,
-                                                 ue_ip_address) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_traffic_endpoint_group[] = {
-  [UPDATE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = { .type =
-                                                      PFCP_IE_TRAFFIC_ENDPOINT_ID,
-                                                    .offset = offsetof (
-                                                      pfcp_update_traffic_endpoint_t,
-                                                      traffic_endpoint_id) },
-  [UPDATE_TRAFFIC_ENDPOINT_F_TEID] = { .type = PFCP_IE_F_TEID,
-                                       .offset = offsetof (
-                                         pfcp_update_traffic_endpoint_t,
-                                         f_teid) },
-  [UPDATE_TRAFFIC_ENDPOINT_NETWORK_INSTANCE] = { .type =
-                                                   PFCP_IE_NETWORK_INSTANCE,
-                                                 .offset = offsetof (
-                                                   pfcp_update_traffic_endpoint_t,
-                                                   network_instance) },
-  [UPDATE_TRAFFIC_ENDPOINT_UE_IP_ADDRESS] = { .type = PFCP_IE_UE_IP_ADDRESS,
-                                              .offset = offsetof (
-                                                pfcp_update_traffic_endpoint_t,
-                                                ue_ip_address) },
-  [UPDATE_TRAFFIC_ENDPOINT_FRAMED_ROUTE] = { .type = PFCP_IE_FRAMED_ROUTE,
-                                             .is_array = true,
-                                             .offset = offsetof (
-                                               pfcp_update_traffic_endpoint_t,
-                                               framed_route) },
-  [UPDATE_TRAFFIC_ENDPOINT_FRAMED_ROUTING] = { .type = PFCP_IE_FRAMED_ROUTING,
-                                               .offset = offsetof (
-                                                 pfcp_update_traffic_endpoint_t,
-                                                 framed_routing) },
-  [UPDATE_TRAFFIC_ENDPOINT_FRAMED_IPV6_ROUTE] = { .type =
-                                                    PFCP_IE_FRAMED_IPV6_ROUTE,
-                                                  .is_array = true,
-                                                  .offset = offsetof (
-                                                    pfcp_update_traffic_endpoint_t,
-                                                    framed_ipv6_route) },
-};
-
-static struct pfcp_group_ie_def pfcp_remove_traffic_endpoint_group[] = {
-  [REMOVE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = { .type =
-                                                      PFCP_IE_TRAFFIC_ENDPOINT_ID,
-                                                    .offset = offsetof (
-                                                      pfcp_remove_traffic_endpoint_t,
-                                                      traffic_endpoint_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_ethernet_packet_filter_group[] = {
-  [ETHERNET_PACKET_FILTER_ETHERNET_FILTER_ID] = { .type =
-                                                    PFCP_IE_ETHERNET_FILTER_ID,
-                                                  .offset = offsetof (
-                                                    pfcp_ethernet_packet_filter_t,
-                                                    ethernet_filter_id) },
-  [ETHERNET_PACKET_FILTER_ETHERNET_FILTER_PROPERTIES] = { .type =
-                                                            PFCP_IE_ETHERNET_FILTER_PROPERTIES,
-                                                          .offset = offsetof (
-                                                            pfcp_ethernet_packet_filter_t,
-                                                            ethernet_filter_properties) },
-  [ETHERNET_PACKET_FILTER_MAC_ADDRESS] = { .type = PFCP_IE_MAC_ADDRESS,
-                                           .offset = offsetof (
-                                             pfcp_ethernet_packet_filter_t,
-                                             mac_address) },
-  [ETHERNET_PACKET_FILTER_ETHERTYPE] = { .type = PFCP_IE_ETHERTYPE,
-                                         .offset = offsetof (
-                                           pfcp_ethernet_packet_filter_t,
-                                           ethertype) },
-  [ETHERNET_PACKET_FILTER_C_TAG] = { .type = PFCP_IE_C_TAG,
-                                     .offset = offsetof (
-                                       pfcp_ethernet_packet_filter_t, c_tag) },
-  [ETHERNET_PACKET_FILTER_S_TAG] = { .type = PFCP_IE_S_TAG,
-                                     .offset = offsetof (
-                                       pfcp_ethernet_packet_filter_t, s_tag) },
-  [ETHERNET_PACKET_FILTER_SDF_FILTER] = { .type = PFCP_IE_SDF_FILTER,
-                                          .is_array = true,
-                                          .offset = offsetof (
-                                            pfcp_ethernet_packet_filter_t,
-                                            sdf_filter) },
-};
-
-static struct pfcp_group_ie_def pfcp_ethernet_traffic_information_group[] = {
-  [ETHERNET_TRAFFIC_INFORMATION_MAC_ADDRESSES_DETECTED] = { .type =
-                                                              PFCP_IE_MAC_ADDRESSES_DETECTED,
-                                                            .offset = offsetof (
-                                                              pfcp_ethernet_traffic_information_t,
-                                                              mac_addresses_detected) },
-  [ETHERNET_TRAFFIC_INFORMATION_MAC_ADDRESSES_REMOVED] = { .type =
-                                                             PFCP_IE_MAC_ADDRESSES_REMOVED,
-                                                           .offset = offsetof (
-                                                             pfcp_ethernet_traffic_information_t,
-                                                             mac_addresses_removed) },
-};
-
-static struct pfcp_group_ie_def pfcp_additional_monitoring_time_group[] = {
-  [ADDITIONAL_MONITORING_TIME_MONITORING_TIME] = { .type =
-                                                     PFCP_IE_MONITORING_TIME,
-                                                   .offset = offsetof (
-                                                     pfcp_additional_monitoring_time_t,
-                                                     monitoring_time) },
-  [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_VOLUME_THRESHOLD] = { .type =
-                                                                 PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD,
-                                                               .offset = offsetof (
-                                                                 pfcp_additional_monitoring_time_t,
-                                                                 subsequent_volume_threshold) },
-  [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_TIME_THRESHOLD] = { .type =
-                                                               PFCP_IE_SUBSEQUENT_TIME_THRESHOLD,
-                                                             .offset = offsetof (
-                                                               pfcp_additional_monitoring_time_t,
-                                                               subsequent_time_threshold) },
-  [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_VOLUME_QUOTA] = { .type =
-                                                             PFCP_IE_SUBSEQUENT_VOLUME_QUOTA,
-                                                           .offset = offsetof (
-                                                             pfcp_additional_monitoring_time_t,
-                                                             subsequent_volume_quota) },
-  [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_TIME_QUOTA] = { .type =
-                                                           PFCP_IE_SUBSEQUENT_TIME_QUOTA,
-                                                         .offset = offsetof (
-                                                           pfcp_additional_monitoring_time_t,
-                                                           subsequent_time_quota) },
-};
-
-static struct pfcp_group_ie_def pfcp_create_mar_group[] = {
-  [CREATE_MAR_MAR_ID] = { .type = PFCP_IE_MAR_ID,
-                          .offset = offsetof (pfcp_create_mar_t, mar_id) },
-  [CREATE_MAR_STEERING_FUNCTIONALITY] = { .type =
-                                            PFCP_IE_STEERING_FUNCTIONALITY,
-                                          .offset = offsetof (
-                                            pfcp_create_mar_t,
-                                            steering_functionality) },
-  [CREATE_MAR_STEERING_MODE] = { .type = PFCP_IE_STEERING_MODE,
-                                 .offset = offsetof (pfcp_create_mar_t,
-                                                     steering_mode) },
-  [CREATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_1] = { .type =
-                                                            PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_1,
-                                                          .offset = offsetof (
-                                                            pfcp_create_mar_t,
-                                                            access_forwarding_action_information_1) },
-  [CREATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_2] = { .type =
-                                                            PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_2,
-                                                          .offset = offsetof (
-                                                            pfcp_create_mar_t,
-                                                            access_forwarding_action_information_2) },
-};
-
-static struct pfcp_group_ie_def pfcp_access_forwarding_action_information_group[] = {
-  [ACCESS_FORWARDING_ACTION_INFORMATION_FAR_ID] = { .type = PFCP_IE_FAR_ID,
-                                                    .offset = offsetof (
-                                                      pfcp_access_forwarding_action_information_t,
-                                                      far_id) },
-  [ACCESS_FORWARDING_ACTION_INFORMATION_WEIGHT] = { .type = PFCP_IE_WEIGHT,
-                                                    .offset = offsetof (
-                                                      pfcp_access_forwarding_action_information_t,
-                                                      weight) },
-  [ACCESS_FORWARDING_ACTION_INFORMATION_PRIORITY] = { .type = PFCP_IE_PRIORITY,
-                                                      .offset = offsetof (
-                                                        pfcp_access_forwarding_action_information_t,
-                                                        priority) },
-  [ACCESS_FORWARDING_ACTION_INFORMATION_URR_ID] = { .type = PFCP_IE_URR_ID,
-                                                    .offset = offsetof (
-                                                      pfcp_access_forwarding_action_information_t,
-                                                      urr_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_remove_mar_group[] = {
-  [REMOVE_MAR_MAR_ID] = { .type = PFCP_IE_MAR_ID,
-                          .offset = offsetof (pfcp_remove_mar_t, mar_id) },
-};
-
-static struct pfcp_group_ie_def pfcp_update_mar_group[] = {
-  [UPDATE_MAR_MAR_ID] = { .type = PFCP_IE_MAR_ID,
-                          .offset = offsetof (pfcp_update_mar_t, mar_id) },
-  [UPDATE_MAR_STEERING_FUNCTIONALITY] = { .type =
-                                            PFCP_IE_STEERING_FUNCTIONALITY,
-                                          .offset = offsetof (
-                                            pfcp_update_mar_t,
-                                            steering_functionality) },
-  [UPDATE_MAR_STEERING_MODE] = { .type = PFCP_IE_STEERING_MODE,
-                                 .offset = offsetof (pfcp_update_mar_t,
-                                                     steering_mode) },
-  [UPDATE_MAR_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_1] = { .type =
-                                                                   PFCP_IE_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_1,
-                                                                 .offset = offsetof (
-                                                                   pfcp_update_mar_t,
-                                                                   update_access_forwarding_action_information_1) },
-  [UPDATE_MAR_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_2] = { .type =
-                                                                   PFCP_IE_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_2,
-                                                                 .offset = offsetof (
-                                                                   pfcp_update_mar_t,
-                                                                   update_access_forwarding_action_information_2) },
-  [UPDATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_1] = { .type =
-                                                            PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_1,
-                                                          .offset = offsetof (
-                                                            pfcp_update_mar_t,
-                                                            access_forwarding_action_information_1) },
-  [UPDATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_2] = { .type =
-                                                            PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_2,
-                                                          .offset = offsetof (
-                                                            pfcp_update_mar_t,
-                                                            access_forwarding_action_information_2) },
-};
-
-static struct pfcp_group_ie_def
-  pfcp_update_access_forwarding_action_information_group[] = {
-    [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_FAR_ID] = { .type =
-                                                               PFCP_IE_FAR_ID,
-                                                             .offset = offsetof (
-                                                               pfcp_update_access_forwarding_action_information_t,
-                                                               far_id) },
-    [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_WEIGHT] = { .type =
-                                                               PFCP_IE_WEIGHT,
-                                                             .offset = offsetof (
-                                                               pfcp_update_access_forwarding_action_information_t,
-                                                               weight) },
-    [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_PRIORITY] = { .type =
-                                                                 PFCP_IE_PRIORITY,
-                                                               .offset =
-                                                                 offsetof (
-                                                                   pfcp_update_access_forwarding_action_information_t,
-                                                                   priority) },
-    [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_URR_ID] = { .type =
-                                                               PFCP_IE_URR_ID,
-                                                             .offset = offsetof (
-                                                               pfcp_update_access_forwarding_action_information_t,
-                                                               urr_id) },
+/* clang-format off */
+static struct pfcp_group_ie_def pfcp_create_pdr_group[] =
+  {
+    [CREATE_PDR_PDR_ID] = {
+      .type = PFCP_IE_PDR_ID,
+      .offset = offsetof(pfcp_create_pdr_t, pdr_id)
+    },
+    [CREATE_PDR_PRECEDENCE] = {
+      .type = PFCP_IE_PRECEDENCE,
+      .offset = offsetof(pfcp_create_pdr_t, precedence)
+    },
+    [CREATE_PDR_PDI] = {
+      .type = PFCP_IE_PDI,
+      .offset = offsetof(pfcp_create_pdr_t, pdi)
+    },
+    [CREATE_PDR_OUTER_HEADER_REMOVAL] = {
+      .type = PFCP_IE_OUTER_HEADER_REMOVAL,
+      .offset = offsetof(pfcp_create_pdr_t, outer_header_removal)
+    },
+    [CREATE_PDR_FAR_ID] = {
+      .type = PFCP_IE_FAR_ID,
+      .offset = offsetof(pfcp_create_pdr_t, far_id)
+    },
+    [CREATE_PDR_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .is_array = true,
+      .offset = offsetof(pfcp_create_pdr_t, urr_id)
+    },
+    [CREATE_PDR_QER_ID] = {
+      .type = PFCP_IE_QER_ID,
+      .is_array = true,
+      .offset = offsetof(pfcp_create_pdr_t, qer_id)
+    },
+    [CREATE_PDR_ACTIVATE_PREDEFINED_RULES] = {
+      .type = PFCP_IE_ACTIVATE_PREDEFINED_RULES,
+      .offset = offsetof(pfcp_create_pdr_t, activate_predefined_rules)
+    },
+    [CREATE_PDR_ACTIVATION_TIME] = {
+      .type = PFCP_IE_ACTIVATION_TIME,
+      .offset = offsetof(pfcp_create_pdr_t, activation_time)
+    },
+    [CREATE_PDR_DEACTIVATION_TIME] = {
+      .type = PFCP_IE_DEACTIVATION_TIME,
+      .offset = offsetof(pfcp_create_pdr_t, deactivation_time)
+    },
+    [CREATE_PDR_MAR_ID] = {
+      .type = PFCP_IE_MAR_ID,
+      .offset = offsetof(pfcp_create_pdr_t, mar_id)
+    },
   };
 
-static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] = {
-  [UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY] = { .type =
-                                                       PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
-                                                     .offset = offsetof (
-                                                       pfcp_ue_ip_address_pool_information_t,
-                                                       ue_ip_address_pool_identity) },
-  [UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE] = { .type =
-                                                          PFCP_IE_NETWORK_INSTANCE,
-                                                        .offset = offsetof (
-                                                          pfcp_ue_ip_address_pool_information_t,
-                                                          network_instance) },
-  [UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION] = { .type = PFCP_IE_IP_VERSION,
-                                                  .offset = offsetof (
-                                                    pfcp_ue_ip_address_pool_information_t,
-                                                    ip_version) },
-  [UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK] = { .type =
-                                                            PFCP_IE_BBF_NAT_PORT_BLOCK,
-                                                          .vendor = VENDOR_BBF,
-                                                          .is_array = true,
-                                                          .offset = offsetof (
-                                                            pfcp_ue_ip_address_pool_information_t,
-                                                            port_blocks) },
-};
+static struct pfcp_group_ie_def pfcp_pdi_group[] =
+  {
+    [PDI_SOURCE_INTERFACE] = {
+      .type = PFCP_IE_SOURCE_INTERFACE,
+      .offset = offsetof(pfcp_pdi_t, source_interface)
+    },
+    [PDI_F_TEID] = {
+      .type = PFCP_IE_F_TEID,
+      .offset = offsetof(pfcp_pdi_t, f_teid)
+    },
+    [PDI_NETWORK_INSTANCE] = {
+      .type = PFCP_IE_NETWORK_INSTANCE,
+      .offset = offsetof(pfcp_pdi_t, network_instance)
+    },
+    [PDI_UE_IP_ADDRESS] = {
+      .type = PFCP_IE_UE_IP_ADDRESS,
+      .offset = offsetof(pfcp_pdi_t, ue_ip_address)
+    },
+    [PDI_SDF_FILTER] = {
+      .type = PFCP_IE_SDF_FILTER,
+      .is_array = true,
+      .offset = offsetof(pfcp_pdi_t, sdf_filter)
+    },
+    [PDI_APPLICATION_ID] = {
+      .type = PFCP_IE_APPLICATION_ID,
+      .offset = offsetof(pfcp_pdi_t, application_id)
+    },
+    [PDI_ETHERNET_PDU_SESSION_INFORMATION] = {
+      .type = PFCP_IE_ETHERNET_PDU_SESSION_INFORMATION,
+      .offset = offsetof(pfcp_pdi_t, ethernet_pdu_session_information)
+    },
+    [PDI_ETHERNET_PACKET_FILTER] = {
+      .type = PFCP_IE_ETHERNET_PACKET_FILTER,
+      .offset = offsetof(pfcp_pdi_t, ethernet_packet_filter)
+    },
+    [PDI_QFI] = {
+      .type = PFCP_IE_QFI,
+      .offset = offsetof(pfcp_pdi_t, qfi)
+    },
+    [PDI_FRAMED_ROUTE] = {
+      .type = PFCP_IE_FRAMED_ROUTE,
+      .is_array = true,
+      .offset = offsetof(pfcp_pdi_t, framed_route)
+    },
+    [PDI_FRAMED_ROUTING] = {
+      .type = PFCP_IE_FRAMED_ROUTING,
+      .offset = offsetof(pfcp_pdi_t, framed_routing)
+    },
+    [PDI_FRAMED_IPV6_ROUTE] = {
+      .type = PFCP_IE_FRAMED_IPV6_ROUTE,
+      .is_array = true,
+      .offset = offsetof(pfcp_pdi_t, framed_ipv6_route)
+    },
+    [PDI_SOURCE_INTERFACE_TYPE] = {
+      .type = PFCP_IE_TGPP_INTERFACE_TYPE,
+      .offset = offsetof(pfcp_pdi_t, source_interface_type)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_create_far_group[] =
+  {
+    [CREATE_FAR_FAR_ID] = {
+      .type = PFCP_IE_FAR_ID,
+      .offset = offsetof(pfcp_create_far_t, far_id)
+    },
+    [CREATE_FAR_APPLY_ACTION] = {
+      .type = PFCP_IE_APPLY_ACTION,
+      .offset = offsetof(pfcp_create_far_t, apply_action)
+    },
+    [CREATE_FAR_FORWARDING_PARAMETERS] = {
+      .type = PFCP_IE_FORWARDING_PARAMETERS,
+      .offset = offsetof(pfcp_create_far_t, forwarding_parameters)
+    },
+    [CREATE_FAR_DUPLICATING_PARAMETERS] = {
+      .type = PFCP_IE_DUPLICATING_PARAMETERS,
+      .offset = offsetof(pfcp_create_far_t, duplicating_parameters)
+    },
+    [CREATE_FAR_BAR_ID] = {
+      .type = PFCP_IE_BAR_ID,
+      .offset = offsetof(pfcp_create_far_t, bar_id)
+    },
+    [CREATE_FAR_TP_IPFIX_POLICY] = {
+      .type = PFCP_IE_TP_IPFIX_POLICY,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_create_far_t, ipfix_policy)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_forwarding_parameters_group[] =
+  {
+    [FORWARDING_PARAMETERS_DESTINATION_INTERFACE] = {
+      .type = PFCP_IE_DESTINATION_INTERFACE,
+      .offset = offsetof(pfcp_forwarding_parameters_t, destination_interface)
+    },
+    [FORWARDING_PARAMETERS_NETWORK_INSTANCE] = {
+      .type = PFCP_IE_NETWORK_INSTANCE,
+      .offset = offsetof(pfcp_forwarding_parameters_t, network_instance)
+    },
+    [FORWARDING_PARAMETERS_REDIRECT_INFORMATION] = {
+      .type = PFCP_IE_REDIRECT_INFORMATION,
+      .offset = offsetof(pfcp_forwarding_parameters_t, redirect_information)
+    },
+    [FORWARDING_PARAMETERS_OUTER_HEADER_CREATION] = {
+      .type = PFCP_IE_OUTER_HEADER_CREATION,
+      .offset = offsetof(pfcp_forwarding_parameters_t, outer_header_creation)
+    },
+    [FORWARDING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = {
+      .type = PFCP_IE_TRANSPORT_LEVEL_MARKING,
+      .offset = offsetof(pfcp_forwarding_parameters_t, transport_level_marking)
+    },
+    [FORWARDING_PARAMETERS_FORWARDING_POLICY] = {
+      .type = PFCP_IE_FORWARDING_POLICY,
+      .offset = offsetof(pfcp_forwarding_parameters_t, forwarding_policy)
+    },
+    [FORWARDING_PARAMETERS_HEADER_ENRICHMENT] = {
+      .type = PFCP_IE_HEADER_ENRICHMENT,
+      .offset = offsetof(pfcp_forwarding_parameters_t, header_enrichment)
+    },
+    [FORWARDING_PARAMETERS_LINKED_TRAFFIC_ENDPOINT_ID] = {
+      .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
+      .offset = offsetof(pfcp_forwarding_parameters_t, linked_traffic_endpoint_id)
+    },
+    [FORWARDING_PARAMETERS_PROXYING] = {
+      .type = PFCP_IE_PROXYING,
+      .offset = offsetof(pfcp_forwarding_parameters_t, proxying)
+    },
+    [FORWARDING_PARAMETERS_DESTINATION_INTERFACE_TYPE] = {
+      .type = PFCP_IE_TGPP_INTERFACE_TYPE,
+      .offset = offsetof(pfcp_forwarding_parameters_t, destination_interface_type)
+    },
+    [FORWARDING_PARAMETERS_BBF_APPLY_ACTION] = {
+      .type = PFCP_IE_BBF_APPLY_ACTION,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_forwarding_parameters_t, bbf_apply_action)
+    },
+    [FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK] = {
+      .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_forwarding_parameters_t, nat_port_block)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_duplicating_parameters_group[] =
+  {
+    [DUPLICATING_PARAMETERS_DESTINATION_INTERFACE] = {
+      .type = PFCP_IE_DESTINATION_INTERFACE,
+      .offset = offsetof(pfcp_duplicating_parameters_t, destination_interface)
+    },
+    [DUPLICATING_PARAMETERS_OUTER_HEADER_CREATION] = {
+      .type = PFCP_IE_OUTER_HEADER_CREATION,
+      .offset = offsetof(pfcp_duplicating_parameters_t, outer_header_creation)
+    },
+    [DUPLICATING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = {
+      .type = PFCP_IE_TRANSPORT_LEVEL_MARKING,
+      .offset = offsetof(pfcp_duplicating_parameters_t, transport_level_marking)
+    },
+    [DUPLICATING_PARAMETERS_FORWARDING_POLICY] = {
+      .type = PFCP_IE_FORWARDING_POLICY,
+      .offset = offsetof(pfcp_duplicating_parameters_t, forwarding_policy)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_create_urr_group[] =
+  {
+    [CREATE_URR_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .offset = offsetof(pfcp_create_urr_t, urr_id)
+    },
+    [CREATE_URR_MEASUREMENT_METHOD] = {
+      .type = PFCP_IE_MEASUREMENT_METHOD,
+      .offset = offsetof(pfcp_create_urr_t, measurement_method)
+    },
+    [CREATE_URR_REPORTING_TRIGGERS] = {
+      .type = PFCP_IE_REPORTING_TRIGGERS,
+      .offset = offsetof(pfcp_create_urr_t, reporting_triggers)
+    },
+    [CREATE_URR_MEASUREMENT_PERIOD] = {
+      .type = PFCP_IE_MEASUREMENT_PERIOD,
+      .offset = offsetof(pfcp_create_urr_t, measurement_period)
+    },
+    [CREATE_URR_VOLUME_THRESHOLD] = {
+      .type = PFCP_IE_VOLUME_THRESHOLD,
+      .offset = offsetof(pfcp_create_urr_t, volume_threshold)
+    },
+    [CREATE_URR_VOLUME_QUOTA] = {
+      .type = PFCP_IE_VOLUME_QUOTA,
+      .offset = offsetof(pfcp_create_urr_t, volume_quota)
+    },
+    [CREATE_URR_TIME_THRESHOLD] = {
+      .type = PFCP_IE_TIME_THRESHOLD,
+      .offset = offsetof(pfcp_create_urr_t, time_threshold)
+    },
+    [CREATE_URR_TIME_QUOTA] = {
+      .type = PFCP_IE_TIME_QUOTA,
+      .offset = offsetof(pfcp_create_urr_t, time_quota)
+    },
+    [CREATE_URR_QUOTA_HOLDING_TIME] = {
+      .type = PFCP_IE_QUOTA_HOLDING_TIME,
+      .offset = offsetof(pfcp_create_urr_t, quota_holding_time)
+    },
+    [CREATE_URR_DROPPED_DL_TRAFFIC_THRESHOLD] = {
+      .type = PFCP_IE_DROPPED_DL_TRAFFIC_THRESHOLD,
+      .offset = offsetof(pfcp_create_urr_t, dropped_dl_traffic_threshold)
+    },
+    [CREATE_URR_QUOTA_VALIDITY_TIME] = {
+      .type = PFCP_IE_QUOTA_VALIDITY_TIME,
+      .offset = offsetof(pfcp_create_urr_t, quota_validity_time)
+    },
+    [CREATE_URR_MONITORING_TIME] = {
+      .type = PFCP_IE_MONITORING_TIME,
+      .offset = offsetof(pfcp_create_urr_t, monitoring_time)
+    },
+    [CREATE_URR_SUBSEQUENT_VOLUME_THRESHOLD] = {
+      .type = PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD,
+      .offset = offsetof(pfcp_create_urr_t, subsequent_volume_threshold)
+    },
+    [CREATE_URR_SUBSEQUENT_TIME_THRESHOLD] = {
+      .type = PFCP_IE_SUBSEQUENT_TIME_THRESHOLD,
+      .offset = offsetof(pfcp_create_urr_t, subsequent_time_threshold)
+    },
+    [CREATE_URR_INACTIVITY_DETECTION_TIME] = {
+      .type = PFCP_IE_INACTIVITY_DETECTION_TIME,
+      .offset = offsetof(pfcp_create_urr_t, inactivity_detection_time)
+    },
+    [CREATE_URR_LINKED_URR_ID] = {
+      .type = PFCP_IE_LINKED_URR_ID,
+      .is_array = true,
+      .offset = offsetof(pfcp_create_urr_t, linked_urr_id)
+    },
+    [CREATE_URR_MEASUREMENT_INFORMATION] = {
+      .type = PFCP_IE_MEASUREMENT_INFORMATION,
+      .offset = offsetof(pfcp_create_urr_t, measurement_information)
+    },
+    [CREATE_URR_TIME_QUOTA_MECHANISM] = {
+      .type = PFCP_IE_TIME_QUOTA_MECHANISM,
+      .offset = offsetof(pfcp_create_urr_t, time_quota_mechanism)
+    },
+    [CREATE_URR_AGGREGATED_URRS] = {
+      .type = PFCP_IE_AGGREGATED_URRS,
+      .offset = offsetof(pfcp_create_urr_t, aggregated_urrs)
+    },
+    [CREATE_URR_FAR_ID_FOR_QUOTE_ACTION] = {
+      .type = PFCP_IE_FAR_ID,
+      .offset = offsetof(pfcp_create_urr_t, far_id_for_quota_action)
+    },
+    [CREATE_URR_ETHERNET_INACTIVITY_TIMER] = {
+      .type = PFCP_IE_ETHERNET_INACTIVITY_TIMER,
+      .offset = offsetof(pfcp_create_urr_t, ethernet_inactivity_timer)
+    },
+    [CREATE_URR_ADDITIONAL_MONITORING_TIME] = {
+      .type = PFCP_IE_ADDITIONAL_MONITORING_TIME,
+      .is_array = true,
+     .offset = offsetof(pfcp_create_urr_t, additional_monitoring_time)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_create_qer_group[] =
+  {
+    [CREATE_QER_QER_ID] = {
+      .type = PFCP_IE_QER_ID,
+      .offset = offsetof(pfcp_create_qer_t, qer_id)
+    },
+    [CREATE_QER_QER_CORRELATION_ID] = {
+      .type = PFCP_IE_QER_CORRELATION_ID,
+      .offset = offsetof(pfcp_create_qer_t, qer_correlation_id)
+    },
+    [CREATE_QER_GATE_STATUS] = {
+      .type = PFCP_IE_GATE_STATUS,
+      .offset = offsetof(pfcp_create_qer_t, gate_status)
+    },
+    [CREATE_QER_MBR] = {
+      .type = PFCP_IE_MBR,
+      .offset = offsetof(pfcp_create_qer_t, mbr)
+    },
+    [CREATE_QER_GBR] = {
+      .type = PFCP_IE_GBR,
+      .offset = offsetof(pfcp_create_qer_t, gbr)
+    },
+    [CREATE_QER_PACKET_RATE] = {
+      .type = PFCP_IE_PACKET_RATE,
+      .offset = offsetof(pfcp_create_qer_t, packet_rate)
+    },
+    [CREATE_QER_DL_FLOW_LEVEL_MARKING] = {
+      .type = PFCP_IE_DL_FLOW_LEVEL_MARKING,
+      .offset = offsetof(pfcp_create_qer_t, dl_flow_level_marking)
+    },
+    [CREATE_QER_QOS_FLOW_IDENTIFIER] = {
+      .type = PFCP_IE_QFI,
+      .offset = offsetof(pfcp_create_qer_t, qos_flow_identifier)
+    },
+    [CREATE_QER_REFLECTIVE_QOS] = {
+      .type = PFCP_IE_RQI,
+      .offset = offsetof(pfcp_create_qer_t, reflective_qos)
+    },
+    [CREATE_QER_PAGING_POLICY_INDICATOR] = {
+      .type = PFCP_IE_PAGING_POLICY_INDICATOR,
+      .offset = offsetof(pfcp_create_qer_t, paging_policy_indicator)
+    },
+    [CREATE_QER_AVERAGING_WINDOW] = {
+      .type = PFCP_IE_AVERAGING_WINDOW,
+      .offset = offsetof(pfcp_create_qer_t, averaging_window)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_created_pdr_group[] =
+  {
+    [CREATED_PDR_PDR_ID] = {
+      .type = PFCP_IE_PDR_ID,
+      .offset = offsetof(pfcp_created_pdr_t, pdr_id)
+    },
+    [CREATED_PDR_F_TEID] = {
+      .type = PFCP_IE_F_TEID,
+      .offset = offsetof(pfcp_created_pdr_t, f_teid)
+    },
+    [CREATED_PDR_UE_IP_ADDRESS] = {
+      .type = PFCP_IE_UE_IP_ADDRESS,
+      .offset = offsetof(pfcp_created_pdr_t, ue_ip_address)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_pdr_group[] =
+  {
+    [UPDATE_PDR_PDR_ID] = {
+      .type = PFCP_IE_PDR_ID,
+      .offset = offsetof(pfcp_update_pdr_t, pdr_id)
+    },
+    [UPDATE_PDR_OUTER_HEADER_REMOVAL] = {
+      .type = PFCP_IE_OUTER_HEADER_REMOVAL,
+      .offset = offsetof(pfcp_update_pdr_t, outer_header_removal)
+    },
+    [UPDATE_PDR_PRECEDENCE] = {
+      .type = PFCP_IE_PRECEDENCE,
+      .offset = offsetof(pfcp_update_pdr_t, precedence)
+    },
+    [UPDATE_PDR_PDI] = {
+      .type = PFCP_IE_PDI,
+      .offset = offsetof(pfcp_update_pdr_t, pdi)
+    },
+    [UPDATE_PDR_FAR_ID] = {
+      .type = PFCP_IE_FAR_ID,
+      .offset = offsetof(pfcp_update_pdr_t, far_id)
+    },
+    [UPDATE_PDR_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .is_array = true,
+      .offset = offsetof(pfcp_update_pdr_t, urr_id)
+    },
+    [UPDATE_PDR_QER_ID] = {
+      .type = PFCP_IE_QER_ID,
+      .is_array = true,
+      .offset = offsetof(pfcp_update_pdr_t, qer_id)
+    },
+    [UPDATE_PDR_ACTIVATE_PREDEFINED_RULES] = {
+      .type = PFCP_IE_ACTIVATE_PREDEFINED_RULES,
+      .offset = offsetof(pfcp_update_pdr_t, activate_predefined_rules)
+    },
+    [UPDATE_PDR_DEACTIVATE_PREDEFINED_RULES] = {
+      .type = PFCP_IE_DEACTIVATE_PREDEFINED_RULES,
+      .offset = offsetof(pfcp_update_pdr_t, deactivate_predefined_rules)
+    },
+    [UPDATE_PDR_ACTIVATION_TIME] = {
+      .type = PFCP_IE_ACTIVATION_TIME,
+      .offset = offsetof(pfcp_update_pdr_t, activation_time)
+    },
+    [UPDATE_PDR_DEACTIVATION_TIME] = {
+      .type = PFCP_IE_DEACTIVATION_TIME,
+      .offset = offsetof(pfcp_update_pdr_t, deactivation_time)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_far_group[] =
+  {
+    [UPDATE_FAR_FAR_ID] = {
+      .type = PFCP_IE_FAR_ID,
+      .offset = offsetof(pfcp_update_far_t, far_id)
+    },
+    [UPDATE_FAR_APPLY_ACTION] = {
+      .type = PFCP_IE_APPLY_ACTION,
+      .offset = offsetof(pfcp_update_far_t, apply_action)
+    },
+    [UPDATE_FAR_UPDATE_FORWARDING_PARAMETERS] = {
+      .type = PFCP_IE_UPDATE_FORWARDING_PARAMETERS,
+      .offset = offsetof(pfcp_update_far_t, update_forwarding_parameters)
+    },
+    [UPDATE_FAR_UPDATE_DUPLICATING_PARAMETERS] = {
+      .type = PFCP_IE_UPDATE_DUPLICATING_PARAMETERS,
+      .offset = offsetof(pfcp_update_far_t, update_duplicating_parameters)
+    },
+    [UPDATE_FAR_BAR_ID] = {
+      .type = PFCP_IE_BAR_ID,
+      .offset = offsetof(pfcp_update_far_t, bar_id)
+    },
+    [UPDATE_FAR_TP_IPFIX_POLICY] = {
+      .type = PFCP_IE_TP_IPFIX_POLICY,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_update_far_t, ipfix_policy)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_forwarding_parameters_group[] =
+  {
+    [UPDATE_FORWARDING_PARAMETERS_DESTINATION_INTERFACE] = {
+      .type = PFCP_IE_DESTINATION_INTERFACE,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, destination_interface)
+    },
+    [UPDATE_FORWARDING_PARAMETERS_NETWORK_INSTANCE] = {
+      .type = PFCP_IE_NETWORK_INSTANCE,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, network_instance)
+    },
+    [UPDATE_FORWARDING_PARAMETERS_REDIRECT_INFORMATION] = {
+      .type = PFCP_IE_REDIRECT_INFORMATION,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, redirect_information)
+    },
+    [UPDATE_FORWARDING_PARAMETERS_OUTER_HEADER_CREATION] = {
+      .type = PFCP_IE_OUTER_HEADER_CREATION,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, outer_header_creation)
+    },
+    [UPDATE_FORWARDING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = {
+      .type = PFCP_IE_TRANSPORT_LEVEL_MARKING,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, transport_level_marking)
+    },
+    [UPDATE_FORWARDING_PARAMETERS_FORWARDING_POLICY] = {
+      .type = PFCP_IE_FORWARDING_POLICY,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, forwarding_policy)
+    },
+    [UPDATE_FORWARDING_PARAMETERS_HEADER_ENRICHMENT] = {
+      .type = PFCP_IE_HEADER_ENRICHMENT,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, header_enrichment)
+    },
+    [UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS] = {
+      .type = PFCP_IE_PFCPSMREQ_FLAGS,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, pfcpsmreq_flags)
+    },
+    [UPDATE_FORWARDING_PARAMETERS_LINKED_TRAFFIC_ENDPOINT_ID] = {
+      .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, linked_traffic_endpoint_id)
+    },
+    [UPDATE_FORWARDING_PARAMETERS_DESTINATION_INTERFACE_TYPE] = {
+      .type = PFCP_IE_TGPP_INTERFACE_TYPE,
+      .offset = offsetof(pfcp_update_forwarding_parameters_t, destination_interface_type)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_bar_response_group[] =
+  {
+    [UPDATE_BAR_RESPONSE_BAR_ID] = {
+      .type = PFCP_IE_BAR_ID,
+      .offset = offsetof(pfcp_update_bar_response_t, bar_id)
+    },
+    [UPDATE_BAR_RESPONSE_DOWNLINK_DATA_NOTIFICATION_DELAY] = {
+      .type = PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY,
+      .offset = offsetof(pfcp_update_bar_response_t, downlink_data_notification_delay)
+    },
+    [UPDATE_BAR_RESPONSE_DL_BUFFERING_DURATION] = {
+      .type = PFCP_IE_DL_BUFFERING_DURATION,
+      .offset = offsetof(pfcp_update_bar_response_t, dl_buffering_duration)
+    },
+    [UPDATE_BAR_RESPONSE_DL_BUFFERING_SUGGESTED_PACKET_COUNT] = {
+      .type = PFCP_IE_DL_BUFFERING_SUGGESTED_PACKET_COUNT,
+      .offset = offsetof(pfcp_update_bar_response_t, dl_buffering_suggested_packet_count)
+    },
+    [UPDATE_BAR_RESPONSE_SUGGESTED_BUFFERING_PACKETS_COUNT] = {
+      .type = PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT,
+      .offset = offsetof(pfcp_update_bar_response_t, suggested_buffering_packets_count)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_urr_group[] =
+  {
+    [UPDATE_URR_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .offset = offsetof(pfcp_update_urr_t, urr_id)
+    },
+    [UPDATE_URR_MEASUREMENT_METHOD] = {
+      .type = PFCP_IE_MEASUREMENT_METHOD,
+      .offset = offsetof(pfcp_update_urr_t, measurement_method)
+    },
+    [UPDATE_URR_REPORTING_TRIGGERS] = {
+      .type = PFCP_IE_REPORTING_TRIGGERS,
+      .offset = offsetof(pfcp_update_urr_t, reporting_triggers)
+    },
+    [UPDATE_URR_MEASUREMENT_PERIOD] = {
+      .type = PFCP_IE_MEASUREMENT_PERIOD,
+      .offset = offsetof(pfcp_update_urr_t, measurement_period)
+    },
+    [UPDATE_URR_VOLUME_THRESHOLD] = {
+      .type = PFCP_IE_VOLUME_THRESHOLD,
+      .offset = offsetof(pfcp_update_urr_t, volume_threshold)
+    },
+    [UPDATE_URR_VOLUME_QUOTA] = {
+      .type = PFCP_IE_VOLUME_QUOTA,
+      .offset = offsetof(pfcp_update_urr_t, volume_quota)
+    },
+    [UPDATE_URR_TIME_THRESHOLD] = {
+      .type = PFCP_IE_TIME_THRESHOLD,
+      .offset = offsetof(pfcp_update_urr_t, time_threshold)
+    },
+    [UPDATE_URR_TIME_QUOTA] = {
+      .type = PFCP_IE_TIME_QUOTA,
+      .offset = offsetof(pfcp_update_urr_t, time_quota)
+    },
+    [UPDATE_URR_QUOTA_HOLDING_TIME] = {
+      .type = PFCP_IE_QUOTA_HOLDING_TIME,
+      .offset = offsetof(pfcp_update_urr_t, quota_holding_time)
+    },
+    [UPDATE_URR_DROPPED_DL_TRAFFIC_THRESHOLD] = {
+      .type = PFCP_IE_DROPPED_DL_TRAFFIC_THRESHOLD,
+      .offset = offsetof(pfcp_update_urr_t, dropped_dl_traffic_threshold)
+    },
+    [UPDATE_URR_QUOTA_VALIDITY_TIME] = {
+      .type = PFCP_IE_QUOTA_VALIDITY_TIME,
+      .offset = offsetof(pfcp_update_urr_t, quota_validity_time)
+    },
+    [UPDATE_URR_MONITORING_TIME] = {
+      .type = PFCP_IE_MONITORING_TIME,
+      .offset = offsetof(pfcp_update_urr_t, monitoring_time)
+    },
+    [UPDATE_URR_SUBSEQUENT_VOLUME_THRESHOLD] = {
+      .type = PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD,
+      .offset = offsetof(pfcp_update_urr_t, subsequent_volume_threshold)
+    },
+    [UPDATE_URR_SUBSEQUENT_TIME_THRESHOLD] = {
+      .type = PFCP_IE_SUBSEQUENT_TIME_THRESHOLD,
+      .offset = offsetof(pfcp_update_urr_t, subsequent_time_threshold)
+    },
+    [UPDATE_URR_INACTIVITY_DETECTION_TIME] = {
+      .type = PFCP_IE_INACTIVITY_DETECTION_TIME,
+      .offset = offsetof(pfcp_update_urr_t, inactivity_detection_time)
+    },
+    [UPDATE_URR_LINKED_URR_ID] = {
+      .type = PFCP_IE_LINKED_URR_ID,
+      .is_array = true,
+      .offset = offsetof(pfcp_update_urr_t, linked_urr_id)
+    },
+    [UPDATE_URR_MEASUREMENT_INFORMATION] = {
+      .type = PFCP_IE_MEASUREMENT_INFORMATION,
+      .offset = offsetof(pfcp_update_urr_t, measurement_information)
+    },
+    [UPDATE_URR_TIME_QUOTA_MECHANISM] = {
+      .type = PFCP_IE_TIME_QUOTA_MECHANISM,
+      .offset = offsetof(pfcp_update_urr_t, time_quota_mechanism)
+    },
+    [UPDATE_URR_AGGREGATED_URRS] = {
+      .type = PFCP_IE_AGGREGATED_URRS,
+      .offset = offsetof(pfcp_update_urr_t, aggregated_urrs)
+    },
+    [UPDATE_URR_FAR_ID_FOR_QUOTE_ACTION] = {
+      .type = PFCP_IE_FAR_ID,
+      .offset = offsetof(pfcp_update_urr_t, far_id_for_quota_action)
+    },
+    [UPDATE_URR_ETHERNET_INACTIVITY_TIMER] = {
+      .type = PFCP_IE_ETHERNET_INACTIVITY_TIMER,
+      .offset = offsetof(pfcp_update_urr_t, ethernet_inactivity_timer)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_qer_group[] =
+  {
+    [UPDATE_QER_QER_ID] = {
+      .type = PFCP_IE_QER_ID,
+      .offset = offsetof(pfcp_update_qer_t, qer_id)
+    },
+    [UPDATE_QER_QER_CORRELATION_ID] = {
+      .type = PFCP_IE_QER_CORRELATION_ID,
+      .offset = offsetof(pfcp_update_qer_t, qer_correlation_id)
+    },
+    [UPDATE_QER_GATE_STATUS] = {
+      .type = PFCP_IE_GATE_STATUS,
+      .offset = offsetof(pfcp_update_qer_t, gate_status)
+    },
+    [UPDATE_QER_MBR] = {
+      .type = PFCP_IE_MBR,
+      .offset = offsetof(pfcp_update_qer_t, mbr)
+    },
+    [UPDATE_QER_GBR] = {
+      .type = PFCP_IE_GBR,
+      .offset = offsetof(pfcp_update_qer_t, gbr)
+    },
+    [UPDATE_QER_PACKET_RATE] = {
+      .type = PFCP_IE_PACKET_RATE,
+      .offset = offsetof(pfcp_update_qer_t, packet_rate)
+    },
+    [UPDATE_QER_DL_FLOW_LEVEL_MARKING] = {
+      .type = PFCP_IE_DL_FLOW_LEVEL_MARKING,
+      .offset = offsetof(pfcp_update_qer_t, dl_flow_level_marking)
+    },
+    [UPDATE_QER_QOS_FLOW_IDENTIFIER] = {
+      .type = PFCP_IE_QFI,
+      .offset = offsetof(pfcp_update_qer_t, qos_flow_identifier)
+    },
+    [UPDATE_QER_REFLECTIVE_QOS] = {
+      .type = PFCP_IE_RQI,
+      .offset = offsetof(pfcp_update_qer_t, reflective_qos)
+    },
+    [UPDATE_QER_PAGING_POLICY_INDICATOR] = {
+      .type = PFCP_IE_PAGING_POLICY_INDICATOR,
+      .offset = offsetof(pfcp_update_qer_t, paging_policy_indicator)
+    },
+    [UPDATE_QER_AVERAGING_WINDOW] = {
+      .type = PFCP_IE_AVERAGING_WINDOW,
+      .offset = offsetof(pfcp_update_qer_t, averaging_window)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_remove_pdr_group[] =
+  {
+    [REMOVE_PDR_PDR_ID] = {
+      .type = PFCP_IE_PDR_ID,
+      .offset = offsetof(pfcp_remove_pdr_t, pdr_id)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_remove_far_group[] =
+  {
+    [REMOVE_FAR_FAR_ID] = {
+      .type = PFCP_IE_FAR_ID,
+      .offset = offsetof(pfcp_remove_far_t, far_id)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_remove_urr_group[] =
+  {
+    [REMOVE_URR_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .offset = offsetof(pfcp_remove_urr_t, urr_id)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_remove_qer_group[] =
+  {
+    [REMOVE_QER_QER_ID] = {
+      .type = PFCP_IE_QER_ID,
+      .offset = offsetof(pfcp_remove_qer_t, qer_id)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_load_control_information_group[] =
+  {
+    [LOAD_CONTROL_INFORMATION_SEQUENCE_NUMBER] = {
+      .type = PFCP_IE_SEQUENCE_NUMBER,
+      .offset = offsetof(pfcp_load_control_information_t, sequence_number)
+    },
+    [LOAD_CONTROL_INFORMATION_METRIC] = {
+      .type = PFCP_IE_METRIC,
+      .offset = offsetof(pfcp_load_control_information_t, metric)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_overload_control_information_group[] =
+  {
+    [OVERLOAD_CONTROL_INFORMATION_SEQUENCE_NUMBER] = {
+      .type = PFCP_IE_SEQUENCE_NUMBER,
+      .offset = offsetof(pfcp_overload_control_information_t, sequence_number)
+    },
+    [OVERLOAD_CONTROL_INFORMATION_METRIC] = {
+      .type = PFCP_IE_METRIC,
+      .offset = offsetof(pfcp_overload_control_information_t, metric)
+    },
+    [OVERLOAD_CONTROL_INFORMATION_TIMER] = {
+      .type = PFCP_IE_TIMER,
+      .offset = offsetof(pfcp_overload_control_information_t, timer)
+    },
+    [OVERLOAD_CONTROL_INFORMATION_OCI_FLAGS] = {
+      .type = PFCP_IE_OCI_FLAGS,
+      .offset = offsetof(pfcp_overload_control_information_t, oci_flags)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_application_id_pfds_group[] =
+  {
+    [APPLICATION_ID_PFDS_APPLICATION_ID] = {
+      .type = PFCP_IE_APPLICATION_ID,
+      .offset = offsetof(pfcp_application_id_pfds_t, application_id)
+    },
+    [APPLICATION_ID_PFDS_PFD] = {
+      .type = PFCP_IE_PFD,
+      .is_array = true,
+      .offset = offsetof(pfcp_application_id_pfds_t, pfd)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_pfd_group[] =
+  {
+    [PFD_PFD_CONTENTS] = {
+      .type = PFCP_IE_PFD_CONTENTS,
+      .is_array = true,
+      .offset = offsetof(pfcp_pfd_t, pfd_contents)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_application_detection_information_group[] =
+  {
+    [APPLICATION_DETECTION_INFORMATION_APPLICATION_ID] = {
+      .type = PFCP_IE_APPLICATION_ID,
+      .offset = offsetof(pfcp_application_detection_information_t, application_id)
+    },
+    [APPLICATION_DETECTION_INFORMATION_APPLICATION_INSTANCE_ID] = {
+      .type = PFCP_IE_APPLICATION_INSTANCE_ID,
+      .offset = offsetof(pfcp_application_detection_information_t, application_instance_id)
+    },
+    [APPLICATION_DETECTION_INFORMATION_FLOW_INFORMATION] = {
+      .type = PFCP_IE_FLOW_INFORMATION,
+      .offset = offsetof(pfcp_application_detection_information_t, flow_information)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_query_urr_group[] =
+  {
+    [QUERY_URR_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .offset = offsetof(pfcp_query_urr_t, urr_id)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_usage_report_smr_group[] =
+  {
+    [USAGE_REPORT_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .offset = offsetof(pfcp_usage_report_t, urr_id)
+    },
+    [USAGE_REPORT_UR_SEQN] = {
+      .type = PFCP_IE_UR_SEQN,
+      .offset = offsetof(pfcp_usage_report_t, ur_seqn)
+    },
+    [USAGE_REPORT_USAGE_REPORT_TRIGGER] = {
+      .type = PFCP_IE_USAGE_REPORT_TRIGGER,
+      .offset = offsetof(pfcp_usage_report_t, usage_report_trigger)
+    },
+    [USAGE_REPORT_START_TIME] = {
+      .type = PFCP_IE_START_TIME,
+      .offset = offsetof(pfcp_usage_report_t, start_time)
+    },
+    [USAGE_REPORT_END_TIME] = {
+      .type = PFCP_IE_END_TIME,
+      .offset = offsetof(pfcp_usage_report_t, end_time)
+    },
+    [USAGE_REPORT_VOLUME_MEASUREMENT] = {
+      .type = PFCP_IE_VOLUME_MEASUREMENT,
+      .offset = offsetof(pfcp_usage_report_t, volume_measurement)
+    },
+    [USAGE_REPORT_DURATION_MEASUREMENT] = {
+      .type = PFCP_IE_DURATION_MEASUREMENT,
+      .offset = offsetof(pfcp_usage_report_t, duration_measurement)
+    },
+    [USAGE_REPORT_TIME_OF_FIRST_PACKET] = {
+      .type = PFCP_IE_TIME_OF_FIRST_PACKET,
+      .offset = offsetof(pfcp_usage_report_t, time_of_first_packet)
+    },
+    [USAGE_REPORT_TIME_OF_LAST_PACKET] = {
+      .type = PFCP_IE_TIME_OF_LAST_PACKET,
+      .offset = offsetof(pfcp_usage_report_t, time_of_last_packet)
+    },
+    [USAGE_REPORT_USAGE_INFORMATION] = {
+      .type = PFCP_IE_USAGE_INFORMATION,
+      .offset = offsetof(pfcp_usage_report_t, usage_information)
+    },
+    [USAGE_REPORT_QUERY_URR_REFERENCE] = {
+      .type = PFCP_IE_QUERY_URR_REFERENCE,
+      .offset = offsetof(pfcp_usage_report_t, query_urr_reference)
+    },
+    [USAGE_REPORT_EVENT_TIME_STAMP] = {
+      .type = PFCP_IE_EVENT_TIME_STAMP,
+      .is_array = true,
+      .offset = offsetof(pfcp_usage_report_t, event_time_stamp)
+    },
+    [USAGE_REPORT_ETHERNET_TRAFFIC_INFORMATION] = {
+      .type = PFCP_IE_ETHERNET_TRAFFIC_INFORMATION,
+      .offset = offsetof(pfcp_usage_report_t, ethernet_traffic_information)
+    },
+    [USAGE_REPORT_TP_NOW] = {
+      .type = PFCP_IE_TP_NOW,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_usage_report_t, tp_now)
+    },
+    [USAGE_REPORT_TP_START_TIME] = {
+      .type = PFCP_IE_TP_START_TIME,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_usage_report_t, tp_start_time)
+    },
+    [USAGE_REPORT_TP_END_TIME] = {
+      .type = PFCP_IE_TP_END_TIME,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_usage_report_t, tp_end_time)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_usage_report_sdr_group[] =
+  {
+    [USAGE_REPORT_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .offset = offsetof(pfcp_usage_report_t, urr_id)
+    },
+    [USAGE_REPORT_UR_SEQN] = {
+      .type = PFCP_IE_UR_SEQN,
+      .offset = offsetof(pfcp_usage_report_t, ur_seqn)
+    },
+    [USAGE_REPORT_USAGE_REPORT_TRIGGER] = {
+      .type = PFCP_IE_USAGE_REPORT_TRIGGER,
+      .offset = offsetof(pfcp_usage_report_t, usage_report_trigger)
+    },
+    [USAGE_REPORT_START_TIME] = {
+      .type = PFCP_IE_START_TIME,
+      .offset = offsetof(pfcp_usage_report_t, start_time)
+    },
+    [USAGE_REPORT_END_TIME] = {
+      .type = PFCP_IE_END_TIME,
+      .offset = offsetof(pfcp_usage_report_t, end_time)
+    },
+    [USAGE_REPORT_VOLUME_MEASUREMENT] = {
+      .type = PFCP_IE_VOLUME_MEASUREMENT,
+      .offset = offsetof(pfcp_usage_report_t, volume_measurement)
+    },
+    [USAGE_REPORT_DURATION_MEASUREMENT] = {
+      .type = PFCP_IE_DURATION_MEASUREMENT,
+      .offset = offsetof(pfcp_usage_report_t, duration_measurement)
+    },
+    [USAGE_REPORT_TIME_OF_FIRST_PACKET] = {
+      .type = PFCP_IE_TIME_OF_FIRST_PACKET,
+      .offset = offsetof(pfcp_usage_report_t, time_of_first_packet)
+    },
+    [USAGE_REPORT_TIME_OF_LAST_PACKET] = {
+      .type = PFCP_IE_TIME_OF_LAST_PACKET,
+      .offset = offsetof(pfcp_usage_report_t, time_of_last_packet)
+    },
+    [USAGE_REPORT_USAGE_INFORMATION] = {
+      .type = PFCP_IE_USAGE_INFORMATION,
+      .offset = offsetof(pfcp_usage_report_t, usage_information)
+    },
+    [USAGE_REPORT_ETHERNET_TRAFFIC_INFORMATION] = {
+      .type = PFCP_IE_ETHERNET_TRAFFIC_INFORMATION,
+      .offset = offsetof(pfcp_usage_report_t, ethernet_traffic_information)
+    },
+    [USAGE_REPORT_TP_NOW] = {
+      .type = PFCP_IE_TP_NOW,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_usage_report_t, tp_now)
+    },
+    [USAGE_REPORT_TP_START_TIME] = {
+      .type = PFCP_IE_TP_START_TIME,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_usage_report_t, tp_start_time)
+    },
+    [USAGE_REPORT_TP_END_TIME] = {
+      .type = PFCP_IE_TP_END_TIME,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_usage_report_t, tp_end_time)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_usage_report_srr_group[] =
+  {
+    [USAGE_REPORT_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .offset = offsetof(pfcp_usage_report_t, urr_id)
+    },
+    [USAGE_REPORT_UR_SEQN] = {
+      .type = PFCP_IE_UR_SEQN,
+      .offset = offsetof(pfcp_usage_report_t, ur_seqn)
+    },
+    [USAGE_REPORT_USAGE_REPORT_TRIGGER] = {
+      .type = PFCP_IE_USAGE_REPORT_TRIGGER,
+      .offset = offsetof(pfcp_usage_report_t, usage_report_trigger)
+    },
+    [USAGE_REPORT_START_TIME] = {
+      .type = PFCP_IE_START_TIME,
+      .offset = offsetof(pfcp_usage_report_t, start_time)
+    },
+    [USAGE_REPORT_END_TIME] = {
+      .type = PFCP_IE_END_TIME,
+      .offset = offsetof(pfcp_usage_report_t, end_time)
+    },
+    [USAGE_REPORT_VOLUME_MEASUREMENT] = {
+      .type = PFCP_IE_VOLUME_MEASUREMENT,
+      .offset = offsetof(pfcp_usage_report_t, volume_measurement)
+    },
+    [USAGE_REPORT_DURATION_MEASUREMENT] = {
+      .type = PFCP_IE_DURATION_MEASUREMENT,
+      .offset = offsetof(pfcp_usage_report_t, duration_measurement)
+    },
+    [USAGE_REPORT_APPLICATION_DETECTION_INFORMATION] = {
+      .type = PFCP_IE_APPLICATION_DETECTION_INFORMATION,
+      .offset = offsetof(pfcp_usage_report_t, application_detection_information)
+    },
+    [USAGE_REPORT_UE_IP_ADDRESS] = {
+      .type = PFCP_IE_UE_IP_ADDRESS,
+      .offset = offsetof(pfcp_usage_report_t, ue_ip_address)
+    },
+    [USAGE_REPORT_NETWORK_INSTANCE] = {
+      .type = PFCP_IE_NETWORK_INSTANCE,
+      .offset = offsetof(pfcp_usage_report_t, network_instance)
+    },
+    [USAGE_REPORT_TIME_OF_FIRST_PACKET] = {
+      .type = PFCP_IE_TIME_OF_FIRST_PACKET,
+      .offset = offsetof(pfcp_usage_report_t, time_of_first_packet)
+    },
+    [USAGE_REPORT_TIME_OF_LAST_PACKET] = {
+      .type = PFCP_IE_TIME_OF_LAST_PACKET,
+      .offset = offsetof(pfcp_usage_report_t, time_of_last_packet)
+    },
+    [USAGE_REPORT_USAGE_INFORMATION] = {
+      .type = PFCP_IE_USAGE_INFORMATION,
+      .offset = offsetof(pfcp_usage_report_t, usage_information)
+    },
+    [USAGE_REPORT_QUERY_URR_REFERENCE] = {
+      .type = PFCP_IE_QUERY_URR_REFERENCE,
+      .offset = offsetof(pfcp_usage_report_t, query_urr_reference)
+    },
+    [USAGE_REPORT_ETHERNET_TRAFFIC_INFORMATION] = {
+      .type = PFCP_IE_ETHERNET_TRAFFIC_INFORMATION,
+      .offset = offsetof(pfcp_usage_report_t, ethernet_traffic_information)
+    },
+    [USAGE_REPORT_TP_NOW] = {
+      .type = PFCP_IE_TP_NOW,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_usage_report_t, tp_now)
+    },
+    [USAGE_REPORT_TP_START_TIME] = {
+      .type = PFCP_IE_TP_START_TIME,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_usage_report_t, tp_start_time)
+    },
+    [USAGE_REPORT_TP_END_TIME] = {
+      .type = PFCP_IE_TP_END_TIME,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_usage_report_t, tp_end_time)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_downlink_data_report_group[] =
+  {
+    [DOWNLINK_DATA_REPORT_PDR_ID] = {
+      .type = PFCP_IE_PDR_ID,
+      .is_array = true,
+      .offset = offsetof(pfcp_downlink_data_report_t, pdr_id)
+    },
+    [DOWNLINK_DATA_REPORT_DOWNLINK_DATA_SERVICE_INFORMATION] = {
+      .type = PFCP_IE_DOWNLINK_DATA_SERVICE_INFORMATION,
+      .is_array = true,
+      .offset = offsetof(pfcp_downlink_data_report_t, downlink_data_service_information)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_create_bar_group[] =
+  {
+    [CREATE_BAR_BAR_ID] = {
+      .type = PFCP_IE_BAR_ID,
+      .offset = offsetof(pfcp_create_bar_t, bar_id)
+    },
+    [CREATE_BAR_DOWNLINK_DATA_NOTIFICATION_DELAY] = {
+      .type = PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY,
+      .offset = offsetof(pfcp_create_bar_t, downlink_data_notification_delay)
+    },
+    [CREATE_BAR_SUGGESTED_BUFFERING_PACKETS_COUNT] = {
+      .type = PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT,
+      .offset = offsetof(pfcp_create_bar_t, suggested_buffering_packets_count)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_bar_request_group[] =
+  {
+    [UPDATE_BAR_REQUEST_BAR_ID] = {
+      .type = PFCP_IE_BAR_ID,
+      .offset = offsetof(pfcp_update_bar_request_t, bar_id)
+    },
+    [UPDATE_BAR_REQUEST_DOWNLINK_DATA_NOTIFICATION_DELAY] = {
+      .type = PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY,
+      .offset = offsetof(pfcp_update_bar_request_t, downlink_data_notification_delay)
+    },
+    [UPDATE_BAR_REQUEST_SUGGESTED_BUFFERING_PACKETS_COUNT] = {
+      .type = PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT,
+      .offset = offsetof(pfcp_update_bar_request_t, suggested_buffering_packets_count)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_remove_bar_group[] =
+  {
+    [REMOVE_BAR_BAR_ID] = {
+      .type = PFCP_IE_BAR_ID,
+      .offset = offsetof(pfcp_remove_bar_t, bar_id)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_error_indication_report_group[] =
+  {
+    [ERROR_INDICATION_REPORT_F_TEID] = {
+      .type = PFCP_IE_F_TEID,
+      .is_array = true,
+      .offset = offsetof(pfcp_error_indication_report_t, f_teid)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_user_plane_path_failure_report_group[] =
+  {
+    [USER_PLANE_PATH_FAILURE_REPORT_REMOTE_GTP_U_PEER] = {
+      .type = PFCP_IE_REMOTE_GTP_U_PEER,
+      .is_array = true,
+      .offset = offsetof(pfcp_user_plane_path_failure_report_t, remote_gtp_u_peer)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_duplicating_parameters_group[] =
+  {
+    [UPDATE_DUPLICATING_PARAMETERS_DESTINATION_INTERFACE] = {
+      .type = PFCP_IE_DESTINATION_INTERFACE,
+      .offset = offsetof(pfcp_update_duplicating_parameters_t, destination_interface)
+    },
+    [UPDATE_DUPLICATING_PARAMETERS_OUTER_HEADER_CREATION] = {
+      .type = PFCP_IE_OUTER_HEADER_CREATION,
+      .offset = offsetof(pfcp_update_duplicating_parameters_t, outer_header_creation)
+    },
+    [UPDATE_DUPLICATING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = {
+      .type = PFCP_IE_TRANSPORT_LEVEL_MARKING,
+      .offset = offsetof(pfcp_update_duplicating_parameters_t, transport_level_marking)
+    },
+    [UPDATE_DUPLICATING_PARAMETERS_FORWARDING_POLICY] = {
+      .type = PFCP_IE_FORWARDING_POLICY,
+      .offset = offsetof(pfcp_update_duplicating_parameters_t, forwarding_policy)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_aggregated_urrs_group[] =
+  {
+    [AGGREGATED_URRS_AGGREGATED_URR_ID] = {
+      .type = PFCP_IE_AGGREGATED_URR_ID,
+      .offset = offsetof(pfcp_aggregated_urrs_t, aggregated_urr_id)
+    },
+    [AGGREGATED_URRS_MULTIPLIER] = {
+      .type = PFCP_IE_MULTIPLIER,
+      .offset = offsetof(pfcp_aggregated_urrs_t, multiplier)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_create_traffic_endpoint_group[] =
+  {
+    [CREATE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = {
+      .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, traffic_endpoint_id)
+    },
+    [CREATE_TRAFFIC_ENDPOINT_F_TEID] = {
+      .type = PFCP_IE_F_TEID,
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, f_teid)
+    },
+    [CREATE_TRAFFIC_ENDPOINT_NETWORK_INSTANCE] = {
+      .type = PFCP_IE_NETWORK_INSTANCE,
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, network_instance)
+    },
+    [CREATE_TRAFFIC_ENDPOINT_UE_IP_ADDRESS] = {
+      .type = PFCP_IE_UE_IP_ADDRESS,
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, ue_ip_address)
+    },
+    [CREATE_TRAFFIC_ENDPOINT_ETHERNET_PDU_SESSION_INFORMATION] = {
+      .type = PFCP_IE_ETHERNET_PDU_SESSION_INFORMATION,
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, ethernet_pdu_session_information)
+    },
+    [CREATE_TRAFFIC_ENDPOINT_FRAMED_ROUTE] = {
+      .type = PFCP_IE_FRAMED_ROUTE,
+      .is_array = true,
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, framed_route)
+    },
+    [CREATE_TRAFFIC_ENDPOINT_FRAMED_ROUTING] = {
+      .type = PFCP_IE_FRAMED_ROUTING,
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, framed_routing)
+    },
+    [CREATE_TRAFFIC_ENDPOINT_FRAMED_IPV6_ROUTE] = {
+      .type = PFCP_IE_FRAMED_IPV6_ROUTE,
+      .is_array = true,
+      .offset = offsetof(pfcp_create_traffic_endpoint_t, framed_ipv6_route)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_created_traffic_endpoint_group[] =
+  {
+    [CREATED_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = {
+      .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
+      .offset = offsetof(pfcp_created_traffic_endpoint_t, traffic_endpoint_id)
+    },
+    [CREATED_TRAFFIC_ENDPOINT_F_TEID] = {
+      .type = PFCP_IE_F_TEID,
+      .offset = offsetof(pfcp_created_traffic_endpoint_t, f_teid)
+    },
+    [CREATED_TRAFFIC_ENDPOINT_UE_IP_ADDRESS] = {
+      .type = PFCP_IE_UE_IP_ADDRESS,
+      .offset = offsetof(pfcp_created_traffic_endpoint_t, ue_ip_address)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_traffic_endpoint_group[] =
+  {
+    [UPDATE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = {
+      .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
+      .offset = offsetof(pfcp_update_traffic_endpoint_t, traffic_endpoint_id)
+    },
+    [UPDATE_TRAFFIC_ENDPOINT_F_TEID] = {
+      .type = PFCP_IE_F_TEID,
+      .offset = offsetof(pfcp_update_traffic_endpoint_t, f_teid)
+    },
+    [UPDATE_TRAFFIC_ENDPOINT_NETWORK_INSTANCE] = {
+      .type = PFCP_IE_NETWORK_INSTANCE,
+      .offset = offsetof(pfcp_update_traffic_endpoint_t, network_instance)
+    },
+    [UPDATE_TRAFFIC_ENDPOINT_UE_IP_ADDRESS] = {
+      .type = PFCP_IE_UE_IP_ADDRESS,
+      .offset = offsetof(pfcp_update_traffic_endpoint_t, ue_ip_address)
+    },
+    [UPDATE_TRAFFIC_ENDPOINT_FRAMED_ROUTE] = {
+      .type = PFCP_IE_FRAMED_ROUTE,
+      .is_array = true,
+      .offset = offsetof(pfcp_update_traffic_endpoint_t, framed_route)
+    },
+    [UPDATE_TRAFFIC_ENDPOINT_FRAMED_ROUTING] = {
+      .type = PFCP_IE_FRAMED_ROUTING,
+      .offset = offsetof(pfcp_update_traffic_endpoint_t, framed_routing)
+    },
+    [UPDATE_TRAFFIC_ENDPOINT_FRAMED_IPV6_ROUTE] = {
+      .type = PFCP_IE_FRAMED_IPV6_ROUTE,
+      .is_array = true,
+      .offset = offsetof(pfcp_update_traffic_endpoint_t, framed_ipv6_route)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_remove_traffic_endpoint_group[] =
+  {
+    [REMOVE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = {
+      .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
+      .offset = offsetof(pfcp_remove_traffic_endpoint_t, traffic_endpoint_id)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_ethernet_packet_filter_group[] =
+  {
+    [ETHERNET_PACKET_FILTER_ETHERNET_FILTER_ID] = {
+      .type = PFCP_IE_ETHERNET_FILTER_ID,
+      .offset = offsetof(pfcp_ethernet_packet_filter_t, ethernet_filter_id)
+    },
+    [ETHERNET_PACKET_FILTER_ETHERNET_FILTER_PROPERTIES] = {
+      .type = PFCP_IE_ETHERNET_FILTER_PROPERTIES,
+      .offset = offsetof(pfcp_ethernet_packet_filter_t, ethernet_filter_properties)
+    },
+    [ETHERNET_PACKET_FILTER_MAC_ADDRESS] = {
+      .type = PFCP_IE_MAC_ADDRESS,
+      .offset = offsetof(pfcp_ethernet_packet_filter_t, mac_address)
+    },
+    [ETHERNET_PACKET_FILTER_ETHERTYPE] = {
+      .type = PFCP_IE_ETHERTYPE,
+      .offset = offsetof(pfcp_ethernet_packet_filter_t, ethertype)
+    },
+    [ETHERNET_PACKET_FILTER_C_TAG] = {
+      .type = PFCP_IE_C_TAG,
+      .offset = offsetof(pfcp_ethernet_packet_filter_t, c_tag)
+    },
+    [ETHERNET_PACKET_FILTER_S_TAG] = {
+      .type = PFCP_IE_S_TAG,
+      .offset = offsetof(pfcp_ethernet_packet_filter_t, s_tag)
+    },
+    [ETHERNET_PACKET_FILTER_SDF_FILTER] = {
+      .type = PFCP_IE_SDF_FILTER,
+      .is_array = true,
+      .offset = offsetof(pfcp_ethernet_packet_filter_t, sdf_filter)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_ethernet_traffic_information_group[] =
+  {
+    [ETHERNET_TRAFFIC_INFORMATION_MAC_ADDRESSES_DETECTED] = {
+      .type = PFCP_IE_MAC_ADDRESSES_DETECTED,
+      .offset = offsetof(pfcp_ethernet_traffic_information_t, mac_addresses_detected)
+    },
+    [ETHERNET_TRAFFIC_INFORMATION_MAC_ADDRESSES_REMOVED] = {
+      .type = PFCP_IE_MAC_ADDRESSES_REMOVED,
+      .offset = offsetof(pfcp_ethernet_traffic_information_t, mac_addresses_removed)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_additional_monitoring_time_group[] =
+  {
+    [ADDITIONAL_MONITORING_TIME_MONITORING_TIME] = {
+      .type = PFCP_IE_MONITORING_TIME,
+      .offset = offsetof(pfcp_additional_monitoring_time_t, monitoring_time)
+    },
+    [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_VOLUME_THRESHOLD] = {
+      .type = PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD,
+      .offset = offsetof(pfcp_additional_monitoring_time_t, subsequent_volume_threshold)
+    },
+    [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_TIME_THRESHOLD] = {
+      .type = PFCP_IE_SUBSEQUENT_TIME_THRESHOLD,
+      .offset = offsetof(pfcp_additional_monitoring_time_t, subsequent_time_threshold)
+    },
+    [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_VOLUME_QUOTA] = {
+      .type = PFCP_IE_SUBSEQUENT_VOLUME_QUOTA,
+      .offset = offsetof(pfcp_additional_monitoring_time_t, subsequent_volume_quota)
+    },
+    [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_TIME_QUOTA] = {
+      .type = PFCP_IE_SUBSEQUENT_TIME_QUOTA,
+      .offset = offsetof(pfcp_additional_monitoring_time_t, subsequent_time_quota)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_create_mar_group[] =
+  {
+    [CREATE_MAR_MAR_ID] = {
+      .type = PFCP_IE_MAR_ID,
+      .offset = offsetof(pfcp_create_mar_t, mar_id)
+    },
+    [CREATE_MAR_STEERING_FUNCTIONALITY] = {
+      .type = PFCP_IE_STEERING_FUNCTIONALITY,
+      .offset = offsetof(pfcp_create_mar_t, steering_functionality)
+    },
+    [CREATE_MAR_STEERING_MODE] = {
+      .type = PFCP_IE_STEERING_MODE,
+      .offset = offsetof(pfcp_create_mar_t, steering_mode)
+    },
+    [CREATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_1] = {
+      .type = PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_1,
+      .offset = offsetof(pfcp_create_mar_t, access_forwarding_action_information_1)
+    },
+    [CREATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_2] = {
+      .type = PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_2,
+      .offset = offsetof(pfcp_create_mar_t, access_forwarding_action_information_2)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_access_forwarding_action_information_group[] =
+  {
+    [ACCESS_FORWARDING_ACTION_INFORMATION_FAR_ID] = {
+      .type = PFCP_IE_FAR_ID,
+      .offset = offsetof(pfcp_access_forwarding_action_information_t, far_id)
+    },
+    [ACCESS_FORWARDING_ACTION_INFORMATION_WEIGHT] = {
+      .type = PFCP_IE_WEIGHT,
+      .offset = offsetof(pfcp_access_forwarding_action_information_t, weight)
+    },
+    [ACCESS_FORWARDING_ACTION_INFORMATION_PRIORITY] = {
+      .type = PFCP_IE_PRIORITY,
+      .offset = offsetof(pfcp_access_forwarding_action_information_t, priority)
+    },
+    [ACCESS_FORWARDING_ACTION_INFORMATION_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .offset = offsetof(pfcp_access_forwarding_action_information_t, urr_id)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_remove_mar_group[] =
+  {
+    [REMOVE_MAR_MAR_ID] = {
+      .type = PFCP_IE_MAR_ID,
+      .offset = offsetof(pfcp_remove_mar_t, mar_id)
+    },
+   };
+
+static struct pfcp_group_ie_def pfcp_update_mar_group[] =
+  {
+    [UPDATE_MAR_MAR_ID] = {
+      .type = PFCP_IE_MAR_ID,
+      .offset = offsetof(pfcp_update_mar_t, mar_id)
+    },
+    [UPDATE_MAR_STEERING_FUNCTIONALITY] = {
+      .type = PFCP_IE_STEERING_FUNCTIONALITY,
+      .offset = offsetof(pfcp_update_mar_t, steering_functionality)
+    },
+    [UPDATE_MAR_STEERING_MODE] = {
+      .type = PFCP_IE_STEERING_MODE,
+      .offset = offsetof(pfcp_update_mar_t, steering_mode)
+    },
+    [UPDATE_MAR_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_1] = {
+      .type = PFCP_IE_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_1,
+      .offset = offsetof(pfcp_update_mar_t, update_access_forwarding_action_information_1)
+    },
+    [UPDATE_MAR_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_2] = {
+      .type = PFCP_IE_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_2,
+      .offset = offsetof(pfcp_update_mar_t, update_access_forwarding_action_information_2)
+    },
+    [UPDATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_1] = {
+      .type = PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_1,
+      .offset = offsetof(pfcp_update_mar_t, access_forwarding_action_information_1)
+    },
+    [UPDATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_2] = {
+      .type = PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_2,
+      .offset = offsetof(pfcp_update_mar_t, access_forwarding_action_information_2)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_update_access_forwarding_action_information_group[] =
+  {
+    [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_FAR_ID] = {
+      .type = PFCP_IE_FAR_ID,
+      .offset = offsetof(pfcp_update_access_forwarding_action_information_t, far_id)
+    },
+    [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_WEIGHT] = {
+      .type = PFCP_IE_WEIGHT,
+      .offset = offsetof(pfcp_update_access_forwarding_action_information_t, weight)
+    },
+    [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_PRIORITY] = {
+      .type = PFCP_IE_PRIORITY,
+      .offset = offsetof(pfcp_update_access_forwarding_action_information_t, priority)
+    },
+    [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_URR_ID] = {
+      .type = PFCP_IE_URR_ID,
+      .offset = offsetof(pfcp_update_access_forwarding_action_information_t, urr_id)
+    },
+  };
+
+static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] =
+  {
+    [UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+			 ue_ip_address_pool_identity)
+    },
+    [UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE] = {
+      .type = PFCP_IE_NETWORK_INSTANCE,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+			 network_instance)
+    },
+    [UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION] = {
+      .type = PFCP_IE_IP_VERSION,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+			 ip_version)
+    },
+    [UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK] = {
+      .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
+      .vendor = VENDOR_BBF,
+      .is_array = true,
+      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+                         port_blocks)
+    },
+  };
 
 static u8 *
-format_ip_version (u8 *s, va_list *args)
+format_ip_version (u8 * s, va_list * args)
 {
   pfcp_ip_version_t *v = va_arg (*args, pfcp_ip_version_t *);
 
   s = format (s, "IPv4:%u IPv6 %u", !!(*v & IP_VERSION_4),
-              !!(*v & IP_VERSION_6));
+	      !!(*v & IP_VERSION_6));
 
   return s;
 }
 
 static int
-decode_ip_version (u8 *data, u16 length, void *p)
+decode_ip_version (u8 * data, u16 length, void *p)
 {
   pfcp_ip_version_t *v = p;
 
@@ -6246,8 +6356,8 @@ decode_ip_version (u8 *data, u16 length, void *p)
 
   if (!(*v & IP_VERSION_4) && !(*v & IP_VERSION_6))
     {
-      pfcp_debug (
-        "PFCP: IP Version should have at least IPv4 or IPv6 bits set");
+      pfcp_debug
+	("PFCP: IP Version should have at least IPv4 or IPv6 bits set");
       return -1;
     }
 
@@ -6255,14 +6365,14 @@ decode_ip_version (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_ip_version (void *p, u8 **vec)
+encode_ip_version (void *p, u8 ** vec)
 {
   pfcp_ip_version_t *v = p;
 
   if (!(*v & IP_VERSION_4) && !(*v & IP_VERSION_6))
     {
-      pfcp_debug (
-        "PFCP: IP Version should have at least IPv4 or IPv6 bits set");
+      pfcp_debug
+        ("PFCP: IP Version should have at least IPv4 or IPv6 bits set");
       return -1;
     }
 
@@ -6270,63 +6380,64 @@ encode_ip_version (void *p, u8 **vec)
   return 0;
 }
 
-static struct pfcp_group_ie_def pfcp_tp_error_report_group[] = {
-  [TP_ERROR_REPORT_TP_ERROR_MESSAGE] = { .type = PFCP_IE_TP_ERROR_MESSAGE,
-                                         .vendor = VENDOR_TRAVELPING,
-                                         .offset =
-                                           offsetof (pfcp_tp_error_report_t,
-                                                     error_message) },
-  [TP_ERROR_REPORT_TP_FILE_NAME] = { .type = PFCP_IE_TP_FILE_NAME,
-                                     .vendor = VENDOR_TRAVELPING,
-                                     .offset = offsetof (
-                                       pfcp_tp_error_report_t, file_name) },
-  [TP_ERROR_REPORT_TP_LINE_NUMBER] = { .type = PFCP_IE_TP_LINE_NUMBER,
-                                       .vendor = VENDOR_TRAVELPING,
-                                       .offset =
-                                         offsetof (pfcp_tp_error_report_t,
-                                                   line_number) },
-};
+static struct pfcp_group_ie_def pfcp_tp_error_report_group[] =
+  {
+    [TP_ERROR_REPORT_TP_ERROR_MESSAGE] = {
+      .type = PFCP_IE_TP_ERROR_MESSAGE,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_tp_error_report_t, error_message)
+    },
+    [TP_ERROR_REPORT_TP_FILE_NAME] = {
+      .type = PFCP_IE_TP_FILE_NAME,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_tp_error_report_t, file_name)
+    },
+    [TP_ERROR_REPORT_TP_LINE_NUMBER] = {
+      .type = PFCP_IE_TP_LINE_NUMBER,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_tp_error_report_t, line_number)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_tp_created_binding_group[] = {
-  [TP_CREATED_BINDING_NAT_PORT_BLOCK] = { .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
-                                          .vendor = VENDOR_BBF,
-                                          .offset = offsetof (
-                                            pfcp_tp_created_binding_t,
-                                            block) },
-  [TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS] = { .type =
-                                                 PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS,
-                                               .vendor = VENDOR_BBF,
-                                               .offset = offsetof (
-                                                 pfcp_tp_created_binding_t,
-                                                 outside_addr) },
-  [TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE] = { .type =
-                                                     PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE,
-                                                   .vendor = VENDOR_BBF,
-                                                   .offset = offsetof (
-                                                     pfcp_tp_created_binding_t,
-                                                     port_range) },
-};
+static struct pfcp_group_ie_def pfcp_tp_created_binding_group[] =
+  {
+    [TP_CREATED_BINDING_NAT_PORT_BLOCK] = {
+      .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_tp_created_binding_t, block)
+    },
+    [TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS] = {
+      .type = PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_tp_created_binding_t, outside_addr)
+    },
+    [TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE] = {
+      .type = PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_tp_created_binding_t, port_range)
+    },
+  };
 
 /**********************************************************/
 
-#define SIMPLE_IE(IE, TYPE, NAME)                                             \
-  [IE] = {                                                                    \
-    .name = NAME,                                                             \
-    .length = sizeof (pfcp_##TYPE##_t),                                       \
-    .format = format_##TYPE,                                                  \
-    .decode = decode_##TYPE,                                                  \
-    .encode = encode_##TYPE,                                                  \
-  }
+#define SIMPLE_IE(IE, TYPE, NAME)			\
+  [IE] = {						\
+    .name = NAME,					\
+    .length = sizeof(pfcp_ ## TYPE ## _t),		\
+    .format = format_ ## TYPE,				\
+    .decode = decode_ ## TYPE,				\
+    .encode = encode_ ## TYPE,				\
+}
 
-#define SIMPLE_IE_FREE(IE, TYPE, NAME)                                        \
-  [IE] = {                                                                    \
-    .name = NAME,                                                             \
-    .length = sizeof (pfcp_##TYPE##_t),                                       \
-    .format = format_##TYPE,                                                  \
-    .decode = decode_##TYPE,                                                  \
-    .encode = encode_##TYPE,                                                  \
-    .free = free_##TYPE,                                                      \
-  }
+#define SIMPLE_IE_FREE(IE, TYPE, NAME)			\
+  [IE] = {						\
+    .name = NAME,					\
+    .length = sizeof(pfcp_ ## TYPE ## _t),		\
+    .format = format_ ## TYPE,				\
+    .decode = decode_ ## TYPE,				\
+    .encode = encode_ ## TYPE,				\
+    .free = free_ ## TYPE,				\
+}
 
 static struct pfcp_ie_def tgpp_specs[] =
   {
@@ -6927,790 +7038,727 @@ static struct pfcp_ie_def vendor_tp_specs[] =
    SIMPLE_IE_FREE(PFCP_IE_TP_IPFIX_POLICY, tp_ipfix_policy, "TP: IPFIX Policy"),
   };
 
-static struct pfcp_ie_def vendor_bbf_specs[] = {
-  SIMPLE_IE (PFCP_IE_BBF_UP_FUNCTION_FEATURES, bbf_up_function_features,
-             "BBF UP Function Features"),
-  SIMPLE_IE (PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS, bbf_nat_outside_address,
-             "BBF NAT Outside Address"),
-  SIMPLE_IE (PFCP_IE_BBF_APPLY_ACTION, bbf_apply_action, "BBF Apply Action"),
-  SIMPLE_IE_FREE (PFCP_IE_BBF_NAT_PORT_BLOCK, bbf_nat_port_block,
-                  "BBF NAT Port Block"),
-  SIMPLE_IE (PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE, bbf_nat_external_port_range,
-             "BBF NAT External Port Range"),
-};
+static struct pfcp_ie_def vendor_bbf_specs[] =
+  {
+   SIMPLE_IE(PFCP_IE_BBF_UP_FUNCTION_FEATURES, bbf_up_function_features, "BBF UP Function Features"),
+   SIMPLE_IE(PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS, bbf_nat_outside_address, "BBF NAT Outside Address"),
+   SIMPLE_IE(PFCP_IE_BBF_APPLY_ACTION, bbf_apply_action, "BBF Apply Action"),
+   SIMPLE_IE_FREE(PFCP_IE_BBF_NAT_PORT_BLOCK, bbf_nat_port_block, "BBF NAT Port Block"),
+   SIMPLE_IE(PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE, bbf_nat_external_port_range, "BBF NAT External Port Range"),
+  };
 
 /**********************************************************/
 
 u8 *
-format_pfcp_ie (u8 *s, va_list *args)
+format_pfcp_ie (u8 * s, va_list * args)
 {
   pfcp_ie_t *ie = va_arg (*args, pfcp_ie_t *);
   u16 type = clib_net_to_host_u16 (ie->type);
 
   if (type & 0x8000)
     {
-      pfcp_ie_vendor_t *vie = (pfcp_ie_vendor_t *) ie;
+      pfcp_ie_vendor_t *vie = (pfcp_ie_vendor_t *)ie;
       u16 vendor = clib_net_to_host_u16 (vie->vendor);
 
       type &= ~0x8000;
 
-      if (vendor == VENDOR_BBF && type < ARRAY_LEN (vendor_bbf_specs) &&
-          vendor_bbf_specs[type].name)
+      if (vendor == VENDOR_BBF &&
+          type < ARRAY_LEN (vendor_bbf_specs) && vendor_bbf_specs[type].name)
         {
           return format (s, "IE: %s (%d:%d), Length: %d.",
                          vendor_bbf_specs[type].name, vendor, type,
                          clib_net_to_host_u16 (ie->length));
         }
       else if (vendor == VENDOR_TRAVELPING &&
-               type < ARRAY_LEN (vendor_tp_specs) &&
-               vendor_tp_specs[type].name)
-        {
-          return format (s, "IE: %s (%d:%d), Length: %d.",
-                         vendor_tp_specs[type].name, vendor, type,
-                         clib_net_to_host_u16 (ie->length));
-        }
+	  type < ARRAY_LEN (vendor_tp_specs) && vendor_tp_specs[type].name)
+	{
+	  return format (s, "IE: %s (%d:%d), Length: %d.",
+			 vendor_tp_specs[type].name, vendor, type,
+			 clib_net_to_host_u16 (ie->length));
+	}
       else
-        return format (s, "IE: %d:%d, Length: %d.", vendor, type,
-                       clib_net_to_host_u16 (ie->length));
+	return format (s, "IE: %d:%d, Length: %d.", vendor, type,
+		       clib_net_to_host_u16 (ie->length));
     }
 
   if (type < ARRAY_LEN (tgpp_specs) && tgpp_specs[type].name)
-    return format (s, "IE: %s (%d), Length: %d.", tgpp_specs[type].name, type,
-                   clib_net_to_host_u16 (ie->length));
+    return format (s, "IE: %s (%d), Length: %d.",
+		   tgpp_specs[type].name, type, clib_net_to_host_u16 (ie->length));
   else
     return format (s, "IE: %d, Length: %d.", type,
-                   clib_net_to_host_u16 (ie->length));
+		   clib_net_to_host_u16 (ie->length));
 }
 
 /**********************************************************/
 
+
 /* PFCP Methods */
 
-static struct pfcp_group_ie_def pfcp_simple_response_group[] = {
-  [PFCP_RESPONSE_CAUSE] = { .type = PFCP_IE_CAUSE,
-                            .offset = offsetof (pfcp_simple_response_t,
-                                                response.cause) },
-  [PFCP_RESPONSE_OFFENDING_IE] = { .type = PFCP_IE_OFFENDING_IE,
-                                   .offset =
-                                     offsetof (pfcp_simple_response_t,
-                                               response.offending_ie) },
-  [PFCP_RESPONSE_RECOVERY_TIME_STAMP] = { .type = PFCP_IE_RECOVERY_TIME_STAMP,
-                                          .offset = offsetof (
-                                            pfcp_simple_response_t,
-                                            response.recovery_time_stamp) },
-  [PFCP_RESPONSE_TP_ERROR_REPORT] = { .type = PFCP_IE_TP_ERROR_REPORT,
-                                      .vendor = VENDOR_TRAVELPING,
-                                      .offset =
-                                        offsetof (pfcp_simple_response_t,
-                                                  response.tp_error_report) },
-};
+static struct pfcp_group_ie_def pfcp_simple_response_group[] =
+  {
+    [PFCP_RESPONSE_CAUSE] = {
+      .type = PFCP_IE_CAUSE,
+      .offset = offsetof(pfcp_simple_response_t, response.cause)
+    },
+    [PFCP_RESPONSE_OFFENDING_IE] = {
+      .type = PFCP_IE_OFFENDING_IE,
+      .offset = offsetof(pfcp_simple_response_t, response.offending_ie)
+    },
+    [PFCP_RESPONSE_RECOVERY_TIME_STAMP] = {
+      .type = PFCP_IE_RECOVERY_TIME_STAMP,
+      .offset = offsetof(pfcp_simple_response_t, response.recovery_time_stamp)
+    },
+    [PFCP_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_simple_response_t, response.tp_error_report)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_heartbeat_request_group[] = {
-  [HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP] = { .type =
-                                                PFCP_IE_RECOVERY_TIME_STAMP,
-                                              .offset = offsetof (
-                                                pfcp_heartbeat_request_t,
-                                                recovery_time_stamp) },
-};
+static struct pfcp_group_ie_def pfcp_heartbeat_request_group[] =
+  {
+    [HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP] = {
+      .type = PFCP_IE_RECOVERY_TIME_STAMP,
+      .offset = offsetof(pfcp_heartbeat_request_t, recovery_time_stamp)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_pfd_management_request_group[] = {
-  [PFD_MANAGEMENT_REQUEST_APPLICATION_ID_PFDS] = { .type =
-                                                     PFCP_IE_APPLICATION_ID_PFDS,
-                                                   .is_array = true,
-                                                   .offset = offsetof (
-                                                     pfcp_pfd_management_request_t,
-                                                     application_id_pfds) },
-};
+static struct pfcp_group_ie_def pfcp_pfd_management_request_group[] =
+  {
+    [PFD_MANAGEMENT_REQUEST_APPLICATION_ID_PFDS] = {
+      .type = PFCP_IE_APPLICATION_ID_PFDS,
+      .is_array = true,
+      .offset = offsetof(pfcp_pfd_management_request_t, application_id_pfds)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_association_setup_request_group[] = {
-  [ASSOCIATION_SETUP_REQUEST_NODE_ID] = { .type = PFCP_IE_NODE_ID,
-                                          .offset = offsetof (
-                                            pfcp_association_setup_request_t,
-                                            request.node_id) },
-  [ASSOCIATION_SETUP_REQUEST_RECOVERY_TIME_STAMP] = { .type =
-                                                        PFCP_IE_RECOVERY_TIME_STAMP,
-                                                      .offset = offsetof (
-                                                        pfcp_association_setup_request_t,
-                                                        recovery_time_stamp) },
-  [ASSOCIATION_SETUP_REQUEST_CP_FUNCTION_FEATURES] = { .type =
-                                                         PFCP_IE_CP_FUNCTION_FEATURES,
-                                                       .offset = offsetof (
-                                                         pfcp_association_setup_request_t,
-                                                         cp_function_features) },
-  [ASSOCIATION_SETUP_REQUEST_UP_FUNCTION_FEATURES] = { .type =
-                                                         PFCP_IE_UP_FUNCTION_FEATURES,
-                                                       .offset = offsetof (
-                                                         pfcp_association_setup_request_t,
-                                                         up_function_features) },
-  [ASSOCIATION_SETUP_REQUEST_USER_PLANE_IP_RESOURCE_INFORMATION] = { .type =
-                                                                       PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
-                                                                     .is_array =
-                                                                       true,
-                                                                     .offset =
-                                                                       offsetof (
-                                                                         pfcp_association_setup_request_t,
-                                                                         user_plane_ip_resource_information) },
-  [ASSOCIATION_SETUP_REQUEST_TP_BUILD_ID] = { .type = PFCP_IE_TP_BUILD_ID,
-                                              .vendor = VENDOR_TRAVELPING,
-                                              .offset = offsetof (
-                                                pfcp_association_setup_request_t,
-                                                tp_build_id) },
-  [ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = { .type =
-                                                                   PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
-                                                                 .is_array =
-                                                                   true,
-                                                                 .offset = offsetof (
-                                                                   pfcp_association_setup_request_t,
-                                                                   ue_ip_address_pool_information) },
-  [ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = { .type =
-                                                               PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
-                                                             .is_array = true,
-                                                             .offset = offsetof (
-                                                               pfcp_association_setup_request_t,
-                                                               alternative_smf_ip_address) },
-  [ASSOCIATION_SETUP_REQUEST_SMF_SET_ID] = { .type = PFCP_IE_SMF_SET_ID,
-                                             .offset = offsetof (
-                                               pfcp_association_setup_request_t,
-                                               smf_set_id) },
-};
+static struct pfcp_group_ie_def pfcp_association_setup_request_group[] =
+  {
+    [ASSOCIATION_SETUP_REQUEST_NODE_ID] = {
+      .type = PFCP_IE_NODE_ID,
+      .offset = offsetof(pfcp_association_setup_request_t, request.node_id)
+    },
+    [ASSOCIATION_SETUP_REQUEST_RECOVERY_TIME_STAMP] = {
+      .type = PFCP_IE_RECOVERY_TIME_STAMP,
+      .offset = offsetof(pfcp_association_setup_request_t, recovery_time_stamp)
+    },
+    [ASSOCIATION_SETUP_REQUEST_CP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_CP_FUNCTION_FEATURES,
+      .offset = offsetof(pfcp_association_setup_request_t, cp_function_features)
+    },
+    [ASSOCIATION_SETUP_REQUEST_UP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_UP_FUNCTION_FEATURES,
+      .offset = offsetof(pfcp_association_setup_request_t, up_function_features)
+    },
+    [ASSOCIATION_SETUP_REQUEST_USER_PLANE_IP_RESOURCE_INFORMATION] = {
+      .type = PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_setup_request_t, user_plane_ip_resource_information)
+    },
+    [ASSOCIATION_SETUP_REQUEST_TP_BUILD_ID] = {
+      .type = PFCP_IE_TP_BUILD_ID,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_association_setup_request_t, tp_build_id)
+    },
+    [ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_setup_request_t, ue_ip_address_pool_information)
+    },
+    [ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = {
+      .type = PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_setup_request_t, alternative_smf_ip_address)
+    },
+    [ASSOCIATION_SETUP_REQUEST_SMF_SET_ID] = {
+      .type = PFCP_IE_SMF_SET_ID,
+      .offset = offsetof(pfcp_association_setup_request_t, smf_set_id)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_association_setup_response_group[] = {
-  [ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID] = { .type = PFCP_IE_NODE_ID,
-                                               .offset = offsetof (
-                                                 pfcp_association_procedure_response_t,
-                                                 node_id) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = { .type = PFCP_IE_CAUSE,
-                                             .offset = offsetof (
-                                               pfcp_association_procedure_response_t,
-                                               cause) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = { .type =
-                                                         PFCP_IE_TP_ERROR_REPORT,
-                                                       .vendor =
-                                                         VENDOR_TRAVELPING,
-                                                       .offset = offsetof (
-                                                         pfcp_association_procedure_response_t,
-                                                         tp_error_report) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP] = { .type =
-                                                             PFCP_IE_RECOVERY_TIME_STAMP,
-                                                           .offset = offsetof (
-                                                             pfcp_association_procedure_response_t,
-                                                             recovery_time_stamp) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = { .type =
-                                                              PFCP_IE_CP_FUNCTION_FEATURES,
-                                                            .offset = offsetof (
-                                                              pfcp_association_procedure_response_t,
-                                                              cp_function_features) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES] = { .type =
-                                                              PFCP_IE_UP_FUNCTION_FEATURES,
-                                                            .offset = offsetof (
-                                                              pfcp_association_procedure_response_t,
-                                                              up_function_features) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES] = { .type =
-                                                                  PFCP_IE_BBF_UP_FUNCTION_FEATURES,
-                                                                .vendor =
-                                                                  VENDOR_BBF,
-                                                                .offset = offsetof (
-                                                                  pfcp_association_procedure_response_t,
-                                                                  bbf_up_function_features) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION] = { .type =
-                                                                            PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
-                                                                          .is_array =
-                                                                            true,
-                                                                          .offset =
-                                                                            offsetof (
-                                                                              pfcp_association_procedure_response_t,
-                                                                              user_plane_ip_resource_information) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID] = { .type = PFCP_IE_TP_BUILD_ID,
-                                                   .vendor = VENDOR_TRAVELPING,
-                                                   .offset = offsetof (
-                                                     pfcp_association_procedure_response_t,
-                                                     tp_build_id) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION] = { .type =
-                                                                        PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
-                                                                      .is_array =
-                                                                        true,
-                                                                      .offset =
-                                                                        offsetof (
-                                                                          pfcp_association_procedure_response_t,
-                                                                          ue_ip_address_pool_information) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_SMF_SET_ID] = { .type = PFCP_IE_SMF_SET_ID,
-                                                  .offset = offsetof (
-                                                    pfcp_association_procedure_response_t,
-                                                    smf_set_id) },
-};
+static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
+  {
+    [ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID] = {
+      .type = PFCP_IE_NODE_ID,
+      .offset = offsetof(pfcp_association_procedure_response_t, node_id)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = {
+      .type = PFCP_IE_CAUSE,
+      .offset = offsetof(pfcp_association_procedure_response_t, cause)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_association_procedure_response_t, tp_error_report)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP] = {
+      .type = PFCP_IE_RECOVERY_TIME_STAMP,
+      .offset = offsetof(pfcp_association_procedure_response_t, recovery_time_stamp)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_CP_FUNCTION_FEATURES,
+      .offset = offsetof(pfcp_association_procedure_response_t, cp_function_features)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_UP_FUNCTION_FEATURES,
+      .offset = offsetof(pfcp_association_procedure_response_t, up_function_features)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_BBF_UP_FUNCTION_FEATURES,
+      .vendor = VENDOR_BBF,
+      .offset = offsetof(pfcp_association_procedure_response_t, bbf_up_function_features)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION] = {
+      .type = PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_procedure_response_t, user_plane_ip_resource_information)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID] = {
+      .type = PFCP_IE_TP_BUILD_ID,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_association_procedure_response_t, tp_build_id)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_information)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_SMF_SET_ID] = {
+      .type = PFCP_IE_SMF_SET_ID,
+      .offset = offsetof(pfcp_association_procedure_response_t, smf_set_id)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_association_update_request_group[] = {
-  [ASSOCIATION_UPDATE_REQUEST_NODE_ID] = { .type = PFCP_IE_NODE_ID,
-                                           .offset = offsetof (
-                                             pfcp_association_update_request_t,
-                                             request.node_id) },
-  [ASSOCIATION_UPDATE_REQUEST_CP_FUNCTION_FEATURES] = { .type =
-                                                          PFCP_IE_CP_FUNCTION_FEATURES,
-                                                        .offset = offsetof (
-                                                          pfcp_association_update_request_t,
-                                                          cp_function_features) },
-  [ASSOCIATION_UPDATE_REQUEST_UP_FUNCTION_FEATURES] = { .type =
-                                                          PFCP_IE_UP_FUNCTION_FEATURES,
-                                                        .offset = offsetof (
-                                                          pfcp_association_update_request_t,
-                                                          up_function_features) },
-  [ASSOCIATION_UPDATE_REQUEST_PFCP_ASSOCIATION_RELEASE_REQUEST] = { .type =
-                                                                      PFCP_IE_PFCP_ASSOCIATION_RELEASE_REQUEST,
-                                                                    .offset =
-                                                                      offsetof (
-                                                                        pfcp_association_update_request_t,
-                                                                        pfcp_association_release_request) },
-  [ASSOCIATION_UPDATE_REQUEST_GRACEFUL_RELEASE_PERIOD] = { .type =
-                                                             PFCP_IE_GRACEFUL_RELEASE_PERIOD,
-                                                           .offset = offsetof (
-                                                             pfcp_association_update_request_t,
-                                                             graceful_release_period) },
-  [ASSOCIATION_UPDATE_REQUEST_USER_PLANE_IP_RESOURCE_INFORMATION] = { .type =
-                                                                        PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
-                                                                      .is_array =
-                                                                        true,
-                                                                      .offset =
-                                                                        offsetof (
-                                                                          pfcp_association_update_request_t,
-                                                                          user_plane_ip_resource_information) },
-  [ASSOCIATION_UPDATE_REQUEST_PFCPAUREQ_FLAGS] = { .type =
-                                                     PFCP_IE_PFCPAUREQ_FLAGS,
-                                                   .offset = offsetof (
-                                                     pfcp_association_update_request_t,
-                                                     pfcpaureq_flags) },
-  [ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = { .type =
-                                                                    PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
-                                                                  .is_array =
-                                                                    true,
-                                                                  .offset = offsetof (
-                                                                    pfcp_association_update_request_t,
-                                                                    ue_ip_address_pool_information) },
-  [ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = { .type =
-                                                                PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
-                                                              .is_array = true,
-                                                              .offset = offsetof (
-                                                                pfcp_association_update_request_t,
-                                                                alternative_smf_ip_address) },
-  [ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID] = { .type = PFCP_IE_SMF_SET_ID,
-                                              .offset = offsetof (
-                                                pfcp_association_update_request_t,
-                                                smf_set_id) },
-};
+static struct pfcp_group_ie_def pfcp_association_update_request_group[] =
+  {
+    [ASSOCIATION_UPDATE_REQUEST_NODE_ID] = {
+      .type = PFCP_IE_NODE_ID,
+      .offset = offsetof(pfcp_association_update_request_t, request.node_id)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_CP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_CP_FUNCTION_FEATURES,
+      .offset = offsetof(pfcp_association_update_request_t, cp_function_features)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_UP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_UP_FUNCTION_FEATURES,
+      .offset = offsetof(pfcp_association_update_request_t, up_function_features)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_PFCP_ASSOCIATION_RELEASE_REQUEST] = {
+      .type = PFCP_IE_PFCP_ASSOCIATION_RELEASE_REQUEST,
+      .offset = offsetof(pfcp_association_update_request_t, pfcp_association_release_request)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_GRACEFUL_RELEASE_PERIOD] = {
+      .type = PFCP_IE_GRACEFUL_RELEASE_PERIOD,
+      .offset = offsetof(pfcp_association_update_request_t, graceful_release_period)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_USER_PLANE_IP_RESOURCE_INFORMATION] = {
+      .type = PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_update_request_t, user_plane_ip_resource_information)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_PFCPAUREQ_FLAGS] = {
+      .type = PFCP_IE_PFCPAUREQ_FLAGS,
+      .offset = offsetof(pfcp_association_update_request_t, pfcpaureq_flags)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = {
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_update_request_t, ue_ip_address_pool_information)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = {
+      .type = PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
+      .is_array = true,
+      .offset = offsetof(pfcp_association_update_request_t, alternative_smf_ip_address)
+    },
+    [ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID] = {
+      .type = PFCP_IE_SMF_SET_ID,
+      .offset = offsetof(pfcp_association_update_request_t, smf_set_id)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_association_update_response_group[] = {
-  [ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID] = { .type = PFCP_IE_NODE_ID,
-                                               .offset = offsetof (
-                                                 pfcp_association_procedure_response_t,
-                                                 node_id) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = { .type = PFCP_IE_CAUSE,
-                                             .offset = offsetof (
-                                               pfcp_association_procedure_response_t,
-                                               cause) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = { .type =
-                                                         PFCP_IE_TP_ERROR_REPORT,
-                                                       .vendor =
-                                                         VENDOR_TRAVELPING,
-                                                       .offset = offsetof (
-                                                         pfcp_association_procedure_response_t,
-                                                         tp_error_report) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = { .type =
-                                                              PFCP_IE_CP_FUNCTION_FEATURES,
-                                                            .offset = offsetof (
-                                                              pfcp_association_procedure_response_t,
-                                                              cp_function_features) },
-  [ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES] = { .type =
-                                                              PFCP_IE_UP_FUNCTION_FEATURES,
-                                                            .offset = offsetof (
-                                                              pfcp_association_procedure_response_t,
-                                                              up_function_features) },
-};
+static struct pfcp_group_ie_def pfcp_association_update_response_group[] =
+  {
+    [ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID] = {
+      .type = PFCP_IE_NODE_ID,
+      .offset = offsetof(pfcp_association_procedure_response_t, node_id)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = {
+      .type = PFCP_IE_CAUSE,
+      .offset = offsetof(pfcp_association_procedure_response_t, cause)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_association_procedure_response_t, tp_error_report)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_CP_FUNCTION_FEATURES,
+      .offset = offsetof(pfcp_association_procedure_response_t, cp_function_features)
+    },
+    [ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES] = {
+      .type = PFCP_IE_UP_FUNCTION_FEATURES,
+      .offset = offsetof(pfcp_association_procedure_response_t, up_function_features)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_association_release_request_group[] = {
-  [ASSOCIATION_RELEASE_REQUEST_NODE_ID] = { .type = PFCP_IE_NODE_ID,
-                                            .offset = offsetof (
-                                              pfcp_association_release_request_t,
-                                              request.node_id) },
-};
+static struct pfcp_group_ie_def pfcp_association_release_request_group[] =
+  {
+    [ASSOCIATION_RELEASE_REQUEST_NODE_ID] = {
+      .type = PFCP_IE_NODE_ID,
+      .offset = offsetof(pfcp_association_release_request_t, request.node_id)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_node_report_request_group[] = {
-  [NODE_REPORT_REQUEST_NODE_ID] = { .type = PFCP_IE_NODE_ID,
-                                    .offset =
-                                      offsetof (pfcp_node_report_request_t,
-                                                request.node_id) },
-  [NODE_REPORT_REQUEST_NODE_REPORT_TYPE] = { .type = PFCP_IE_NODE_REPORT_TYPE,
-                                             .offset = offsetof (
-                                               pfcp_node_report_request_t,
-                                               node_report_type) },
-  [NODE_REPORT_REQUEST_USER_PLANE_PATH_FAILURE_REPORT] = { .type =
-                                                             PFCP_IE_USER_PLANE_PATH_FAILURE_REPORT,
-                                                           .offset = offsetof (
-                                                             pfcp_node_report_request_t,
-                                                             user_plane_path_failure_report) },
-};
+static struct pfcp_group_ie_def pfcp_node_report_request_group[] =
+  {
+    [NODE_REPORT_REQUEST_NODE_ID] = {
+      .type = PFCP_IE_NODE_ID,
+      .offset = offsetof(pfcp_node_report_request_t, request.node_id)
+    },
+    [NODE_REPORT_REQUEST_NODE_REPORT_TYPE] = {
+      .type = PFCP_IE_NODE_REPORT_TYPE,
+      .offset = offsetof(pfcp_node_report_request_t, node_report_type)
+    },
+    [NODE_REPORT_REQUEST_USER_PLANE_PATH_FAILURE_REPORT] = {
+      .type = PFCP_IE_USER_PLANE_PATH_FAILURE_REPORT,
+      .offset = offsetof(pfcp_node_report_request_t, user_plane_path_failure_report)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_session_set_deletion_request_group[] = {
-  [SESSION_SET_DELETION_REQUEST_NODE_ID] = { .type = PFCP_IE_NODE_ID,
-                                             .offset = offsetof (
-                                               pfcp_session_set_deletion_request_t,
-                                               request.node_id) },
-  [SESSION_SET_DELETION_REQUEST_FQ_CSID] = { .type = PFCP_IE_FQ_CSID,
-                                             .is_array = true,
-                                             .offset = offsetof (
-                                               pfcp_session_set_deletion_request_t,
-                                               fq_csid) },
-};
+static struct pfcp_group_ie_def pfcp_session_set_deletion_request_group[] =
+  {
+    [SESSION_SET_DELETION_REQUEST_NODE_ID] = {
+      .type = PFCP_IE_NODE_ID,
+      .offset = offsetof(pfcp_session_set_deletion_request_t, request.node_id)
+    },
+    [SESSION_SET_DELETION_REQUEST_FQ_CSID] = {
+      .type = PFCP_IE_FQ_CSID,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_set_deletion_request_t, fq_csid)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_session_establishment_request_group[] = {
-  [SESSION_ESTABLISHMENT_REQUEST_NODE_ID] = { .type = PFCP_IE_NODE_ID,
-                                              .offset = offsetof (
-                                                pfcp_session_establishment_request_t,
-                                                request.node_id) },
-  [SESSION_ESTABLISHMENT_REQUEST_F_SEID] = { .type = PFCP_IE_F_SEID,
-                                             .offset = offsetof (
-                                               pfcp_session_establishment_request_t,
-                                               f_seid) },
-  [SESSION_ESTABLISHMENT_REQUEST_CREATE_PDR] = { .type = PFCP_IE_CREATE_PDR,
-                                                 .is_array = true,
-                                                 .offset = offsetof (
-                                                   pfcp_session_establishment_request_t,
-                                                   create_pdr) },
-  [SESSION_ESTABLISHMENT_REQUEST_CREATE_FAR] = { .type = PFCP_IE_CREATE_FAR,
-                                                 .is_array = true,
-                                                 .offset = offsetof (
-                                                   pfcp_session_establishment_request_t,
-                                                   create_far) },
-  [SESSION_ESTABLISHMENT_REQUEST_CREATE_URR] = { .type = PFCP_IE_CREATE_URR,
-                                                 .is_array = true,
-                                                 .offset = offsetof (
-                                                   pfcp_session_establishment_request_t,
-                                                   create_urr) },
-  [SESSION_ESTABLISHMENT_REQUEST_CREATE_QER] = { .type = PFCP_IE_CREATE_QER,
-                                                 .is_array = true,
-                                                 .offset = offsetof (
-                                                   pfcp_session_establishment_request_t,
-                                                   create_qer) },
-  [SESSION_ESTABLISHMENT_REQUEST_CREATE_BAR] = { .type = PFCP_IE_CREATE_BAR,
-                                                 .is_array = true,
-                                                 .offset = offsetof (
-                                                   pfcp_session_establishment_request_t,
-                                                   create_bar) },
-  [SESSION_ESTABLISHMENT_REQUEST_CREATE_TRAFFIC_ENDPOINT] = { .type =
-                                                                PFCP_IE_CREATE_TRAFFIC_ENDPOINT,
-                                                              .is_array = true,
-                                                              .offset = offsetof (
-                                                                pfcp_session_establishment_request_t,
-                                                                create_traffic_endpoint) },
-  [SESSION_ESTABLISHMENT_REQUEST_PDN_TYPE] = { .type = PFCP_IE_PDN_TYPE,
-                                               .offset = offsetof (
-                                                 pfcp_session_establishment_request_t,
-                                                 pdn_type) },
-  [SESSION_ESTABLISHMENT_REQUEST_FQ_CSID] = { .type = PFCP_IE_FQ_CSID,
-                                              .is_array = true,
-                                              .offset = offsetof (
-                                                pfcp_session_establishment_request_t,
-                                                fq_csid) },
-  [SESSION_ESTABLISHMENT_REQUEST_USER_PLANE_INACTIVITY_TIMER] = { .type =
-                                                                    PFCP_IE_USER_PLANE_INACTIVITY_TIMER,
-                                                                  .offset = offsetof (
-                                                                    pfcp_session_establishment_request_t,
-                                                                    user_plane_inactivity_timer) },
-  [SESSION_ESTABLISHMENT_REQUEST_USER_ID] = { .type = PFCP_IE_USER_ID,
-                                              .offset = offsetof (
-                                                pfcp_session_establishment_request_t,
-                                                user_id) },
-  [SESSION_ESTABLISHMENT_REQUEST_TRACE_INFORMATION] = { .type =
-                                                          PFCP_IE_TRACE_INFORMATION,
-                                                        .offset = offsetof (
-                                                          pfcp_session_establishment_request_t,
-                                                          trace_information) },
-  [SESSION_ESTABLISHMENT_REQUEST_APN_DNN] = { .type = PFCP_IE_APN_DNN,
-                                              .offset = offsetof (
-                                                pfcp_session_establishment_request_t,
-                                                apn_dnn) },
-  [SESSION_ESTABLISHMENT_REQUEST_CREATE_MAR] = { .type = PFCP_IE_CREATE_MAR,
-                                                 .is_array = true,
-                                                 .offset = offsetof (
-                                                   pfcp_session_establishment_request_t,
-                                                   create_mar) },
-};
+static struct pfcp_group_ie_def pfcp_session_establishment_request_group[] =
+  {
+    [SESSION_ESTABLISHMENT_REQUEST_NODE_ID] = {
+      .type = PFCP_IE_NODE_ID,
+      .offset = offsetof(pfcp_session_establishment_request_t, request.node_id)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_F_SEID] = {
+      .type = PFCP_IE_F_SEID,
+      .offset = offsetof(pfcp_session_establishment_request_t, f_seid)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_CREATE_PDR] = {
+      .type = PFCP_IE_CREATE_PDR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_establishment_request_t, create_pdr)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_CREATE_FAR] = {
+      .type = PFCP_IE_CREATE_FAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_establishment_request_t, create_far)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_CREATE_URR] = {
+      .type = PFCP_IE_CREATE_URR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_establishment_request_t, create_urr)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_CREATE_QER] = {
+      .type = PFCP_IE_CREATE_QER,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_establishment_request_t, create_qer)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_CREATE_BAR] = {
+      .type = PFCP_IE_CREATE_BAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_establishment_request_t, create_bar)
+    },
+     [SESSION_ESTABLISHMENT_REQUEST_CREATE_TRAFFIC_ENDPOINT] = {
+      .type = PFCP_IE_CREATE_TRAFFIC_ENDPOINT,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_establishment_request_t, create_traffic_endpoint)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_PDN_TYPE] = {
+      .type = PFCP_IE_PDN_TYPE,
+      .offset = offsetof(pfcp_session_establishment_request_t, pdn_type)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_FQ_CSID] = {
+      .type = PFCP_IE_FQ_CSID,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_establishment_request_t, fq_csid)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_USER_PLANE_INACTIVITY_TIMER] = {
+      .type = PFCP_IE_USER_PLANE_INACTIVITY_TIMER,
+      .offset = offsetof(pfcp_session_establishment_request_t, user_plane_inactivity_timer)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_USER_ID] = {
+      .type = PFCP_IE_USER_ID,
+      .offset = offsetof(pfcp_session_establishment_request_t, user_id)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_TRACE_INFORMATION] = {
+      .type = PFCP_IE_TRACE_INFORMATION,
+      .offset = offsetof(pfcp_session_establishment_request_t, trace_information)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_APN_DNN] = {
+      .type = PFCP_IE_APN_DNN,
+      .offset = offsetof(pfcp_session_establishment_request_t, apn_dnn)
+    },
+    [SESSION_ESTABLISHMENT_REQUEST_CREATE_MAR] = {
+      .type = PFCP_IE_CREATE_MAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_establishment_request_t, create_mar)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_session_establishment_response_group[] = {
-  [SESSION_PROCEDURE_RESPONSE_NODE_ID] = { .type = PFCP_IE_NODE_ID,
-                                           .offset = offsetof (
-                                             pfcp_session_procedure_response_t,
-                                             node_id) },
-  [SESSION_PROCEDURE_RESPONSE_CAUSE] = { .type = PFCP_IE_CAUSE,
-                                         .offset = offsetof (
-                                           pfcp_session_procedure_response_t,
-                                           cause) },
-  [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = { .type = PFCP_IE_OFFENDING_IE,
-                                                .offset = offsetof (
-                                                  pfcp_session_procedure_response_t,
-                                                  offending_ie) },
-  [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = { .type =
-                                                     PFCP_IE_TP_ERROR_REPORT,
-                                                   .vendor = VENDOR_TRAVELPING,
-                                                   .offset = offsetof (
-                                                     pfcp_session_procedure_response_t,
-                                                     tp_error_report) },
-  [SESSION_PROCEDURE_RESPONSE_UP_F_SEID] = { .type = PFCP_IE_F_SEID,
-                                             .offset = offsetof (
-                                               pfcp_session_procedure_response_t,
-                                               up_f_seid) },
-  [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = { .type = PFCP_IE_CREATED_PDR,
-                                               .is_array = true,
-                                               .offset = offsetof (
-                                                 pfcp_session_procedure_response_t,
-                                                 created_pdr) },
-  [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = { .type =
-                                                              PFCP_IE_LOAD_CONTROL_INFORMATION,
-                                                            .offset = offsetof (
-                                                              pfcp_session_procedure_response_t,
-                                                              load_control_information) },
-  [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = { .type =
-                                                                  PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-                                                                .offset = offsetof (
-                                                                  pfcp_session_procedure_response_t,
-                                                                  overload_control_information) },
-  [SESSION_PROCEDURE_RESPONSE_FQ_CSID] = { .type = PFCP_IE_FQ_CSID,
-                                           .is_array = true,
-                                           .offset = offsetof (
-                                             pfcp_session_procedure_response_t,
-                                             fq_csid) },
-  [SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID] = { .type =
-                                                    PFCP_IE_FAILED_RULE_ID,
-                                                  .offset = offsetof (
-                                                    pfcp_session_procedure_response_t,
-                                                    failed_rule_id) },
-  [SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = { .type =
-                                                              PFCP_IE_CREATED_TRAFFIC_ENDPOINT,
-                                                            .is_array = true,
-                                                            .offset = offsetof (
-                                                              pfcp_session_procedure_response_t,
-                                                              created_traffic_endpoint) },
-  [SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING] = { .type =
-                                                        PFCP_IE_TP_CREATED_NAT_BINDING,
-                                                      .vendor =
-                                                        VENDOR_TRAVELPING,
-                                                      .offset = offsetof (
-                                                        pfcp_session_procedure_response_t,
-                                                        created_binding) },
-};
+static struct pfcp_group_ie_def pfcp_session_establishment_response_group[] =
+  {
+    [SESSION_PROCEDURE_RESPONSE_NODE_ID] = {
+      .type = PFCP_IE_NODE_ID,
+      .offset = offsetof(pfcp_session_procedure_response_t, node_id)
+    },
+    [SESSION_PROCEDURE_RESPONSE_CAUSE] = {
+      .type = PFCP_IE_CAUSE,
+      .offset = offsetof(pfcp_session_procedure_response_t, cause)
+    },
+    [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
+      .type = PFCP_IE_OFFENDING_IE,
+      .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
+    },
+    [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_procedure_response_t, tp_error_report)
+    },
+    [SESSION_PROCEDURE_RESPONSE_UP_F_SEID] = {
+      .type = PFCP_IE_F_SEID,
+      .offset = offsetof(pfcp_session_procedure_response_t, up_f_seid)
+    },
+    [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = {
+      .type = PFCP_IE_CREATED_PDR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_procedure_response_t, created_pdr)
+    },
+    [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
+      .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
+      .offset = offsetof(pfcp_session_procedure_response_t, load_control_information)
+    },
+    [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
+      .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
+      .offset = offsetof(pfcp_session_procedure_response_t, overload_control_information)
+    },
+    [SESSION_PROCEDURE_RESPONSE_FQ_CSID] = {
+      .type = PFCP_IE_FQ_CSID,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_procedure_response_t, fq_csid)
+    },
+    [SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID] = {
+      .type = PFCP_IE_FAILED_RULE_ID,
+      .offset = offsetof(pfcp_session_procedure_response_t, failed_rule_id)
+    },
+    [SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = {
+      .type = PFCP_IE_CREATED_TRAFFIC_ENDPOINT,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_procedure_response_t, created_traffic_endpoint)
+    },
+    [SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING] = {
+      .type = PFCP_IE_TP_CREATED_NAT_BINDING,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_procedure_response_t, created_binding)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_session_modification_request_group[] = {
-  [SESSION_MODIFICATION_REQUEST_F_SEID] = { .type = PFCP_IE_F_SEID,
-                                            .offset = offsetof (
-                                              pfcp_session_modification_request_t,
-                                              f_seid) },
-  [SESSION_MODIFICATION_REQUEST_REMOVE_PDR] = { .type = PFCP_IE_REMOVE_PDR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  remove_pdr) },
-  [SESSION_MODIFICATION_REQUEST_REMOVE_FAR] = { .type = PFCP_IE_REMOVE_FAR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  remove_far) },
-  [SESSION_MODIFICATION_REQUEST_REMOVE_URR] = { .type = PFCP_IE_REMOVE_URR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  remove_urr) },
-  [SESSION_MODIFICATION_REQUEST_REMOVE_QER] = { .type = PFCP_IE_REMOVE_QER,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  remove_qer) },
-  [SESSION_MODIFICATION_REQUEST_REMOVE_BAR] = { .type = PFCP_IE_REMOVE_BAR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  remove_bar) },
-  [SESSION_MODIFICATION_REQUEST_REMOVE_TRAFFIC_ENDPOINT] = { .type =
-                                                               PFCP_IE_REMOVE_TRAFFIC_ENDPOINT,
-                                                             .is_array = true,
-                                                             .offset = offsetof (
-                                                               pfcp_session_modification_request_t,
-                                                               remove_traffic_endpoint) },
-  [SESSION_MODIFICATION_REQUEST_CREATE_PDR] = { .type = PFCP_IE_CREATE_PDR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  create_pdr) },
-  [SESSION_MODIFICATION_REQUEST_CREATE_FAR] = { .type = PFCP_IE_CREATE_FAR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  create_far) },
-  [SESSION_MODIFICATION_REQUEST_CREATE_URR] = { .type = PFCP_IE_CREATE_URR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  create_urr) },
-  [SESSION_MODIFICATION_REQUEST_CREATE_QER] = { .type = PFCP_IE_CREATE_QER,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  create_qer) },
-  [SESSION_MODIFICATION_REQUEST_CREATE_BAR] = { .type = PFCP_IE_CREATE_BAR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  create_bar) },
-  [SESSION_MODIFICATION_REQUEST_CREATE_TRAFFIC_ENDPOINT] = { .type =
-                                                               PFCP_IE_CREATE_TRAFFIC_ENDPOINT,
-                                                             .is_array = true,
-                                                             .offset = offsetof (
-                                                               pfcp_session_modification_request_t,
-                                                               create_traffic_endpoint) },
-  [SESSION_MODIFICATION_REQUEST_UPDATE_PDR] = { .type = PFCP_IE_UPDATE_PDR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  update_pdr) },
-  [SESSION_MODIFICATION_REQUEST_UPDATE_FAR] = { .type = PFCP_IE_UPDATE_FAR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  update_far) },
-  [SESSION_MODIFICATION_REQUEST_UPDATE_URR] = { .type = PFCP_IE_UPDATE_URR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  update_urr) },
-  [SESSION_MODIFICATION_REQUEST_UPDATE_QER] = { .type = PFCP_IE_UPDATE_QER,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  update_qer) },
-  [SESSION_MODIFICATION_REQUEST_UPDATE_BAR] = { .type =
-                                                  PFCP_IE_UPDATE_BAR_REQUEST,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  update_bar) },
-  [SESSION_MODIFICATION_REQUEST_UPDATE_TRAFFIC_ENDPOINT] = { .type =
-                                                               PFCP_IE_UPDATE_TRAFFIC_ENDPOINT,
-                                                             .is_array = true,
-                                                             .offset = offsetof (
-                                                               pfcp_session_modification_request_t,
-                                                               update_traffic_endpoint) },
-  [SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS] = { .type =
-                                                       PFCP_IE_PFCPSMREQ_FLAGS,
-                                                     .offset = offsetof (
-                                                       pfcp_session_modification_request_t,
-                                                       pfcpsmreq_flags) },
-  [SESSION_MODIFICATION_REQUEST_QUERY_URR] = { .type = PFCP_IE_QUERY_URR,
-                                               .is_array = true,
-                                               .offset = offsetof (
-                                                 pfcp_session_modification_request_t,
-                                                 query_urr) },
-  [SESSION_MODIFICATION_REQUEST_FQ_CSID] = { .type = PFCP_IE_FQ_CSID,
-                                             .is_array = true,
-                                             .offset = offsetof (
-                                               pfcp_session_modification_request_t,
-                                               fq_csid) },
-  [SESSION_MODIFICATION_REQUEST_USER_PLANE_INACTIVITY_TIMER] = { .type =
-                                                                   PFCP_IE_USER_PLANE_INACTIVITY_TIMER,
-                                                                 .offset = offsetof (
-                                                                   pfcp_session_modification_request_t,
-                                                                   user_plane_inactivity_timer) },
-  [SESSION_MODIFICATION_REQUEST_QUERY_URR_REFERENCE] = { .type =
-                                                           PFCP_IE_QUERY_URR_REFERENCE,
-                                                         .offset = offsetof (
-                                                           pfcp_session_modification_request_t,
-                                                           query_urr_reference) },
-  [SESSION_MODIFICATION_REQUEST_TRACE_INFORMATION] = { .type =
-                                                         PFCP_IE_TRACE_INFORMATION,
-                                                       .offset = offsetof (
-                                                         pfcp_session_modification_request_t,
-                                                         trace_information) },
-  [SESSION_MODIFICATION_REQUEST_REMOVE_MAR] = { .type = PFCP_IE_REMOVE_MAR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  remove_mar) },
-  [SESSION_MODIFICATION_REQUEST_UPDATE_MAR] = { .type = PFCP_IE_UPDATE_MAR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  update_mar) },
-  [SESSION_MODIFICATION_REQUEST_CREATE_MAR] = { .type = PFCP_IE_CREATE_MAR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_modification_request_t,
-                                                  create_mar) },
-};
+static struct pfcp_group_ie_def pfcp_session_modification_request_group[] =
+  {
+    [SESSION_MODIFICATION_REQUEST_F_SEID] = {
+      .type = PFCP_IE_F_SEID,
+      .offset = offsetof(pfcp_session_modification_request_t, f_seid)
+    },
+    [SESSION_MODIFICATION_REQUEST_REMOVE_PDR] = {
+      .type = PFCP_IE_REMOVE_PDR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, remove_pdr)
+    },
+    [SESSION_MODIFICATION_REQUEST_REMOVE_FAR] = {
+      .type = PFCP_IE_REMOVE_FAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, remove_far)
+    },
+    [SESSION_MODIFICATION_REQUEST_REMOVE_URR] = {
+      .type = PFCP_IE_REMOVE_URR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, remove_urr)
+    },
+    [SESSION_MODIFICATION_REQUEST_REMOVE_QER] = {
+      .type = PFCP_IE_REMOVE_QER,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, remove_qer)
+    },
+    [SESSION_MODIFICATION_REQUEST_REMOVE_BAR] = {
+      .type = PFCP_IE_REMOVE_BAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, remove_bar)
+    },
+    [SESSION_MODIFICATION_REQUEST_REMOVE_TRAFFIC_ENDPOINT] = {
+      .type = PFCP_IE_REMOVE_TRAFFIC_ENDPOINT,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, remove_traffic_endpoint)
+    },
+    [SESSION_MODIFICATION_REQUEST_CREATE_PDR] = {
+      .type = PFCP_IE_CREATE_PDR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, create_pdr)
+    },
+    [SESSION_MODIFICATION_REQUEST_CREATE_FAR] = {
+      .type = PFCP_IE_CREATE_FAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, create_far)
+    },
+    [SESSION_MODIFICATION_REQUEST_CREATE_URR] = {
+      .type = PFCP_IE_CREATE_URR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, create_urr)
+    },
+    [SESSION_MODIFICATION_REQUEST_CREATE_QER] = {
+      .type = PFCP_IE_CREATE_QER,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, create_qer)
+    },
+    [SESSION_MODIFICATION_REQUEST_CREATE_BAR] = {
+      .type = PFCP_IE_CREATE_BAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, create_bar)
+    },
+    [SESSION_MODIFICATION_REQUEST_CREATE_TRAFFIC_ENDPOINT] = {
+      .type = PFCP_IE_CREATE_TRAFFIC_ENDPOINT,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, create_traffic_endpoint)
+    },
+    [SESSION_MODIFICATION_REQUEST_UPDATE_PDR] = {
+      .type = PFCP_IE_UPDATE_PDR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, update_pdr)
+    },
+    [SESSION_MODIFICATION_REQUEST_UPDATE_FAR] = {
+      .type = PFCP_IE_UPDATE_FAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, update_far)
+    },
+    [SESSION_MODIFICATION_REQUEST_UPDATE_URR] = {
+      .type = PFCP_IE_UPDATE_URR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, update_urr)
+    },
+    [SESSION_MODIFICATION_REQUEST_UPDATE_QER] = {
+      .type = PFCP_IE_UPDATE_QER,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, update_qer)
+    },
+    [SESSION_MODIFICATION_REQUEST_UPDATE_BAR] = {
+      .type = PFCP_IE_UPDATE_BAR_REQUEST,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, update_bar)
+    },
+    [SESSION_MODIFICATION_REQUEST_UPDATE_TRAFFIC_ENDPOINT] = {
+      .type = PFCP_IE_UPDATE_TRAFFIC_ENDPOINT,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, update_traffic_endpoint)
+    },
+    [SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS] = {
+      .type = PFCP_IE_PFCPSMREQ_FLAGS,
+      .offset = offsetof(pfcp_session_modification_request_t, pfcpsmreq_flags)
+    },
+    [SESSION_MODIFICATION_REQUEST_QUERY_URR] = {
+      .type = PFCP_IE_QUERY_URR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, query_urr)
+    },
+    [SESSION_MODIFICATION_REQUEST_FQ_CSID] = {
+      .type = PFCP_IE_FQ_CSID,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, fq_csid)
+    },
+    [SESSION_MODIFICATION_REQUEST_USER_PLANE_INACTIVITY_TIMER] = {
+      .type = PFCP_IE_USER_PLANE_INACTIVITY_TIMER,
+      .offset = offsetof(pfcp_session_modification_request_t, user_plane_inactivity_timer)
+    },
+    [SESSION_MODIFICATION_REQUEST_QUERY_URR_REFERENCE] = {
+      .type = PFCP_IE_QUERY_URR_REFERENCE,
+      .offset = offsetof(pfcp_session_modification_request_t, query_urr_reference)
+    },
+    [SESSION_MODIFICATION_REQUEST_TRACE_INFORMATION] = {
+      .type = PFCP_IE_TRACE_INFORMATION,
+      .offset = offsetof(pfcp_session_modification_request_t, trace_information)
+    },
+    [SESSION_MODIFICATION_REQUEST_REMOVE_MAR] = {
+      .type = PFCP_IE_REMOVE_MAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, remove_mar)
+    },
+    [SESSION_MODIFICATION_REQUEST_UPDATE_MAR] = {
+      .type = PFCP_IE_UPDATE_MAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, update_mar)
+    },
+    [SESSION_MODIFICATION_REQUEST_CREATE_MAR] = {
+      .type = PFCP_IE_CREATE_MAR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_modification_request_t, create_mar)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_session_modification_response_group[] = {
-  [SESSION_PROCEDURE_RESPONSE_CAUSE] = { .type = PFCP_IE_CAUSE,
-                                         .offset = offsetof (
-                                           pfcp_session_procedure_response_t,
-                                           cause) },
-  [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = { .type = PFCP_IE_OFFENDING_IE,
-                                                .offset = offsetof (
-                                                  pfcp_session_procedure_response_t,
-                                                  offending_ie) },
-  [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = { .type =
-                                                     PFCP_IE_TP_ERROR_REPORT,
-                                                   .vendor = VENDOR_TRAVELPING,
-                                                   .offset = offsetof (
-                                                     pfcp_session_procedure_response_t,
-                                                     tp_error_report) },
-  [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = { .type = PFCP_IE_CREATED_PDR,
-                                               .is_array = true,
-                                               .offset = offsetof (
-                                                 pfcp_session_procedure_response_t,
-                                                 created_pdr) },
-  [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = { .type =
-                                                              PFCP_IE_LOAD_CONTROL_INFORMATION,
-                                                            .offset = offsetof (
-                                                              pfcp_session_procedure_response_t,
-                                                              load_control_information) },
-  [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = { .type =
-                                                                  PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-                                                                .offset = offsetof (
-                                                                  pfcp_session_procedure_response_t,
-                                                                  overload_control_information) },
-  [SESSION_PROCEDURE_RESPONSE_USAGE_REPORT] = { .type =
-                                                  PFCP_IE_USAGE_REPORT_SMR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_procedure_response_t,
-                                                  usage_report) },
-  [SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID] = { .type =
-                                                    PFCP_IE_FAILED_RULE_ID,
-                                                  .offset = offsetof (
-                                                    pfcp_session_procedure_response_t,
-                                                    failed_rule_id) },
-  [SESSION_PROCEDURE_RESPONSE_ADDITIONAL_USAGE_REPORTS_INFORMATION] = { .type =
-                                                                          PFCP_IE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
-                                                                        .offset =
-                                                                          offsetof (
-                                                                            pfcp_session_procedure_response_t,
-                                                                            additional_usage_reports_information) },
-  [SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = { .type =
-                                                              PFCP_IE_CREATED_TRAFFIC_ENDPOINT,
-                                                            .is_array = true,
-                                                            .offset = offsetof (
-                                                              pfcp_session_procedure_response_t,
-                                                              created_traffic_endpoint) },
-};
+static struct pfcp_group_ie_def pfcp_session_modification_response_group[] =
+  {
+    [SESSION_PROCEDURE_RESPONSE_CAUSE] = {
+      .type = PFCP_IE_CAUSE,
+      .offset = offsetof(pfcp_session_procedure_response_t, cause)
+    },
+    [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
+      .type = PFCP_IE_OFFENDING_IE,
+      .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
+    },
+    [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_procedure_response_t, tp_error_report)
+    },
+    [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = {
+      .type = PFCP_IE_CREATED_PDR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_procedure_response_t, created_pdr)
+    },
+    [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
+      .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
+      .offset = offsetof(pfcp_session_procedure_response_t, load_control_information)
+    },
+    [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
+      .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
+      .offset = offsetof(pfcp_session_procedure_response_t, overload_control_information)
+    },
+    [SESSION_PROCEDURE_RESPONSE_USAGE_REPORT] = {
+      .type = PFCP_IE_USAGE_REPORT_SMR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_procedure_response_t, usage_report)
+    },
+    [SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID] = {
+      .type = PFCP_IE_FAILED_RULE_ID,
+      .offset = offsetof(pfcp_session_procedure_response_t, failed_rule_id)
+    },
+    [SESSION_PROCEDURE_RESPONSE_ADDITIONAL_USAGE_REPORTS_INFORMATION] = {
+      .type = PFCP_IE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
+      .offset = offsetof(pfcp_session_procedure_response_t, additional_usage_reports_information)
+    },
+    [SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = {
+      .type = PFCP_IE_CREATED_TRAFFIC_ENDPOINT,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_procedure_response_t, created_traffic_endpoint)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_session_deletion_response_group[] = {
-  [SESSION_PROCEDURE_RESPONSE_CAUSE] = { .type = PFCP_IE_CAUSE,
-                                         .offset = offsetof (
-                                           pfcp_session_procedure_response_t,
-                                           cause) },
-  [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = { .type = PFCP_IE_OFFENDING_IE,
-                                                .offset = offsetof (
-                                                  pfcp_session_procedure_response_t,
-                                                  offending_ie) },
-  [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = { .type =
-                                                     PFCP_IE_TP_ERROR_REPORT,
-                                                   .vendor = VENDOR_TRAVELPING,
-                                                   .offset = offsetof (
-                                                     pfcp_session_procedure_response_t,
-                                                     tp_error_report) },
-  [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = { .type =
-                                                              PFCP_IE_LOAD_CONTROL_INFORMATION,
-                                                            .offset = offsetof (
-                                                              pfcp_session_procedure_response_t,
-                                                              load_control_information) },
-  [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = { .type =
-                                                                  PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-                                                                .offset = offsetof (
-                                                                  pfcp_session_procedure_response_t,
-                                                                  overload_control_information) },
-  [SESSION_PROCEDURE_RESPONSE_USAGE_REPORT] = { .type =
-                                                  PFCP_IE_USAGE_REPORT_SDR,
-                                                .is_array = true,
-                                                .offset = offsetof (
-                                                  pfcp_session_procedure_response_t,
-                                                  usage_report) },
-};
+static struct pfcp_group_ie_def pfcp_session_deletion_response_group[] =
+  {
+    [SESSION_PROCEDURE_RESPONSE_CAUSE] = {
+      .type = PFCP_IE_CAUSE,
+      .offset = offsetof(pfcp_session_procedure_response_t, cause)
+    },
+    [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
+      .type = PFCP_IE_OFFENDING_IE,
+      .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
+    },
+    [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_procedure_response_t, tp_error_report)
+    },
+    [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
+      .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
+      .offset = offsetof(pfcp_session_procedure_response_t, load_control_information)
+    },
+    [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
+      .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
+      .offset = offsetof(pfcp_session_procedure_response_t, overload_control_information)
+    },
+    [SESSION_PROCEDURE_RESPONSE_USAGE_REPORT] = {
+      .type = PFCP_IE_USAGE_REPORT_SDR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_procedure_response_t, usage_report)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_session_report_request_group[] = {
-  [SESSION_REPORT_REQUEST_REPORT_TYPE] = { .type = PFCP_IE_REPORT_TYPE,
-                                           .offset = offsetof (
-                                             pfcp_session_report_request_t,
-                                             report_type) },
-  [SESSION_REPORT_REQUEST_DOWNLINK_DATA_REPORT] = { .type =
-                                                      PFCP_IE_DOWNLINK_DATA_REPORT,
-                                                    .offset = offsetof (
-                                                      pfcp_session_report_request_t,
-                                                      downlink_data_report) },
-  [SESSION_REPORT_REQUEST_USAGE_REPORT] = { .type = PFCP_IE_USAGE_REPORT_SRR,
-                                            .is_array = true,
-                                            .offset = offsetof (
-                                              pfcp_session_report_request_t,
-                                              usage_report) },
-  [SESSION_REPORT_REQUEST_ERROR_INDICATION_REPORT] = { .type =
-                                                         PFCP_IE_ERROR_INDICATION_REPORT,
-                                                       .offset = offsetof (
-                                                         pfcp_session_report_request_t,
-                                                         error_indication_report) },
-  [SESSION_REPORT_REQUEST_LOAD_CONTROL_INFORMATION] = { .type =
-                                                          PFCP_IE_LOAD_CONTROL_INFORMATION,
-                                                        .offset = offsetof (
-                                                          pfcp_session_report_request_t,
-                                                          load_control_information) },
-  [SESSION_REPORT_REQUEST_OVERLOAD_CONTROL_INFORMATION] = { .type =
-                                                              PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-                                                            .offset = offsetof (
-                                                              pfcp_session_report_request_t,
-                                                              overload_control_information) },
-  [SESSION_REPORT_REQUEST_ADDITIONAL_USAGE_REPORTS_INFORMATION] = { .type =
-                                                                      PFCP_IE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
-                                                                    .offset =
-                                                                      offsetof (
-                                                                        pfcp_session_report_request_t,
-                                                                        additional_usage_reports_information) },
-  [SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS] = { .type = PFCP_IE_PFCPSRREQ_FLAGS,
-                                               .offset = offsetof (
-                                                 pfcp_session_report_request_t,
-                                                 pfcpsrreq_flags) },
-  [SESSION_REPORT_REQUEST_OLD_CP_F_SEID] = { .type = PFCP_IE_F_SEID,
-                                             .offset = offsetof (
-                                               pfcp_session_report_request_t,
-                                               old_cp_f_seid) },
-};
+static struct pfcp_group_ie_def pfcp_session_report_request_group[] =
+  {
+    [SESSION_REPORT_REQUEST_REPORT_TYPE] = {
+      .type = PFCP_IE_REPORT_TYPE,
+      .offset = offsetof(pfcp_session_report_request_t, report_type)
+    },
+    [SESSION_REPORT_REQUEST_DOWNLINK_DATA_REPORT] = {
+      .type = PFCP_IE_DOWNLINK_DATA_REPORT,
+      .offset = offsetof(pfcp_session_report_request_t, downlink_data_report)
+    },
+    [SESSION_REPORT_REQUEST_USAGE_REPORT] = {
+      .type = PFCP_IE_USAGE_REPORT_SRR,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_report_request_t, usage_report)
+    },
+    [SESSION_REPORT_REQUEST_ERROR_INDICATION_REPORT] = {
+      .type = PFCP_IE_ERROR_INDICATION_REPORT,
+      .offset = offsetof(pfcp_session_report_request_t, error_indication_report)
+    },
+    [SESSION_REPORT_REQUEST_LOAD_CONTROL_INFORMATION] = {
+      .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
+      .offset = offsetof(pfcp_session_report_request_t, load_control_information)
+    },
+    [SESSION_REPORT_REQUEST_OVERLOAD_CONTROL_INFORMATION] = {
+      .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
+      .offset = offsetof(pfcp_session_report_request_t, overload_control_information)
+    },
+    [SESSION_REPORT_REQUEST_ADDITIONAL_USAGE_REPORTS_INFORMATION] = {
+      .type = PFCP_IE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
+      .offset = offsetof(pfcp_session_report_request_t, additional_usage_reports_information)
+    },
+    [SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS] = {
+      .type = PFCP_IE_PFCPSRREQ_FLAGS,
+      .offset = offsetof(pfcp_session_report_request_t, pfcpsrreq_flags)
+    },
+    [SESSION_REPORT_REQUEST_OLD_CP_F_SEID] = {
+      .type = PFCP_IE_F_SEID,
+      .offset = offsetof(pfcp_session_report_request_t, old_cp_f_seid)
+    },
+  };
 
-static struct pfcp_group_ie_def pfcp_session_report_response_group[] = {
-  [SESSION_REPORT_RESPONSE_CAUSE] = { .type = PFCP_IE_CAUSE,
-                                      .offset = offsetof (
-                                        pfcp_session_report_response_t,
-                                        response.cause) },
-  [SESSION_REPORT_RESPONSE_OFFENDING_IE] = { .type = PFCP_IE_OFFENDING_IE,
-                                             .offset = offsetof (
-                                               pfcp_session_report_response_t,
-                                               response.offending_ie) },
-  [SESSION_REPORT_RESPONSE_TP_ERROR_REPORT] = { .type =
-                                                  PFCP_IE_TP_ERROR_REPORT,
-                                                .vendor = VENDOR_TRAVELPING,
-                                                .offset = offsetof (
-                                                  pfcp_session_report_response_t,
-                                                  response.tp_error_report) },
-  [SESSION_REPORT_RESPONSE_UPDATE_BAR] = { .type = PFCP_IE_UPDATE_BAR_RESPONSE,
-                                           .is_array = true,
-                                           .offset = offsetof (
-                                             pfcp_session_report_response_t,
-                                             update_bar) },
-  [SESSION_REPORT_RESPONSE_PFCPSRRSP_FLAGS] = { .type =
-                                                  PFCP_IE_PFCPSRRSP_FLAGS,
-                                                .offset = offsetof (
-                                                  pfcp_session_report_response_t,
-                                                  pfcpsrrsp_flags) },
-  [SESSION_REPORT_RESPONSE_CP_F_SEID] = { .type = PFCP_IE_F_SEID,
-                                          .offset = offsetof (
-                                            pfcp_session_report_response_t,
-                                            cp_f_seid) },
-  [SESSION_REPORT_RESPONSE_N4_u_F_TEID] = { .type = PFCP_IE_F_TEID,
-                                            .offset = offsetof (
-                                              pfcp_session_report_response_t,
-                                              n4_u_f_teid) },
-};
+static struct pfcp_group_ie_def pfcp_session_report_response_group[] =
+  {
+    [SESSION_REPORT_RESPONSE_CAUSE] = {
+      .type = PFCP_IE_CAUSE,
+      .offset = offsetof(pfcp_session_report_response_t, response.cause)
+    },
+    [SESSION_REPORT_RESPONSE_OFFENDING_IE] = {
+      .type = PFCP_IE_OFFENDING_IE,
+      .offset = offsetof(pfcp_session_report_response_t, response.offending_ie)
+    },
+    [SESSION_REPORT_RESPONSE_TP_ERROR_REPORT] = {
+      .type = PFCP_IE_TP_ERROR_REPORT,
+      .vendor = VENDOR_TRAVELPING,
+      .offset = offsetof(pfcp_session_report_response_t, response.tp_error_report)
+    },
+    [SESSION_REPORT_RESPONSE_UPDATE_BAR] = {
+      .type = PFCP_IE_UPDATE_BAR_RESPONSE,
+      .is_array = true,
+      .offset = offsetof(pfcp_session_report_response_t, update_bar)
+    },
+    [SESSION_REPORT_RESPONSE_PFCPSRRSP_FLAGS] = {
+      .type = PFCP_IE_PFCPSRRSP_FLAGS,
+      .offset = offsetof(pfcp_session_report_response_t, pfcpsrrsp_flags)
+    },
+    [SESSION_REPORT_RESPONSE_CP_F_SEID] = {
+      .type = PFCP_IE_F_SEID,
+      .offset = offsetof(pfcp_session_report_response_t, cp_f_seid)
+    },
+    [SESSION_REPORT_RESPONSE_N4_u_F_TEID] = {
+      .type = PFCP_IE_F_TEID,
+      .offset = offsetof(pfcp_session_report_response_t, n4_u_f_teid)
+    },
+  };
+
 
 static struct pfcp_ie_def msg_specs[] =
   {
@@ -7893,7 +7941,7 @@ static struct pfcp_ie_def msg_specs[] =
     },
   };
 
-/* *INDENT-ON* */
+/* clang-format on */
 
 static const struct pfcp_group_ie_def *
 get_ie_spec (const struct pfcp_ie_def *def, u16 type)

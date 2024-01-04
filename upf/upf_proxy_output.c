@@ -424,7 +424,7 @@ VLIB_NODE_FN (upf_ip6_proxy_server_no_conn_output_node)
                            /* no_opaque */ 1, /* far_only */ 1);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_proxy_server_far_only_output_node) = {
   .name = "upf-ip4-proxy-server-far-only-output",
   .vector_size = sizeof (u32),
@@ -440,9 +440,9 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_server_far_only_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_proxy_server_far_only_output_node) = {
   .name = "upf-ip6-proxy-server-far-only-output",
   .vector_size = sizeof (u32),
@@ -458,9 +458,9 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_server_far_only_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_proxy_server_no_conn_output_node) = {
   .name = "upf-ip4-proxy-server-no-conn-output",
   .vector_size = sizeof (u32),
@@ -476,9 +476,9 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_server_no_conn_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_proxy_server_no_conn_output_node) = {
   .name = "upf-ip6-proxy-server-no-conn-output",
   .vector_size = sizeof (u32),
@@ -494,9 +494,9 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_server_no_conn_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_proxy_server_output_node) = {
   .name = "upf-ip4-proxy-server-output",
   .vector_size = sizeof (u32),
@@ -512,9 +512,9 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_server_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_proxy_server_output_node) = {
   .name = "upf-ip6-proxy-server-output",
   .vector_size = sizeof (u32),
@@ -530,7 +530,7 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_server_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

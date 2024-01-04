@@ -1036,7 +1036,7 @@ VLIB_NODE_FN (upf6_encap_node)
   return upf_encap_inline (vm, node, from_frame, /* is_ip4 */ 0);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf4_encap_node) = {
   .name = "upf4-encap",
   .vector_size = sizeof (u32),
@@ -1046,14 +1046,14 @@ VLIB_REGISTER_NODE (upf4_encap_node) = {
   .error_strings = upf_encap_error_strings,
   .n_next_nodes = UPF_ENCAP_N_NEXT,
   .next_nodes = {
-#define _(s, n) [UPF_ENCAP_NEXT_##s] = n,
+#define _(s,n) [UPF_ENCAP_NEXT_##s] = n,
     foreach_upf_encap_next
 #undef _
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf6_encap_node) = {
   .name = "upf6-encap",
   .vector_size = sizeof (u32),
@@ -1063,9 +1063,9 @@ VLIB_REGISTER_NODE (upf6_encap_node) = {
   .error_strings = upf_encap_error_strings,
   .n_next_nodes = UPF_ENCAP_N_NEXT,
   .next_nodes = {
-#define _(s, n) [UPF_ENCAP_NEXT_##s] = n,
+#define _(s,n) [UPF_ENCAP_NEXT_##s] = n,
     foreach_upf_encap_next
 #undef _
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */

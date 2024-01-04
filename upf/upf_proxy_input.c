@@ -518,7 +518,7 @@ VLIB_NODE_FN (upf_ip6_proxy_input_node)
                           /* is_ip4 */ 0);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_proxy_input_node) = {
   .name = "upf-ip4-proxy-input",
   .vector_size = sizeof (u32),
@@ -535,9 +535,9 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_input_node) = {
     [UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT]     = "upf-ip4-proxy-accept",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_proxy_input_node) = {
   .name = "upf-ip6-proxy-input",
   .vector_size = sizeof (u32),
@@ -554,7 +554,7 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_input_node) = {
     [UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT]     = "upf-ip6-proxy-accept",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /*
  * fd.io coding-style-patch-verification: ON

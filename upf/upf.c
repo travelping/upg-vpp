@@ -662,8 +662,9 @@ upf_init (vlib_main_t *vm)
 
 VLIB_INIT_FUNCTION (upf_init);
 
-/* *INDENT-OFF* */
-VNET_FEATURE_INIT (upf, static) = {
+/* clang-format off */
+VNET_FEATURE_INIT (upf, static) =
+{
   .arc_name = "device-input",
   .node_name = "upf",
   .runs_before = VNET_FEATURES ("ethernet-input"),
@@ -671,31 +672,32 @@ VNET_FEATURE_INIT (upf, static) = {
 /* *INDENT-ON */
 
 u8 *
-format_upf_encap_trace (u8 *s, va_list *args)
+format_upf_encap_trace (u8 * s, va_list * args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
   upf_encap_trace_t *t = va_arg (*args, upf_encap_trace_t *);
 
-  s = format (s, "GTPU encap to upf_session%d teid 0x%08x", t->session_index,
-              t->teid);
+  s = format (s, "GTPU encap to upf_session%d teid 0x%08x",
+	      t->session_index, t->teid);
   return s;
 }
 
 void
-upf_fpath_stack_dpo (upf_forwarding_policy_t *p)
+upf_fpath_stack_dpo (upf_forwarding_policy_t * p)
 {
-  fib_path_list_contribute_forwarding (
-    p->fib_pl, FIB_FORW_CHAIN_TYPE_UNICAST_IP4,
-    FIB_PATH_LIST_FWD_FLAG_COLLAPSE, &p->dpo);
+  fib_path_list_contribute_forwarding(p->fib_pl,
+                                      FIB_FORW_CHAIN_TYPE_UNICAST_IP4,
+                                      FIB_PATH_LIST_FWD_FLAG_COLLAPSE, &p->dpo);
 }
 
-/* *INDENT-OFF* */
-VLIB_PLUGIN_REGISTER () = {
+/* clang-format off */
+VLIB_PLUGIN_REGISTER () =
+{
   .version = UPG_VERSION,
   .description = "User Plane Gateway",
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /* ####################  dpo restacking vft #################### */
 static void
