@@ -98,11 +98,10 @@ jobs:
         password: ${{ secrets.CUR_REGISTRY_PASSWORD }}
     - name: Checkout
       uses: actions/checkout@v2
-      with:
-        # the checkstyle script needs a bit of git history
-        fetch-depth: 2
     - name: Check the code style
-      run: make checkstyle
+      uses: jidicula/clang-format-action@v4.11.0
+      with:
+        clang-format-version: '11'
 
   integration:
     runs-on: ["self-hosted", "hugepages"]

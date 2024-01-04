@@ -46,13 +46,16 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)                          \
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 /* API message handler */
 static void
-vl_api_upf_app_add_del_t_handler (vl_api_upf_app_add_del_t * mp)
+vl_api_upf_app_add_del_t_handler (vl_api_upf_app_add_del_t *mp)
 {
   vl_api_upf_app_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -66,8 +69,8 @@ vl_api_upf_app_add_del_t_handler (vl_api_upf_app_add_del_t * mp)
 }
 
 /* API message handler */
-static void vl_api_upf_app_ip_rule_add_del_t_handler
-  (vl_api_upf_app_ip_rule_add_del_t * mp)
+static void
+vl_api_upf_app_ip_rule_add_del_t_handler (vl_api_upf_app_ip_rule_add_del_t *mp)
 {
   vl_api_upf_app_ip_rule_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -75,26 +78,24 @@ static void vl_api_upf_app_ip_rule_add_del_t_handler
   u8 *app = format (0, "%s", mp->app);
 
   // TODO: parse & pass the ACL rule
-  rv =
-    upf_rule_add_del (sm, app, clib_net_to_host_u32 (mp->id),
-		      (int) (mp->is_add), NULL, NULL);
+  rv = upf_rule_add_del (sm, app, clib_net_to_host_u32 (mp->id),
+                         (int) (mp->is_add), NULL, NULL);
 
   vec_free (app);
   REPLY_MACRO (VL_API_UPF_APP_IP_RULE_ADD_DEL_REPLY);
 }
 
 /* API message handler */
-static void vl_api_upf_app_l7_rule_add_del_t_handler
-  (vl_api_upf_app_l7_rule_add_del_t * mp)
+static void
+vl_api_upf_app_l7_rule_add_del_t_handler (vl_api_upf_app_l7_rule_add_del_t *mp)
 {
   vl_api_upf_app_l7_rule_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
   int rv = 0;
   u8 *app = format (0, "%s", mp->app), *regex = format (0, "%s", mp->regex);
 
-  rv =
-    upf_rule_add_del (sm, app, clib_net_to_host_u32 (mp->id),
-		      (int) (mp->is_add), regex, NULL);
+  rv = upf_rule_add_del (sm, app, clib_net_to_host_u32 (mp->id),
+                         (int) (mp->is_add), regex, NULL);
 
   vec_free (app);
   vec_free (regex);
@@ -102,21 +103,22 @@ static void vl_api_upf_app_l7_rule_add_del_t_handler
 }
 
 /* API message handler */
-static void vl_api_upf_app_flow_timeout_set_t_handler
-  (vl_api_upf_app_flow_timeout_set_t * mp)
+static void
+vl_api_upf_app_flow_timeout_set_t_handler (
+  vl_api_upf_app_flow_timeout_set_t *mp)
 {
   int rv = 0;
   vl_api_upf_app_flow_timeout_set_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
 
-  //rv = upf_flow_timeout_update(mp->type, ntohs(mp->default_value));
+  // rv = upf_flow_timeout_update(mp->type, ntohs(mp->default_value));
 
   REPLY_MACRO (VL_API_UPF_APP_FLOW_TIMEOUT_SET_REPLY);
 }
 
 static void
-send_upf_applications_details (vl_api_registration_t * reg,
-			       u8 * app_name, u32 flags, u32 context)
+send_upf_applications_details (vl_api_registration_t *reg, u8 *app_name,
+                               u32 flags, u32 context)
 {
   vl_api_upf_applications_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -137,8 +139,8 @@ send_upf_applications_details (vl_api_registration_t * reg,
 }
 
 /* API message handler */
-static void vl_api_upf_applications_dump_t_handler
-  (vl_api_upf_applications_dump_t * mp)
+static void
+vl_api_upf_applications_dump_t_handler (vl_api_upf_applications_dump_t *mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -151,14 +153,14 @@ static void vl_api_upf_applications_dump_t_handler
     }
 
   pool_foreach (app, sm->upf_apps)
-  {
-    send_upf_applications_details (reg, app->name, app->flags, mp->context);
-  }
+    {
+      send_upf_applications_details (reg, app->name, app->flags, mp->context);
+    }
 }
 
 static void
-send_upf_application_l7_rule_details (vl_api_registration_t * reg,
-				      u32 id, u8 * regex, u32 context)
+send_upf_application_l7_rule_details (vl_api_registration_t *reg, u32 id,
+                                      u8 *regex, u32 context)
 {
   vl_api_upf_application_l7_rule_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -167,8 +169,8 @@ send_upf_application_l7_rule_details (vl_api_registration_t * reg,
   mp = vl_msg_api_alloc (sizeof (*mp));
   clib_memset (mp, 0, sizeof (*mp));
 
-  mp->_vl_msg_id = htons (VL_API_UPF_APPLICATION_L7_RULE_DETAILS
-			  + sm->msg_id_base);
+  mp->_vl_msg_id =
+    htons (VL_API_UPF_APPLICATION_L7_RULE_DETAILS + sm->msg_id_base);
   mp->context = context;
 
   mp->id = htonl (id);
@@ -180,8 +182,9 @@ send_upf_application_l7_rule_details (vl_api_registration_t * reg,
 }
 
 /* API message handler */
-static void vl_api_upf_application_l7_rule_dump_t_handler
-  (vl_api_upf_application_l7_rule_dump_t * mp)
+static void
+vl_api_upf_application_l7_rule_dump_t_handler (
+  vl_api_upf_application_l7_rule_dump_t *mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -203,24 +206,24 @@ static void vl_api_upf_application_l7_rule_dump_t_handler
   app = pool_elt_at_index (sm->upf_apps, p[0]);
 
   pool_foreach (rule, app->rules)
-  {
-    send_upf_application_l7_rule_details (reg, rule->id, rule->regex,
-					  mp->context);
-  }
+    {
+      send_upf_application_l7_rule_details (reg, rule->id, rule->regex,
+                                            mp->context);
+    }
 
   vec_free (app_name);
 }
 
 /* API message handler */
 static void
-vl_api_upf_update_app_t_handler (vl_api_upf_update_app_t * mp)
+vl_api_upf_update_app_t_handler (vl_api_upf_update_app_t *mp)
 {
   vl_api_upf_update_app_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
   int rv = 0;
   u8 *app_name = format (0, "%s", mp->app);
   u32 rule_count = clib_net_to_host_u32 (mp->l7_rule_count);
-  u8 *rule_ptr = (u8 *) & mp->l7_rules[0];
+  u8 *rule_ptr = (u8 *) &mp->l7_rules[0];
   u32 *ids = vec_new (u32, rule_count);
   u32 *regex_lengths = vec_new (u32, rule_count);
   u8 **regexes = vec_new (u8 *, rule_count);
@@ -246,7 +249,7 @@ vl_api_upf_update_app_t_handler (vl_api_upf_update_app_t * mp)
 }
 
 static void
-vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t * mp)
+vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t *mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_upf_pfcp_reencode_reply_t *rmp;
@@ -260,9 +263,9 @@ vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t * mp)
     {
       pfcp_offending_ie_t *cur_err;
       vec_foreach (cur_err, err)
-      {
-	clib_warning ("offending IE: %d", *cur_err);
-      }
+        {
+          clib_warning ("offending IE: %d", *cur_err);
+        }
       clib_warning ("pfcp_decode_msg failed, rv=%d", rv);
       vec_free (err);
       goto reply;
@@ -272,21 +275,21 @@ vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t * mp)
   data_len = vec_len (reply_data);
 
 reply:
-  /* *INDENT-OFF* */
+  /* clang-format off */
   REPLY_MACRO3_ZERO (VL_API_UPF_PFCP_REENCODE_REPLY, data_len,
   {
     rmp->packet_len = clib_host_to_net_u32 (data_len);
     if (data_len)
       clib_memcpy (rmp->packet, reply_data, data_len);
   });
-  /* *INDENT-ON* */
+  /* clang-format on */
 
   pfcp_free_dmsg_contents (&dmsg);
   vec_free (reply_data);
 }
 
 static void
-vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t * mp)
+vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t *mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_upf_pfcp_format_reply_t *rmp;
@@ -301,9 +304,9 @@ vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t * mp)
     {
       pfcp_offending_ie_t *cur_err;
       vec_foreach (cur_err, err)
-      {
-	clib_warning ("offending IE: %d", *cur_err);
-      }
+        {
+          clib_warning ("offending IE: %d", *cur_err);
+        }
       clib_warning ("pfcp_decode_msg failed, rv=%d", rv);
       vec_free (err);
       goto reply;
@@ -314,22 +317,22 @@ vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t * mp)
   text_len = vec_len (s);
 
 reply:
-  /* *INDENT-OFF* */
+  /* clang-format off */
   REPLY_MACRO3_ZERO (VL_API_UPF_PFCP_FORMAT_REPLY, text_len,
   {
     rmp->text_len = clib_host_to_net_u32 (text_len);
     if (text_len)
       clib_memcpy (rmp->text, s, text_len);
   });
-  /* *INDENT-ON* */
+  /* clang-format on */
 
   if (s != 0)
     vec_free (s);
 }
 
 static void
-send_upf_nat_pool_details (vl_api_registration_t * reg,
-			   upf_nat_pool_t * np, u32 context)
+send_upf_nat_pool_details (vl_api_registration_t *reg, upf_nat_pool_t *np,
+                           u32 context)
 {
   vl_api_upf_nat_pool_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -356,7 +359,8 @@ send_upf_nat_pool_details (vl_api_registration_t * reg,
   max_users = vec_len (np->addresses) * np->max_blocks_per_addr;
   mp->max_users = htonl (max_users);
 
-  vec_foreach (ap, np->addresses) current_users += ap->used_blocks;
+  vec_foreach (ap, np->addresses)
+    current_users += ap->used_blocks;
 
   mp->current_users = htonl (current_users);
 
@@ -366,8 +370,8 @@ send_upf_nat_pool_details (vl_api_registration_t * reg,
 }
 
 /* API message handler */
-static void vl_api_upf_nat_pool_dump_t_handler
-  (vl_api_upf_nat_pool_dump_t * mp)
+static void
+vl_api_upf_nat_pool_dump_t_handler (vl_api_upf_nat_pool_dump_t *mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -380,14 +384,14 @@ static void vl_api_upf_nat_pool_dump_t_handler
     }
 
   pool_foreach (np, sm->nat_pools)
-  {
-    send_upf_nat_pool_details (reg, np, mp->context);
-  }
+    {
+      send_upf_nat_pool_details (reg, np, mp->context);
+    }
 }
 
 /* API message handler */
 static void
-vl_api_upf_policy_add_del_t_handler (vl_api_upf_policy_add_del_t * mp)
+vl_api_upf_policy_add_del_t_handler (vl_api_upf_policy_add_del_t *mp)
 {
   vl_api_upf_policy_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -414,7 +418,7 @@ vl_api_upf_policy_add_del_t_handler (vl_api_upf_policy_add_del_t * mp)
       rv = fib_api_path_decode (apath, rpath);
 
       if (0 != rv)
-	goto out;
+        goto out;
     }
 
   rv = vnet_upf_policy_fn (rpaths, policy_id, action);
@@ -428,8 +432,8 @@ out:
 }
 
 static void
-send_upf_policy_details (vl_api_registration_t * reg,
-			 upf_forwarding_policy_t * fp, u32 context)
+send_upf_policy_details (vl_api_registration_t *reg,
+                         upf_forwarding_policy_t *fp, u32 context)
 {
   vl_api_upf_policy_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -453,17 +457,17 @@ send_upf_policy_details (vl_api_registration_t * reg,
 
   ap = mp->paths;
   vec_foreach (rpath, fp->rpaths)
-  {
-    fib_api_path_encode (rpath, ap);
-    ap++;
-  }
+    {
+      fib_api_path_encode (rpath, ap);
+      ap++;
+    }
 
   vl_api_send_msg (reg, (u8 *) mp);
 }
 
 /* API message handler */
 static void
-vl_api_upf_policy_dump_t_handler (vl_api_upf_policy_dump_t * mp)
+vl_api_upf_policy_dump_t_handler (vl_api_upf_policy_dump_t *mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -476,14 +480,14 @@ vl_api_upf_policy_dump_t_handler (vl_api_upf_policy_dump_t * mp)
     }
 
   pool_foreach (fp, sm->upf_forwarding_policies)
-  {
-    send_upf_policy_details (reg, fp, mp->context);
-  }
+    {
+      send_upf_policy_details (reg, fp, mp->context);
+    }
 }
 
 /* API message handler */
 static void
-vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
+vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t *mp)
 {
   vl_api_upf_nwi_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -515,11 +519,11 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
    * If just one of the table IDs is present in a request, use it for
    * both IPv4 and IPv6. But at least one of the IDs must be specified
    */
-  if (ip4_table_id == (u32) ~ 0)
+  if (ip4_table_id == (u32) ~0)
     ip4_table_id = ip6_table_id;
-  else if (ip6_table_id == (u32) ~ 0)
+  else if (ip6_table_id == (u32) ~0)
     ip6_table_id = ip4_table_id;
-  if (ip4_table_id == (u32) ~ 0)
+  if (ip4_table_id == (u32) ~0)
     {
       upf_debug ("At least one of ip[46]_table_id should be defined");
       rv = VNET_API_ERROR_INVALID_VALUE;
@@ -533,11 +537,11 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
       ipfix_policy = upf_ipfix_lookup_policy (ipfix_policy_name, &ok);
       vec_free (ipfix_policy_name);
       if (!ok)
-	{
-	  upf_debug ("Invalid IPFIX policy '%s'", mp->ipfix_policy);
-	  rv = VNET_API_ERROR_INVALID_VALUE;
-	  goto out;
-	}
+        {
+          upf_debug ("Invalid IPFIX policy '%s'", mp->ipfix_policy);
+          rv = VNET_API_ERROR_INVALID_VALUE;
+          goto out;
+        }
     }
 
   ip_address_decode (&mp->ipfix_collector_ip, &ipfix_collector_ip.ip);
@@ -549,17 +553,15 @@ vl_api_upf_nwi_add_del_t_handler (vl_api_upf_nwi_add_del_t * mp)
   if (mp->observation_domain_name[0])
     {
       mp->observation_domain_name[sizeof (mp->observation_domain_name) - 1] =
-	0;
+        0;
       observation_domain_name = format (0, "%s", mp->observation_domain_name);
     }
   observation_point_id = clib_net_to_host_u64 (mp->observation_point_id);
 
-  rv = vnet_upf_nwi_add_del (nwi_name, ip4_table_id, ip6_table_id,
-			     ipfix_policy, &ipfix_collector_ip,
-			     ipfix_report_interval,
-			     observation_domain_id,
-			     observation_domain_name,
-			     observation_point_id, mp->add);
+  rv = vnet_upf_nwi_add_del (
+    nwi_name, ip4_table_id, ip6_table_id, ipfix_policy, &ipfix_collector_ip,
+    ipfix_report_interval, observation_domain_id, observation_domain_name,
+    observation_point_id, mp->add);
 
 out:
   vec_free (nwi_name);
@@ -568,8 +570,7 @@ out:
 }
 
 static void
-send_upf_nwi_details (vl_api_registration_t * reg, upf_nwi_t * nwi,
-		      u32 context)
+send_upf_nwi_details (vl_api_registration_t *reg, upf_nwi_t *nwi, u32 context)
 {
   vl_api_upf_nwi_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -583,12 +584,10 @@ send_upf_nwi_details (vl_api_registration_t * reg, upf_nwi_t * nwi,
 
   mp->_vl_msg_id = htons (VL_API_UPF_NWI_DETAILS + sm->msg_id_base);
   mp->context = context;
-  mp->ip4_table_id =
-    htonl (fib_table_get_table_id
-	   (nwi->fib_index[FIB_PROTOCOL_IP4], FIB_PROTOCOL_IP4));
-  mp->ip6_table_id =
-    htonl (fib_table_get_table_id
-	   (nwi->fib_index[FIB_PROTOCOL_IP6], FIB_PROTOCOL_IP6));
+  mp->ip4_table_id = htonl (fib_table_get_table_id (
+    nwi->fib_index[FIB_PROTOCOL_IP4], FIB_PROTOCOL_IP4));
+  mp->ip6_table_id = htonl (fib_table_get_table_id (
+    nwi->fib_index[FIB_PROTOCOL_IP6], FIB_PROTOCOL_IP6));
 
   ipfix_policy_len =
     clib_min (sizeof (mp->ipfix_policy) - 1, vec_len (ipfix_policy));
@@ -601,9 +600,9 @@ send_upf_nwi_details (vl_api_registration_t * reg, upf_nwi_t * nwi,
     clib_host_to_net_u32 (nwi->observation_domain_id);
   observation_domain_name_len =
     clib_min (sizeof (mp->observation_domain_name) - 1,
-	      vec_len (nwi->observation_domain_name));
+              vec_len (nwi->observation_domain_name));
   memcpy (mp->observation_domain_name, nwi->observation_domain_name,
-	  observation_domain_name_len);
+          observation_domain_name_len);
   mp->observation_domain_name[observation_domain_name_len] = 0;
   mp->observation_point_id = clib_host_to_net_u64 (nwi->observation_point_id);
 
@@ -611,14 +610,14 @@ send_upf_nwi_details (vl_api_registration_t * reg, upf_nwi_t * nwi,
   mp->nwi_len = name_len;
 
   ip_address_encode (&ip_addr_46 (&nwi->ipfix_collector_ip), IP46_TYPE_ANY,
-		     &mp->ipfix_collector_ip);
+                     &mp->ipfix_collector_ip);
 
   vl_api_send_msg (reg, (u8 *) mp);
 }
 
 /* API message handler */
 static void
-vl_api_upf_nwi_dump_t_handler (vl_api_upf_nwi_dump_t * mp)
+vl_api_upf_nwi_dump_t_handler (vl_api_upf_nwi_dump_t *mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -631,15 +630,15 @@ vl_api_upf_nwi_dump_t_handler (vl_api_upf_nwi_dump_t * mp)
     }
 
   pool_foreach (nwi, sm->nwis)
-  {
-    send_upf_nwi_details (reg, nwi, mp->context);
-  }
+    {
+      send_upf_nwi_details (reg, nwi, mp->context);
+    }
 }
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_endpoint_add_del_t_handler (vl_api_upf_pfcp_endpoint_add_del_t
-					    * mp)
+vl_api_upf_pfcp_endpoint_add_del_t_handler (
+  vl_api_upf_pfcp_endpoint_add_del_t *mp)
 {
   vl_api_upf_pfcp_endpoint_add_del_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -663,13 +662,13 @@ vl_api_upf_pfcp_endpoint_add_del_t_handler (vl_api_upf_pfcp_endpoint_add_del_t
   if (vrf != ~0)
     {
       fib_index =
-	fib_table_find (fib_ip_proto (!ip46_address_is_ip4 (&ip_addr)), vrf);
+        fib_table_find (fib_ip_proto (!ip46_address_is_ip4 (&ip_addr)), vrf);
       if (fib_index == ~0)
-	{
-	  rv = VNET_API_ERROR_NO_SUCH_TABLE;
-	  upf_debug ("nonexistent vrf %d", vrf);
-	  goto out;
-	}
+        {
+          rv = VNET_API_ERROR_NO_SUCH_TABLE;
+          upf_debug ("nonexistent vrf %d", vrf);
+          goto out;
+        }
     }
 
   rv = vnet_upf_pfcp_endpoint_add_del (&ip_addr, fib_index, is_add);
@@ -680,8 +679,8 @@ out:
 }
 
 static void
-send_upf_pfcp_endpoint_details (vl_api_registration_t * reg,
-				ip46_address_fib_t * key, u32 context)
+send_upf_pfcp_endpoint_details (vl_api_registration_t *reg,
+                                ip46_address_fib_t *key, u32 context)
 {
   vl_api_upf_pfcp_endpoint_details_t *mp;
   upf_main_t *sm = &upf_main;
@@ -692,11 +691,9 @@ send_upf_pfcp_endpoint_details (vl_api_registration_t * reg,
   mp->_vl_msg_id = htons (VL_API_UPF_PFCP_ENDPOINT_DETAILS + sm->msg_id_base);
   mp->context = context;
 
-  mp->table_id = htonl (fib_table_get_table_id (key->fib_index,
-						ip46_address_is_ip4
-						(&key->addr) ?
-						FIB_PROTOCOL_IP4 :
-						FIB_PROTOCOL_IP6));
+  mp->table_id = htonl (fib_table_get_table_id (
+    key->fib_index,
+    ip46_address_is_ip4 (&key->addr) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6));
 
   ip_address_encode (&key->addr, IP46_TYPE_ANY, &mp->ip);
 
@@ -705,7 +702,7 @@ send_upf_pfcp_endpoint_details (vl_api_registration_t * reg,
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_endpoint_dump_t_handler (vl_api_upf_pfcp_endpoint_dump_t * mp)
+vl_api_upf_pfcp_endpoint_dump_t_handler (vl_api_upf_pfcp_endpoint_dump_t *mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -717,17 +714,17 @@ vl_api_upf_pfcp_endpoint_dump_t_handler (vl_api_upf_pfcp_endpoint_dump_t * mp)
     {
       return;
     }
-  /* *INDENT-OFF* */
+  /* clang-format off */
   mhash_foreach(key, v, &sm->pfcp_endpoint_index,
   ({
     send_upf_pfcp_endpoint_details (reg, key, mp->context);
   }));
-  /* *INDENT-ON* */
+  /* clang-format on */
 }
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_server_set_t_handler (vl_api_upf_pfcp_server_set_t * mp)
+vl_api_upf_pfcp_server_set_t_handler (vl_api_upf_pfcp_server_set_t *mp)
 {
   vl_api_upf_pfcp_server_set_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -758,8 +755,7 @@ vl_api_upf_pfcp_server_set_t_handler (vl_api_upf_pfcp_server_set_t * mp)
   prealloc_fifos = clib_net_to_host_u32 (mp->prealloc_fifos);
 
   rv =
-    pfcp_session_server_apply_config (segment_size, prealloc_fifos,
-				      fifo_size);
+    pfcp_session_server_apply_config (segment_size, prealloc_fifos, fifo_size);
 
 out:
 
@@ -768,7 +764,7 @@ out:
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_server_show_t_handler (vl_api_upf_pfcp_server_show_t * mp)
+vl_api_upf_pfcp_server_show_t_handler (vl_api_upf_pfcp_server_show_t *mp)
 {
   vl_api_upf_pfcp_server_show_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -803,7 +799,7 @@ vl_api_upf_pfcp_server_show_t_handler (vl_api_upf_pfcp_server_show_t * mp)
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_policer_set_t_handler (vl_api_upf_pfcp_policer_set_t * mp)
+vl_api_upf_pfcp_policer_set_t_handler (vl_api_upf_pfcp_policer_set_t *mp)
 {
   vl_api_upf_pfcp_policer_set_reply_t *rmp = NULL;
   qos_pol_cfg_params_st *cfg = &pfcp_rate_cfg_main;
@@ -819,7 +815,7 @@ vl_api_upf_pfcp_policer_set_t_handler (vl_api_upf_pfcp_policer_set_t * mp)
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_policer_show_t_handler (vl_api_upf_pfcp_policer_show_t * mp)
+vl_api_upf_pfcp_policer_show_t_handler (vl_api_upf_pfcp_policer_show_t *mp)
 {
   vl_api_upf_pfcp_policer_show_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -847,8 +843,7 @@ vl_api_upf_pfcp_policer_show_t_handler (vl_api_upf_pfcp_policer_show_t * mp)
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_heartbeats_set_t_handler (vl_api_upf_pfcp_heartbeats_set_t
-					  * mp)
+vl_api_upf_pfcp_heartbeats_set_t_handler (vl_api_upf_pfcp_heartbeats_set_t *mp)
 {
   vl_api_upf_pfcp_heartbeats_set_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -865,8 +860,7 @@ vl_api_upf_pfcp_heartbeats_set_t_handler (vl_api_upf_pfcp_heartbeats_set_t
 
 /* API message handler */
 static void
-vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t
-					  * mp)
+vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t *mp)
 {
   vl_api_upf_pfcp_heartbeats_get_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
@@ -894,7 +888,7 @@ vl_api_upf_pfcp_heartbeats_get_t_handler (vl_api_upf_pfcp_heartbeats_get_t
 
 /* API message handler */
 static void
-vl_api_upf_set_node_id_t_handler (vl_api_upf_set_node_id_t * mp)
+vl_api_upf_set_node_id_t_handler (vl_api_upf_set_node_id_t *mp)
 {
   int rv = 0;
   upf_main_t *sm = &upf_main;
@@ -928,7 +922,7 @@ vl_api_upf_set_node_id_t_handler (vl_api_upf_set_node_id_t * mp)
 
 /* API message handler */
 static void
-vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t * mp)
+vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t *mp)
 {
   int rv = 0;
   vl_api_registration_t *reg;
@@ -945,23 +939,23 @@ vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t * mp)
     case NID_IPv4:
     case NID_IPv6:
       {
-	rmp = vl_msg_api_alloc (sizeof (*rmp));
-	clib_memset (rmp, 0, sizeof (*rmp));
+        rmp = vl_msg_api_alloc (sizeof (*rmp));
+        clib_memset (rmp, 0, sizeof (*rmp));
 
-	ip_address_encode (&ip_addr_46 (node), IP46_TYPE_ANY, &rmp->ip);
-	break;
+        ip_address_encode (&ip_addr_46 (node), IP46_TYPE_ANY, &rmp->ip);
+        break;
       }
     case NID_FQDN:
       {
-	u8 len;
-	len = strlen (node->fqdn);
+        u8 len;
+        len = strlen (node->fqdn);
 
-	rmp = vl_msg_api_alloc (sizeof (*rmp) + len * sizeof (u8));
-	clib_memset (rmp, 0, sizeof (*rmp) + len * sizeof (u8));
+        rmp = vl_msg_api_alloc (sizeof (*rmp) + len * sizeof (u8));
+        clib_memset (rmp, 0, sizeof (*rmp) + len * sizeof (u8));
 
-	rmp->fqdn_len = len;
-	memcpy (rmp->fqdn, node->fqdn, rmp->fqdn_len);
-	break;
+        rmp->fqdn_len = len;
+        memcpy (rmp->fqdn, node->fqdn, rmp->fqdn_len);
+        break;
       }
     default:
       rv = VNET_API_ERROR_INVALID_VALUE;
@@ -979,8 +973,8 @@ vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t * mp)
 
 /* API message handler */
 static void
-vl_api_upf_tdf_ul_enable_disable_t_handler (vl_api_upf_tdf_ul_enable_disable_t
-					    * mp)
+vl_api_upf_tdf_ul_enable_disable_t_handler (
+  vl_api_upf_tdf_ul_enable_disable_t *mp)
 {
   int rv = 0;
   upf_main_t *sm = &upf_main;
@@ -998,7 +992,7 @@ vl_api_upf_tdf_ul_enable_disable_t_handler (vl_api_upf_tdf_ul_enable_disable_t
 }
 
 static void
-vl_api_upf_tdf_ul_table_t_handler (vl_api_upf_tdf_ul_table_t * mp)
+vl_api_upf_tdf_ul_table_t_handler (vl_api_upf_tdf_ul_table_t *mp)
 {
   int rv = 0;
   vl_api_registration_t *reg;
@@ -1013,10 +1007,10 @@ vl_api_upf_tdf_ul_table_t_handler (vl_api_upf_tdf_ul_table_t * mp)
     return;
 
   vec_foreach_index (ii, sm->tdf_ul_table[fproto])
-  {
-    if (~0 != vec_elt (sm->tdf_ul_table[fproto], ii))
-      len++;
-  }
+    {
+      if (~0 != vec_elt (sm->tdf_ul_table[fproto], ii))
+        len++;
+    }
   // convert number of mappings to number of elements in the vector
   len *= 2;
 
@@ -1026,16 +1020,15 @@ vl_api_upf_tdf_ul_table_t_handler (vl_api_upf_tdf_ul_table_t * mp)
   rmp->mappings_len = len;
 
   vec_foreach_index (ii, sm->tdf_ul_table[fproto])
-  {
-    if (~0 != vec_elt (sm->tdf_ul_table[fproto], ii))
-      {
-	rmp->mappings[out_index++] =
-	  htonl (fib_table_get_table_id (ii, fproto));
-	rmp->mappings[out_index++] =
-	  htonl (fib_table_get_table_id
-		 (vec_elt (sm->tdf_ul_table[fproto], ii), fproto));
-      }
-  }
+    {
+      if (~0 != vec_elt (sm->tdf_ul_table[fproto], ii))
+        {
+          rmp->mappings[out_index++] =
+            htonl (fib_table_get_table_id (ii, fproto));
+          rmp->mappings[out_index++] = htonl (fib_table_get_table_id (
+            vec_elt (sm->tdf_ul_table[fproto], ii), fproto));
+        }
+    }
 
   rmp->_vl_msg_id = htons (VL_API_UPF_TDF_UL_TABLE_REPLY + sm->msg_id_base);
   rmp->context = mp->context;
@@ -1045,7 +1038,7 @@ vl_api_upf_tdf_ul_table_t_handler (vl_api_upf_tdf_ul_table_t * mp)
 
 /* API message handler */
 static void
-vl_api_upf_tdf_ul_table_add_t_handler (vl_api_upf_tdf_ul_table_add_t * mp)
+vl_api_upf_tdf_ul_table_add_t_handler (vl_api_upf_tdf_ul_table_add_t *mp)
 {
   int rv = 0;
   upf_main_t *sm = &upf_main;
@@ -1053,17 +1046,15 @@ vl_api_upf_tdf_ul_table_add_t_handler (vl_api_upf_tdf_ul_table_add_t * mp)
 
   fib_protocol_t fproto = mp->is_ipv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4;
 
-  rv =
-    vnet_upf_tdf_ul_table_add_del (ntohl (mp->table_id), fproto,
-				   ntohl (mp->src_lookup_table_id),
-				   mp->is_add);
+  rv = vnet_upf_tdf_ul_table_add_del (
+    ntohl (mp->table_id), fproto, ntohl (mp->src_lookup_table_id), mp->is_add);
 
   REPLY_MACRO (VL_API_UPF_TDF_UL_TABLE_ADD_REPLY);
 }
 
 /* API message handler */
 static void
-vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t * mp)
+vl_api_upf_ueip_pool_nwi_add_t_handler (vl_api_upf_ueip_pool_nwi_add_t *mp)
 {
   int rv = 0;
   upf_main_t *sm = &upf_main;
@@ -1097,7 +1088,7 @@ reply:
 
 /* API message handler */
 static void
-vl_api_upf_ueip_pool_dump_t_handler (vl_api_upf_ueip_pool_dump_t * mp)
+vl_api_upf_ueip_pool_dump_t_handler (vl_api_upf_ueip_pool_dump_t *mp)
 {
   upf_main_t *sm = &upf_main;
   vl_api_registration_t *reg;
@@ -1109,30 +1100,30 @@ vl_api_upf_ueip_pool_dump_t_handler (vl_api_upf_ueip_pool_dump_t * mp)
     return;
 
   pool_foreach (pool, sm->ueip_pools)
-  {
-    u8 nwi_name_len;
-    u8 identity_len;
+    {
+      u8 nwi_name_len;
+      u8 identity_len;
 
-    nwi_name_len = vec_len (pool->nwi_name);
-    ASSERT (nwi_name_len <= 64);
-    identity_len = vec_len (pool->identity);
-    ASSERT (identity_len <= 64);
+      nwi_name_len = vec_len (pool->nwi_name);
+      ASSERT (nwi_name_len <= 64);
+      identity_len = vec_len (pool->identity);
+      ASSERT (identity_len <= 64);
 
-    rmp = vl_msg_api_alloc (sizeof (*rmp) + nwi_name_len);
-    clib_memset (rmp, 0, sizeof (*rmp) + nwi_name_len);
-    rmp->_vl_msg_id = htons (VL_API_UPF_UEIP_POOL_DETAILS + sm->msg_id_base);
-    rmp->context = mp->context;
+      rmp = vl_msg_api_alloc (sizeof (*rmp) + nwi_name_len);
+      clib_memset (rmp, 0, sizeof (*rmp) + nwi_name_len);
+      rmp->_vl_msg_id = htons (VL_API_UPF_UEIP_POOL_DETAILS + sm->msg_id_base);
+      rmp->context = mp->context;
 
-    rmp->nwi_name_len = nwi_name_len;
-    memcpy (rmp->nwi_name, pool->nwi_name, nwi_name_len);
-    memcpy (rmp->identity, pool->identity, identity_len);
-    vl_api_send_msg (reg, (u8 *) rmp);
-  }
+      rmp->nwi_name_len = nwi_name_len;
+      memcpy (rmp->nwi_name, pool->nwi_name, nwi_name_len);
+      memcpy (rmp->identity, pool->identity, identity_len);
+      vl_api_send_msg (reg, (u8 *) rmp);
+    }
 }
 
 /* API message handler */
 static void
-vl_api_upf_nat_pool_add_t_handler (vl_api_upf_nat_pool_add_t * mp)
+vl_api_upf_nat_pool_add_t_handler (vl_api_upf_nat_pool_add_t *mp)
 {
   int rv = 0;
   upf_main_t *sm = &upf_main;
@@ -1164,7 +1155,7 @@ vl_api_upf_nat_pool_add_t_handler (vl_api_upf_nat_pool_add_t * mp)
 
   rv =
     vnet_upf_nat_pool_add_del (nwi_vec, start, end, name_vec, mp->block_size,
-			       mp->min_port, mp->max_port, mp->is_add);
+                               mp->min_port, mp->max_port, mp->is_add);
 
   vec_free (nwi_vec);
   vec_free (name_vec);
@@ -1175,7 +1166,7 @@ reply:
 
 #include <upf/upf.api.c>
 static clib_error_t *
-upf_api_hookup (vlib_main_t * vm)
+upf_api_hookup (vlib_main_t *vm)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -1184,11 +1175,3 @@ upf_api_hookup (vlib_main_t * vm)
 }
 
 VLIB_API_INIT_FUNCTION (upf_api_hookup);
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

@@ -20,7 +20,7 @@
 #include "upf_ipfilter.h"
 
 static uword
-unformat_ipfilter_address_port (unformat_input_t * i, va_list * args)
+unformat_ipfilter_address_port (unformat_input_t *i, va_list *args)
 {
   acl_rule_t *acl = va_arg (*args, acl_rule_t *);
   int field = va_arg (*args, int);
@@ -43,16 +43,17 @@ unformat_ipfilter_address_port (unformat_input_t * i, va_list * args)
     {
       *ip = ACL_ADDR_ASSIGNED;
     }
-  else if (unformat (i, "%U", unformat_ip46_address, &ip->address, IP46_TYPE_ANY))
+  else if (unformat (i, "%U", unformat_ip46_address, &ip->address,
+                     IP46_TYPE_ANY))
     {
       is_ip4 = ip46_address_is_ip4 (&ip->address);
       acl->type = is_ip4 ? IPFILTER_IPV4 : IPFILTER_IPV6;
       ip->mask = is_ip4 ? 32 : 128;
 
       if (unformat_check_input (i) == UNFORMAT_END_OF_INPUT)
-	return 1;
+        return 1;
       if (unformat (i, "/%d", &ip->mask))
-	;
+        ;
     }
   else
     return 0;
@@ -68,9 +69,9 @@ unformat_ipfilter_address_port (unformat_input_t * i, va_list * args)
 }
 
 uword
-unformat_ipfilter (unformat_input_t * i, va_list * args)
+unformat_ipfilter (unformat_input_t *i, va_list *args)
 {
-  acl_rule_t * acl = va_arg (*args, acl_rule_t *);
+  acl_rule_t *acl = va_arg (*args, acl_rule_t *);
   int step = 0;
 
   acl->type = IPFILTER_WILDCARD;
@@ -79,68 +80,68 @@ unformat_ipfilter (unformat_input_t * i, va_list * args)
   while (step < 5 && unformat_check_input (i) != UNFORMAT_END_OF_INPUT)
     {
       switch (step)
-	{
-	case 0:		/* action */
-	  if (unformat (i, "permit"))
-	    {
-	      acl->action = ACL_PERMIT;
-	    }
-	  else if (unformat (i, "deny"))
-	    {
-	      acl->action = ACL_DENY;
-	    }
-	  else
-	    return 0;
+        {
+        case 0: /* action */
+          if (unformat (i, "permit"))
+            {
+              acl->action = ACL_PERMIT;
+            }
+          else if (unformat (i, "deny"))
+            {
+              acl->action = ACL_DENY;
+            }
+          else
+            return 0;
 
-	  break;
+          break;
 
-	case 1:		/* dir */
-	  if (unformat (i, "in"))
-	    {
-	      acl->direction = ACL_IN;
-	    }
-	  else if (unformat (i, "out"))
-	    {
-	      acl->direction = ACL_OUT;
-	    }
-	  else
-	    return 0;
+        case 1: /* dir */
+          if (unformat (i, "in"))
+            {
+              acl->direction = ACL_IN;
+            }
+          else if (unformat (i, "out"))
+            {
+              acl->direction = ACL_OUT;
+            }
+          else
+            return 0;
 
-	  break;
+          break;
 
-	case 2:		/* proto */
-	  if (unformat (i, "ip"))
-	    {
-	      acl->proto = ~0;
-	    }
-	  else if (unformat (i, "%u", &acl->proto))
-	    ;
-	  else
-	    return 0;
+        case 2: /* proto */
+          if (unformat (i, "ip"))
+            {
+              acl->proto = ~0;
+            }
+          else if (unformat (i, "%u", &acl->proto))
+            ;
+          else
+            return 0;
 
-	  break;
+          break;
 
-	case 3:		/* from src */
-	  if (unformat (i, "from %U", unformat_ipfilter_address_port,
-			acl, UPF_ACL_FIELD_SRC))
-	    ;
-	  else
-	    return 0;
+        case 3: /* from src */
+          if (unformat (i, "from %U", unformat_ipfilter_address_port, acl,
+                        UPF_ACL_FIELD_SRC))
+            ;
+          else
+            return 0;
 
-	  break;
+          break;
 
-	case 4:
-	  if (unformat (i, "to %U", unformat_ipfilter_address_port,
-			acl, UPF_ACL_FIELD_DST))
-	    ;
-	  else
-	    return 0;
+        case 4:
+          if (unformat (i, "to %U", unformat_ipfilter_address_port, acl,
+                        UPF_ACL_FIELD_DST))
+            ;
+          else
+            return 0;
 
-	  break;
+          break;
 
-	default:
-	  return 0;
-	}
+        default:
+          return 0;
+        }
 
       step++;
     }
@@ -149,7 +150,7 @@ unformat_ipfilter (unformat_input_t * i, va_list * args)
 }
 
 static u8 *
-format_ipfilter_address_port (u8 * s, va_list * args)
+format_ipfilter_address_port (u8 *s, va_list *args)
 {
   acl_rule_t *acl = va_arg (*args, acl_rule_t *);
   int field = va_arg (*args, int);
@@ -168,21 +169,21 @@ format_ipfilter_address_port (u8 * s, va_list * args)
     {
       s = format (s, "%U", format_ip46_address, &ip->address, IP46_TYPE_ANY);
       if (ip->mask != (ip46_address_is_ip4 (&ip->address) ? 32 : 128))
-	s = format (s, "/%u", ip->mask);
+        s = format (s, "/%u", ip->mask);
     }
 
-  if (port->min != 0 || port->max != (u16) ~ 0)
+  if (port->min != 0 || port->max != (u16) ~0)
     {
       s = format (s, " %d", port->min);
       if (port->min != port->max)
-	s = format (s, "-%d", port->max);
+        s = format (s, "-%d", port->max);
     }
 
   return s;
 }
 
 u8 *
-format_ipfilter (u8 * s, va_list * args)
+format_ipfilter (u8 *s, va_list *args)
 {
   acl_rule_t *acl = va_arg (*args, acl_rule_t *);
 
@@ -216,16 +217,15 @@ format_ipfilter (u8 * s, va_list * args)
       break;
     }
 
-  if (acl->proto == (u8) ~ 0)
+  if (acl->proto == (u8) ~0)
     s = format (s, "ip ");
   else
     s = format (s, "%d ", acl->proto);
 
-  s = format (s, "from %U ", format_ipfilter_address_port,
-	      acl, UPF_ACL_FIELD_SRC);
+  s = format (s, "from %U ", format_ipfilter_address_port, acl,
+              UPF_ACL_FIELD_SRC);
   s =
-    format (s, "to %U ", format_ipfilter_address_port,
-	    acl, UPF_ACL_FIELD_DST);
+    format (s, "to %U ", format_ipfilter_address_port, acl, UPF_ACL_FIELD_DST);
 
   return s;
 }

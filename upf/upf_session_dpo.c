@@ -30,8 +30,11 @@
 #if CLIB_DEBUG > 2
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 #ifndef CLIB_MARCH_VARIANT
@@ -49,7 +52,7 @@ upf_session_dpo_get (index_t index)
 }
 
 static inline upf_session_t *
-upf_session_get_from_dpo (const dpo_id_t * dpo)
+upf_session_get_from_dpo (const dpo_id_t *dpo)
 {
   ASSERT (upf_session_dpo_type == dpo->dpoi_type);
 
@@ -57,7 +60,7 @@ upf_session_get_from_dpo (const dpo_id_t * dpo)
 }
 
 static inline index_t
-upf_session_dpo_get_index (upf_session_t * sx)
+upf_session_dpo_get_index (upf_session_t *sx)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -65,7 +68,7 @@ upf_session_dpo_get_index (upf_session_t * sx)
 }
 
 static void
-upf_session_dpo_lock (dpo_id_t * dpo)
+upf_session_dpo_lock (dpo_id_t *dpo)
 {
   upf_session_t *sx;
 
@@ -74,7 +77,7 @@ upf_session_dpo_lock (dpo_id_t * dpo)
 }
 
 static void
-upf_session_dpo_unlock (dpo_id_t * dpo)
+upf_session_dpo_unlock (dpo_id_t *dpo)
 {
   upf_session_t *sx;
 
@@ -83,7 +86,7 @@ upf_session_dpo_unlock (dpo_id_t * dpo)
 }
 
 static const dpo_id_t *
-upf_get_session_dpo (upf_nwi_t * nwi, fib_prefix_t * pfx)
+upf_get_session_dpo (upf_nwi_t *nwi, fib_prefix_t *pfx)
 {
   fib_node_index_t fei;
   const dpo_id_t *dpo, *next_dpo;
@@ -109,14 +112,14 @@ upf_get_session_dpo (upf_nwi_t * nwi, fib_prefix_t * pfx)
     {
       next_dpo = load_balance_get_bucket_i (lb, i);
       if (next_dpo->dpoi_type == session_dpo_type)
-	return next_dpo;
+        return next_dpo;
     }
 
   return 0;
 }
 
 const dpo_id_t *
-upf_get_session_dpo_ip4 (upf_nwi_t * nwi, ip4_address_t * ip4)
+upf_get_session_dpo_ip4 (upf_nwi_t *nwi, ip4_address_t *ip4)
 {
   fib_prefix_t pfx;
   memset (&pfx, 0, sizeof (pfx));
@@ -127,7 +130,7 @@ upf_get_session_dpo_ip4 (upf_nwi_t * nwi, ip4_address_t * ip4)
 }
 
 const dpo_id_t *
-upf_get_session_dpo_ip6 (upf_nwi_t * nwi, ip6_address_t * ip6)
+upf_get_session_dpo_ip6 (upf_nwi_t *nwi, ip6_address_t *ip6)
 {
   fib_prefix_t pfx;
   memset (&pfx, 0, sizeof (pfx));
@@ -151,8 +154,8 @@ upf_session_dpo_get_urpf (const dpo_id_t * dpo)
 */
 
 void
-upf_session_dpo_add_or_lock (dpo_proto_t dproto, upf_session_t * sx,
-			     dpo_id_t * dpo)
+upf_session_dpo_add_or_lock (dpo_proto_t dproto, upf_session_t *sx,
+                             dpo_id_t *dpo)
 {
 #if 0
   dpo_id_t parent = DPO_INVALID;
@@ -165,14 +168,13 @@ upf_session_dpo_add_or_lock (dpo_proto_t dproto, upf_session_t * sx,
 }
 
 u8 *
-format_upf_session_dpo (u8 * s, va_list * ap)
+format_upf_session_dpo (u8 *s, va_list *ap)
 {
   index_t index = va_arg (*ap, index_t);
   upf_session_t *sx = upf_session_dpo_get (index);
 
-  s =
-    format (s, "UPF session: UP SEID: 0x%016" PRIx64 " (@%p)", sx->up_seid,
-	    sx);
+  s = format (s, "UPF session: UP SEID: 0x%016" PRIx64 " (@%p)", sx->up_seid,
+              sx);
   return (s);
 }
 
@@ -180,8 +182,8 @@ format_upf_session_dpo (u8 * s, va_list * ap)
  * Interpose a session DPO
  */
 static void
-upf_session_dpo_interpose (const dpo_id_t * original,
-			   const dpo_id_t * parent, dpo_id_t * clone)
+upf_session_dpo_interpose (const dpo_id_t *original, const dpo_id_t *parent,
+                           dpo_id_t *clone)
 {
   ASSERT (0);
 #if 0
@@ -247,10 +249,10 @@ upf_session_dpo_get_type (void)
 }
 
 static clib_error_t *
-upf_session_dpo_module_init (vlib_main_t * vm)
+upf_session_dpo_module_init (vlib_main_t *vm)
 {
-  upf_session_dpo_type = dpo_register_new_type (&upf_session_dpo_vft,
-						upf_session_dpo_nodes);
+  upf_session_dpo_type =
+    dpo_register_new_type (&upf_session_dpo_vft, upf_session_dpo_nodes);
 
   return (NULL);
 }
@@ -259,19 +261,19 @@ VLIB_INIT_FUNCTION (upf_session_dpo_module_init);
 #endif /* CLIB_MARCH_VARIANT */
 
 /* Statistics (not all errors) */
-#define foreach_upf_session_dpo_error    	\
-  _(SESSION_DPO, "good packets session_dpo")	\
-  _(PROXY_LOOP, "proxy output loop detected")
+#define foreach_upf_session_dpo_error                                         \
+  _ (SESSION_DPO, "good packets session_dpo")                                 \
+  _ (PROXY_LOOP, "proxy output loop detected")
 
 static char *upf_session_dpo_error_strings[] = {
-#define _(sym,string) string,
+#define _(sym, string) string,
   foreach_upf_session_dpo_error
 #undef _
 };
 
 typedef enum
 {
-#define _(sym,str) UPF_SESSION_DPO_ERROR_##sym,
+#define _(sym, str) UPF_SESSION_DPO_ERROR_##sym,
   foreach_upf_session_dpo_error
 #undef _
     UPF_SESSION_DPO_N_ERROR,
@@ -290,21 +292,19 @@ typedef struct
   u32 session_index;
   u64 up_seid;
   u8 packet_data[64 - 1 * sizeof (u32)];
-}
-upf_session_dpo_trace_t;
+} upf_session_dpo_trace_t;
 
 static u8 *
-format_upf_session_dpo_trace (u8 * s, va_list * args)
+format_upf_session_dpo_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
   upf_session_dpo_trace_t *t = va_arg (*args, upf_session_dpo_trace_t *);
   u32 indent = format_get_indent (s);
 
-  s = format (s, "upf_session%d seid %d \n%U%U",
-	      t->session_index, t->up_seid,
-	      format_white_space, indent,
-	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
+  s = format (s, "upf_session%d seid %d \n%U%U", t->session_index, t->up_seid,
+              format_white_space, indent, format_ip4_header, t->packet_data,
+              sizeof (t->packet_data));
   return s;
 }
 
@@ -317,8 +317,8 @@ format_upf_session_dpo_trace (u8 * s, va_list * args)
 /* Decrement TTL & update checksum.
    Works either endian, so no need for byte swap. */
 static_always_inline void
-ip4_ttl_and_checksum_check (vlib_buffer_t * b, ip4_header_t * ip, u16 * next,
-			    u32 * error)
+ip4_ttl_and_checksum_check (vlib_buffer_t *b, ip4_header_t *ip, u16 *next,
+                            u32 *error)
 {
   i32 ttl;
   u32 checksum;
@@ -347,24 +347,23 @@ ip4_ttl_and_checksum_check (vlib_buffer_t * b, ip4_header_t * ip, u16 * next,
   if (PREDICT_FALSE (ttl <= 0))
     {
       *error = IP4_ERROR_TIME_EXPIRED;
-      vnet_buffer (b)->sw_if_index[VLIB_TX] = (u32) ~ 0;
+      vnet_buffer (b)->sw_if_index[VLIB_TX] = (u32) ~0;
       icmp4_error_set_vnet_buffer (b, ICMP4_time_exceeded,
-				   ICMP4_time_exceeded_ttl_exceeded_in_transit,
-				   0);
+                                   ICMP4_time_exceeded_ttl_exceeded_in_transit,
+                                   0);
       *next = UPF_SESSION_DPO_NEXT_ICMP_ERROR;
     }
 
   /* Verify checksum. */
   ASSERT ((ip->checksum == ip4_header_checksum (ip)) ||
-	  ((b->flags & VNET_BUFFER_F_OFFLOAD) &&
-	   (vnet_buffer (b)->oflags & VNET_BUFFER_OFFLOAD_F_IP_CKSUM)));
+          ((b->flags & VNET_BUFFER_F_OFFLOAD) &&
+           (vnet_buffer (b)->oflags & VNET_BUFFER_OFFLOAD_F_IP_CKSUM)));
 }
 
 /* end of copy from ip4_forward.c */
 
-VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
-					 vlib_node_runtime_t * node,
-					 vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip4_session_dpo_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   vlib_node_runtime_t *error_node =
     vlib_node_get_runtime (vm, ip4_input_node.index);
@@ -389,66 +388,65 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 
       /* TODO: dual and maybe quad loop */
       while (n_left_from > 0 && n_left_to_next > 0)
-	{
-	  ip4_header_t *ip0;
-	  u32 error0;
+        {
+          ip4_header_t *ip0;
+          u32 error0;
 
-	  bi = from[0];
-	  to_next[0] = bi;
-	  from += 1;
-	  to_next += 1;
-	  n_left_from -= 1;
-	  n_left_to_next -= 1;
+          bi = from[0];
+          to_next[0] = bi;
+          from += 1;
+          to_next += 1;
+          n_left_from -= 1;
+          n_left_to_next -= 1;
 
-	  b = vlib_get_buffer (vm, bi);
+          b = vlib_get_buffer (vm, bi);
 
-	  sidx = vnet_buffer (b)->ip.adj_index[VLIB_TX];
-	  upf_debug ("Session %d (0x%08x)", sidx, sidx);
-	  ASSERT (~0 != sidx);
-	  ASSERT (!pool_is_free (gtm->sessions, gtm->sessions + sidx));
+          sidx = vnet_buffer (b)->ip.adj_index[VLIB_TX];
+          upf_debug ("Session %d (0x%08x)", sidx, sidx);
+          ASSERT (~0 != sidx);
+          ASSERT (!pool_is_free (gtm->sessions, gtm->sessions + sidx));
 
-	  ip0 = vlib_buffer_get_current (b);
-	  /*
-	   * Edge case: misdirected packet from upf-ip[46]-proxy-server-output
-	   * This happens when a session is modified and the PDRs/FARs relevant
-	   * for GTPU-U encapsulation are affected. This may cause the packets
-	   * to loop back to session-dpo via ip[46]-input.
-	   */
-	  if ((b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED)
-	      && ip0->protocol == IP_PROTOCOL_TCP)
-	    {
-	      upf_debug ("Proxy output loop detected: %U", format_ip4_header,
-			 ip0, b->current_length);
-	      error0 = UPF_SESSION_DPO_ERROR_PROXY_LOOP;
-	      next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
-	      goto trace;
-	    }
+          ip0 = vlib_buffer_get_current (b);
+          /*
+           * Edge case: misdirected packet from upf-ip[46]-proxy-server-output
+           * This happens when a session is modified and the PDRs/FARs relevant
+           * for GTPU-U encapsulation are affected. This may cause the packets
+           * to loop back to session-dpo via ip[46]-input.
+           */
+          if ((b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED) &&
+              ip0->protocol == IP_PROTOCOL_TCP)
+            {
+              upf_debug ("Proxy output loop detected: %U", format_ip4_header,
+                         ip0, b->current_length);
+              error0 = UPF_SESSION_DPO_ERROR_PROXY_LOOP;
+              next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
+              goto trace;
+            }
 
-	  UPF_ENTER_SUBGRAPH (b, sidx, 1);
-	  error0 = IP4_ERROR_NONE;
-	  next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
-	  upf_debug ("IP hdr: %U", format_ip4_header, ip0, b->current_length);
+          UPF_ENTER_SUBGRAPH (b, sidx, 1);
+          error0 = IP4_ERROR_NONE;
+          next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
+          upf_debug ("IP hdr: %U", format_ip4_header, ip0, b->current_length);
 
-	  ip4_ttl_and_checksum_check (b, ip0, &next, &error0);
-	  vnet_calc_checksums_inline
-	    (vm, b, 1 /* is_ip4 */ , 0 /* is_ip6 */ );
+          ip4_ttl_and_checksum_check (b, ip0, &next, &error0);
+          vnet_calc_checksums_inline (vm, b, 1 /* is_ip4 */, 0 /* is_ip6 */);
 
-	trace:
-	  b->error = error_node->errors[error0];
-	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
-	    {
-	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
-	      upf_session_dpo_trace_t *tr =
-		vlib_add_trace (vm, node, b, sizeof (*tr));
-	      tr->session_index = sidx;
-	      tr->up_seid = sess->up_seid;
-	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
-			   sizeof (tr->packet_data));
-	    }
+        trace:
+          b->error = error_node->errors[error0];
+          if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
+            {
+              upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
+              upf_session_dpo_trace_t *tr =
+                vlib_add_trace (vm, node, b, sizeof (*tr));
+              tr->session_index = sidx;
+              tr->up_seid = sess->up_seid;
+              clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
+                           sizeof (tr->packet_data));
+            }
 
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next, bi, next);
-	}
+          vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+                                           n_left_to_next, bi, next);
+        }
 
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
@@ -460,8 +458,7 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node) (vlib_main_t * vm,
 
 /* Check and Decrement hop limit */
 static_always_inline void
-ip6_hop_limit_check (vlib_buffer_t * b, ip6_header_t * ip, u16 * next,
-		     u32 * error)
+ip6_hop_limit_check (vlib_buffer_t *b, ip6_header_t *ip, u16 *next, u32 *error)
 {
   i32 hop_limit = ip->hop_limit;
 
@@ -486,19 +483,18 @@ ip6_hop_limit_check (vlib_buffer_t * b, ip6_header_t * ip, u16 * next,
        * an ICMP response.
        */
       *error = IP6_ERROR_TIME_EXPIRED;
-      vnet_buffer (b)->sw_if_index[VLIB_TX] = (u32) ~ 0;
+      vnet_buffer (b)->sw_if_index[VLIB_TX] = (u32) ~0;
       icmp6_error_set_vnet_buffer (b, ICMP6_time_exceeded,
-				   ICMP6_time_exceeded_ttl_exceeded_in_transit,
-				   0);
+                                   ICMP6_time_exceeded_ttl_exceeded_in_transit,
+                                   0);
       *next = UPF_SESSION_DPO_NEXT_ICMP_ERROR;
     }
 }
 
 /* end of copy from ip6_forward.c */
 
-VLIB_NODE_FN (upf_ip6_session_dpo_node) (vlib_main_t * vm,
-					 vlib_node_runtime_t * node,
-					 vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip6_session_dpo_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   vlib_node_runtime_t *error_node =
     vlib_node_get_runtime (vm, ip6_input_node.index);
@@ -523,64 +519,63 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node) (vlib_main_t * vm,
 
       /* TODO: dual and maybe quad loop */
       while (n_left_from > 0 && n_left_to_next > 0)
-	{
-	  ip6_header_t *ip0;
-	  u32 error0;
+        {
+          ip6_header_t *ip0;
+          u32 error0;
 
-	  bi = from[0];
-	  to_next[0] = bi;
-	  from += 1;
-	  to_next += 1;
-	  n_left_from -= 1;
-	  n_left_to_next -= 1;
+          bi = from[0];
+          to_next[0] = bi;
+          from += 1;
+          to_next += 1;
+          n_left_from -= 1;
+          n_left_to_next -= 1;
 
-	  b = vlib_get_buffer (vm, bi);
+          b = vlib_get_buffer (vm, bi);
 
-	  sidx = vnet_buffer (b)->ip.adj_index[VLIB_TX];
-	  upf_debug ("Session %d (0x%08x)", sidx, sidx);
-	  ASSERT (~0 != sidx);
+          sidx = vnet_buffer (b)->ip.adj_index[VLIB_TX];
+          upf_debug ("Session %d (0x%08x)", sidx, sidx);
+          ASSERT (~0 != sidx);
 
-	  ip0 = vlib_buffer_get_current (b);
-	  /*
-	   * Edge case: misdirected packet from upf-ip[46]-proxy-server-output
-	   * This happens when a session is modified and the PDRs/FARs relevant
-	   * for GTPU-U encapsulation are affected. This may cause the packets
-	   * to loop back to session-dpo via ip[46]-input.
-	   */
-	  if ((b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED)
-	      && ip0->protocol == IP_PROTOCOL_TCP)
-	    {
-	      upf_debug ("Proxy output loop detected: %U", format_ip4_header,
-			 ip0, b->current_length);
-	      error0 = UPF_SESSION_DPO_ERROR_PROXY_LOOP;
-	      next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
-	      goto trace;
-	    }
+          ip0 = vlib_buffer_get_current (b);
+          /*
+           * Edge case: misdirected packet from upf-ip[46]-proxy-server-output
+           * This happens when a session is modified and the PDRs/FARs relevant
+           * for GTPU-U encapsulation are affected. This may cause the packets
+           * to loop back to session-dpo via ip[46]-input.
+           */
+          if ((b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED) &&
+              ip0->protocol == IP_PROTOCOL_TCP)
+            {
+              upf_debug ("Proxy output loop detected: %U", format_ip4_header,
+                         ip0, b->current_length);
+              error0 = UPF_SESSION_DPO_ERROR_PROXY_LOOP;
+              next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
+              goto trace;
+            }
 
-	  UPF_ENTER_SUBGRAPH (b, sidx, 0);
-	  error0 = IP6_ERROR_NONE;
-	  next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
+          UPF_ENTER_SUBGRAPH (b, sidx, 0);
+          error0 = IP6_ERROR_NONE;
+          next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
 
-	  ip6_hop_limit_check (b, ip0, &next, &error0);
-	  vnet_calc_checksums_inline
-	    (vm, b, 0 /* is_ip4 */ , 1 /* is_ip6 */ );
+          ip6_hop_limit_check (b, ip0, &next, &error0);
+          vnet_calc_checksums_inline (vm, b, 0 /* is_ip4 */, 1 /* is_ip6 */);
 
-	trace:
-	  b->error = error_node->errors[error0];
-	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
-	    {
-	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
-	      upf_session_dpo_trace_t *tr =
-		vlib_add_trace (vm, node, b, sizeof (*tr));
-	      tr->session_index = sidx;
-	      tr->up_seid = sess->up_seid;
-	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
-			   sizeof (tr->packet_data));
-	    }
+        trace:
+          b->error = error_node->errors[error0];
+          if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
+            {
+              upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
+              upf_session_dpo_trace_t *tr =
+                vlib_add_trace (vm, node, b, sizeof (*tr));
+              tr->session_index = sidx;
+              tr->up_seid = sess->up_seid;
+              clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
+                           sizeof (tr->packet_data));
+            }
 
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next, bi, next);
-	}
+          vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+                                           n_left_to_next, bi, next);
+        }
 
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
@@ -588,7 +583,7 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node) (vlib_main_t * vm,
   return from_frame->n_vectors;
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_session_dpo_node) = {
   .name = "upf-ip4-session-dpo",
   .vector_size = sizeof (u32),
@@ -623,12 +618,4 @@ VLIB_REGISTER_NODE (upf_ip6_session_dpo_node) = {
   },
 };
 
-/* *INDENT-ON* */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */
+/* clang-format on */

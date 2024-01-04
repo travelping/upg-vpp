@@ -23,10 +23,10 @@
 #include "upf.h"
 #include "upf_pfcp_server.h"
 
-#define PRIsMAC "%02x:%02x:%02x:%02x:%02x:%02x"
+#define PRIsMAC    "%02x:%02x:%02x:%02x:%02x:%02x"
 #define ARGsMAC(m) (m)[0], (m)[1], (m)[2], (m)[3], (m)[4], (m)[5]
 
-int upf_pfcp_handle_msg (pfcp_msg_t * msg);
+int upf_pfcp_handle_msg (pfcp_msg_t *msg);
 
 typedef struct
 {
@@ -41,7 +41,7 @@ typedef struct
 } upf_usage_report_t;
 
 static inline void
-upf_usage_report_init (upf_usage_report_t * report, int n_urrs)
+upf_usage_report_init (upf_usage_report_t *report, int n_urrs)
 {
   ASSERT (report);
 
@@ -50,18 +50,17 @@ upf_usage_report_init (upf_usage_report_t * report, int n_urrs)
 };
 
 static inline void
-upf_usage_report_set (upf_usage_report_t * report,
-		      pfcp_reporting_triggers_t triggers, f64 now)
+upf_usage_report_set (upf_usage_report_t *report,
+                      pfcp_reporting_triggers_t triggers, f64 now)
 {
   ASSERT (report);
 
-  vec_set (report->events, ((upf_usage_report_ev_t)
-			    {
-			    .triggers = triggers,.now = now}));
+  vec_set (report->events,
+           ((upf_usage_report_ev_t){ .triggers = triggers, .now = now }));
 };
 
 static inline void
-upf_usage_report_free (upf_usage_report_t * report)
+upf_usage_report_free (upf_usage_report_t *report)
 {
   ASSERT (report);
 
@@ -70,9 +69,9 @@ upf_usage_report_free (upf_usage_report_t * report)
 };
 
 static inline void
-upf_usage_report_trigger (upf_usage_report_t * report, u32 idx,
-			  pfcp_reporting_triggers_t triggers,
-			  uword * liusa_bitmap, f64 now)
+upf_usage_report_trigger (upf_usage_report_t *report, u32 idx,
+                          pfcp_reporting_triggers_t triggers,
+                          uword *liusa_bitmap, f64 now)
 {
   ASSERT (report);
 
@@ -80,23 +79,12 @@ upf_usage_report_trigger (upf_usage_report_t * report, u32 idx,
   vec_elt (report->events, idx).now = now;
 
   if (liusa_bitmap)
-    report->liusa_bitmap =
-      clib_bitmap_or (report->liusa_bitmap, liusa_bitmap);
+    report->liusa_bitmap = clib_bitmap_or (report->liusa_bitmap, liusa_bitmap);
 };
 
-void
-upf_usage_report_build (upf_session_t * sx,
-			ip46_address_t * ue,
-			upf_urr_t * urr, f64 now,
-			upf_usage_report_t * report,
-			pfcp_usage_report_t ** usage_report);
+void upf_usage_report_build (upf_session_t *sx, ip46_address_t *ue,
+                             upf_urr_t *urr, f64 now,
+                             upf_usage_report_t *report,
+                             pfcp_usage_report_t **usage_report);
 
 #endif /* _UPF_PFCP_ERL_H */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

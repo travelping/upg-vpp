@@ -33,8 +33,11 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 typedef enum
@@ -54,20 +57,20 @@ static upf_proxy_output_next_t ft_next_map_next[FT_NEXT_N_NEXT] = {
 };
 
 /* Statistics (not all errors) */
-#define foreach_upf_proxy_output_error			\
-  _(PROCESS, "good packets process")			\
-  _(INVALID_FLOW, "flow entry not found")		\
-  _(NO_SESSION, "session not found")
+#define foreach_upf_proxy_output_error                                        \
+  _ (PROCESS, "good packets process")                                         \
+  _ (INVALID_FLOW, "flow entry not found")                                    \
+  _ (NO_SESSION, "session not found")
 
 static char *upf_proxy_output_error_strings[] = {
-#define _(sym,string) string,
+#define _(sym, string) string,
   foreach_upf_proxy_output_error
 #undef _
 };
 
 typedef enum
 {
-#define _(sym,str) UPF_PROXY_OUTPUT_ERROR_##sym,
+#define _(sym, str) UPF_PROXY_OUTPUT_ERROR_##sym,
   foreach_upf_proxy_output_error
 #undef _
     UPF_PROXY_OUTPUT_N_ERROR,
@@ -80,29 +83,29 @@ typedef struct
   u32 flow_id;
   u32 pdr_idx;
   u8 packet_data[64 - 1 * sizeof (u32)];
-}
-upf_proxy_output_trace_t;
+} upf_proxy_output_trace_t;
 
 static u8 *
-format_upf_proxy_output_trace (u8 * s, va_list * args)
+format_upf_proxy_output_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
   upf_proxy_output_trace_t *t = va_arg (*args, upf_proxy_output_trace_t *);
   u32 indent = format_get_indent (s);
 
-  s = format (s, "upf_session%d up-seid 0x%016" PRIx64 " Flow %u PDR Idx %u\n"
-	      "%U%U",
-	      t->session_index, t->up_seid, t->flow_id, t->pdr_idx,
-	      format_white_space, indent,
-	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
+  s = format (s,
+              "upf_session%d up-seid 0x%016" PRIx64 " Flow %u PDR Idx %u\n"
+              "%U%U",
+              t->session_index, t->up_seid, t->flow_id, t->pdr_idx,
+              format_white_space, indent, format_ip4_header, t->packet_data,
+              sizeof (t->packet_data));
   return s;
 }
 
 static uword
-upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
-		  vlib_frame_t * from_frame, flow_direction_t direction,
-		  int is_ip4, int no_opaque, int far_only)
+upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
+                  vlib_frame_t *from_frame, flow_direction_t direction,
+                  int is_ip4, int no_opaque, int far_only)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -128,245 +131,241 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
 
       while (n_left_from > 0 && n_left_to_next > 0)
-	{
-	  flow_entry_t *flow = NULL;
-	  upf_session_t *sx = NULL;
-	  struct rules *active;
-	  u32 flow_id;
-	  ip4_header_t *ip4;
-	  ip6_header_t *ip6;
-	  tcp_header_t *th;
+        {
+          flow_entry_t *flow = NULL;
+          upf_session_t *sx = NULL;
+          struct rules *active;
+          u32 flow_id;
+          ip4_header_t *ip4;
+          ip6_header_t *ip6;
+          tcp_header_t *th;
 
-	  bi = from[0];
-	  to_next[0] = bi;
-	  from += 1;
-	  to_next += 1;
-	  n_left_from -= 1;
-	  n_left_to_next -= 1;
+          bi = from[0];
+          to_next[0] = bi;
+          from += 1;
+          to_next += 1;
+          n_left_from -= 1;
+          n_left_to_next -= 1;
 
-	  b = vlib_get_buffer (vm, bi);
+          b = vlib_get_buffer (vm, bi);
 
-	  error = 0;
+          error = 0;
 
-	  if (is_ip4)
-	    {
-	      ip4 = (ip4_header_t *) vlib_buffer_get_current (b);
-	      th = (tcp_header_t *) ip4_next_header (ip4);
-	    }
-	  else
-	    {
-	      ip6 = (ip6_header_t *) vlib_buffer_get_current (b);
-	      th = (tcp_header_t *) ip6_next_header (ip6);
-	    }
+          if (is_ip4)
+            {
+              ip4 = (ip4_header_t *) vlib_buffer_get_current (b);
+              th = (tcp_header_t *) ip4_next_header (ip4);
+            }
+          else
+            {
+              ip6 = (ip6_header_t *) vlib_buffer_get_current (b);
+              th = (tcp_header_t *) ip6_next_header (ip6);
+            }
 
-	  if (no_opaque)
-	    {
-	      /*
-	       * In VPP 21.01, SYNs and some of the RSTs are sent
-	       * without going through tcp[46]-output nodes as these
-	       * can't handle half-open connections.  We override
-	       * default target nodes on these (the global settings)
-	       * so that the packets go to
-	       * upf-ip[46]-proxy-server-no-conn-output nodes instead.
-	       * Still, we don't get next_node_opaque value in the
-	       * buffer and must look up TCP connection to do so.  In
-	       * some cases, the connections may be half-open and in
-	       * other cases (TCP_STATE_SYN_RCVD) they may be
-	       * "normal", so we can't even simply use TCP connection
-	       * index from the buffer either; we must look up the
-	       * connection using 5-tuple and then extract the opaque
-	       * value with the flow id from it.
-	       */
-	      u32 fib_idx;
-	      tcp_connection_t *tconn;
-	      /*
-	       * Note that at this point, direction only denotes if
-	       * the packet goes from a lower-value IP address to a
-	       * higher-value IP address (0) or vice-versa (1).  It
-	       * needs to be XORed with flow's is_reverse to get the
-	       * actual direction, which is done after we get the
-	       * flow.
-	       */
-	      direction = is_ip4 ? ip4_packet_is_reverse (ip4) :
-		ip6_packet_is_reverse (ip6);
-	      fib_idx = vlib_buffer_get_ip_fib_index (b, is_ip4);
-	      /*
-	       * We need the flow to understand the direction of the
-	       * connection.  But also we need to get the connection
-	       * to get the flow. To break out of this chicken-and-egg
-	       * problem, we need to check both directions here
-	       */
-	      tconn =
-		upf_tcp_lookup_connection (fib_idx, b, vm->thread_index,
-					   is_ip4, 0);
-	      if (!tconn)
-		tconn =
-		  upf_tcp_lookup_connection (fib_idx, b, vm->thread_index,
-					     is_ip4, 1);
-	      if (!tconn)
-		{
-		  /*
-		   * This may happen with RSTs sent by the proxy in
-		   * response to some late packets from either UE or
-		   * the server.  We could possibly make some
-		   * additional effort to find the flow in absence of
-		   * the SEID for the session, e.g. by looking up UE
-		   * IP, but for now we just pass the packet on to the
-		   * IP lookup node and hope for the best. This may
-		   * fail on the server side of the proxy in the
-		   * presence of e.g. forwarding policy.
-		   */
-		  upf_debug
-		    ("Can't find connection for a packet on the proxy TCP output, IP hdr: %U",
-		     format_ip4_header, vlib_buffer_get_current (b),
-		     b->current_length);
-		  next = UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP;
-		  goto trace;
-		}
-	      flow_id = tconn->next_node_opaque;
-	    }
-	  else
-	    flow_id = vnet_buffer (b)->tcp.next_node_opaque;
+          if (no_opaque)
+            {
+              /*
+               * In VPP 21.01, SYNs and some of the RSTs are sent
+               * without going through tcp[46]-output nodes as these
+               * can't handle half-open connections.  We override
+               * default target nodes on these (the global settings)
+               * so that the packets go to
+               * upf-ip[46]-proxy-server-no-conn-output nodes instead.
+               * Still, we don't get next_node_opaque value in the
+               * buffer and must look up TCP connection to do so.  In
+               * some cases, the connections may be half-open and in
+               * other cases (TCP_STATE_SYN_RCVD) they may be
+               * "normal", so we can't even simply use TCP connection
+               * index from the buffer either; we must look up the
+               * connection using 5-tuple and then extract the opaque
+               * value with the flow id from it.
+               */
+              u32 fib_idx;
+              tcp_connection_t *tconn;
+              /*
+               * Note that at this point, direction only denotes if
+               * the packet goes from a lower-value IP address to a
+               * higher-value IP address (0) or vice-versa (1).  It
+               * needs to be XORed with flow's is_reverse to get the
+               * actual direction, which is done after we get the
+               * flow.
+               */
+              direction = is_ip4 ? ip4_packet_is_reverse (ip4) :
+                                   ip6_packet_is_reverse (ip6);
+              fib_idx = vlib_buffer_get_ip_fib_index (b, is_ip4);
+              /*
+               * We need the flow to understand the direction of the
+               * connection.  But also we need to get the connection
+               * to get the flow. To break out of this chicken-and-egg
+               * problem, we need to check both directions here
+               */
+              tconn = upf_tcp_lookup_connection (fib_idx, b, vm->thread_index,
+                                                 is_ip4, 0);
+              if (!tconn)
+                tconn = upf_tcp_lookup_connection (
+                  fib_idx, b, vm->thread_index, is_ip4, 1);
+              if (!tconn)
+                {
+                  /*
+                   * This may happen with RSTs sent by the proxy in
+                   * response to some late packets from either UE or
+                   * the server.  We could possibly make some
+                   * additional effort to find the flow in absence of
+                   * the SEID for the session, e.g. by looking up UE
+                   * IP, but for now we just pass the packet on to the
+                   * IP lookup node and hope for the best. This may
+                   * fail on the server side of the proxy in the
+                   * presence of e.g. forwarding policy.
+                   */
+                  upf_debug ("Can't find connection for a packet on the proxy "
+                             "TCP output, IP hdr: %U",
+                             format_ip4_header, vlib_buffer_get_current (b),
+                             b->current_length);
+                  next = UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP;
+                  goto trace;
+                }
+              flow_id = tconn->next_node_opaque;
+            }
+          else
+            flow_id = vnet_buffer (b)->tcp.next_node_opaque;
 
-	  if (!flow_id)
-	    {
-	      /* VPP host stack traffic not related to UPG */
-	      upf_debug ("Non-UPG TCP traffic, IP hdr: %U",
-			 format_ip4_header,
-			 vlib_buffer_get_current (b), b->current_length);
-	      next = UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP;
-	      goto trace;
-	    }
+          if (!flow_id)
+            {
+              /* VPP host stack traffic not related to UPG */
+              upf_debug ("Non-UPG TCP traffic, IP hdr: %U", format_ip4_header,
+                         vlib_buffer_get_current (b), b->current_length);
+              next = UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP;
+              goto trace;
+            }
 
-	  flow_id--;
+          flow_id--;
 
-	  if (pool_is_free_index (fm->flows, flow_id))
-	    {
-	      next = UPF_PROXY_OUTPUT_NEXT_DROP;
-	      error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
-	      goto trace;
-	    }
+          if (pool_is_free_index (fm->flows, flow_id))
+            {
+              next = UPF_PROXY_OUTPUT_NEXT_DROP;
+              error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
+              goto trace;
+            }
 
-	  flow = pool_elt_at_index (fm->flows, flow_id);
+          flow = pool_elt_at_index (fm->flows, flow_id);
 
-	  /*
-	   * In case if we're getting flow info from the transport
-	   * connection, we can only get the proper direction after we
-	   * have the flow, so we update it here
-	   */
-	  if (no_opaque)
-	    direction ^= flow->is_reverse;
+          /*
+           * In case if we're getting flow info from the transport
+           * connection, we can only get the proper direction after we
+           * have the flow, so we update it here
+           */
+          if (no_opaque)
+            direction ^= flow->is_reverse;
 
-	  upf_debug ("flow: %p (0x%08x): %U\n",
-		     flow, flow_id, format_flow_key, &flow->key);
-	  upf_debug ("flow: %U\n", format_flow, flow);
+          upf_debug ("flow: %p (0x%08x): %U\n", flow, flow_id, format_flow_key,
+                     &flow->key);
+          upf_debug ("flow: %U\n", format_flow, flow);
 
-	  upf_debug ("IP hdr: %U", format_ip4_header,
-		     vlib_buffer_get_current (b), b->current_length);
-	  upf_debug ("Flow ORIGIN/REVERSE Pdr Id: %u/%u, FT Next %u/%u",
-		     flow_pdr_id (flow, FT_ORIGIN), flow_pdr_id (flow,
-								 FT_REVERSE),
-		     flow_next (flow, FT_ORIGIN), flow_next (flow,
-							     FT_REVERSE));
+          upf_debug ("IP hdr: %U", format_ip4_header,
+                     vlib_buffer_get_current (b), b->current_length);
+          upf_debug (
+            "Flow ORIGIN/REVERSE Pdr Id: %u/%u, FT Next %u/%u",
+            flow_pdr_id (flow, FT_ORIGIN), flow_pdr_id (flow, FT_REVERSE),
+            flow_next (flow, FT_ORIGIN), flow_next (flow, FT_REVERSE));
 
-	  if (pool_is_free
-	      (gtm->sessions, gtm->sessions + flow->session_index))
-	    {
-	      clib_warning
-		("The flow has sidx %d that refers to a dead session",
-		 flow->session_index);
-	      next = UPF_PROXY_OUTPUT_NEXT_DROP;
-	      error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
-	      goto trace;
-	    }
+          if (pool_is_free (gtm->sessions,
+                            gtm->sessions + flow->session_index))
+            {
+              clib_warning (
+                "The flow has sidx %d that refers to a dead session",
+                flow->session_index);
+              next = UPF_PROXY_OUTPUT_NEXT_DROP;
+              error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
+              goto trace;
+            }
 
-	  UPF_ENTER_SUBGRAPH (b, flow->session_index, is_ip4);
-	  upf_buffer_opaque (b)->gtpu.flow_id = flow_id;
-	  upf_buffer_opaque (b)->gtpu.is_reverse =
-	    direction ^ flow->is_reverse;
-	  upf_buffer_opaque (b)->gtpu.is_proxied = 1;
+          UPF_ENTER_SUBGRAPH (b, flow->session_index, is_ip4);
+          upf_buffer_opaque (b)->gtpu.flow_id = flow_id;
+          upf_buffer_opaque (b)->gtpu.is_reverse =
+            direction ^ flow->is_reverse;
+          upf_buffer_opaque (b)->gtpu.is_proxied = 1;
 
-	  /* mostly borrowed from vnet/interface_output.c calc_checksums */
-	  if (is_ip4)
-	    {
-	      ip4->checksum = ip4_header_checksum (ip4);
-	      th->checksum = 0;
-	      th->checksum = ip4_tcp_udp_compute_checksum (vm, b, ip4);
-	    }
-	  else
-	    {
-	      int bogus;
-	      th->checksum = 0;
-	      th->checksum =
-		ip6_tcp_udp_icmp_compute_checksum (vm, b, ip6, &bogus);
-	    }
+          /* mostly borrowed from vnet/interface_output.c calc_checksums */
+          if (is_ip4)
+            {
+              ip4->checksum = ip4_header_checksum (ip4);
+              th->checksum = 0;
+              th->checksum = ip4_tcp_udp_compute_checksum (vm, b, ip4);
+            }
+          else
+            {
+              int bogus;
+              th->checksum = 0;
+              th->checksum =
+                ip6_tcp_udp_icmp_compute_checksum (vm, b, ip6, &bogus);
+            }
 
-	  vnet_buffer_offload_flags_clear
-	    (b, (VNET_BUFFER_OFFLOAD_F_TCP_CKSUM |
-		 VNET_BUFFER_OFFLOAD_F_UDP_CKSUM |
-		 VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
+          vnet_buffer_offload_flags_clear (b,
+                                           (VNET_BUFFER_OFFLOAD_F_TCP_CKSUM |
+                                            VNET_BUFFER_OFFLOAD_F_UDP_CKSUM |
+                                            VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
 
-	  next = ft_next_map_next[flow_next (flow, direction)];
-	  if (next == UPF_PROXY_OUTPUT_NEXT_PROCESS)
-	    {
-	      upf_pdr_t *pdr;
+          next = ft_next_map_next[flow_next (flow, direction)];
+          if (next == UPF_PROXY_OUTPUT_NEXT_PROCESS)
+            {
+              upf_pdr_t *pdr;
 
-	      sx = pool_elt_at_index (gtm->sessions, flow->session_index);
-	      /*
-	       * Edge case: session modified after this buffer left
-	       * upf-ip[46]-flow-process node but before it entered
-	       * this node.
-	       * FIXME: this shouldn't actually happen.
-	       */
-	      if (sx->generation != flow->generation)
-		sx = NULL;
+              sx = pool_elt_at_index (gtm->sessions, flow->session_index);
+              /*
+               * Edge case: session modified after this buffer left
+               * upf-ip[46]-flow-process node but before it entered
+               * this node.
+               * FIXME: this shouldn't actually happen.
+               */
+              if (sx->generation != flow->generation)
+                sx = NULL;
 
-	      ASSERT (flow_pdr_id (flow, direction) != ~0);
-	      active = sx ? pfcp_get_rules (sx, PFCP_ACTIVE) : NULL;
-	      pdr =
-		active ? pfcp_get_pdr_by_id (active,
-					     flow_pdr_id (flow,
-							  direction)) : NULL;
-	      if (!pdr)
-		{
-		  next = UPF_PROXY_OUTPUT_NEXT_DROP;
-		  error = UPF_PROXY_OUTPUT_ERROR_NO_SESSION;
-		  goto trace;
-		}
+              ASSERT (flow_pdr_id (flow, direction) != ~0);
+              active = sx ? pfcp_get_rules (sx, PFCP_ACTIVE) : NULL;
+              pdr =
+                active ?
+                  pfcp_get_pdr_by_id (active, flow_pdr_id (flow, direction)) :
+                  NULL;
+              if (!pdr)
+                {
+                  next = UPF_PROXY_OUTPUT_NEXT_DROP;
+                  error = UPF_PROXY_OUTPUT_ERROR_NO_SESSION;
+                  goto trace;
+                }
 
-	      upf_buffer_opaque (b)->gtpu.pdr_idx = pdr - active->pdr;
-	      /*
-	       * Avoid doing counting the packets for the second time
-	       * on the proxy output
-	       */
-	      if (far_only)
-		upf_buffer_opaque (b)->gtpu.flags |= BUFFER_FAR_ONLY;
-	    }
+              upf_buffer_opaque (b)->gtpu.pdr_idx = pdr - active->pdr;
+              /*
+               * Avoid doing counting the packets for the second time
+               * on the proxy output
+               */
+              if (far_only)
+                upf_buffer_opaque (b)->gtpu.flags |= BUFFER_FAR_ONLY;
+            }
 
-	trace:
-	  b->error = error ? node->errors[error] : 0;
+        trace:
+          b->error = error ? node->errors[error] : 0;
 
-	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
-	    {
-	      upf_session_t *sess = NULL;
-	      u32 sidx = 0;
-	      upf_proxy_output_trace_t *tr =
-		vlib_add_trace (vm, node, b, sizeof (*tr));
+          if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
+            {
+              upf_session_t *sess = NULL;
+              u32 sidx = 0;
+              upf_proxy_output_trace_t *tr =
+                vlib_add_trace (vm, node, b, sizeof (*tr));
 
-	      /* Get next node index and adj index from tunnel next_dpo */
-	      sidx = upf_buffer_opaque (b)->gtpu.session_index;
-	      sess = pool_elt_at_index (gtm->sessions, sidx);
-	      tr->session_index = sidx;
-	      tr->up_seid = sess->up_seid;
-	      tr->flow_id = upf_buffer_opaque (b)->gtpu.flow_id;
-	      tr->pdr_idx = upf_buffer_opaque (b)->gtpu.pdr_idx;
-	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
-			   sizeof (tr->packet_data));
-	    }
+              /* Get next node index and adj index from tunnel next_dpo */
+              sidx = upf_buffer_opaque (b)->gtpu.session_index;
+              sess = pool_elt_at_index (gtm->sessions, sidx);
+              tr->session_index = sidx;
+              tr->up_seid = sess->up_seid;
+              tr->flow_id = upf_buffer_opaque (b)->gtpu.flow_id;
+              tr->pdr_idx = upf_buffer_opaque (b)->gtpu.pdr_idx;
+              clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
+                           sizeof (tr->packet_data));
+            }
 
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next, bi, next);
-	}
+          vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+                                           n_left_to_next, bi, next);
+        }
 
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
@@ -374,40 +373,32 @@ upf_proxy_output (vlib_main_t * vm, vlib_node_runtime_t * node,
   return from_frame->n_vectors;
 }
 
-VLIB_NODE_FN (upf_ip4_proxy_server_output_node) (vlib_main_t * vm,
-						 vlib_node_runtime_t * node,
-						 vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip4_proxy_server_output_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 1,
-			   /* no_opaque */ 0, /* far_only */ 0);
+                           /* no_opaque */ 0, /* far_only */ 0);
 }
 
-VLIB_NODE_FN (upf_ip6_proxy_server_output_node) (vlib_main_t * vm,
-						 vlib_node_runtime_t * node,
-						 vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip6_proxy_server_output_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 0,
-			   /* no_opaque */ 0, /* far_only */ 0);
+                           /* no_opaque */ 0, /* far_only */ 0);
 }
 
-VLIB_NODE_FN (upf_ip4_proxy_server_far_only_output_node) (vlib_main_t * vm,
-							  vlib_node_runtime_t
-							  * node,
-							  vlib_frame_t *
-							  from_frame)
+VLIB_NODE_FN (upf_ip4_proxy_server_far_only_output_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 1,
-			   /* no_opaque */ 0, /* far_only */ 1);
+                           /* no_opaque */ 0, /* far_only */ 1);
 }
 
-VLIB_NODE_FN (upf_ip6_proxy_server_far_only_output_node) (vlib_main_t * vm,
-							  vlib_node_runtime_t
-							  * node,
-							  vlib_frame_t *
-							  from_frame)
+VLIB_NODE_FN (upf_ip6_proxy_server_far_only_output_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 0,
-			   /* no_opaque */ 0, /* far_only */ 1);
+                           /* no_opaque */ 0, /* far_only */ 1);
 }
 
 /*
@@ -419,27 +410,21 @@ VLIB_NODE_FN (upf_ip6_proxy_server_far_only_output_node) (vlib_main_t * vm,
  * with vnet_buffer (b)->tcp.next_node_opaque containing
  * the value from sep_ext.next_node_opaque
  */
-VLIB_NODE_FN (upf_ip4_proxy_server_no_conn_output_node) (vlib_main_t * vm,
-							 vlib_node_runtime_t *
-							 node,
-							 vlib_frame_t *
-							 from_frame)
+VLIB_NODE_FN (upf_ip4_proxy_server_no_conn_output_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 1,
-			   /* no_opaque */ 1, /* far_only */ 1);
+                           /* no_opaque */ 1, /* far_only */ 1);
 }
 
-VLIB_NODE_FN (upf_ip6_proxy_server_no_conn_output_node) (vlib_main_t * vm,
-							 vlib_node_runtime_t *
-							 node,
-							 vlib_frame_t *
-							 from_frame)
+VLIB_NODE_FN (upf_ip6_proxy_server_no_conn_output_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 0,
-			   /* no_opaque */ 1, /* far_only */ 1);
+                           /* no_opaque */ 1, /* far_only */ 1);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_proxy_server_far_only_output_node) = {
   .name = "upf-ip4-proxy-server-far-only-output",
   .vector_size = sizeof (u32),
@@ -455,9 +440,9 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_server_far_only_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_proxy_server_far_only_output_node) = {
   .name = "upf-ip6-proxy-server-far-only-output",
   .vector_size = sizeof (u32),
@@ -473,9 +458,9 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_server_far_only_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_proxy_server_no_conn_output_node) = {
   .name = "upf-ip4-proxy-server-no-conn-output",
   .vector_size = sizeof (u32),
@@ -491,9 +476,9 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_server_no_conn_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_proxy_server_no_conn_output_node) = {
   .name = "upf-ip6-proxy-server-no-conn-output",
   .vector_size = sizeof (u32),
@@ -509,9 +494,9 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_server_no_conn_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_proxy_server_output_node) = {
   .name = "upf-ip4-proxy-server-output",
   .vector_size = sizeof (u32),
@@ -527,9 +512,9 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_server_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_proxy_server_output_node) = {
   .name = "upf-ip6-proxy-server-output",
   .vector_size = sizeof (u32),
@@ -545,12 +530,4 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_server_output_node) = {
     [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
   },
 };
-/* *INDENT-ON* */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */
+/* clang-format on */

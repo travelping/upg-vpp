@@ -34,35 +34,38 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 /* Statistics (not all errors) */
-#define foreach_upf_forward_error				\
-  _(LENGTH, "inconsistent ip/tcp lengths")			\
-  _(NO_LISTENER, "no redirect server available")		\
-  _(FORWARD, "good packets forward")				\
-  _(OPTIONS, "Could not parse options")				\
-  _(CREATE_SESSION_FAIL, "Sessions couldn't be allocated")      \
-  _(PDR_MISSING, "PDR missing")                                 \
-  _(FAR_MISSING, "FAR missing")                                 \
-  _(BUFFER_NOT_YET, "Buffer action not supported")              \
-  _(OUTER_HEADER_NOT_YET, "Outer header not supported")         \
-  _(FAR_NOT_YET, "FAR not supported")                           \
-  _(FAR_DROP, "FAR action drop")                                \
-  _(QER_DROP, "dropped because of QER")                         \
-  _(URR_DROP, "dropped because of URR")
+#define foreach_upf_forward_error                                             \
+  _ (LENGTH, "inconsistent ip/tcp lengths")                                   \
+  _ (NO_LISTENER, "no redirect server available")                             \
+  _ (FORWARD, "good packets forward")                                         \
+  _ (OPTIONS, "Could not parse options")                                      \
+  _ (CREATE_SESSION_FAIL, "Sessions couldn't be allocated")                   \
+  _ (PDR_MISSING, "PDR missing")                                              \
+  _ (FAR_MISSING, "FAR missing")                                              \
+  _ (BUFFER_NOT_YET, "Buffer action not supported")                           \
+  _ (OUTER_HEADER_NOT_YET, "Outer header not supported")                      \
+  _ (FAR_NOT_YET, "FAR not supported")                                        \
+  _ (FAR_DROP, "FAR action drop")                                             \
+  _ (QER_DROP, "dropped because of QER")                                      \
+  _ (URR_DROP, "dropped because of URR")
 
 static char *upf_forward_error_strings[] = {
-#define _(sym,string) string,
+#define _(sym, string) string,
   foreach_upf_forward_error
 #undef _
 };
 
 typedef enum
 {
-#define _(sym,str) UPF_FORWARD_ERROR_##sym,
+#define _(sym, str) UPF_FORWARD_ERROR_##sym,
   foreach_upf_forward_error
 #undef _
     UPF_FORWARD_N_ERROR,
@@ -75,11 +78,10 @@ typedef struct
   u32 pdr_id;
   u32 far_id;
   u8 packet_data[64 - 1 * sizeof (u32)];
-}
-upf_forward_trace_t;
+} upf_forward_trace_t;
 
 static u8 *
-format_upf_forward_trace (u8 * s, va_list * args)
+format_upf_forward_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
@@ -87,15 +89,15 @@ format_upf_forward_trace (u8 * s, va_list * args)
   u32 indent = format_get_indent (s);
 
   s = format (s, "upf_session%d up-seid 0x%016" PRIx64 " pdr %d far %d\n%U%U",
-	      t->session_index, t->up_seid, t->pdr_id, t->far_id,
-	      format_white_space, indent,
-	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
+              t->session_index, t->up_seid, t->pdr_id, t->far_id,
+              format_white_space, indent, format_ip4_header, t->packet_data,
+              sizeof (t->packet_data));
   return s;
 }
 
 static uword
-upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
-	     const char *node_name, vlib_frame_t * from_frame, int is_ip4)
+upf_forward (vlib_main_t *vm, vlib_node_runtime_t *node, const char *node_name,
+             vlib_frame_t *from_frame, int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -129,220 +131,222 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
 
       while (n_left_from > 0 && n_left_to_next > 0)
-	{
-	  upf_pdr_t *pdr = NULL;
-	  upf_far_t *far = NULL;
+        {
+          upf_pdr_t *pdr = NULL;
+          upf_far_t *far = NULL;
 
-	  bi = from[0];
-	  to_next[0] = bi;
-	  from += 1;
-	  to_next += 1;
-	  n_left_from -= 1;
-	  n_left_to_next -= 1;
+          bi = from[0];
+          to_next[0] = bi;
+          from += 1;
+          to_next += 1;
+          n_left_from -= 1;
+          n_left_to_next -= 1;
 
-	  b = vlib_get_buffer (vm, bi);
-	  UPF_CHECK_INNER_NODE (b);
+          b = vlib_get_buffer (vm, bi);
+          UPF_CHECK_INNER_NODE (b);
 
-	  /* Get next node index and adj index from tunnel next_dpo */
-	  sidx = upf_buffer_opaque (b)->gtpu.session_index;
-	  sess = pool_elt_at_index (gtm->sessions, sidx);
+          /* Get next node index and adj index from tunnel next_dpo */
+          sidx = upf_buffer_opaque (b)->gtpu.session_index;
+          sess = pool_elt_at_index (gtm->sessions, sidx);
 
-	  error = 0;
-	  next = UPF_FORWARD_NEXT_DROP;
-	  active = pfcp_get_rules (sess, PFCP_ACTIVE);
+          error = 0;
+          next = UPF_FORWARD_NEXT_DROP;
+          active = pfcp_get_rules (sess, PFCP_ACTIVE);
 
-	  if (PREDICT_TRUE (upf_buffer_opaque (b)->gtpu.pdr_idx != ~0))
-	    {
-	      pdr =
-		vec_elt_at_index (active->pdr,
-				  upf_buffer_opaque (b)->gtpu.pdr_idx);
-	      far = pfcp_get_far_by_id (active, pdr->far_id);
-	    }
+          if (PREDICT_TRUE (upf_buffer_opaque (b)->gtpu.pdr_idx != ~0))
+            {
+              pdr = vec_elt_at_index (active->pdr,
+                                      upf_buffer_opaque (b)->gtpu.pdr_idx);
+              far = pfcp_get_far_by_id (active, pdr->far_id);
+            }
 
-	  if (is_ip4)
-	    {
-	      upf_debug ("IP hdr: %U", format_ip4_header,
-			 vlib_buffer_get_current (b), b->current_length);
-	    }
-	  else
-	    {
-	      upf_debug ("IP hdr: %U", format_ip6_header,
-			 vlib_buffer_get_current (b), b->current_length);
-	    }
+          if (is_ip4)
+            {
+              upf_debug ("IP hdr: %U", format_ip4_header,
+                         vlib_buffer_get_current (b), b->current_length);
+            }
+          else
+            {
+              upf_debug ("IP hdr: %U", format_ip6_header,
+                         vlib_buffer_get_current (b), b->current_length);
+            }
 
-	  if (PREDICT_FALSE (!pdr))
-	    {
-	      error = UPF_FORWARD_ERROR_PDR_MISSING;
-	      goto trace;
-	    }
+          if (PREDICT_FALSE (!pdr))
+            {
+              error = UPF_FORWARD_ERROR_PDR_MISSING;
+              goto trace;
+            }
 
-	  if (PREDICT_FALSE (!far))
-	    {
-	      error = UPF_FORWARD_ERROR_FAR_MISSING;
-	      goto trace;
-	    }
+          if (PREDICT_FALSE (!far))
+            {
+              error = UPF_FORWARD_ERROR_FAR_MISSING;
+              goto trace;
+            }
 
-	  upf_debug ("PDR: %u, FAR: %u", pdr->id, far->id);
+          upf_debug ("PDR: %u, FAR: %u", pdr->id, far->id);
 
-	  if (PREDICT_TRUE (far->apply_action & FAR_FORWARD))
-	    {
-	      if (far->forward.flags & FAR_F_OUTER_HEADER_CREATION)
-		{
-		  upf_debug ("OUTER HEADER CREATION");
-		  if (far->forward.outer_header_creation.description
-		      & OUTER_HEADER_CREATION_GTP_IP4)
-		    {
-		      next = UPF_FORWARD_NEXT_GTP_IP4_ENCAP;
-		    }
-		  else if (far->forward.outer_header_creation.description
-			   & OUTER_HEADER_CREATION_GTP_IP6)
-		    {
-		      next = UPF_FORWARD_NEXT_GTP_IP6_ENCAP;
-		    }
-		  else
-		    {
-		      error = UPF_FORWARD_ERROR_OUTER_HEADER_NOT_YET;
-		      next = UPF_FORWARD_NEXT_DROP;
-		      goto trace;
-		    }
-		}
-	      else
-		{
-		  if (is_ip4)
-		    {
-		      vnet_buffer_offload_flags_clear
-			(b, (VNET_BUFFER_OFFLOAD_F_TCP_CKSUM |
-			     VNET_BUFFER_OFFLOAD_F_UDP_CKSUM |
-			     VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
-		      upf_nwi_if_and_fib_index
-			(gtm, FIB_PROTOCOL_IP4, far->forward.nwi_index,
-			 &vnet_buffer (b)->sw_if_index[VLIB_RX],
-			 &vnet_buffer (b)->sw_if_index[VLIB_TX]);
-		    }
-		  else
-		    {
-		      vnet_buffer_offload_flags_clear
-			(b, (VNET_BUFFER_OFFLOAD_F_TCP_CKSUM |
-			     VNET_BUFFER_OFFLOAD_F_UDP_CKSUM));
-		      upf_nwi_if_and_fib_index
-			(gtm, FIB_PROTOCOL_IP6, far->forward.nwi_index,
-			 &vnet_buffer (b)->sw_if_index[VLIB_RX],
-			 &vnet_buffer (b)->sw_if_index[VLIB_TX]);
-		    }
-		  next = UPF_FORWARD_NEXT_IP_INPUT;
+          if (PREDICT_TRUE (far->apply_action & FAR_FORWARD))
+            {
+              if (far->forward.flags & FAR_F_OUTER_HEADER_CREATION)
+                {
+                  upf_debug ("OUTER HEADER CREATION");
+                  if (far->forward.outer_header_creation.description &
+                      OUTER_HEADER_CREATION_GTP_IP4)
+                    {
+                      next = UPF_FORWARD_NEXT_GTP_IP4_ENCAP;
+                    }
+                  else if (far->forward.outer_header_creation.description &
+                           OUTER_HEADER_CREATION_GTP_IP6)
+                    {
+                      next = UPF_FORWARD_NEXT_GTP_IP6_ENCAP;
+                    }
+                  else
+                    {
+                      error = UPF_FORWARD_ERROR_OUTER_HEADER_NOT_YET;
+                      next = UPF_FORWARD_NEXT_DROP;
+                      goto trace;
+                    }
+                }
+              else
+                {
+                  if (is_ip4)
+                    {
+                      vnet_buffer_offload_flags_clear (
+                        b, (VNET_BUFFER_OFFLOAD_F_TCP_CKSUM |
+                            VNET_BUFFER_OFFLOAD_F_UDP_CKSUM |
+                            VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
+                      upf_nwi_if_and_fib_index (
+                        gtm, FIB_PROTOCOL_IP4, far->forward.nwi_index,
+                        &vnet_buffer (b)->sw_if_index[VLIB_RX],
+                        &vnet_buffer (b)->sw_if_index[VLIB_TX]);
+                    }
+                  else
+                    {
+                      vnet_buffer_offload_flags_clear (
+                        b, (VNET_BUFFER_OFFLOAD_F_TCP_CKSUM |
+                            VNET_BUFFER_OFFLOAD_F_UDP_CKSUM));
+                      upf_nwi_if_and_fib_index (
+                        gtm, FIB_PROTOCOL_IP6, far->forward.nwi_index,
+                        &vnet_buffer (b)->sw_if_index[VLIB_RX],
+                        &vnet_buffer (b)->sw_if_index[VLIB_TX]);
+                    }
+                  next = UPF_FORWARD_NEXT_IP_INPUT;
 
-		  /*
-		   * Forwarding Policy can override the normal FAR processing from above
-		   */
+                  /*
+                   * Forwarding Policy can override the normal FAR processing
+                   * from above
+                   */
 
-		  if (far->forward.flags & FAR_F_FORWARDING_POLICY)
-		    {
-		      fib_route_path_t *rpath;
+                  if (far->forward.flags & FAR_F_FORWARDING_POLICY)
+                    {
+                      fib_route_path_t *rpath;
 
-		      /* Getting dpio_index */
-		      fp_entry =
-			pool_elt_at_index (gtm->upf_forwarding_policies,
-					   far->forward.fp_pool_index);
+                      /* Getting dpio_index */
+                      fp_entry =
+                        pool_elt_at_index (gtm->upf_forwarding_policies,
+                                           far->forward.fp_pool_index);
 
-		      /*
-		       * the Forwarding Policy might not contain an entry
-		       * for the IP version of the buffer. In that case, the
-		       * loop will just not alter already present normal FAR
-		       * settings.
-		       */
-		      vec_foreach (rpath, fp_entry->rpaths)
-		      {
-			if (rpath->frp_proto ==
-			    (is_ip4 ? DPO_PROTO_IP4 : DPO_PROTO_IP6))
-			  {
-			    vnet_buffer (b)->sw_if_index[VLIB_TX] =
-			      rpath->frp_fib_index;
-			    next = UPF_FORWARD_NEXT_IP_LOOKUP;
-			    upf_debug
-			      ("###### Forwarding policy with id %v is applied ######",
-			       far->forward.forwarding_policy.identifier);
-			    break;
-			  }
-		      }
-		    }
-		}
-	    }
-	  else if (far->apply_action & FAR_DROP)
-	    {
-	      error = UPF_FORWARD_ERROR_FAR_DROP;
-	      next = UPF_FORWARD_NEXT_DROP;
-	    }
-	  else if (far->apply_action & FAR_BUFFER)
-	    {
-	      // Not yet implemented
-	      error = UPF_FORWARD_ERROR_BUFFER_NOT_YET;
-	      next = UPF_FORWARD_NEXT_DROP;
-	    }
-	  else
-	    {
-	      error = UPF_FORWARD_ERROR_FAR_NOT_YET;
-	      next = UPF_FORWARD_NEXT_DROP;
-	    }
+                      /*
+                       * the Forwarding Policy might not contain an entry
+                       * for the IP version of the buffer. In that case, the
+                       * loop will just not alter already present normal FAR
+                       * settings.
+                       */
+                      vec_foreach (rpath, fp_entry->rpaths)
+                        {
+                          if (rpath->frp_proto ==
+                              (is_ip4 ? DPO_PROTO_IP4 : DPO_PROTO_IP6))
+                            {
+                              vnet_buffer (b)->sw_if_index[VLIB_TX] =
+                                rpath->frp_fib_index;
+                              next = UPF_FORWARD_NEXT_IP_LOOKUP;
+                              upf_debug (
+                                "###### Forwarding policy with id %v is "
+                                "applied ######",
+                                far->forward.forwarding_policy.identifier);
+                              break;
+                            }
+                        }
+                    }
+                }
+            }
+          else if (far->apply_action & FAR_DROP)
+            {
+              error = UPF_FORWARD_ERROR_FAR_DROP;
+              next = UPF_FORWARD_NEXT_DROP;
+            }
+          else if (far->apply_action & FAR_BUFFER)
+            {
+              // Not yet implemented
+              error = UPF_FORWARD_ERROR_BUFFER_NOT_YET;
+              next = UPF_FORWARD_NEXT_DROP;
+            }
+          else
+            {
+              error = UPF_FORWARD_ERROR_FAR_NOT_YET;
+              next = UPF_FORWARD_NEXT_DROP;
+            }
 
-#define IS_DL(_pdr, _far)						\
-	  ((_pdr)->pdi.src_intf == SRC_INTF_CORE || (_far)->forward.dst_intf == DST_INTF_ACCESS)
-#define IS_UL(_pdr, _far)						\
-	  ((_pdr)->pdi.src_intf == SRC_INTF_ACCESS || (_far)->forward.dst_intf == DST_INTF_CORE)
+#define IS_DL(_pdr, _far)                                                     \
+  ((_pdr)->pdi.src_intf == SRC_INTF_CORE ||                                   \
+   (_far)->forward.dst_intf == DST_INTF_ACCESS)
+#define IS_UL(_pdr, _far)                                                     \
+  ((_pdr)->pdi.src_intf == SRC_INTF_ACCESS ||                                 \
+   (_far)->forward.dst_intf == DST_INTF_CORE)
 
-	  if (!(upf_buffer_opaque (b)->gtpu.flags & BUFFER_FAR_ONLY))
-	    {
-	      upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
-	      if (!process_qers (vm, sess, active, pdr, b,
-				 IS_DL (pdr, far), IS_UL (pdr, far)))
-		{
-		  error = UPF_FORWARD_ERROR_QER_DROP;
-		  next = UPF_FORWARD_NEXT_DROP;
-		}
-	      if (!process_urrs (vm, sess, node_name, active, pdr, b,
-				 IS_DL (pdr, far), IS_UL (pdr, far)))
-		{
-		  error = UPF_FORWARD_ERROR_URR_DROP;
-		  next = UPF_FORWARD_NEXT_DROP;
-		}
+          if (!(upf_buffer_opaque (b)->gtpu.flags & BUFFER_FAR_ONLY))
+            {
+              upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
+              if (!process_qers (vm, sess, active, pdr, b, IS_DL (pdr, far),
+                                 IS_UL (pdr, far)))
+                {
+                  error = UPF_FORWARD_ERROR_QER_DROP;
+                  next = UPF_FORWARD_NEXT_DROP;
+                }
+              if (!process_urrs (vm, sess, node_name, active, pdr, b,
+                                 IS_DL (pdr, far), IS_UL (pdr, far)))
+                {
+                  error = UPF_FORWARD_ERROR_URR_DROP;
+                  next = UPF_FORWARD_NEXT_DROP;
+                }
 
-	      /*
-	       * Flow ID might be absent if active->flags doesn't have
-	       * PFCP_CLASSIFY bit set. In this case PDR index may be
-	       * set, by the upf-gtpu[46]-input node, but flow
-	       * index may be absent. This happens when the sessions'
-	       * PDRs don't have any ACL rules or an UE IP.
-	       */
-	      if (upf_buffer_opaque (b)->gtpu.flow_id != ~0)
-		{
-		  flow =
-		    pool_elt_at_index (fm->flows,
-				       upf_buffer_opaque (b)->gtpu.flow_id);
-		  flow_update_stats (vm, b, flow, is_ip4,
-				     timestamp_ns, current_time);
-		}
-	    }
+              /*
+               * Flow ID might be absent if active->flags doesn't have
+               * PFCP_CLASSIFY bit set. In this case PDR index may be
+               * set, by the upf-gtpu[46]-input node, but flow
+               * index may be absent. This happens when the sessions'
+               * PDRs don't have any ACL rules or an UE IP.
+               */
+              if (upf_buffer_opaque (b)->gtpu.flow_id != ~0)
+                {
+                  flow = pool_elt_at_index (
+                    fm->flows, upf_buffer_opaque (b)->gtpu.flow_id);
+                  flow_update_stats (vm, b, flow, is_ip4, timestamp_ns,
+                                     current_time);
+                }
+            }
 
 #undef IS_DL
 #undef IS_UL
 
-	trace:
-	  b->error = error ? node->errors[error] : 0;
+        trace:
+          b->error = error ? node->errors[error] : 0;
 
-	  if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
-	    {
-	      upf_forward_trace_t *tr =
-		vlib_add_trace (vm, node, b, sizeof (*tr));
-	      tr->session_index = sidx;
-	      tr->up_seid = sess->up_seid;
-	      tr->pdr_id = pdr ? pdr->id : ~0;
-	      tr->far_id = far ? far->id : ~0;
-	      clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
-			   sizeof (tr->packet_data));
-	    }
+          if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
+            {
+              upf_forward_trace_t *tr =
+                vlib_add_trace (vm, node, b, sizeof (*tr));
+              tr->session_index = sidx;
+              tr->up_seid = sess->up_seid;
+              tr->pdr_id = pdr ? pdr->id : ~0;
+              tr->far_id = far ? far->id : ~0;
+              clib_memcpy (tr->packet_data, vlib_buffer_get_current (b),
+                           sizeof (tr->packet_data));
+            }
 
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next, bi, next);
-	}
+          vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+                                           n_left_to_next, bi, next);
+        }
 
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
@@ -350,23 +354,21 @@ upf_forward (vlib_main_t * vm, vlib_node_runtime_t * node,
   return from_frame->n_vectors;
 }
 
-VLIB_NODE_FN (upf_ip4_forward_node) (vlib_main_t * vm,
-				     vlib_node_runtime_t * node,
-				     vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip4_forward_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_forward (vm, node, "upf-ip4-forward", from_frame,	/* is_ip4 */
-		      1);
+  return upf_forward (vm, node, "upf-ip4-forward", from_frame, /* is_ip4 */
+                      1);
 }
 
-VLIB_NODE_FN (upf_ip6_forward_node) (vlib_main_t * vm,
-				     vlib_node_runtime_t * node,
-				     vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip6_forward_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_forward (vm, node, "upf-ip6-forward", from_frame,	/* is_ip4 */
-		      0);
+  return upf_forward (vm, node, "upf-ip6-forward", from_frame, /* is_ip4 */
+                      0);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip4_forward_node) = {
   .name = "upf-ip4-forward",
   .vector_size = sizeof (u32),
@@ -384,9 +386,9 @@ VLIB_REGISTER_NODE (upf_ip4_forward_node) = {
     [UPF_FORWARD_NEXT_IP_LOOKUP]     = "ip4-lookup"
   },
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE (upf_ip6_forward_node) = {
   .name = "upf-ip6-forward",
   .vector_size = sizeof (u32),
@@ -404,12 +406,4 @@ VLIB_REGISTER_NODE (upf_ip6_forward_node) = {
     [UPF_FORWARD_NEXT_IP_LOOKUP]     = "ip6-lookup"
   },
 };
-/* *INDENT-ON* */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */
+/* clang-format on */

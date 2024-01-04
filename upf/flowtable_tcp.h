@@ -43,6 +43,7 @@ typedef enum tcp_event
   TCP_EV_MAX
 } tcp_event_t;
 
+/* clang-format off */
 /* flow lifetime in seconds */
 static const int tcp_lifetime[TCP_F_STATE_MAX] = {
   [TCP_F_STATE_SYN] = 15,
@@ -52,45 +53,52 @@ static const int tcp_lifetime[TCP_F_STATE_MAX] = {
   [TCP_F_STATE_FINACK] = 3,
   [TCP_F_STATE_RST] = 6
 };
+/* clang-format on */
 
 static const tcp_f_state_t tcp_trans[TCP_F_STATE_MAX][TCP_EV_MAX] = {
-  [TCP_F_STATE_START] = {
-			 [TCP_EV_SYN] = TCP_F_STATE_SYN,
-			 [TCP_EV_SYNACK] = TCP_F_STATE_SYNACK,
-			 [TCP_EV_FIN] = TCP_F_STATE_FIN,
-			 [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
-			 [TCP_EV_RST] = TCP_F_STATE_RST,
-			 [TCP_EV_NONE] = TCP_F_STATE_ESTABLISHED,
-			 },
-  [TCP_F_STATE_SYN] = {
-		       [TCP_EV_SYNACK] = TCP_F_STATE_SYNACK,
-		       [TCP_EV_PSHACK] = TCP_F_STATE_ESTABLISHED,
-		       [TCP_EV_FIN] = TCP_F_STATE_FIN,
-		       [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
-		       [TCP_EV_RST] = TCP_F_STATE_RST,
-		       },
-  [TCP_F_STATE_SYNACK] = {
-			  [TCP_EV_PSHACK] = TCP_F_STATE_ESTABLISHED,
-			  [TCP_EV_FIN] = TCP_F_STATE_FIN,
-			  [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
-			  [TCP_EV_RST] = TCP_F_STATE_RST,
-			  },
-  [TCP_F_STATE_ESTABLISHED] = {
-			       [TCP_EV_FIN] = TCP_F_STATE_FIN,
-			       [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
-			       [TCP_EV_RST] = TCP_F_STATE_RST,
-			       },
-  [TCP_F_STATE_FIN] = {
-		       [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
-		       [TCP_EV_RST] = TCP_F_STATE_RST,
-		       },
-  [TCP_F_STATE_FINACK] = {
-			  [TCP_EV_RST] = TCP_F_STATE_RST,
-			  },
+    [TCP_F_STATE_START] =
+        {
+            [TCP_EV_SYN] = TCP_F_STATE_SYN,
+            [TCP_EV_SYNACK] = TCP_F_STATE_SYNACK,
+            [TCP_EV_FIN] = TCP_F_STATE_FIN,
+            [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
+            [TCP_EV_RST] = TCP_F_STATE_RST,
+            [TCP_EV_NONE] = TCP_F_STATE_ESTABLISHED,
+        },
+    [TCP_F_STATE_SYN] =
+        {
+            [TCP_EV_SYNACK] = TCP_F_STATE_SYNACK,
+            [TCP_EV_PSHACK] = TCP_F_STATE_ESTABLISHED,
+            [TCP_EV_FIN] = TCP_F_STATE_FIN,
+            [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
+            [TCP_EV_RST] = TCP_F_STATE_RST,
+        },
+    [TCP_F_STATE_SYNACK] =
+        {
+            [TCP_EV_PSHACK] = TCP_F_STATE_ESTABLISHED,
+            [TCP_EV_FIN] = TCP_F_STATE_FIN,
+            [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
+            [TCP_EV_RST] = TCP_F_STATE_RST,
+        },
+    [TCP_F_STATE_ESTABLISHED] =
+        {
+            [TCP_EV_FIN] = TCP_F_STATE_FIN,
+            [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
+            [TCP_EV_RST] = TCP_F_STATE_RST,
+        },
+    [TCP_F_STATE_FIN] =
+        {
+            [TCP_EV_FINACK] = TCP_F_STATE_FINACK,
+            [TCP_EV_RST] = TCP_F_STATE_RST,
+        },
+    [TCP_F_STATE_FINACK] =
+        {
+            [TCP_EV_RST] = TCP_F_STATE_RST,
+        },
 };
 
 always_inline tcp_event_t
-tcp_event (tcp_header_t * hdr)
+tcp_event (tcp_header_t *hdr)
 {
   tcp_event_t event = TCP_EV_NONE;
   if (hdr->flags & TCP_FLAG_SYN && hdr->flags & TCP_FLAG_ACK)
@@ -122,11 +130,3 @@ tcp_event (tcp_header_t * hdr)
 }
 
 #endif /* __flowtable_tcp_h__ */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

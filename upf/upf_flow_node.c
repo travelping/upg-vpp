@@ -28,8 +28,11 @@
 #if CLIB_DEBUG > 1
 #define flow_debug clib_warning
 #else
-#define flow_debug(...)				\
-  do { } while (0)
+#define flow_debug(...)                                                       \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 typedef struct
@@ -41,36 +44,36 @@ typedef struct
   u32 sw_if_index;
   u32 next_index;
   u8 packet_data[64 - 1 * sizeof (u32)];
-}
-flow_trace_t;
+} flow_trace_t;
 
 static u8 *
-format_get_flowinfo (u8 * s, va_list * args)
+format_get_flowinfo (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
   flow_trace_t *t = va_arg (*args, flow_trace_t *);
   u32 indent = format_get_indent (s);
 
-  s = format (s,
-	      "upf_session%d up-seid 0x%016llx\n"
-	      "%UFlowInfo - sw_if_index %d, next_index = %d\n%U%U\n%U%U\n%U%U",
-	      t->session_index, t->up_seid,
-	      format_white_space, indent,
-	      t->sw_if_index, t->next_index,
-	      format_white_space, indent,
-	      format_flow_key, &t->key,
-	      format_white_space, indent,
-	      format_hex_bytes, &t->key, sizeof (t->key),
-	      format_white_space, indent,
-	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
+  /* clang-format off */
+  s = format (s, "upf_session%d up-seid 0x%016llx\n"
+              "%UFlowInfo - sw_if_index %d, next_index = %d\n%U%U\n%U%U\n%U%U",
+              t->session_index, t->up_seid,
+              format_white_space, indent,
+              t->sw_if_index, t->next_index,
+              format_white_space, indent,
+              format_flow_key, &t->key,
+              format_white_space, indent,
+              format_hex_bytes, &t->key, sizeof (t->key),
+              format_white_space, indent,
+              format_ip4_header, t->packet_data, sizeof (t->packet_data));
+  /* clang-format on */
   return s;
 }
 
 always_inline u32
-load_gtpu_flow_info (flowtable_main_t * fm, vlib_buffer_t * b,
-		     flow_entry_t * flow, struct rules *r, uword is_reverse,
-		     u16 generation)
+load_gtpu_flow_info (flowtable_main_t *fm, vlib_buffer_t *b,
+                     flow_entry_t *flow, struct rules *r, uword is_reverse,
+                     u16 generation)
 {
   flow_direction_t direction =
     flow->is_reverse == is_reverse ? FT_ORIGIN : FT_REVERSE;
@@ -81,7 +84,7 @@ load_gtpu_flow_info (flowtable_main_t * fm, vlib_buffer_t * b,
   if (flow->generation != generation)
     {
       flow_debug ("Flow has an old generation ID: %U", format_flow_key,
-		  &flow->key);
+                  &flow->key);
       flow->application_id = ~0;
       flow->generation = generation;
       flow_pdr_id (flow, FT_ORIGIN) = ~0;
@@ -96,14 +99,13 @@ load_gtpu_flow_info (flowtable_main_t * fm, vlib_buffer_t * b,
   return flow_next (flow, direction);
 }
 
-#define FLOW_DEBUG(fm, flow)						\
-  flow_debug (#flow ": %p (%u): %U\n",					\
-	      (flow), (flow) - (fm)->flows,				\
-	      format_flow_key, &(flow)->key);
+#define FLOW_DEBUG(fm, flow)                                                  \
+  flow_debug (#flow ": %p (%u): %U\n", (flow), (flow) - (fm)->flows,          \
+              format_flow_key, &(flow)->key);
 
 static uword
-upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
-		  vlib_frame_t * frame, u8 is_ip4)
+upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
+                  vlib_frame_t *frame, u8 is_ip4)
 {
   upf_main_t *gtm = &upf_main;
   u32 n_left_from, *from, next_index, *to_next, n_left_to_next;
@@ -112,7 +114,7 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
   flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
   u64 timestamp_ns;
 
-#define _(sym, str) u32 CPT_ ## sym = 0;
+#define _(sym, str) u32 CPT_##sym = 0;
   foreach_flowtable_error
 #undef _
     from = vlib_frame_vector_args (frame);
@@ -129,350 +131,333 @@ upf_flow_process (vlib_main_t * vm, vlib_node_runtime_t * node,
 
       /* Dual loop */
       while (n_left_from >= 4 && n_left_to_next >= 2)
-	{
-	  u32 bi0, bi1;
-	  vlib_buffer_t *b0, *b1;
-	  upf_session_t *sx0, *sx1;
-	  struct rules *active0, *active1;
-	  u32 next0, next1;
-	  clib_bihash_kv_48_8_t kv0, kv1;
-	  int created0, created1;
-	  uword is_reverse0, is_reverse1;
-	  u32 flow_idx0, flow_idx1;
-	  flow_entry_t *flow0, *flow1;
-	  u8 *p0, *p1;
-	  uword len0, len1;
+        {
+          u32 bi0, bi1;
+          vlib_buffer_t *b0, *b1;
+          upf_session_t *sx0, *sx1;
+          struct rules *active0, *active1;
+          u32 next0, next1;
+          clib_bihash_kv_48_8_t kv0, kv1;
+          int created0, created1;
+          uword is_reverse0, is_reverse1;
+          u32 flow_idx0, flow_idx1;
+          flow_entry_t *flow0, *flow1;
+          u8 *p0, *p1;
+          uword len0, len1;
 
-	  /* prefetch next iteration */
-	  {
-	    vlib_buffer_t *p2, *p3;
+          /* prefetch next iteration */
+          {
+            vlib_buffer_t *p2, *p3;
 
-	    p2 = vlib_get_buffer (vm, from[2]);
-	    p3 = vlib_get_buffer (vm, from[3]);
+            p2 = vlib_get_buffer (vm, from[2]);
+            p3 = vlib_get_buffer (vm, from[3]);
 
-	    vlib_prefetch_buffer_header (p2, LOAD);
-	    vlib_prefetch_buffer_header (p3, LOAD);
-	    CLIB_PREFETCH (p2->data,
-			   sizeof (gtpu_header_t) + sizeof (ip6_header_t),
-			   LOAD);
-	    CLIB_PREFETCH (p3->data,
-			   sizeof (gtpu_header_t) + sizeof (ip6_header_t),
-			   LOAD);
-	  }
+            vlib_prefetch_buffer_header (p2, LOAD);
+            vlib_prefetch_buffer_header (p3, LOAD);
+            CLIB_PREFETCH (
+              p2->data, sizeof (gtpu_header_t) + sizeof (ip6_header_t), LOAD);
+            CLIB_PREFETCH (
+              p3->data, sizeof (gtpu_header_t) + sizeof (ip6_header_t), LOAD);
+          }
 
-	  bi0 = to_next[0] = from[0];
-	  bi1 = to_next[1] = from[1];
-	  b0 = vlib_get_buffer (vm, bi0);
-	  len0 = vlib_buffer_length_in_chain (vm, b0);
-	  UPF_CHECK_INNER_NODE (b0);
-	  b1 = vlib_get_buffer (vm, bi1);
-	  len1 = vlib_buffer_length_in_chain (vm, b1);
-	  UPF_CHECK_INNER_NODE (b1);
+          bi0 = to_next[0] = from[0];
+          bi1 = to_next[1] = from[1];
+          b0 = vlib_get_buffer (vm, bi0);
+          len0 = vlib_buffer_length_in_chain (vm, b0);
+          UPF_CHECK_INNER_NODE (b0);
+          b1 = vlib_get_buffer (vm, bi1);
+          len1 = vlib_buffer_length_in_chain (vm, b1);
+          UPF_CHECK_INNER_NODE (b1);
 
-	  created0 = created1 = 0;
-	  is_reverse0 = is_reverse1 = 0;
+          created0 = created1 = 0;
+          is_reverse0 = is_reverse1 = 0;
 
-	  if (PREDICT_FALSE
-	      (pool_is_free_index
-	       (gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index)
-	       || pool_is_free_index (gtm->sessions,
-				      upf_buffer_opaque (b1)->
-				      gtpu.session_index)))
-	    {
-	      /*
-	       * break out of the dual loop and let the
-	       * single loop handle the problem
-	       */
+          if (PREDICT_FALSE (
+                pool_is_free_index (
+                  gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index) ||
+                pool_is_free_index (
+                  gtm->sessions, upf_buffer_opaque (b1)->gtpu.session_index)))
+            {
+              /*
+               * break out of the dual loop and let the
+               * single loop handle the problem
+               */
 
-	      /* TODO: it is not clear how this can happen, but it DOES!
-	       *
-	       * The session removed with vlib_worker_thread_barrier_sync beeing held.
-	       * According to the vpp-dev ML, that should stop workers at he top the
-	       * dispatch chain and SHOULD therefor prevent packets entering the chain
-	       * with now invalid things.
-	       * Clearly, if we hit here, a packet with an invalid session_index HAS
-	       * entered the chain or the session was removed in the middle of the chain.
-	       * The later is the most likely case and that would mean that somehow
-	       * we are not using the sync correctly.
-	       *
-	       * This needs to be investigated in depth. For the moment do the simple
-	       * thing a drop the packet.
-	       */
-	      break;
-	    }
+              /* TODO: it is not clear how this can happen, but it DOES!
+               *
+               * The session removed with vlib_worker_thread_barrier_sync
+               * beeing held. According to the vpp-dev ML, that should stop
+               * workers at he top the dispatch chain and SHOULD therefor
+               * prevent packets entering the chain with now invalid things.
+               * Clearly, if we hit here, a packet with an invalid
+               * session_index HAS entered the chain or the session was removed
+               * in the middle of the chain. The later is the most likely case
+               * and that would mean that somehow we are not using the sync
+               * correctly.
+               *
+               * This needs to be investigated in depth. For the moment do the
+               * simple thing a drop the packet.
+               */
+              break;
+            }
 
-	  p0 =
-	    vlib_buffer_get_current (b0) +
-	    upf_buffer_opaque (b0)->gtpu.data_offset;
-	  p1 =
-	    vlib_buffer_get_current (b1) +
-	    upf_buffer_opaque (b1)->gtpu.data_offset;
+          p0 = vlib_buffer_get_current (b0) +
+               upf_buffer_opaque (b0)->gtpu.data_offset;
+          p1 = vlib_buffer_get_current (b1) +
+               upf_buffer_opaque (b1)->gtpu.data_offset;
 
-	  sx0 =
-	    pool_elt_at_index (gtm->sessions,
-			       upf_buffer_opaque (b0)->gtpu.session_index);
-	  sx1 =
-	    pool_elt_at_index (gtm->sessions,
-			       upf_buffer_opaque (b1)->gtpu.session_index);
+          sx0 = pool_elt_at_index (gtm->sessions,
+                                   upf_buffer_opaque (b0)->gtpu.session_index);
+          sx1 = pool_elt_at_index (gtm->sessions,
+                                   upf_buffer_opaque (b1)->gtpu.session_index);
 
-	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
-	  active1 = pfcp_get_rules (sx1, PFCP_ACTIVE);
+          active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
+          active1 = pfcp_get_rules (sx1, PFCP_ACTIVE);
 
-	  flow_mk_key (sx0->up_seid, p0, is_ip4, &is_reverse0, &kv0);
-	  flow_mk_key (sx1->up_seid, p1, is_ip4, &is_reverse1, &kv1);
+          flow_mk_key (sx0->up_seid, p0, is_ip4, &is_reverse0, &kv0);
+          flow_mk_key (sx1->up_seid, p1, is_ip4, &is_reverse1, &kv1);
 
-	  /* lookup/create flow */
-	  flow_idx0 =
-	    flowtable_entry_lookup_create (fm, fmt, &kv0,
-					   timestamp_ns, current_time,
-					   is_reverse0, sx0->generation,
-					   sx0 - gtm->sessions, &created0);
-	  if (created0)
-	    {
-	      session_flows_list_insert_tail (fm->flows, &sx0->flows,
-					      pool_elt_at_index (fm->flows,
-								 flow_idx0));
-	    }
+          /* lookup/create flow */
+          flow_idx0 = flowtable_entry_lookup_create (
+            fm, fmt, &kv0, timestamp_ns, current_time, is_reverse0,
+            sx0->generation, sx0 - gtm->sessions, &created0);
+          if (created0)
+            {
+              session_flows_list_insert_tail (
+                fm->flows, &sx0->flows,
+                pool_elt_at_index (fm->flows, flow_idx0));
+            }
 
-	  flow_idx1 =
-	    flowtable_entry_lookup_create (fm, fmt, &kv1,
-					   timestamp_ns, current_time,
-					   is_reverse1, sx1->generation,
-					   sx1 - gtm->sessions, &created1);
-	  if (created1)
-	    {
-	      session_flows_list_insert_tail (fm->flows, &sx1->flows,
-					      pool_elt_at_index (fm->flows,
-								 flow_idx1));
-	    }
+          flow_idx1 = flowtable_entry_lookup_create (
+            fm, fmt, &kv1, timestamp_ns, current_time, is_reverse1,
+            sx1->generation, sx1 - gtm->sessions, &created1);
+          if (created1)
+            {
+              session_flows_list_insert_tail (
+                fm->flows, &sx1->flows,
+                pool_elt_at_index (fm->flows, flow_idx1));
+            }
 
-	  if (PREDICT_FALSE (~0 == flow_idx0 || ~0 == flow_idx1))
-	    {
-	      /*
-	       * break out of the dual loop and let the
-	       * single loop handle the problem
-	       */
-	      break;
-	    }
+          if (PREDICT_FALSE (~0 == flow_idx0 || ~0 == flow_idx1))
+            {
+              /*
+               * break out of the dual loop and let the
+               * single loop handle the problem
+               */
+              break;
+            }
 
-	  flow0 = flowtable_get_flow (fm, flow_idx0);
-	  flow1 = flowtable_get_flow (fm, flow_idx1);
+          flow0 = flowtable_get_flow (fm, flow_idx0);
+          flow1 = flowtable_get_flow (fm, flow_idx1);
 
-	  flow0->session_index = upf_buffer_opaque (b0)->gtpu.session_index;
-	  flow1->session_index = upf_buffer_opaque (b1)->gtpu.session_index;
+          flow0->session_index = upf_buffer_opaque (b0)->gtpu.session_index;
+          flow1->session_index = upf_buffer_opaque (b1)->gtpu.session_index;
 
-	  FLOW_DEBUG (fm, flow0);
-	  FLOW_DEBUG (fm, flow1);
+          FLOW_DEBUG (fm, flow0);
+          FLOW_DEBUG (fm, flow1);
 
-	  /* handle flow stats / timer / activity / ipfix */
-	  flow_update (vm, flow0, p0, is_ip4,
-		       len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
-		       current_time);
-	  flow_update (vm, flow1, p1, is_ip4,
-		       len1 - upf_buffer_opaque (b1)->gtpu.data_offset,
-		       current_time);
+          /* handle flow stats / timer / activity / ipfix */
+          flow_update (vm, flow0, p0, is_ip4,
+                       len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
+                       current_time);
+          flow_update (vm, flow1, p1, is_ip4,
+                       len1 - upf_buffer_opaque (b1)->gtpu.data_offset,
+                       current_time);
 
-	  /* fill buffer with flow data */
-	  next0 =
-	    load_gtpu_flow_info (fm, b0, flow0, active0, is_reverse0,
-				 sx0->generation);
-	  next1 =
-	    load_gtpu_flow_info (fm, b1, flow1, active1, is_reverse1,
-				 sx1->generation);
+          /* fill buffer with flow data */
+          next0 = load_gtpu_flow_info (fm, b0, flow0, active0, is_reverse0,
+                                       sx0->generation);
+          next1 = load_gtpu_flow_info (fm, b1, flow1, active1, is_reverse1,
+                                       sx1->generation);
 
-	  /* flowtable counters */
-	  CPT_THRU += 2;
-	  CPT_CREATED += created0 + created1;
-	  CPT_HIT += !created0 + !created1;
+          /* flowtable counters */
+          CPT_THRU += 2;
+          CPT_CREATED += created0 + created1;
+          CPT_HIT += !created0 + !created1;
 
-	  /* frame mgmt */
-	  from += 2;
-	  to_next += 2;
-	  n_left_from -= 2;
-	  n_left_to_next -= 2;
+          /* frame mgmt */
+          from += 2;
+          to_next += 2;
+          n_left_from -= 2;
+          n_left_to_next -= 2;
 
-	  if (b0->flags & VLIB_BUFFER_IS_TRACED)
-	    {
-	      u32 sidx = upf_buffer_opaque (b0)->gtpu.session_index;
-	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
-	      flow_trace_t *t = vlib_add_trace (vm, node, b0, sizeof (*t));
-	      t->session_index = sidx;
-	      t->up_seid = sess->up_seid;
-	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
-	      t->next_index = next0;
-	      clib_memcpy (t->packet_data, vlib_buffer_get_current (b0) +
-			   upf_buffer_opaque (b0)->gtpu.data_offset,
-			   sizeof (t->packet_data));
-	    }
-	  if (b1->flags & VLIB_BUFFER_IS_TRACED)
-	    {
-	      u32 sidx = upf_buffer_opaque (b1)->gtpu.session_index;
-	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
-	      flow_trace_t *t = vlib_add_trace (vm, node, b1, sizeof (*t));
-	      t->session_index = sidx;
-	      t->up_seid = sess->up_seid;
-	      t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];
-	      t->next_index = next1;
-	      clib_memcpy (t->packet_data, vlib_buffer_get_current (b1) +
-			   upf_buffer_opaque (b1)->gtpu.data_offset,
-			   sizeof (t->packet_data));
-	    }
+          if (b0->flags & VLIB_BUFFER_IS_TRACED)
+            {
+              u32 sidx = upf_buffer_opaque (b0)->gtpu.session_index;
+              upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
+              flow_trace_t *t = vlib_add_trace (vm, node, b0, sizeof (*t));
+              t->session_index = sidx;
+              t->up_seid = sess->up_seid;
+              t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+              t->next_index = next0;
+              clib_memcpy (t->packet_data,
+                           vlib_buffer_get_current (b0) +
+                             upf_buffer_opaque (b0)->gtpu.data_offset,
+                           sizeof (t->packet_data));
+            }
+          if (b1->flags & VLIB_BUFFER_IS_TRACED)
+            {
+              u32 sidx = upf_buffer_opaque (b1)->gtpu.session_index;
+              upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
+              flow_trace_t *t = vlib_add_trace (vm, node, b1, sizeof (*t));
+              t->session_index = sidx;
+              t->up_seid = sess->up_seid;
+              t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];
+              t->next_index = next1;
+              clib_memcpy (t->packet_data,
+                           vlib_buffer_get_current (b1) +
+                             upf_buffer_opaque (b1)->gtpu.data_offset,
+                           sizeof (t->packet_data));
+            }
 
-	  vlib_validate_buffer_enqueue_x2 (vm, node, next_index, to_next,
-					   n_left_to_next, bi0, bi1, next0,
-					   next1);
-	}
+          vlib_validate_buffer_enqueue_x2 (vm, node, next_index, to_next,
+                                           n_left_to_next, bi0, bi1, next0,
+                                           next1);
+        }
 
       /* Single loop */
       while (n_left_from > 0 && n_left_to_next > 0)
-	{
-	  u32 bi0;
-	  u32 next0;
-	  vlib_buffer_t *b0;
-	  upf_session_t *sx0;
-	  struct rules *active0;
-	  int created = 0;
-	  u32 flow_idx;
-	  flow_entry_t *flow = NULL;
-	  uword is_reverse = 0;
-	  clib_bihash_kv_48_8_t kv;
-	  u8 *p;
-	  uword len0;
+        {
+          u32 bi0;
+          u32 next0;
+          vlib_buffer_t *b0;
+          upf_session_t *sx0;
+          struct rules *active0;
+          int created = 0;
+          u32 flow_idx;
+          flow_entry_t *flow = NULL;
+          uword is_reverse = 0;
+          clib_bihash_kv_48_8_t kv;
+          u8 *p;
+          uword len0;
 
-	  bi0 = to_next[0] = from[0];
-	  b0 = vlib_get_buffer (vm, bi0);
-	  len0 = vlib_buffer_length_in_chain (vm, b0);
-	  UPF_CHECK_INNER_NODE (b0);
+          bi0 = to_next[0] = from[0];
+          b0 = vlib_get_buffer (vm, bi0);
+          len0 = vlib_buffer_length_in_chain (vm, b0);
+          UPF_CHECK_INNER_NODE (b0);
 
-	  if (PREDICT_FALSE
-	      (pool_is_free_index
-	       (gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index)))
-	    {
-	      /*
-	       * break out of the dual loop and let the
-	       * single loop handle the problem
-	       */
+          if (PREDICT_FALSE (pool_is_free_index (
+                gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index)))
+            {
+              /*
+               * break out of the dual loop and let the
+               * single loop handle the problem
+               */
 
-	      /* TODO: see comment in dual loop */
+              /* TODO: see comment in dual loop */
 
-	      CPT_UNHANDLED++;
-	      next0 = FT_NEXT_DROP;
+              CPT_UNHANDLED++;
+              next0 = FT_NEXT_DROP;
 
-	      goto stats1;
-	    }
+              goto stats1;
+            }
 
-	  p =
-	    vlib_buffer_get_current (b0) +
-	    upf_buffer_opaque (b0)->gtpu.data_offset;
+          p = vlib_buffer_get_current (b0) +
+              upf_buffer_opaque (b0)->gtpu.data_offset;
 
-	  sx0 =
-	    pool_elt_at_index (gtm->sessions,
-			       upf_buffer_opaque (b0)->gtpu.session_index);
+          sx0 = pool_elt_at_index (gtm->sessions,
+                                   upf_buffer_opaque (b0)->gtpu.session_index);
 
-	  active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
+          active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
 
-	  /* lookup/create flow */
-	  flow_mk_key (sx0->up_seid, p, is_ip4, &is_reverse, &kv);
-	  flow_idx =
-	    flowtable_entry_lookup_create (fm, fmt, &kv,
-					   timestamp_ns, current_time,
-					   is_reverse, sx0->generation,
-					   sx0 - gtm->sessions, &created);
-	  if (created)
-	    {
-	      flow_entry_t *f = pool_elt_at_index (fm->flows, flow_idx);
-	      ASSERT (!session_flows_list_el_is_part_of_list (f));
+          /* lookup/create flow */
+          flow_mk_key (sx0->up_seid, p, is_ip4, &is_reverse, &kv);
+          flow_idx = flowtable_entry_lookup_create (
+            fm, fmt, &kv, timestamp_ns, current_time, is_reverse,
+            sx0->generation, sx0 - gtm->sessions, &created);
+          if (created)
+            {
+              flow_entry_t *f = pool_elt_at_index (fm->flows, flow_idx);
+              ASSERT (!session_flows_list_el_is_part_of_list (f));
 
-	      session_flows_list_insert_tail (fm->flows, &sx0->flows,
-					      pool_elt_at_index (fm->flows,
-								 flow_idx));
+              session_flows_list_insert_tail (
+                fm->flows, &sx0->flows,
+                pool_elt_at_index (fm->flows, flow_idx));
 
-	      ASSERT (session_flows_list_el_is_part_of_list (f));
-	    }
+              ASSERT (session_flows_list_el_is_part_of_list (f));
+            }
 
-	  if (PREDICT_FALSE (~0 == flow_idx))
-	    {
-	      CPT_UNHANDLED++;
-	      next0 = FT_NEXT_DROP;
+          if (PREDICT_FALSE (~0 == flow_idx))
+            {
+              CPT_UNHANDLED++;
+              next0 = FT_NEXT_DROP;
 
-	      goto stats1;
-	    }
+              goto stats1;
+            }
 
-	  flow = flowtable_get_flow (fm, flow_idx);
-	  flow->session_index = upf_buffer_opaque (b0)->gtpu.session_index;
-	  FLOW_DEBUG (fm, flow);
+          flow = flowtable_get_flow (fm, flow_idx);
+          flow->session_index = upf_buffer_opaque (b0)->gtpu.session_index;
+          FLOW_DEBUG (fm, flow);
 
-	  flow_debug ("is_rev: %u, flow: %u, c: %u", is_reverse,
-		      flow->is_reverse, created);
+          flow_debug ("is_rev: %u, flow: %u, c: %u", is_reverse,
+                      flow->is_reverse, created);
 
-	  /* handle flow stats / timer / activity / ipfix */
-	  flow_update (vm, flow, p, is_ip4,
-		       len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
-		       current_time);
+          /* handle flow stats / timer / activity / ipfix */
+          flow_update (vm, flow, p, is_ip4,
+                       len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
+                       current_time);
 
-	  /* fill opaque buffer with flow data */
-	  next0 =
-	    load_gtpu_flow_info (fm, b0, flow, active0, is_reverse,
-				 sx0->generation);
-	  flow_debug ("flow next: %u, origin: %u, reverse: %u", next0,
-		      flow_next (flow, FT_ORIGIN), flow_next (flow,
-							      FT_REVERSE));
+          /* fill opaque buffer with flow data */
+          next0 = load_gtpu_flow_info (fm, b0, flow, active0, is_reverse,
+                                       sx0->generation);
+          flow_debug ("flow next: %u, origin: %u, reverse: %u", next0,
+                      flow_next (flow, FT_ORIGIN),
+                      flow_next (flow, FT_REVERSE));
 
-	  /* flowtable counters */
-	  CPT_THRU++;
-	  CPT_CREATED += created;
-	  CPT_HIT += !created;
+          /* flowtable counters */
+          CPT_THRU++;
+          CPT_CREATED += created;
+          CPT_HIT += !created;
 
-	stats1:
-	  /* frame mgmt */
-	  from++;
-	  to_next++;
-	  n_left_from--;
-	  n_left_to_next--;
+        stats1:
+          /* frame mgmt */
+          from++;
+          to_next++;
+          n_left_from--;
+          n_left_to_next--;
 
-	  if (b0->flags & VLIB_BUFFER_IS_TRACED)
-	    {
-	      u32 sidx = upf_buffer_opaque (b0)->gtpu.session_index;
-	      upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
-	      flow_trace_t *t = vlib_add_trace (vm, node, b0, sizeof (*t));
-	      t->session_index = sidx;
-	      t->up_seid = sess->up_seid;
-	      memcpy (&t->key, &kv.key, sizeof (t->key));
-	      t->flow_idx = flow - fm->flows;
-	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
-	      t->next_index = next0;
-	      clib_memcpy (t->packet_data, vlib_buffer_get_current (b0) +
-			   upf_buffer_opaque (b0)->gtpu.data_offset,
-			   sizeof (t->packet_data));
-	    }
+          if (b0->flags & VLIB_BUFFER_IS_TRACED)
+            {
+              u32 sidx = upf_buffer_opaque (b0)->gtpu.session_index;
+              upf_session_t *sess = pool_elt_at_index (gtm->sessions, sidx);
+              flow_trace_t *t = vlib_add_trace (vm, node, b0, sizeof (*t));
+              t->session_index = sidx;
+              t->up_seid = sess->up_seid;
+              memcpy (&t->key, &kv.key, sizeof (t->key));
+              t->flow_idx = flow - fm->flows;
+              t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+              t->next_index = next0;
+              clib_memcpy (t->packet_data,
+                           vlib_buffer_get_current (b0) +
+                             upf_buffer_opaque (b0)->gtpu.data_offset,
+                           sizeof (t->packet_data));
+            }
 
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
-					   n_left_to_next, bi0, next0);
-	}
+          vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+                                           n_left_to_next, bi0, next0);
+        }
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
 
   /* handle expirations */
   CPT_TIMER_EXPIRE += flowtable_timer_expire (fm, fmt, current_time);
 
-#define _(sym, str)							\
-  vlib_node_increment_counter(vm, node->node_index,			\
-			      FLOWTABLE_ERROR_ ## sym, CPT_ ## sym);
+#define _(sym, str)                                                           \
+  vlib_node_increment_counter (vm, node->node_index, FLOWTABLE_ERROR_##sym,   \
+                               CPT_##sym);
   foreach_flowtable_error
 #undef _
     return frame->n_vectors;
 }
 
-VLIB_NODE_FN (upf_ip4_flow_node) (vlib_main_t * vm,
-				  vlib_node_runtime_t * node,
-				  vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip4_flow_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_flow_process (vm, node, from_frame, /* is_ip4 */ 1);
 }
 
-VLIB_NODE_FN (upf_ip6_flow_node) (vlib_main_t * vm,
-				  vlib_node_runtime_t * node,
-				  vlib_frame_t * from_frame)
+VLIB_NODE_FN (upf_ip6_flow_node)
+(vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_flow_process (vm, node, from_frame, /* is_ip4 */ 0);
 }
@@ -483,7 +468,7 @@ static char *flowtable_error_strings[] = {
 #undef _
 };
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE(upf_ip4_flow_node) = {
   .name = "upf-ip4-flow-process",
   .vector_size = sizeof(u32),
@@ -499,9 +484,9 @@ VLIB_REGISTER_NODE(upf_ip4_flow_node) = {
     [FT_NEXT_PROXY]    = "upf-ip4-proxy-input",
   }
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_REGISTER_NODE(upf_ip6_flow_node) = {
   .name = "upf-ip6-flow-process",
   .vector_size = sizeof(u32),
@@ -517,12 +502,4 @@ VLIB_REGISTER_NODE(upf_ip6_flow_node) = {
     [FT_NEXT_PROXY]    = "upf-ip6-proxy-input",
   }
 };
-/* *INDENT-ON* */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */
+/* clang-format on */

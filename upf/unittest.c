@@ -1,3 +1,4 @@
+/* clang-format off */
 #include <vlib/vlib.h>
 
 #include "upf.h"
@@ -300,14 +301,12 @@ test_upf_command_fn (vlib_main_t * vm,
     return clib_error_return (0, "test failed");
 }
 
-/* *INDENT-OFF* */
 VLIB_CLI_COMMAND (test_upf_command, static) =
   {
     .path = "test upf",
     .short_help = "test upf [debug]",
     .function = test_upf_command_fn,
   };
-/* *INDENT-ON* */
 
 /*
   TODO: test intersecting rules

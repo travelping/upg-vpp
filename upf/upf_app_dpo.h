@@ -20,23 +20,11 @@
 
 #include "upf_app_db.h"
 
-void
-upf_ensure_app_fib_if_needed (upf_adf_entry_t *appentry);
+void upf_ensure_app_fib_if_needed (upf_adf_entry_t *appentry);
 
-void
-upf_app_fib_cleanup (upf_adf_entry_t *appentry);
+void upf_app_fib_cleanup (upf_adf_entry_t *appentry);
 
-u8
-upf_app_dpo_match (upf_adf_entry_t *appentry,
-                   flow_entry_t *flow,
-                   ip46_address_t *assigned);
+u8 upf_app_dpo_match (upf_adf_entry_t *appentry, flow_entry_t *flow,
+                      ip46_address_t *assigned);
 
 #endif /* __included_upf_ip_rules_h__ */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

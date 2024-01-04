@@ -55,19 +55,22 @@
 /**
  * FIB node type the attachment is registered
  */
-fib_node_type_t upf_policy_fib_node_type;	// The types of nodes in a FIB graph
+fib_node_type_t upf_policy_fib_node_type; // The types of nodes in a FIB graph
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)                          \
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 static fib_source_t upf_fib_source;
 
 int
-vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
+vnet_upf_ue_ip_pool_add_del (u8 *identity, u8 *nwi_name, int is_add)
 {
   upf_main_t *gtm = &upf_main;
   upf_ue_ip_pool_info_t *ueip_pool = NULL;
@@ -80,19 +83,19 @@ vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
   if (is_add)
     {
       if (p)
-	return VNET_API_ERROR_VALUE_EXIST;
+        return VNET_API_ERROR_VALUE_EXIST;
 
       pool_get (gtm->ueip_pools, ueip_pool);
       ueip_pool->identity = identity;
       ueip_pool->nwi_name = vec_dup (nwi_name);
 
       hash_set_mem (gtm->ue_ip_pool_index_by_identity, identity,
-		    ueip_pool - gtm->ueip_pools);
+                    ueip_pool - gtm->ueip_pools);
     }
   else
     {
       if (!p)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       ueip_pool = pool_elt_at_index (gtm->ueip_pools, p[0]);
       hash_unset_mem (gtm->ue_ip_pool_index_by_identity, identity);
@@ -104,7 +107,7 @@ vnet_upf_ue_ip_pool_add_del (u8 * identity, u8 * nwi_name, int is_add)
 }
 
 upf_nat_pool_t *
-get_nat_pool_by_name (u8 * name)
+get_nat_pool_by_name (u8 *name)
 {
   upf_main_t *gtm = &upf_main;
   uword *p;
@@ -117,8 +120,8 @@ get_nat_pool_by_name (u8 * name)
 }
 
 int
-upf_init_nat_addresses (upf_nat_pool_t * np, ip4_address_t start_addr,
-			ip4_address_t end_addr)
+upf_init_nat_addresses (upf_nat_pool_t *np, ip4_address_t start_addr,
+                        ip4_address_t end_addr)
 {
   u32 i = 0;
 
@@ -149,10 +152,10 @@ upf_init_nat_addresses (upf_nat_pool_t * np, ip4_address_t start_addr,
 }
 
 int
-vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
-			   ip4_address_t end_addr, u8 * name,
-			   u16 port_block_size, u16 min_port, u16 max_port,
-			   u8 is_add)
+vnet_upf_nat_pool_add_del (u8 *nwi_name, ip4_address_t start_addr,
+                           ip4_address_t end_addr, u8 *name,
+                           u16 port_block_size, u16 min_port, u16 max_port,
+                           u8 is_add)
 {
   upf_main_t *gtm = &upf_main;
   upf_nat_pool_t *nat_pool = NULL;
@@ -165,24 +168,24 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
   if (is_add)
     {
       if (p)
-	return VNET_API_ERROR_VALUE_EXIST;
+        return VNET_API_ERROR_VALUE_EXIST;
 
-      if (min_port < UPF_NAT_MIN_PORT ||
-	  max_port > UPF_NAT_MAX_PORT || min_port > max_port)
-	{
-	  clib_warning
-	    ("Invalid port range for the NAT pool (must be within %u - %u)",
-	     UPF_NAT_MIN_PORT, UPF_NAT_MAX_PORT);
-	  return VNET_API_ERROR_INVALID_ARGUMENT;
-	}
+      if (min_port < UPF_NAT_MIN_PORT || max_port > UPF_NAT_MAX_PORT ||
+          min_port > max_port)
+        {
+          clib_warning (
+            "Invalid port range for the NAT pool (must be within %u - %u)",
+            UPF_NAT_MIN_PORT, UPF_NAT_MAX_PORT);
+          return VNET_API_ERROR_INVALID_ARGUMENT;
+        }
 
       pool_get (gtm->nat_pools, nat_pool);
 
       if (upf_init_nat_addresses (nat_pool, start_addr, end_addr))
-	{
-	  pool_put (gtm->nat_pools, nat_pool);
-	  return -1;
-	}
+        {
+          pool_put (gtm->nat_pools, nat_pool);
+          return -1;
+        }
 
       nat_pool->name = name;
       nat_pool->network_instance = vec_dup (nwi_name);
@@ -190,15 +193,15 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
       nat_pool->min_port = min_port;
       nat_pool->max_port = max_port;
       nat_pool->max_blocks_per_addr =
-	(u16) ((nat_pool->max_port - nat_pool->min_port) / port_block_size);
+        (u16) ((nat_pool->max_port - nat_pool->min_port) / port_block_size);
 
       hash_set_mem (gtm->nat_pool_index_by_name, name,
-		    nat_pool - gtm->nat_pools);
+                    nat_pool - gtm->nat_pools);
     }
   else
     {
       if (!p)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       nat_pool = pool_elt_at_index (gtm->nat_pools, p[0]);
       vec_free (nat_pool->addresses);
@@ -211,7 +214,7 @@ vnet_upf_nat_pool_add_del (u8 * nwi_name, ip4_address_t start_addr,
 }
 
 void
-upf_pfcp_policer_config_init (upf_main_t * gtm)
+upf_pfcp_policer_config_init (upf_main_t *gtm)
 {
   qos_pol_cfg_params_st *cfg = &pfcp_rate_cfg_main;
 
@@ -227,38 +230,36 @@ upf_pfcp_policer_config_init (upf_main_t * gtm)
 }
 
 void
-upf_pfcp_policers_recalculate (qos_pol_cfg_params_st * cfg)
+upf_pfcp_policers_recalculate (qos_pol_cfg_params_st *cfg)
 {
   upf_main_t *gtm = &upf_main;
   policer_t *p;
 
   pool_foreach (p, gtm->pfcp_policers)
-  {
-    pol_logical_2_physical (cfg, p);
-  }
+    {
+      pol_logical_2_physical (cfg, p);
+    }
 }
 
 int
-vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
-		       u8 * name, u8 intf, u32 teid, u32 mask, u8 add)
+vnet_upf_upip_add_del (ip4_address_t *ip4, ip6_address_t *ip6, u8 *name,
+                       u8 intf, u32 teid, u32 mask, u8 add)
 {
   upf_main_t *gtm = &upf_main;
   upf_upip_res_t *ip_res;
-  upf_upip_res_t res = {
-    .ip4 = *ip4,
-    .ip6 = *ip6,
-    .nwi_index = ~0,
-    .intf = intf,
-    .teid = teid,
-    .mask = mask
-  };
+  upf_upip_res_t res = { .ip4 = *ip4,
+                         .ip6 = *ip6,
+                         .nwi_index = ~0,
+                         .intf = intf,
+                         .teid = teid,
+                         .mask = mask };
   uword *p;
 
   if (name)
     {
       p = hash_get_mem (gtm->nwi_index_by_name, name);
       if (!p)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       res.nwi_index = p[0];
     }
@@ -268,7 +269,7 @@ vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
   if (add)
     {
       if (p)
-	return VNET_API_ERROR_VALUE_EXIST;
+        return VNET_API_ERROR_VALUE_EXIST;
 
       pool_get (gtm->upip_res, ip_res);
       memcpy (ip_res, &res, sizeof (res));
@@ -278,7 +279,7 @@ vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
   else
     {
       if (!p)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       ip_res = pool_elt_at_index (gtm->upip_res, p[0]);
       mhash_unset (&gtm->upip_res_index, ip_res, NULL);
@@ -290,7 +291,7 @@ vnet_upf_upip_add_del (ip4_address_t * ip4, ip6_address_t * ip6,
 
 int
 vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto, u32 table_id,
-			       u8 add)
+                               u8 add)
 {
   u32 fib_index, vrf_fib_index;
   upf_main_t *gtm = &upf_main;
@@ -299,10 +300,10 @@ vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto, u32 table_id,
     {
       vrf_fib_index = fib_table_find (fproto, vrf);
       if (~0 == vrf_fib_index)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       fib_index =
-	fib_table_find_or_create_and_lock (fproto, table_id, upf_fib_source);
+        fib_table_find_or_create_and_lock (fproto, table_id, upf_fib_source);
 
       vec_validate_init_empty (gtm->tdf_ul_table[fproto], vrf_fib_index, ~0);
       vec_elt (gtm->tdf_ul_table[fproto], vrf_fib_index) = fib_index;
@@ -311,17 +312,17 @@ vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto, u32 table_id,
     {
       vrf_fib_index = fib_table_find (fproto, vrf);
       if (~0 == vrf_fib_index)
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       if (vrf_fib_index >= vec_len (gtm->tdf_ul_table[fproto]))
-	return VNET_API_ERROR_NO_SUCH_ENTRY;
+        return VNET_API_ERROR_NO_SUCH_ENTRY;
 
       fib_index = fib_table_find (fproto, table_id);
       if (~0 == fib_index)
-	return VNET_API_ERROR_NO_SUCH_FIB;
+        return VNET_API_ERROR_NO_SUCH_FIB;
 
       if (vec_elt (gtm->tdf_ul_table[fproto], vrf_fib_index) != fib_index)
-	return VNET_API_ERROR_NO_SUCH_TABLE;
+        return VNET_API_ERROR_NO_SUCH_TABLE;
 
       vec_elt (gtm->tdf_ul_table[fproto], vrf_fib_index) = ~0;
       fib_table_unlock (fib_index, fproto, upf_fib_source);
@@ -333,8 +334,8 @@ vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto, u32 table_id,
 }
 
 static int
-upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t * pfx,
-			 u32 ue_fib_index)
+upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t *pfx,
+                         u32 ue_fib_index)
 {
   dpo_id_t dpo = DPO_INVALID;
 
@@ -342,18 +343,15 @@ upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t * pfx,
    * create a data-path object to perform the source address lookup
    * in the TDF FIB
    */
-  lookup_dpo_add_or_lock_w_fib_index (tdf_ul_fib_index,
-				      fib_proto_to_dpo (pfx->fp_proto),
-				      LOOKUP_UNICAST,
-				      LOOKUP_INPUT_SRC_ADDR,
-				      LOOKUP_TABLE_FROM_CONFIG, &dpo);
+  lookup_dpo_add_or_lock_w_fib_index (
+    tdf_ul_fib_index, fib_proto_to_dpo (pfx->fp_proto), LOOKUP_UNICAST,
+    LOOKUP_INPUT_SRC_ADDR, LOOKUP_TABLE_FROM_CONFIG, &dpo);
 
   /*
    * add the entry to the destination FIB that uses the lookup DPO
    */
-  fib_table_entry_special_dpo_add (ue_fib_index, pfx,
-				   upf_fib_source,
-				   FIB_ENTRY_FLAG_EXCLUSIVE, &dpo);
+  fib_table_entry_special_dpo_add (ue_fib_index, pfx, upf_fib_source,
+                                   FIB_ENTRY_FLAG_EXCLUSIVE, &dpo);
 
   /*
    * the DPO is locked by the FIB entry, and we have no further
@@ -365,7 +363,7 @@ upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t * pfx,
 }
 
 int
-vnet_upf_node_id_set (const pfcp_node_id_t * node_id)
+vnet_upf_node_id_set (const pfcp_node_id_t *node_id)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -387,8 +385,8 @@ vnet_upf_pfcp_heartbeat_config (u32 timeout, u32 retries)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
-  if (!timeout || timeout > PFCP_MAX_HB_INTERVAL
-      || retries > PFCP_MAX_HB_RETRIES)
+  if (!timeout || timeout > PFCP_MAX_HB_INTERVAL ||
+      retries > PFCP_MAX_HB_RETRIES)
     return -1;
 
   psm->hb_cfg.timeout = timeout;
@@ -410,7 +408,7 @@ upf_tdf_ul_lookup_delete (u32 tdf_ul_fib_index, const fib_prefix_t * pfx)
 
 int
 vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
-				int is_en)
+                                int is_en)
 {
   upf_main_t *gtm = &upf_main;
   fib_prefix_t pfx = {
@@ -429,12 +427,11 @@ vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
   if (is_en)
     {
       /*
-       * now we know which interface the table will serve, we can add the default
-       * route to use the table that the interface is bound to.
+       * now we know which interface the table will serve, we can add the
+       * default route to use the table that the interface is bound to.
        */
-      upf_tdf_ul_lookup_add_i (vec_elt (gtm->tdf_ul_table[fproto],
-					fib_index), &pfx, fib_index);
-
+      upf_tdf_ul_lookup_add_i (vec_elt (gtm->tdf_ul_table[fproto], fib_index),
+                               &pfx, fib_index);
 
       /*
          vnet_feature_enable_disable ((FIB_PROTOCOL_IP4 == fproto ?
@@ -461,98 +458,94 @@ vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
 }
 
 static inline u8 *
-format_v4_tunnel_by_key_kvp (u8 * s, va_list * args)
+format_v4_tunnel_by_key_kvp (u8 *s, va_list *args)
 {
   clib_bihash_kv_8_8_t *v = va_arg (*args, clib_bihash_kv_8_8_t *);
-  gtpu4_tunnel_key_t *key = (gtpu4_tunnel_key_t *) & v->key;
+  gtpu4_tunnel_key_t *key = (gtpu4_tunnel_key_t *) &v->key;
 
-  s = format (s, "TEID 0x%08x peer %U session idx %u rule idx %u",
-	      key->teid, format_ip4_address, &key->dst,
-	      v->value & 0xffffffff, v->value >> 32);
+  s = format (s, "TEID 0x%08x peer %U session idx %u rule idx %u", key->teid,
+              format_ip4_address, &key->dst, v->value & 0xffffffff,
+              v->value >> 32);
   return s;
 }
 
 static inline u8 *
-format_v6_tunnel_by_key_kvp (u8 * s, va_list * args)
+format_v6_tunnel_by_key_kvp (u8 *s, va_list *args)
 {
   clib_bihash_kv_24_8_t *v = va_arg (*args, clib_bihash_kv_24_8_t *);
 
-  s = format (s, "TEID 0x%08x peer %U session idx %u rule idx %u",
-	      v->key[2], format_ip6_address, &v->key[0],
-	      v->value & 0xffffffff, v->value >> 32);
+  s = format (s, "TEID 0x%08x peer %U session idx %u rule idx %u", v->key[2],
+              format_ip6_address, &v->key[0], v->value & 0xffffffff,
+              v->value >> 32);
   return s;
 }
 
 static inline u8 *
-format_peer_index_by_ip_kvp (u8 * s, va_list * args)
+format_peer_index_by_ip_kvp (u8 *s, va_list *args)
 {
   clib_bihash_kv_24_8_t *v = va_arg (*args, clib_bihash_kv_24_8_t *);
 
-  s = format (s, "peer %U fib idx idx %u peer idx %u",
-	      format_ip46_address, &v->key[0], IP46_TYPE_ANY,
-	      v->key[2], v->value);
+  s = format (s, "peer %U fib idx idx %u peer idx %u", format_ip46_address,
+              &v->key[0], IP46_TYPE_ANY, v->key[2], v->value);
   return s;
 }
 
 static u8 *
-upf_format_buffer_opaque_helper (const vlib_buffer_t * b, u8 * s)
+upf_format_buffer_opaque_helper (const vlib_buffer_t *b, u8 *s)
 {
   upf_buffer_opaque_t *o = upf_buffer_opaque (b);
 
-  s = format
-    (s, "gtpu.teid: 0x%08x, gtpu.session_index: 0x%x, gtpu.ext_hdr_len: %u, "
-     "gtpu.data_offset: %u, gtpu.flags: 0x%02x, gtpu.is_reverse: %u, "
-     "gtpu.pdr_idx: 0x%x, gtpu.flow_id: 0x%x",
-     (u32) (o->gtpu.teid),
-     (u32) (o->gtpu.session_index),
-     (u32) (o->gtpu.ext_hdr_len),
-     (u32) (o->gtpu.data_offset),
-     (u32) (o->gtpu.flags),
-     (u32) (o->gtpu.is_reverse),
-     (u32) (o->gtpu.pdr_idx), (u32) (o->gtpu.flow_id));
+  s = format (
+    s,
+    "gtpu.teid: 0x%08x, gtpu.session_index: 0x%x, gtpu.ext_hdr_len: %u, "
+    "gtpu.data_offset: %u, gtpu.flags: 0x%02x, gtpu.is_reverse: %u, "
+    "gtpu.pdr_idx: 0x%x, gtpu.flow_id: 0x%x",
+    (u32) (o->gtpu.teid), (u32) (o->gtpu.session_index),
+    (u32) (o->gtpu.ext_hdr_len), (u32) (o->gtpu.data_offset),
+    (u32) (o->gtpu.flags), (u32) (o->gtpu.is_reverse), (u32) (o->gtpu.pdr_idx),
+    (u32) (o->gtpu.flow_id));
   vec_add1 (s, '\n');
 
   return s;
 }
 
 static int
-flow_remove_counter_handler (flowtable_main_t * fm, flow_entry_t * flow,
-			     flow_direction_t direction, u32 now)
+flow_remove_counter_handler (flowtable_main_t *fm, flow_entry_t *flow,
+                             flow_direction_t direction, u32 now)
 {
   upf_main_t *gtm = &upf_main;
 
-  vlib_decrement_simple_counter (&gtm->upf_simple_counters
-				 [UPF_FLOW_COUNTER],
-				 vlib_get_thread_index (), 0, 1);
+  vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
+                                 vlib_get_thread_index (), 0, 1);
 
   if (flow->is_spliced)
-    vlib_decrement_simple_counter (&gtm->upf_simple_counters
-				   [UPF_FLOWS_STITCHED],
-				   vlib_get_thread_index (), 0, 1);
+    vlib_decrement_simple_counter (
+      &gtm->upf_simple_counters[UPF_FLOWS_STITCHED], vlib_get_thread_index (),
+      0, 1);
 
   if (flow->spliced_dirty)
-    vlib_decrement_simple_counter (&gtm->upf_simple_counters
-				   [UPF_FLOWS_STITCHED_DIRTY_FIFOS],
-				   vlib_get_thread_index (), 0, 1);
+    vlib_decrement_simple_counter (
+      &gtm->upf_simple_counters[UPF_FLOWS_STITCHED_DIRTY_FIFOS],
+      vlib_get_thread_index (), 0, 1);
 
   return 0;
 }
 
 static clib_error_t *
-upf_config_fn (vlib_main_t * vm, unformat_input_t * input)
+upf_config_fn (vlib_main_t *vm, unformat_input_t *input)
 {
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "pfcp-server-mode"))
-	{
-	  if (unformat (input, "polling"))
-	    ;
-	  else if (unformat (input, "interrupt"))
-	    vnet_upf_pfcp_set_polling (vm, 0);
-	}
+        {
+          if (unformat (input, "polling"))
+            ;
+          else if (unformat (input, "interrupt"))
+            vnet_upf_pfcp_set_polling (vm, 0);
+        }
       else
-	return clib_error_return (0, "unknown input `%U'",
-				  format_unformat_error, input);
+        return clib_error_return (0, "unknown input `%U'",
+                                  format_unformat_error, input);
     }
   return 0;
 }
@@ -560,7 +553,7 @@ upf_config_fn (vlib_main_t * vm, unformat_input_t * input)
 VLIB_CONFIG_FUNCTION (upf_config_fn, "upf");
 
 static clib_error_t *
-upf_init (vlib_main_t * vm)
+upf_init (vlib_main_t *vm)
 {
   upf_main_t *sm = &upf_main;
   flowtable_main_t *fm = &flowtable_main;
@@ -575,76 +568,70 @@ upf_init (vlib_main_t * vm)
   if ((error = vlib_call_init_function (vm, upf_proxy_main_init)))
     return error;
 
-  vnet_register_format_buffer_opaque2_helper
-    (upf_format_buffer_opaque_helper);
+  vnet_register_format_buffer_opaque2_helper (upf_format_buffer_opaque_helper);
 
   mhash_init (&sm->pfcp_endpoint_index, sizeof (uword),
-	      sizeof (ip46_address_t));
+              sizeof (ip46_address_t));
   sm->nwi_index_by_name =
-    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
+    hash_create_vec (/* initial length */ 32, sizeof (u8), sizeof (uword));
   mhash_init (&sm->upip_res_index, sizeof (uword), sizeof (upf_upip_res_t));
 
   sm->forwarding_policy_by_id =
-    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
+    hash_create_vec (/* initial length */ 32, sizeof (u8), sizeof (uword));
 
   /* initialize the IP/TEID hash's */
-  clib_bihash_init_8_8 (&sm->v4_tunnel_by_key,
-			"upf_v4_tunnel_by_key", UPF_MAPPING_BUCKETS,
-			UPF_MAPPING_MEMORY_SIZE);
+  clib_bihash_init_8_8 (&sm->v4_tunnel_by_key, "upf_v4_tunnel_by_key",
+                        UPF_MAPPING_BUCKETS, UPF_MAPPING_MEMORY_SIZE);
   clib_bihash_set_kvp_format_fn_8_8 (&sm->v4_tunnel_by_key,
-				     format_v4_tunnel_by_key_kvp);
-  clib_bihash_init_24_8 (&sm->v6_tunnel_by_key,
-			 "upf_v6_tunnel_by_key", UPF_MAPPING_BUCKETS,
-			 UPF_MAPPING_MEMORY_SIZE);
+                                     format_v4_tunnel_by_key_kvp);
+  clib_bihash_init_24_8 (&sm->v6_tunnel_by_key, "upf_v6_tunnel_by_key",
+                         UPF_MAPPING_BUCKETS, UPF_MAPPING_MEMORY_SIZE);
   clib_bihash_set_kvp_format_fn_24_8 (&sm->v6_tunnel_by_key,
-				      format_v6_tunnel_by_key_kvp);
+                                      format_v6_tunnel_by_key_kvp);
 
-  clib_bihash_init_24_8 (&sm->peer_index_by_ip,
-			 "upf_peer_index_by_ip", UPF_MAPPING_BUCKETS,
-			 UPF_MAPPING_MEMORY_SIZE);
+  clib_bihash_init_24_8 (&sm->peer_index_by_ip, "upf_peer_index_by_ip",
+                         UPF_MAPPING_BUCKETS, UPF_MAPPING_MEMORY_SIZE);
   clib_bihash_set_kvp_format_fn_24_8 (&sm->peer_index_by_ip,
-				      format_peer_index_by_ip_kvp);
+                                      format_peer_index_by_ip_kvp);
 
   sm->node_index_by_fqdn =
-    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
+    hash_create_vec (/* initial length */ 32, sizeof (u8), sizeof (uword));
   mhash_init (&sm->node_index_by_ip, sizeof (uword), sizeof (ip46_address_t));
   mhash_init (&sm->mhash_cp_fseid_to_session_idx, sizeof (uword),
-	      sizeof (upf_cp_fseid_key_t));
+              sizeof (upf_cp_fseid_key_t));
   mhash_init (&sm->mhash_cached_fseid_idx, sizeof (uword),
-	      sizeof (upf_cached_f_seid_key_t));
+              sizeof (upf_cached_f_seid_key_t));
 
   sm->smf_sets = NULL;
   sm->smf_set_by_fqdn =
-    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
+    hash_create_vec (/* initial length */ 32, sizeof (u8), sizeof (uword));
 
 #if 0
   sm->vtep6 = hash_create_mem (0, sizeof (ip6_address_t), sizeof (uword));
 #endif
 
-  clib_bihash_init_8_8 (&sm->qer_by_id,
-			"upf_qer_by_ie", UPF_MAPPING_BUCKETS,
-			UPF_MAPPING_MEMORY_SIZE);
+  clib_bihash_init_8_8 (&sm->qer_by_id, "upf_qer_by_ie", UPF_MAPPING_BUCKETS,
+                        UPF_MAPPING_MEMORY_SIZE);
 
-  udp_register_dst_port (vm, UDP_DST_PORT_GTPU,
-			 upf_gtpu4_input_node.index, /* is_ip4 */ 1);
-  udp_register_dst_port (vm, UDP_DST_PORT_GTPU6,
-			 upf_gtpu6_input_node.index, /* is_ip4 */ 0);
+  udp_register_dst_port (vm, UDP_DST_PORT_GTPU, upf_gtpu4_input_node.index,
+                         /* is_ip4 */ 1);
+  udp_register_dst_port (vm, UDP_DST_PORT_GTPU6, upf_gtpu6_input_node.index,
+                         /* is_ip4 */ 0);
 
   sm->fib_node_type = fib_node_register_new_type ("upf", &upf_vft);
 
-  sm->upf_app_by_name = hash_create_vec ( /* initial length */ 32,
-					 sizeof (u8), sizeof (uword));
+  sm->upf_app_by_name =
+    hash_create_vec (/* initial length */ 32, sizeof (u8), sizeof (uword));
 
-  upf_fib_source = fib_source_allocate ("upf-tdf-route",
-					FIB_SOURCE_PRIORITY_HI,
-					FIB_SOURCE_BH_SIMPLE);
+  upf_fib_source = fib_source_allocate (
+    "upf-tdf-route", FIB_SOURCE_PRIORITY_HI, FIB_SOURCE_BH_SIMPLE);
 
   vec_validate (sm->upf_simple_counters, UPF_N_COUNTERS - 1);
 
-#define _(E,n,p) \
-  sm->upf_simple_counters[UPF_##E].name = #n; \
-  sm->upf_simple_counters[UPF_##E].stat_segment_name = "/" #p "/" #n; \
-  vlib_validate_simple_counter (&sm->upf_simple_counters[UPF_##E], 0); \
+#define _(E, n, p)                                                            \
+  sm->upf_simple_counters[UPF_##E].name = #n;                                 \
+  sm->upf_simple_counters[UPF_##E].stat_segment_name = "/" #p "/" #n;         \
+  vlib_validate_simple_counter (&sm->upf_simple_counters[UPF_##E], 0);        \
   vlib_zero_simple_counter (&sm->upf_simple_counters[UPF_##E], 0);
   foreach_upf_counter_name
 #undef _
@@ -652,10 +639,10 @@ upf_init (vlib_main_t * vm)
   sm->node_id.fqdn = format (0, (char *) "\x03upg");
 
   sm->nat_pool_index_by_name =
-    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
+    hash_create_vec (/* initial length */ 32, sizeof (u8), sizeof (uword));
 
   sm->ue_ip_pool_index_by_identity =
-    hash_create_vec ( /* initial length */ 32, sizeof (u8), sizeof (uword));
+    hash_create_vec (/* initial length */ 32, sizeof (u8), sizeof (uword));
 
   error = flowtable_init (vm);
   if (!error)
@@ -666,16 +653,16 @@ upf_init (vlib_main_t * vm)
     upf_pfcp_policer_config_init (sm);
 
   flowtable_add_event_handler (fm, FLOW_EVENT_REMOVE,
-			       flow_remove_counter_handler);
+                               flow_remove_counter_handler);
   flowtable_add_event_handler (fm, FLOW_EVENT_UNLINK,
-			       session_flow_unlink_handler);
+                               session_flow_unlink_handler);
 
   return error;
 }
 
 VLIB_INIT_FUNCTION (upf_init);
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VNET_FEATURE_INIT (upf, static) =
 {
   .arc_name = "device-input",
@@ -704,17 +691,17 @@ upf_fpath_stack_dpo (upf_forwarding_policy_t * p)
                                       FIB_PATH_LIST_FWD_FLAG_COLLAPSE, &p->dpo);
 }
 
-/* *INDENT-OFF* */
+/* clang-format off */
 VLIB_PLUGIN_REGISTER () =
 {
   .version = UPG_VERSION,
   .description = "User Plane Gateway",
 };
-/* *INDENT-ON* */
+/* clang-format on */
 
 /* ####################  dpo restacking vft #################### */
 static void
-upf_policy_destroy (upf_forwarding_policy_t * fp_entry)
+upf_policy_destroy (upf_forwarding_policy_t *fp_entry)
 {
   upf_main_t *gtm = &upf_main;
   /*
@@ -731,11 +718,11 @@ upf_policy_destroy (upf_forwarding_policy_t * fp_entry)
 }
 
 static upf_forwarding_policy_t *
-upf_policy_get_from_fib_node (fib_node_t * node)
+upf_policy_get_from_fib_node (fib_node_t *node)
 {
   return ((upf_forwarding_policy_t *) (((char *) node) -
-				       STRUCT_OFFSET_OF
-				       (upf_forwarding_policy_t, fib_node)));
+                                       STRUCT_OFFSET_OF (
+                                         upf_forwarding_policy_t, fib_node)));
 }
 
 /**
@@ -755,7 +742,7 @@ upf_policy_fib_node_get (fib_node_index_t index)
  * Function definition to inform the FIB node that its last lock has gone.
  */
 static void
-upf_policy_last_lock_gone (fib_node_t * node)
+upf_policy_last_lock_gone (fib_node_t *node)
 {
   upf_policy_destroy (upf_policy_get_from_fib_node (node));
 }
@@ -765,7 +752,7 @@ upf_policy_last_lock_gone (fib_node_t * node)
  * Here we will restack the new dpo to forward node.
  */
 static fib_node_back_walk_rc_t
-upf_policy_back_walk (fib_node_t * node, fib_node_back_walk_ctx_t * ctx)
+upf_policy_back_walk (fib_node_t *node, fib_node_back_walk_ctx_t *ctx)
 {
   upf_fpath_stack_dpo (upf_policy_get_from_fib_node (node));
   return (FIB_NODE_BACK_WALK_CONTINUE);
@@ -778,7 +765,7 @@ const fib_node_vft_t upf_fp_vft = {
 };
 
 static clib_error_t *
-upf_policy_init (vlib_main_t * vm)
+upf_policy_init (vlib_main_t *vm)
 {
   upf_policy_fib_node_type =
     fib_node_register_new_type ("upf-fp", &upf_fp_vft);
@@ -788,14 +775,14 @@ upf_policy_init (vlib_main_t * vm)
 VLIB_INIT_FUNCTION (upf_policy_init);
 
 u8 *
-format_upf_policy (u8 * s, va_list * args)
+format_upf_policy (u8 *s, va_list *args)
 {
   upf_main_t *gtm = &upf_main;
   upf_forwarding_policy_t *fp_entry =
     va_arg (*args, upf_forwarding_policy_t *);
 
   s = format (s, "upf:[%d]: policy:%v",
-	      fp_entry - gtm->upf_forwarding_policies, fp_entry->policy_id);
+              fp_entry - gtm->upf_forwarding_policies, fp_entry->policy_id);
   s = format (s, "\n ");
   if (FIB_NODE_INDEX_INVALID == fp_entry->fib_pl)
     {
@@ -809,7 +796,7 @@ format_upf_policy (u8 * s, va_list * args)
 }
 
 upf_forwarding_policy_t *
-upf_get_policy (vlib_main_t * vm, u8 * policy_id)
+upf_get_policy (vlib_main_t *vm, u8 *policy_id)
 {
   upf_main_t *gtm = &upf_main;
   uword *hash_ptr;
@@ -821,13 +808,12 @@ upf_get_policy (vlib_main_t * vm, u8 * policy_id)
 }
 
 static void
-fib_path_list_create_and_child_add (upf_forwarding_policy_t * fp_entry,
-				    fib_route_path_t * rpaths)
+fib_path_list_create_and_child_add (upf_forwarding_policy_t *fp_entry,
+                                    fib_route_path_t *rpaths)
 {
   upf_main_t *gtm = &upf_main;
-  fp_entry->fib_pl = fib_path_list_create ((FIB_PATH_LIST_FLAG_SHARED |
-					    FIB_PATH_LIST_FLAG_NO_URPF),
-					   rpaths);
+  fp_entry->fib_pl = fib_path_list_create (
+    (FIB_PATH_LIST_FLAG_SHARED | FIB_PATH_LIST_FLAG_NO_URPF), rpaths);
   /* Keep rpath for update path lists later */
   fp_entry->rpaths = vec_dup (rpaths);
 
@@ -835,10 +821,9 @@ fib_path_list_create_and_child_add (upf_forwarding_policy_t * fp_entry,
    * become a child of the path list so we get poked when
    * the forwarding changes.
    */
-  fp_entry->fib_sibling = fib_path_list_child_add (fp_entry->fib_pl,
-						   upf_policy_fib_node_type,
-						   fp_entry -
-						   gtm->upf_forwarding_policies);
+  fp_entry->fib_sibling =
+    fib_path_list_child_add (fp_entry->fib_pl, upf_policy_fib_node_type,
+                             fp_entry - gtm->upf_forwarding_policies);
 }
 
 /*
@@ -848,7 +833,7 @@ fib_path_list_create_and_child_add (upf_forwarding_policy_t * fp_entry,
  * 2 - update
  */
 int
-vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
+vnet_upf_policy_fn (fib_route_path_t *rpaths, u8 *policy_id, u8 action)
 {
   upf_main_t *gtm = &upf_main;
   upf_forwarding_policy_t *fp_entry;
@@ -860,74 +845,69 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
   if (!hash_ptr)
     {
       if (action == 1)
-	{
-	  pool_get (gtm->upf_forwarding_policies, fp_entry);
-	  fib_node_init (&fp_entry->fib_node, upf_policy_fib_node_type);
-	  fp_entry->policy_id = vec_dup (policy_id);
-	  fp_entry->rpaths = clib_mem_alloc (sizeof (*fp_entry->rpaths));
+        {
+          pool_get (gtm->upf_forwarding_policies, fp_entry);
+          fib_node_init (&fp_entry->fib_node, upf_policy_fib_node_type);
+          fp_entry->policy_id = vec_dup (policy_id);
+          fp_entry->rpaths = clib_mem_alloc (sizeof (*fp_entry->rpaths));
 
-	  fib_path_list_create_and_child_add (fp_entry, rpaths);
-	  hash_set_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id,
-			fp_entry - gtm->upf_forwarding_policies);
-	  upf_fpath_stack_dpo (fp_entry);
-	  fib_node_lock (&fp_entry->fib_node);
-	}
+          fib_path_list_create_and_child_add (fp_entry, rpaths);
+          hash_set_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id,
+                        fp_entry - gtm->upf_forwarding_policies);
+          upf_fpath_stack_dpo (fp_entry);
+          fib_node_lock (&fp_entry->fib_node);
+        }
       else
-	rc = 1;
+        rc = 1;
     }
   else
     {
       if (action == 0)
-	{
-	  fp_entry =
-	    pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
-	  if (fp_entry->ref_cnt != 0)
-	    {
-	      upf_debug
-		("###### Policy %v can not be removed as it is referred by %d FARs ######",
-		 policy_id, fp_entry->ref_cnt);
-	      rc = 1;
-	    }
-	  else
-	    {
-	      old_pl = fp_entry->fib_pl;
-	      fib_path_list_lock (old_pl);
-	      fp_entry->fib_pl =
-		fib_path_list_copy_and_path_remove (fp_entry->fib_pl,
-						    (FIB_PATH_LIST_FLAG_SHARED
-						     |
-						     FIB_PATH_LIST_FLAG_NO_URPF),
-						    fp_entry->rpaths);
-	      fib_path_list_child_remove (old_pl, fp_entry->fib_sibling);
-	      fp_entry->fib_sibling = ~0;
-	      fib_node_unlock (&fp_entry->fib_node);
-	      vec_free (fp_entry->rpaths);
-	      fib_path_list_unlock (old_pl);
-
-	    }
-	}
+        {
+          fp_entry =
+            pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+          if (fp_entry->ref_cnt != 0)
+            {
+              upf_debug ("###### Policy %v can not be removed as it is "
+                         "referred by %d FARs ######",
+                         policy_id, fp_entry->ref_cnt);
+              rc = 1;
+            }
+          else
+            {
+              old_pl = fp_entry->fib_pl;
+              fib_path_list_lock (old_pl);
+              fp_entry->fib_pl = fib_path_list_copy_and_path_remove (
+                fp_entry->fib_pl,
+                (FIB_PATH_LIST_FLAG_SHARED | FIB_PATH_LIST_FLAG_NO_URPF),
+                fp_entry->rpaths);
+              fib_path_list_child_remove (old_pl, fp_entry->fib_sibling);
+              fp_entry->fib_sibling = ~0;
+              fib_node_unlock (&fp_entry->fib_node);
+              vec_free (fp_entry->rpaths);
+              fib_path_list_unlock (old_pl);
+            }
+        }
       else if (action == 2)
-	{
-	  fp_entry =
-	    pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
-	  old_pl = fp_entry->fib_pl;
-	  fib_path_list_lock (old_pl);
-	  fp_entry->fib_pl =
-	    fib_path_list_copy_and_path_remove (fp_entry->fib_pl,
-						(FIB_PATH_LIST_FLAG_SHARED
-						 |
-						 FIB_PATH_LIST_FLAG_NO_URPF),
-						fp_entry->rpaths);
-	  fib_path_list_child_remove (old_pl, fp_entry->fib_sibling);
-	  fp_entry->fib_sibling = ~0;
-	  fib_path_list_unlock (old_pl);
-	  upf_debug ("###### Old fpath list removed ######");
+        {
+          fp_entry =
+            pool_elt_at_index (gtm->upf_forwarding_policies, hash_ptr[0]);
+          old_pl = fp_entry->fib_pl;
+          fib_path_list_lock (old_pl);
+          fp_entry->fib_pl = fib_path_list_copy_and_path_remove (
+            fp_entry->fib_pl,
+            (FIB_PATH_LIST_FLAG_SHARED | FIB_PATH_LIST_FLAG_NO_URPF),
+            fp_entry->rpaths);
+          fib_path_list_child_remove (old_pl, fp_entry->fib_sibling);
+          fp_entry->fib_sibling = ~0;
+          fib_path_list_unlock (old_pl);
+          upf_debug ("###### Old fpath list removed ######");
 
-	  fib_path_list_create_and_child_add (fp_entry, rpaths);
-	  hash_set_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id,
-			fp_entry - gtm->upf_forwarding_policies);
-	  upf_fpath_stack_dpo (fp_entry);
-	}
+          fib_path_list_create_and_child_add (fp_entry, rpaths);
+          hash_set_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id,
+                        fp_entry - gtm->upf_forwarding_policies);
+          upf_fpath_stack_dpo (fp_entry);
+        }
     }
 
   return rc;
@@ -940,7 +920,7 @@ vnet_upf_policy_fn (fib_route_path_t * rpaths, u8 * policy_id, u8 action)
  * A historical / hysterical micro-TLV scheme. DGMS.
  */
 u8 *
-upf_name_to_labels (u8 * name)
+upf_name_to_labels (u8 *name)
 {
   int i;
   int last_label_index;
@@ -956,14 +936,14 @@ upf_name_to_labels (u8 * name)
   while (i < vec_len (rv))
     {
       if (rv[i] == '.')
-	{
-	  rv[last_label_index] = (i - last_label_index) - 1;
-	  if ((i - last_label_index) > 63)
-	    clib_warning ("stupid name, label length %d",
-			  i - last_label_index);
-	  last_label_index = i;
-	  rv[i] = 0;
-	}
+        {
+          rv[last_label_index] = (i - last_label_index) - 1;
+          if ((i - last_label_index) > 63)
+            clib_warning ("stupid name, label length %d",
+                          i - last_label_index);
+          last_label_index = i;
+          rv[i] = 0;
+        }
       i++;
     }
   /* Set the last real label length */
@@ -973,7 +953,7 @@ upf_name_to_labels (u8 * name)
 }
 
 void
-upf_nat_get_src_port (vlib_buffer_t * b, u16 port)
+upf_nat_get_src_port (vlib_buffer_t *b, u16 port)
 {
   flowtable_main_t *fm = &flowtable_main;
   flow_entry_t *flow;
@@ -985,11 +965,3 @@ upf_nat_get_src_port (vlib_buffer_t * b, u16 port)
     return;
   flow->nat_sport = clib_net_to_host_u16 (port);
 }
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

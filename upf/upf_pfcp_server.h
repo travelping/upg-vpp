@@ -23,12 +23,12 @@
 #include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
 
 #define PFCP_DEFAULT_REQUEST_INTERVAL 10
-#define PFCP_DEFAULT_REQUEST_RETRIES 3
-#define PFCP_MAX_HB_INTERVAL 120
-#define PFCP_MAX_HB_RETRIES 30
-#define PFCP_SERVER_HB_TIMER 0
-#define PFCP_SERVER_T1       1
-#define PFCP_SERVER_RESPONSE 2
+#define PFCP_DEFAULT_REQUEST_RETRIES  3
+#define PFCP_MAX_HB_INTERVAL          120
+#define PFCP_MAX_HB_RETRIES           30
+#define PFCP_SERVER_HB_TIMER          0
+#define PFCP_SERVER_T1                1
+#define PFCP_SERVER_RESPONSE          2
 
 extern vlib_node_registration_t pfcp_api_process_node;
 
@@ -56,8 +56,8 @@ typedef struct
     {
       struct
       {
-	ip46_address_t address;
-	u16 port;
+        ip46_address_t address;
+        u16 port;
       } rmt;
 
       u32 seq_no;
@@ -86,16 +86,16 @@ typedef struct
 
   u64 up_seid;
 
-  f64 expires_at;		/* message timestamp */
+  f64 expires_at; /* message timestamp */
   u32 timer;
   u32 n1;
   u32 t1;
 
   struct
   {
-    u8 is_valid_pool_item:1;
-    u8 is_migrated_in_smfset:1;
-    u8 is_stopped:1;
+    u8 is_valid_pool_item : 1;
+    u8 is_migrated_in_smfset : 1;
+    u8 is_stopped : 1;
   } flags;
 
 #if CLIB_DEBUG > 0
@@ -126,7 +126,7 @@ typedef struct
   ip46_address_t address;
   f64 now;
 
-    TWT (tw_timer_wheel) timer;
+  TWT (tw_timer_wheel) timer;
   pfcp_msg_t *msg_pool;
   u32 *msg_pool_cache;
   u32 *msg_pool_free;
@@ -166,36 +166,35 @@ extern pfcp_server_main_t pfcp_server_main;
 
 #define UDP_DST_PORT_PFCP 8805
 
-void upf_pfcp_session_stop_up_inactivity_timer (urr_time_t * t);
+void upf_pfcp_session_stop_up_inactivity_timer (urr_time_t *t);
 void upf_pfcp_session_start_up_inactivity_timer (u32 si, f64 last,
-						 urr_time_t * t);
+                                                 urr_time_t *t);
 
-void upf_pfcp_session_stop_urr_time (urr_time_t * t, f64 now);
-void upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t * t,
-					   u8 start_it);
+void upf_pfcp_session_stop_urr_time (urr_time_t *t, f64 now);
+void upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t *t, u8 start_it);
 
 u32 upf_pfcp_server_start_timer (u8 type, u32 id, u32 seconds);
-void upf_pfcp_server_stop_msg_timer (pfcp_msg_t * msg);
-void upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t * n);
+void upf_pfcp_server_stop_msg_timer (pfcp_msg_t *msg);
+void upf_pfcp_server_stop_heartbeat_timer (upf_node_assoc_t *n);
 void upf_pfcp_server_deferred_free_msgs_by_node (u32 node);
 
-void upf_pfcp_server_stop_request (pfcp_msg_t * req);
+void upf_pfcp_server_stop_request (pfcp_msg_t *req);
 
-int upf_pfcp_send_request (upf_session_t * sx, pfcp_decoded_msg_t * dmsg);
+int upf_pfcp_send_request (upf_session_t *sx, pfcp_decoded_msg_t *dmsg);
 
-int upf_pfcp_send_response (pfcp_msg_t * req, pfcp_decoded_msg_t * dmsg);
+int upf_pfcp_send_response (pfcp_msg_t *req, pfcp_decoded_msg_t *dmsg);
 
-void upf_pfcp_session_up_deletion_report (upf_session_t * sx);
+void upf_pfcp_session_up_deletion_report (upf_session_t *sx);
 
-void upf_pfcp_server_session_usage_report (upf_event_urr_data_t * uev);
+void upf_pfcp_server_session_usage_report (upf_event_urr_data_t *uev);
 
-clib_error_t *pfcp_server_main_init (vlib_main_t * vm);
+clib_error_t *pfcp_server_main_init (vlib_main_t *vm);
 
 UPF_LLIST_TEMPLATE_DEFINITIONS (upf_session_requests_list, pfcp_msg_t,
-				session.anchor);
+                                session.anchor);
 
 static inline void
-init_pfcp_msg (pfcp_msg_t * m)
+init_pfcp_msg (pfcp_msg_t *m)
 {
   u8 is_valid_pool_item = m->flags.is_valid_pool_item;
 
@@ -208,20 +207,19 @@ init_pfcp_msg (pfcp_msg_t * m)
 }
 
 static inline void
-pfcp_msg_pool_init (pfcp_server_main_t * psm)
+pfcp_msg_pool_init (pfcp_server_main_t *psm)
 {
   vec_alloc (psm->msg_pool_cache, 128);
   vec_alloc (psm->msg_pool_free, 128);
-
 }
 
 static inline void
-pfcp_msg_pool_loop_start (pfcp_server_main_t * psm)
+pfcp_msg_pool_loop_start (pfcp_server_main_t *psm)
 {
   /* move enough entries from free to cache,
      so that cache has max 128 entries */
   while (vec_len (psm->msg_pool_cache) < 128 &&
-	 vec_len (psm->msg_pool_free) != 0)
+         vec_len (psm->msg_pool_free) != 0)
     {
       vec_add1 (psm->msg_pool_cache, vec_pop (psm->msg_pool_free));
     }
@@ -229,13 +227,13 @@ pfcp_msg_pool_loop_start (pfcp_server_main_t * psm)
   if (vec_len (psm->msg_pool_free) != 0)
     {
       for (int i = 0; i < vec_len (psm->msg_pool_free); i++)
-	pool_put_index (psm->msg_pool, psm->msg_pool_free[i]);
+        pool_put_index (psm->msg_pool, psm->msg_pool_free[i]);
       vec_reset_length (psm->msg_pool_free);
     }
 }
 
 static inline pfcp_msg_t *
-pfcp_msg_pool_get (pfcp_server_main_t * psm)
+pfcp_msg_pool_get (pfcp_server_main_t *psm)
 {
   pfcp_msg_t *m;
 
@@ -256,7 +254,7 @@ pfcp_msg_pool_get (pfcp_server_main_t * psm)
 }
 
 static inline pfcp_msg_t *
-pfcp_msg_pool_add (pfcp_server_main_t * psm, pfcp_msg_t * m)
+pfcp_msg_pool_add (pfcp_server_main_t *psm, pfcp_msg_t *m)
 {
   pfcp_msg_t *msg;
 
@@ -270,16 +268,20 @@ pfcp_msg_pool_add (pfcp_server_main_t * psm, pfcp_msg_t * m)
 }
 
 #if CLIB_DEBUG > 0
-#define pfcp_msg_pool_put(psm, m) do {							\
-    snprintf((m)->pool_put_loc, 128, "%s:%d %s", __FILE__, __LINE__, __FUNCTION__);	\
-    _pfcp_msg_pool_put(psm, m);								\
-  } while (0)
+#define pfcp_msg_pool_put(psm, m)                                             \
+  do                                                                          \
+    {                                                                         \
+      snprintf ((m)->pool_put_loc, 128, "%s:%d %s", __FILE__, __LINE__,       \
+                __FUNCTION__);                                                \
+      _pfcp_msg_pool_put (psm, m);                                            \
+    }                                                                         \
+  while (0)
 #else
-#define pfcp_msg_pool_put(psm, m) _pfcp_msg_pool_put(psm, m)
+#define pfcp_msg_pool_put(psm, m) _pfcp_msg_pool_put (psm, m)
 #endif
 
 static inline void
-_pfcp_msg_pool_put (pfcp_server_main_t * psm, pfcp_msg_t * m)
+_pfcp_msg_pool_put (pfcp_server_main_t *psm, pfcp_msg_t *m)
 {
   ASSERT (m->flags.is_valid_pool_item);
 
@@ -297,7 +299,7 @@ _pfcp_msg_pool_put (pfcp_server_main_t * psm, pfcp_msg_t * m)
 }
 
 static inline int
-pfcp_msg_pool_is_free_index (pfcp_server_main_t * psm, u32 index)
+pfcp_msg_pool_is_free_index (pfcp_server_main_t *psm, u32 index)
 {
   if (!pool_is_free_index (psm->msg_pool, index))
     {
@@ -308,14 +310,14 @@ pfcp_msg_pool_is_free_index (pfcp_server_main_t * psm, u32 index)
 }
 
 static inline pfcp_msg_t *
-pfcp_msg_pool_elt_at_index (pfcp_server_main_t * psm, u32 index)
+pfcp_msg_pool_elt_at_index (pfcp_server_main_t *psm, u32 index)
 {
   pfcp_msg_t *m = pool_elt_at_index (psm->msg_pool, index);
 #if CLIB_DEBUG > 0
   if (!m->flags.is_valid_pool_item)
     {
       clib_warning ("ERROR: accessing a PFCP msg that was freed at: %s",
-		    m->pool_put_loc);
+                    m->pool_put_loc);
       ASSERT (0);
     }
 #endif
@@ -323,17 +325,9 @@ pfcp_msg_pool_elt_at_index (pfcp_server_main_t * psm, u32 index)
 }
 
 static inline u32
-pfcp_msg_get_index (pfcp_server_main_t * psm, pfcp_msg_t * m)
+pfcp_msg_get_index (pfcp_server_main_t *psm, pfcp_msg_t *m)
 {
   return m - psm->msg_pool;
 }
 
 #endif /* _UPF_PFCP_SERVER_H */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

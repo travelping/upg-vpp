@@ -34,17 +34,19 @@
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
-#define upf_debug(...)				\
-  do { } while (0)
+#define upf_debug(...)                                                        \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
 #endif
 
 always_inline adr_result_t
-upf_adr_try_tls (u16 port, u8 * p, u8 ** uri)
+upf_adr_try_tls (u16 port, u8 *p, u8 **uri)
 {
   struct tls_record_hdr *hdr = (struct tls_record_hdr *) p;
   struct tls_handshake_hdr *hsk = (struct tls_handshake_hdr *) (hdr + 1);
-  struct tls_client_hello_hdr *hlo =
-    (struct tls_client_hello_hdr *) (hsk + 1);
+  struct tls_client_hello_hdr *hlo = (struct tls_client_hello_hdr *) (hsk + 1);
   u8 *data = (u8 *) (hlo + 1);
   word frgmt_len, hsk_len, len;
   uword length = vec_len (p);
@@ -53,9 +55,8 @@ upf_adr_try_tls (u16 port, u8 * p, u8 ** uri)
   if (length < sizeof (*hdr))
     return ADR_NEED_MORE_DATA;
 
-  upf_debug ("HDR: %u, v: %u.%u, Len: %d",
-	     hdr->type, hdr->major, hdr->minor,
-	     clib_net_to_host_u16 (hdr->length));
+  upf_debug ("HDR: %u, v: %u.%u, Len: %d", hdr->type, hdr->major, hdr->minor,
+             clib_net_to_host_u16 (hdr->length));
   if (hdr->type != TLS_HANDSHAKE)
     return ADR_FAIL;
 
@@ -127,40 +128,40 @@ upf_adr_try_tls (u16 port, u8 * p, u8 ** uri)
       upf_debug ("TLS Hello Extension: %u, %u", ext_type, ext_len);
 
       if (ext_type != TLS_EXT_SNI)
-	goto skip_extension;
+        goto skip_extension;
 
       if (ext_len < 5 || ext_len + 4 > len)
-	{
-	  upf_debug ("invalid extension len: %u (%u)", ext_len, len);
-	  goto skip_extension;
-	}
+        {
+          upf_debug ("invalid extension len: %u (%u)", ext_len, len);
+          goto skip_extension;
+        }
 
       sni_len = clib_net_to_host_unaligned_mem_u16 ((u16 *) (data + 4));
       if (sni_len != ext_len - 2)
-	{
-	  upf_debug ("invalid SNI extension len: %u != %u", sni_len,
-		     ext_len - 2);
-	  goto skip_extension;
-	}
+        {
+          upf_debug ("invalid SNI extension len: %u != %u", sni_len,
+                     ext_len - 2);
+          goto skip_extension;
+        }
 
       if (*(data + 6) != 0)
-	{
-	  upf_debug ("invalid SNI name type: %u", *(data + 6));
-	  goto skip_extension;
-	}
+        {
+          upf_debug ("invalid SNI name type: %u", *(data + 6));
+          goto skip_extension;
+        }
 
       name_len = clib_net_to_host_unaligned_mem_u16 ((u16 *) (data + 7));
       if (name_len != sni_len - 3)
-	{
-	  upf_debug ("invalid server name len: %u != %u", name_len,
-		     sni_len - 3);
-	  goto skip_extension;
-	}
+        {
+          upf_debug ("invalid server name len: %u != %u", name_len,
+                     sni_len - 3);
+          goto skip_extension;
+        }
 
       vec_add (*uri, "https://", strlen ("https://"));
       vec_add (*uri, data + 9, name_len);
       if (port != 443)
-	*uri = format (*uri, ":%u", port);
+        *uri = format (*uri, ":%u", port);
       vec_add1 (*uri, '/');
 
       return ADR_OK;
@@ -174,7 +175,7 @@ upf_adr_try_tls (u16 port, u8 * p, u8 ** uri)
 }
 
 always_inline adr_result_t
-upf_adr_try_http (u16 port, u8 * p, u8 ** uri)
+upf_adr_try_http (u16 port, u8 *p, u8 **uri)
 {
   word len = vec_len (p);
   word uri_len;
@@ -204,10 +205,10 @@ upf_adr_try_http (u16 port, u8 * p, u8 ** uri)
     u64 d0 = *(u64 *) (s + 1);
 
     upf_debug ("d0: 0x%016x, 1.0: 0x%016x, 1.1: 0x%016x", d0,
-	       char_to_u64 ('H', 'T', 'T', 'P', '/', '1', '.', '0'),
-	       char_to_u64 ('H', 'T', 'T', 'P', '/', '1', '.', '1'));
+               char_to_u64 ('H', 'T', 'T', 'P', '/', '1', '.', '0'),
+               char_to_u64 ('H', 'T', 'T', 'P', '/', '1', '.', '1'));
     if (d0 != char_to_u64 ('H', 'T', 'T', 'P', '/', '1', '.', '0') &&
-	d0 != char_to_u64 ('H', 'T', 'T', 'P', '/', '1', '.', '1'))
+        d0 != char_to_u64 ('H', 'T', 'T', 'P', '/', '1', '.', '1'))
       /* not HTTP 1.0 or 1.1 compatible */
       return ADR_FAIL;
   }
@@ -222,42 +223,42 @@ upf_adr_try_http (u16 port, u8 * p, u8 ** uri)
 
       eol = memchr (s, '\n', len);
       if (!eol)
-	return ADR_NEED_MORE_DATA;
+        return ADR_NEED_MORE_DATA;
 
       upf_debug ("l: %*s", eol - s, s);
 
       ll = eol - s;
       if (ll == 0 || (ll == 1 && s[0] == '\r'))
-	/* end of headers */
-	return ADR_FAIL;
+        /* end of headers */
+        return ADR_FAIL;
 
       /* upper case 1st 4 characters of header */
-      if ((d0 & char_to_u64 (0xdf, 0xdf, 0xdf, 0xdf, 0xff, 0, 0, 0))
-	  == char_to_u64 ('H', 'O', 'S', 'T', ':', 0, 0, 0))
-	{
-	  s += 5;
+      if ((d0 & char_to_u64 (0xdf, 0xdf, 0xdf, 0xdf, 0xff, 0, 0, 0)) ==
+          char_to_u64 ('H', 'O', 'S', 'T', ':', 0, 0, 0))
+        {
+          s += 5;
 
-	  /* find first non OWS */
-	  for (; s < eol && *s <= ' '; s++)
-	    ;
-	  /* find last non OWS */
-	  for (; eol > s && *eol <= ' '; eol--)
-	    ;
+          /* find first non OWS */
+          for (; s < eol && *s <= ' '; s++)
+            ;
+          /* find last non OWS */
+          for (; eol > s && *eol <= ' '; eol--)
+            ;
 
-	  if (eol == s)
-	    /* there could be a non OWS at *s, but single letter host
-	     * names are not possible, so ignore that
-	     */
-	    return ADR_FAIL;
+          if (eol == s)
+            /* there could be a non OWS at *s, but single letter host
+             * names are not possible, so ignore that
+             */
+            return ADR_FAIL;
 
-	  vec_add (*uri, "http://", strlen ("http://"));
-	  vec_add (*uri, s, eol - s + 1);
-	  if (port != 80)
-	    *uri = format (*uri, ":%u", port);
-	  vec_add (*uri, p, uri_len);
+          vec_add (*uri, "http://", strlen ("http://"));
+          vec_add (*uri, s, eol - s + 1);
+          if (port != 80)
+            *uri = format (*uri, ":%u", port);
+          vec_add (*uri, p, uri_len);
 
-	  return ADR_OK;
-	}
+          return ADR_OK;
+        }
 
       s = eol + 1;
       len -= ll + 1;
@@ -267,8 +268,8 @@ upf_adr_try_http (u16 port, u8 * p, u8 ** uri)
 }
 
 static upf_pdr_t *
-app_scan_for_uri (u8 * uri, flow_entry_t * flow, struct rules *active,
-		  flow_direction_t direction, upf_pdr_t * adr)
+app_scan_for_uri (u8 *uri, flow_entry_t *flow, struct rules *active,
+                  flow_direction_t direction, upf_pdr_t *adr)
 {
   upf_pdr_t *pdr;
 
@@ -276,94 +277,95 @@ app_scan_for_uri (u8 * uri, flow_entry_t * flow, struct rules *active,
    * see 3GPP TS 23.214 Table 5.2.2-1 for valid ADR combinations
    */
   vec_foreach (pdr, active->pdr)
-  {
-    /* all non ADR pdrs have already been scanned */
-    if (!(pdr->pdi.fields & F_PDI_APPLICATION_ID))
-      {
-	adf_debug ("skip PDR %u for no ADR\n", pdr->id);
-	continue;
-      }
+    {
+      /* all non ADR pdrs have already been scanned */
+      if (!(pdr->pdi.fields & F_PDI_APPLICATION_ID))
+        {
+          adf_debug ("skip PDR %u for no ADR\n", pdr->id);
+          continue;
+        }
 
-    /* only consider ADRs that have higher precedence than the best ACL */
-    if (adr && pdr->precedence > adr->precedence)
-      {
-	adf_debug ("skip PDR %u for lower precedence\n", pdr->id);
-	continue;
-      }
+      /* only consider ADRs that have higher precedence than the best ACL */
+      if (adr && pdr->precedence > adr->precedence)
+        {
+          adf_debug ("skip PDR %u for lower precedence\n", pdr->id);
+          continue;
+        }
 
-    if (pdr->pdi.fields & F_PDI_UE_IP_ADDR)
-      {
-	const ip46_address_t *addr;
+      if (pdr->pdi.fields & F_PDI_UE_IP_ADDR)
+        {
+          const ip46_address_t *addr;
 
-	addr =
-	  &flow->key.ip[direction ^ flow->is_reverse ^
-			!!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD)];
-	upf_debug ("Using %U as UE IP, S/D: %u",
-		   format_ip46_address, addr, IP46_TYPE_ANY,
-		   !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD));
+          addr =
+            &flow->key.ip[direction ^ flow->is_reverse ^
+                          !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD)];
+          upf_debug ("Using %U as UE IP, S/D: %u", format_ip46_address, addr,
+                     IP46_TYPE_ANY,
+                     !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD));
 
-	if (ip46_address_is_ip4 (addr))
-	  {
+          if (ip46_address_is_ip4 (addr))
+            {
 
-	    if (!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4))
-	      {
-		adf_debug ("skip PDR %u for no UE IPv4 address\n", pdr->id);
-		continue;
-	      }
-	    if (!ip4_address_is_equal (&pdr->pdi.ue_addr.ip4, &addr->ip4))
-	      {
-		adf_debug
-		  ("skip PDR %u for UE IPv4 mismatch, S/D: %u, %U != %U\n",
-		   pdr->id, !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD),
-		   format_ip4_address, &pdr->pdi.ue_addr.ip4,
-		   format_ip46_address, addr, IP46_TYPE_ANY);
-		continue;
-	      }
-	  }
-	else
-	  {
-	    if (!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6))
-	      {
-		adf_debug ("skip PDR %u for no UE IPv6 address\n", pdr->id);
-		continue;
-	      }
-	    if (!ip6_address_is_equal_masked
-		(&pdr->pdi.ue_addr.ip6, &addr->ip6, &ip6_main.fib_masks[64]))
-	      {
-		adf_debug
-		  ("skip PDR %u for UE IPv6 mismatch, S/D: %u, %U != %U\n",
-		   pdr->id, !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD),
-		   format_ip6_address, &pdr->pdi.ue_addr.ip6,
-		   format_ip46_address, addr, IP46_TYPE_ANY);
-		continue;
-	      }
-	  }
-      }
+              if (!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4))
+                {
+                  adf_debug ("skip PDR %u for no UE IPv4 address\n", pdr->id);
+                  continue;
+                }
+              if (!ip4_address_is_equal (&pdr->pdi.ue_addr.ip4, &addr->ip4))
+                {
+                  adf_debug (
+                    "skip PDR %u for UE IPv4 mismatch, S/D: %u, %U != %U\n",
+                    pdr->id, !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD),
+                    format_ip4_address, &pdr->pdi.ue_addr.ip4,
+                    format_ip46_address, addr, IP46_TYPE_ANY);
+                  continue;
+                }
+            }
+          else
+            {
+              if (!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6))
+                {
+                  adf_debug ("skip PDR %u for no UE IPv6 address\n", pdr->id);
+                  continue;
+                }
+              if (!ip6_address_is_equal_masked (&pdr->pdi.ue_addr.ip6,
+                                                &addr->ip6,
+                                                &ip6_main.fib_masks[64]))
+                {
+                  adf_debug (
+                    "skip PDR %u for UE IPv6 mismatch, S/D: %u, %U != %U\n",
+                    pdr->id, !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD),
+                    format_ip6_address, &pdr->pdi.ue_addr.ip6,
+                    format_ip46_address, addr, IP46_TYPE_ANY);
+                  continue;
+                }
+            }
+        }
 
-    if ((pdr->pdi.fields & F_PDI_LOCAL_F_TEID) &&
-	flow_teid (flow, direction) != pdr->pdi.teid.teid)
-      {
-	adf_debug ("skip PDR %u for TEID mismatch\n", pdr->id);
-	continue;
-      }
+      if ((pdr->pdi.fields & F_PDI_LOCAL_F_TEID) &&
+          flow_teid (flow, direction) != pdr->pdi.teid.teid)
+        {
+          adf_debug ("skip PDR %u for TEID mismatch\n", pdr->id);
+          continue;
+        }
 
-    adf_debug ("Scanning PDR %u (%p), db_id %u\n", pdr->id, pdr,
-	       pdr->pdi.adr.db_id);
-    if (upf_adf_lookup (pdr->pdi.adr.db_id, uri, vec_len (uri), NULL) == 0)
-      {
-	adf_debug ("Match!");
-	adr = pdr;
-      }
-    else
-      adf_debug ("No Match!");
-  }
+      adf_debug ("Scanning PDR %u (%p), db_id %u\n", pdr->id, pdr,
+                 pdr->pdi.adr.db_id);
+      if (upf_adf_lookup (pdr->pdi.adr.db_id, uri, vec_len (uri), NULL) == 0)
+        {
+          adf_debug ("Match!");
+          adr = pdr;
+        }
+      else
+        adf_debug ("No Match!");
+    }
 
   return adr;
 }
 
 adr_result_t
-upf_application_detection (vlib_main_t * vm, u8 * p,
-			   flow_entry_t * flow, struct rules *active)
+upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
+                           struct rules *active)
 {
   adr_result_t r;
   upf_pdr_t *origin = 0, *reverse = 0;
@@ -383,15 +385,15 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
   if (!origin && !reverse)
     return ADR_FAIL;
 
-  adf_debug ("Old PDR Origin: %p %u, Reverse: %p %u\n",
-	     origin, flow_pdr_id (flow, FT_ORIGIN),
-	     reverse, flow_pdr_id (flow, FT_REVERSE));
+  adf_debug ("Old PDR Origin: %p %u, Reverse: %p %u\n", origin,
+             flow_pdr_id (flow, FT_ORIGIN), reverse,
+             flow_pdr_id (flow, FT_REVERSE));
 
   if (flow->app_detection_done)
     {
       r = ADR_OK;
       if (!flow->app_uri)
-	goto out;
+        goto out;
       uri = flow->app_uri;
     }
   else
@@ -399,28 +401,27 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
       ASSERT (p);
 
       port =
-	clib_net_to_host_u16 (flow->key.port[FT_REVERSE ^ flow->is_reverse]);
-      upf_debug ("Using port %u, instead of %u", port,
-		 clib_net_to_host_u16 (flow->
-				       key.port[FT_ORIGIN ^ flow->
-						is_reverse]));
+        clib_net_to_host_u16 (flow->key.port[FT_REVERSE ^ flow->is_reverse]);
+      upf_debug (
+        "Using port %u, instead of %u", port,
+        clib_net_to_host_u16 (flow->key.port[FT_ORIGIN ^ flow->is_reverse]));
 
       if (*p == TLS_HANDSHAKE)
-	r = upf_adr_try_tls (port, p, &uri);
+        r = upf_adr_try_tls (port, p, &uri);
       else
-	r = upf_adr_try_http (port, p, &uri);
+        r = upf_adr_try_http (port, p, &uri);
 
       switch (r)
-	{
-	case ADR_NEED_MORE_DATA:
-	  return r;
+        {
+        case ADR_NEED_MORE_DATA:
+          return r;
 
-	case ADR_FAIL:
-	  goto out;
+        case ADR_FAIL:
+          goto out;
 
-	case ADR_OK:
-	  break;
-	}
+        case ADR_OK:
+          break;
+        }
 
       flow->app_uri = uri;
     }
@@ -431,12 +432,12 @@ upf_application_detection (vlib_main_t * vm, u8 * p,
   if (origin)
     {
       upf_far_t *far = pfcp_get_far_by_id (active, origin->far_id);
-      flow->is_redirect = (far
-			   && far->
-			   forward.flags & FAR_F_REDIRECT_INFORMATION);
+      flow->is_redirect =
+        (far && far->forward.flags & FAR_F_REDIRECT_INFORMATION);
     }
   reverse = flow->is_redirect ?
-    origin : app_scan_for_uri (uri, flow, active, FT_REVERSE, reverse);
+              origin :
+              app_scan_for_uri (uri, flow, active, FT_REVERSE, reverse);
 
 out:
   if (!origin)
@@ -458,17 +459,9 @@ out:
 
   flow_next (flow, FT_ORIGIN) = FT_NEXT_PROXY;
 
-  adf_debug ("New PDR Origin: %p %u, Reverse: %p %u\n",
-	     origin, flow_pdr_id (flow, FT_ORIGIN),
-	     reverse, flow_pdr_id (flow, FT_REVERSE));
+  adf_debug ("New PDR Origin: %p %u, Reverse: %p %u\n", origin,
+             flow_pdr_id (flow, FT_ORIGIN), reverse,
+             flow_pdr_id (flow, FT_REVERSE));
 
   return ADR_OK;
 }
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

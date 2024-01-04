@@ -21,7 +21,7 @@
 #include <vnet/ip/ip_types_api.h>
 #include <vppinfra/error.h>
 
-uword unformat_sw_if_index (unformat_input_t * input, va_list * args);
+uword unformat_sw_if_index (unformat_input_t *input, va_list *args);
 
 typedef struct
 {
@@ -40,76 +40,76 @@ upf_test_main_t upf_test_main;
 #include <upf/upf.api_types.h>
 
 static int
-api_upf_app_add_del (vat_main_t * vam)
+api_upf_app_add_del (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_app_ip_rule_add_del (vat_main_t * vam)
+api_upf_app_ip_rule_add_del (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_app_l7_rule_add_del (vat_main_t * vam)
+api_upf_app_l7_rule_add_del (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_app_flow_timeout_set (vat_main_t * vam)
+api_upf_app_flow_timeout_set (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_update_app (vat_main_t * vam)
+api_upf_update_app (vat_main_t *vam)
 {
   return -1;
 }
 
 #define vl_api_upf_application_l7_rule_details_t_handler vl_noop_handler
-#define vl_api_upf_applications_details_t_handler vl_noop_handler
-#define vl_api_upf_nat_pool_details_t_handler vl_noop_handler
-#define vl_api_upf_policy_details_t_handler vl_noop_handler
-#define vl_api_upf_nwi_details_t_handler vl_noop_handler
-#define vl_api_upf_pfcp_endpoint_details_t_handler vl_noop_handler
+#define vl_api_upf_applications_details_t_handler        vl_noop_handler
+#define vl_api_upf_nat_pool_details_t_handler            vl_noop_handler
+#define vl_api_upf_policy_details_t_handler              vl_noop_handler
+#define vl_api_upf_nwi_details_t_handler                 vl_noop_handler
+#define vl_api_upf_pfcp_endpoint_details_t_handler       vl_noop_handler
 
 static int
-api_upf_applications_dump (vat_main_t * vam)
+api_upf_applications_dump (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_application_l7_rule_dump (vat_main_t * vam)
+api_upf_application_l7_rule_dump (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_pfcp_reencode (vat_main_t * vam)
+api_upf_pfcp_reencode (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_pfcp_format (vat_main_t * vam)
+api_upf_pfcp_format (vat_main_t *vam)
 {
   return -1;
 }
 
-static void vl_api_upf_pfcp_reencode_reply_t_handler
-  (vl_api_upf_pfcp_reencode_reply_t * mp)
+static void
+vl_api_upf_pfcp_reencode_reply_t_handler (vl_api_upf_pfcp_reencode_reply_t *mp)
 {
   vat_main_t *vam = upf_test_main.vat_main;
 
   fformat (vam->ofp, "retval %d packet_len %u\n", mp->retval, mp->packet_len);
 }
 
-static void vl_api_upf_pfcp_format_reply_t_handler
-  (vl_api_upf_pfcp_format_reply_t * mp)
+static void
+vl_api_upf_pfcp_format_reply_t_handler (vl_api_upf_pfcp_format_reply_t *mp)
 {
   vat_main_t *vam = upf_test_main.vat_main;
 
@@ -117,71 +117,63 @@ static void vl_api_upf_pfcp_format_reply_t_handler
 }
 
 static int
-api_upf_nat_pool_dump (vat_main_t * vam)
+api_upf_nat_pool_dump (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_policy_dump (vat_main_t * vam)
+api_upf_policy_dump (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_policy_add_del (vat_main_t * vam)
+api_upf_policy_add_del (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_nwi_dump (vat_main_t * vam)
+api_upf_nwi_dump (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_nwi_add_del (vat_main_t * vam)
+api_upf_nwi_add_del (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_pfcp_endpoint_dump (vat_main_t * vam)
+api_upf_pfcp_endpoint_dump (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_pfcp_endpoint_add_del (vat_main_t * vam)
+api_upf_pfcp_endpoint_add_del (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_pfcp_server_set (vat_main_t * vam)
+api_upf_pfcp_server_set (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_pfcp_policer_set (vat_main_t * vam)
+api_upf_pfcp_policer_set (vat_main_t *vam)
 {
   return -1;
 }
 
 static int
-api_upf_pfcp_heartbeats_set (vat_main_t * vam)
+api_upf_pfcp_heartbeats_set (vat_main_t *vam)
 {
   return -1;
 }
 
 #include <upf/upf.api_test.c>
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */
