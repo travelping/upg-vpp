@@ -965,11 +965,3 @@ upf_nat_get_src_port (vlib_buffer_t *b, u16 port)
     return;
   flow->nat_sport = clib_net_to_host_u16 (port);
 }
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

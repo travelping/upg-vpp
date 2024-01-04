@@ -2847,11 +2847,3 @@ void pfcp_encode_version_not_supported_response (u8 **vec);
 void pfcp_free_dmsg_contents (pfcp_decoded_msg_t *dmsg);
 
 #endif // included_vnet_pfcp_h
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

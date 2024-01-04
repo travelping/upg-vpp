@@ -1246,11 +1246,3 @@ u8 *upf_name_to_labels (u8 *name);
 __clib_export void upf_nat_get_src_port (vlib_buffer_t *b, u16 port);
 
 #endif /* __included_upf_h__ */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

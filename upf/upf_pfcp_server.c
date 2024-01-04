@@ -1728,11 +1728,3 @@ VLIB_REGISTER_NODE (pfcp_api_process_node) = {
 };
 
 /* clang-format on */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

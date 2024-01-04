@@ -88,11 +88,3 @@ void upf_usage_report_build (upf_session_t *sx, ip46_address_t *ue,
                              pfcp_usage_report_t **usage_report);
 
 #endif /* _UPF_PFCP_ERL_H */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

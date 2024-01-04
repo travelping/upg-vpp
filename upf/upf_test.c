@@ -177,11 +177,3 @@ api_upf_pfcp_heartbeats_set (vat_main_t *vam)
 }
 
 #include <upf/upf.api_test.c>
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

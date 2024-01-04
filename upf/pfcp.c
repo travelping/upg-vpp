@@ -8475,11 +8475,3 @@ format_dmsg (u8 *s, va_list *args)
 
   return format (s, "%U", format_group, 0, &msg_specs[dmsg->type], &dmsg->grp);
 }
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

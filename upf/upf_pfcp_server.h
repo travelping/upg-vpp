@@ -331,11 +331,3 @@ pfcp_msg_get_index (pfcp_server_main_t *psm, pfcp_msg_t *m)
 }
 
 #endif /* _UPF_PFCP_SERVER_H */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

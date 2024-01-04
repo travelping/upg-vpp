@@ -171,11 +171,3 @@ flow_pdr_idx (flow_entry_t *flow, flow_direction_t direction, struct rules *r)
 }
 
 #endif /* _UPF_PFCP_H_ */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

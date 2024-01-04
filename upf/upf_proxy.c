@@ -1529,11 +1529,3 @@ upf_proxy_main_loop_init (vlib_main_t *vm)
 
 VLIB_INIT_FUNCTION (upf_proxy_main_init);
 VLIB_MAIN_LOOP_ENTER_FUNCTION (upf_proxy_main_loop_init);
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

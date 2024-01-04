@@ -693,11 +693,3 @@ VLIB_REGISTER_NODE (flowtable_process_node) = {
   .name = "upf-flowtable",
   .state = VLIB_NODE_STATE_DISABLED,
 };
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

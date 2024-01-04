@@ -1755,11 +1755,3 @@ VLIB_CLI_COMMAND (upf_show_pfcp_heartbeat_config_command, static) =
   .function = upf_show_pfcp_heartbeat_config_command_fn,
 };
 /* clang-format on */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

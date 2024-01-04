@@ -616,12 +616,3 @@ VLIB_REGISTER_NODE (upf_ip6_classify_node) = {
     [UPF_CLASSIFY_NEXT_PROXY]   = "upf-ip6-proxy-input",
   },
 };
-/* clang-format on */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

@@ -1011,11 +1011,3 @@ upf_app_ip_rule_match (u32 db_index, flow_entry_t *flow,
   upf_adf_entry_t *entry = pool_elt_at_index (upf_adf_db, db_index);
   return entry->app_dpos && upf_app_dpo_match (entry, flow, assigned);
 }
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

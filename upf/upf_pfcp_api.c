@@ -3126,11 +3126,3 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
 
   return r;
 }
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

@@ -355,11 +355,3 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_accept_node) =
   .n_next_nodes = 0,
 };
 /* clang-format on */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

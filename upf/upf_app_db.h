@@ -210,11 +210,3 @@ is_http_request (u8 **payload, word *len)
 }
 
 #endif /* __included_upf_app_db_h__ */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

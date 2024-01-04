@@ -521,11 +521,3 @@ timer_wheel_insert_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
 extern vlib_node_registration_t flowtable_process_node;
 
 #endif /* __flowtable_h__ */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */

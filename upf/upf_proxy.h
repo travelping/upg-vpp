@@ -161,11 +161,3 @@ tcp_connection_t *upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t *b,
                                              u8 is_reverse);
 
 #endif
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */
