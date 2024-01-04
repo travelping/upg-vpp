@@ -1511,10 +1511,16 @@ free_forwarding_policy (void *p)
   vec_free (v->identifier);
 }
 
+/* clang-format off */
 static char *destination_interface_name[] = {
-  [0] = "Access",      [1] = "Core",        [2] = "SGi-LAN",
-  [3] = "CP-Function", [4] = "LI Function", [5] = "5G VN internal",
+  [0] = "Access",
+  [1] = "Core",
+  [2] = "SGi-LAN",
+  [3] = "CP-Function",
+  [4] = "LI Function",
+  [5] = "5G VN internal",
 };
+/* clang-format on */
 
 static u8 *
 format_destination_interface (u8 *s, va_list *args)

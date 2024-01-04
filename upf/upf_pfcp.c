@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cstddef>
 #include <math.h>
 #include <stdio.h>
 #include <setjmp.h>
@@ -2827,37 +2828,70 @@ process_qers (vlib_main_t *vm, upf_session_t *sess, struct rules *r,
   return ret;
 }
 
-static const char *apply_action_flags[] = { "DROP",      "FORWARD",   "BUFFER",
-                                            "NOTIFY_CP", "DUPLICATE", NULL };
-
-static const char *urr_method_flags[] = { "TIME", "VOLUME", "EVENT", NULL };
-
-static const char *urr_trigger_flags[] = { "PERIODIC REPORTING",
-                                           "VOLUME THRESHOLD",
-                                           "TIME THRESHOLD",
-                                           "QUOTA HOLDING TIME",
-                                           "START OF TRAFFIC",
-                                           "STOP OF TRAFFIC",
-                                           "DROPPED DL TRAFFIC THRESHOLD",
-                                           "LINKED USAGE REPORTING",
-                                           "VOLUME QUOTA",
-                                           "TIME QUOTA",
-                                           "ENVELOPE CLOSURE",
-                                           NULL };
-
-static const char *urr_status_flags[] = { "OVER QUOTA",
-                                          "AFTER MONITORING TIME", "REPORTED",
-                                          NULL };
-
-static const char *source_intf_name[] = { "Access", "Core", "SGi-LAN",
-                                          "CP-function" };
-
-static const char *outer_header_removal_str[] = {
-  "GTP-U/UDP/IPv4", "GTP-U/UDP/IPv6", "UDP/IPv4",   "UDP/IPv6",       "IPv4",
-  "IPv6",           "GTP-U/UDP/IP",   "VLAN S-TAG", "S-TAG and C-TAG"
+/* clang-format off */
+static const char *apply_action_flags[] = {
+  "DROP",
+  "FORWARD",
+  "BUFFER",
+  "NOTIFY_CP",
+  "DUPLICATE",
+  NULL
 };
 
-static const char *qer_gate_status_flags[] = { "OPEN", "CLOSED", NULL };
+static const char *urr_method_flags[] = {
+  "TIME",
+  "VOLUME",
+  "EVENT",
+  NULL
+};
+
+static const char *urr_trigger_flags[] = {
+  "PERIODIC REPORTING",
+  "VOLUME THRESHOLD",
+  "TIME THRESHOLD",
+  "QUOTA HOLDING TIME",
+  "START OF TRAFFIC",
+  "STOP OF TRAFFIC",
+  "DROPPED DL TRAFFIC THRESHOLD",
+  "LINKED USAGE REPORTING",
+  "VOLUME QUOTA",
+  "TIME QUOTA",
+  "ENVELOPE CLOSURE",
+  NULL
+};
+
+static const char *urr_status_flags[] = {
+  "OVER QUOTA",
+  "AFTER MONITORING TIME",
+  "REPORTED",
+  NULL
+};
+
+static const char *source_intf_name[] = {
+  "Access",
+  "Core",
+  "SGi-LAN",
+  "CP-function"
+};
+
+static const char *outer_header_removal_str[] = {
+  "GTP-U/UDP/IPv4",
+  "GTP-U/UDP/IPv6",
+  "UDP/IPv4",
+  "UDP/IPv6",
+  "IPv4",
+  "IPv6",
+  "GTP-U/UDP/IP",
+  "VLAN S-TAG",
+  "S-TAG and C-TAG"
+};
+
+static const char *qer_gate_status_flags[] = {
+  "OPEN",
+  "CLOSED",
+  NULL
+};
+/* clang-format on */
 
 static u8 *
 format_urr_counter (u8 *s, va_list *args)

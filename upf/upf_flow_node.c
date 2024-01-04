@@ -54,15 +54,19 @@ format_get_flowinfo (u8 *s, va_list *args)
   flow_trace_t *t = va_arg (*args, flow_trace_t *);
   u32 indent = format_get_indent (s);
 
-  s = format (s,
-              "upf_session%d up-seid 0x%016llx\n"
+  /* clang-format off */
+  s = format (s, "upf_session%d up-seid 0x%016llx\n"
               "%UFlowInfo - sw_if_index %d, next_index = %d\n%U%U\n%U%U\n%U%U",
-              t->session_index, t->up_seid, format_white_space, indent,
-              t->sw_if_index, t->next_index, format_white_space, indent,
-              format_flow_key, &t->key, format_white_space, indent,
-              format_hex_bytes, &t->key, sizeof (t->key), format_white_space,
-              indent, format_ip4_header, t->packet_data,
-              sizeof (t->packet_data));
+              t->session_index, t->up_seid,
+              format_white_space, indent,
+              t->sw_if_index, t->next_index,
+              format_white_space, indent,
+              format_flow_key, &t->key,
+              format_white_space, indent,
+              format_hex_bytes, &t->key, sizeof (t->key),
+              format_white_space, indent,
+              format_ip4_header, t->packet_data, sizeof (t->packet_data));
+  /* clang-format on */
   return s;
 }
 

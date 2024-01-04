@@ -2,6 +2,7 @@
 # Minimal clang-format version is 11
 
 BasedOnStyle: GNU
+UseTab: Never
 SpaceAfterCStyleCast: true
 SortIncludes: false
 AlignConsecutiveMacros: true

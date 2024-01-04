@@ -457,11 +457,3 @@ vnet_upf_pfcp_set_polling (vlib_main_t *vm, u8 polling)
 }
 
 VLIB_INIT_FUNCTION (pfcp_session_server_main_init);
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */
