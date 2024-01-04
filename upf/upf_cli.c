@@ -55,10 +55,6 @@ upf_pfcp_endpoint_ip_add_del_command_fn (vlib_main_t *vm,
                                          unformat_input_t *main_input,
                                          vlib_cli_command_t *cmd)
 {
-
-
-
-
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
   u32 fib_index = 0;
