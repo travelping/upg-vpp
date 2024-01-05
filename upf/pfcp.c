@@ -115,7 +115,7 @@ format_pfcp_dns_labels (u8 *s, va_list *args)
 }
 
 u8 *
-format_network_instance (u8 *s, va_list *args)
+format_pfcp_ie_network_instance (u8 *s, va_list *args)
 {
   u8 **p = va_arg (*args, u8 **);
   return p ? format (s, "%U", format_pfcp_dns_labels, *p) : format (s, "invalid");
@@ -159,9 +159,9 @@ format_pfcp_msg_type (u8 *s, va_list *args)
 }
 
 u8 *
-format_pfcp_msg_hdr (u8 *s, va_list *args)
+format_pfcp_msg_header (u8 *s, va_list *args)
 {
-  pfcp_header_t *pfcp = va_arg (*args, pfcp_header_t *);
+  pfcp_msg_header_t *pfcp = va_arg (*args, pfcp_msg_header_t *);
   u8 type = pfcp->type;
 
   if (type < ARRAY_LEN (msg_desc) && msg_desc[type])
@@ -178,21 +178,21 @@ format_pfcp_msg_hdr (u8 *s, va_list *args)
 
 /* message construction helpers */
 
-#define set_msg_hdr_version(V, VER) ((pfcp_header_t *) (V))->version = (VER)
-#define set_msg_hdr_type(V, TYPE)   ((pfcp_header_t *) (V))->type = (TYPE)
+#define set_msg_hdr_version(V, VER) ((pfcp_msg_header_t *) (V))->version = (VER)
+#define set_msg_hdr_type(V, TYPE)   ((pfcp_msg_header_t *) (V))->type = (TYPE)
 #define set_msg_hdr_seq(V, S)                                                 \
   do                                                                          \
     {                                                                         \
-      ((pfcp_header_t *) (V))->msg_hdr.sequence[0] = (S >> 16) & 0xff;        \
-      ((pfcp_header_t *) (V))->msg_hdr.sequence[1] = (S >> 8) & 0xff;         \
-      ((pfcp_header_t *) (V))->msg_hdr.sequence[2] = S & 0xff;                \
+      ((pfcp_msg_header_t *) (V))->node_hdr.sequence[0] = (S >> 16) & 0xff;        \
+      ((pfcp_msg_header_t *) (V))->node_hdr.sequence[1] = (S >> 8) & 0xff;         \
+      ((pfcp_msg_header_t *) (V))->node_hdr.sequence[2] = S & 0xff;                \
     }                                                                         \
   while (0)
 #define set_session_hdr_seid(V, SEID)                                         \
   do                                                                          \
     {                                                                         \
-      ((pfcp_header_t *) (V))->s_flag = 1;                                    \
-      ((pfcp_header_t *) (V))->session_hdr.seid =                             \
+      ((pfcp_msg_header_t *) (V))->s_flag = 1;                                    \
+      ((pfcp_msg_header_t *) (V))->session_hdr.seid =                             \
         clib_host_to_net_u64 (SEID);                                          \
     }                                                                         \
   while (0)
@@ -200,14 +200,14 @@ format_pfcp_msg_hdr (u8 *s, va_list *args)
 #define set_session_hdr_seq(V, S)                                             \
   do                                                                          \
     {                                                                         \
-      ((pfcp_header_t *) (V))->session_hdr.sequence[0] = (S >> 16) & 0xff;    \
-      ((pfcp_header_t *) (V))->session_hdr.sequence[1] = (S >> 8) & 0xff;     \
-      ((pfcp_header_t *) (V))->session_hdr.sequence[2] = S & 0xff;            \
+      ((pfcp_msg_header_t *) (V))->session_hdr.sequence[0] = (S >> 16) & 0xff;    \
+      ((pfcp_msg_header_t *) (V))->session_hdr.sequence[1] = (S >> 8) & 0xff;     \
+      ((pfcp_msg_header_t *) (V))->session_hdr.sequence[2] = S & 0xff;            \
     }                                                                         \
   while (0)
 
 #define set_msg_hdr_length(V, LEN)                                            \
-  ((pfcp_header_t *) (V))->length = htons ((LEN))
+  ((pfcp_msg_header_t *) (V))->length = htons ((LEN))
 
 #define put_msg_response(V, REQ, TYPE, P)                                     \
   do                                                                          \
@@ -613,17 +613,17 @@ free_simple_vec_ie (void *p)
 }
 
 static u8 *
-format_volume_ie (u8 *s, va_list *args)
+format_pfcp_ie_volume (u8 *s, va_list *args)
 {
-  pfcp_volume_ie_t *v = va_arg (*args, pfcp_volume_ie_t *);
+  pfcp_ie_volume_t *v = va_arg (*args, pfcp_ie_volume_t *);
 
   return format (s, "T:%d,U:%d,D:%d", v->total, v->ul, v->dl);
 }
 
 static int
-decode_volume_ie (u8 *data, u16 length, void *p)
+decode_pfcp_ie_volume (u8 *data, u16 length, void *p)
 {
-  pfcp_volume_ie_t *v = (pfcp_volume_ie_t *) p;
+  pfcp_ie_volume_t *v = (pfcp_ie_volume_t *) p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -644,9 +644,9 @@ decode_volume_ie (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_volume_ie (void *p, u8 **vec)
+encode_pfcp_ie_volume (void *p, u8 **vec)
 {
-  pfcp_volume_ie_t *v = (pfcp_volume_ie_t *) p;
+  pfcp_ie_volume_t *v = (pfcp_ie_volume_t *) p;
 
   put_u8 (*vec, v->fields);
 
@@ -670,7 +670,7 @@ format_time_stamp (u8 *s, va_list *args)
 }
 
 static int
-decode_time_stamp_ie (u8 *data, u16 length, void *p)
+decode_time_stamp (u8 *data, u16 length, void *p)
 {
   u32 *v = (u32 *) p;
 
@@ -687,7 +687,7 @@ decode_time_stamp_ie (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_time_stamp_ie (void *p, u8 **vec)
+encode_time_stamp (void *p, u8 **vec)
 {
   u32 *v = (u32 *) p;
 
@@ -700,9 +700,9 @@ encode_time_stamp_ie (void *p, u8 **vec)
 }
 
 static u8 *
-format_timer_ie (u8 *s, va_list *args)
+format_pfcp_ie_timer (u8 *s, va_list *args)
 {
-  pfcp_timer_ie_t *v = va_arg (*args, pfcp_timer_ie_t *);
+  pfcp_ie_timer_t *v = va_arg (*args, pfcp_ie_timer_t *);
 
   switch (v->unit)
     {
@@ -730,9 +730,9 @@ format_timer_ie (u8 *s, va_list *args)
 }
 
 static int
-decode_timer_ie (u8 *data, u16 length, void *p)
+decode_pfcp_ie_timer (u8 *data, u16 length, void *p)
 {
-  pfcp_timer_ie_t *v = p;
+  pfcp_ie_timer_t *v = p;
   u8 t;
 
   if (length < 1)
@@ -746,9 +746,9 @@ decode_timer_ie (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_timer_ie (void *p, u8 **vec)
+encode_pfcp_ie_timer (void *p, u8 **vec)
 {
-  pfcp_timer_ie_t *v = p;
+  pfcp_ie_timer_t *v = p;
 
   put_u8 (*vec, ((v->unit & 0x0f) << 4) | (v->value & 0x0f));
 
@@ -799,7 +799,7 @@ format_sntp_time_stamp (u8 *s, va_list *args)
 }
 
 static int
-decode_sntp_time_stamp_ie (u8 *data, u16 length, void *p)
+decode_sntp_time_stamp (u8 *data, u16 length, void *p)
 {
   f64 *v = (f64 *) p;
 
@@ -818,7 +818,7 @@ decode_sntp_time_stamp_ie (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_sntp_time_stamp_ie (void *p, u8 **vec)
+encode_sntp_time_stamp (void *p, u8 **vec)
 {
   f64 *v = (f64 *) p;
   f64 fraction, seconds;
@@ -837,9 +837,9 @@ encode_sntp_time_stamp_ie (void *p, u8 **vec)
 
 /* Information Elements */
 
-#define format_cause format_u8_ie
-#define decode_cause decode_u8_ie
-#define encode_cause encode_u8_ie
+#define format_pfcp_ie_cause format_u8_ie
+#define decode_pfcp_ie_cause decode_u8_ie
+#define encode_pfcp_ie_cause encode_u8_ie
 
 static char *source_interface_name[] = {
   [0] = "Access",
@@ -849,17 +849,17 @@ static char *source_interface_name[] = {
 };
 
 static u8 *
-format_source_interface (u8 *s, va_list *args)
+format_pfcp_ie_source_interface (u8 *s, va_list *args)
 {
-  pfcp_source_interface_t *v = va_arg (*args, pfcp_source_interface_t *);
+  pfcp_ie_source_interface_t *v = va_arg (*args, pfcp_ie_source_interface_t *);
 
   return format (s, "%s", source_interface_name[*v]);
 }
 
 static int
-decode_source_interface (u8 *data, u16 length, void *p)
+decode_pfcp_ie_source_interface (u8 *data, u16 length, void *p)
 {
-  pfcp_source_interface_t *v = p;
+  pfcp_ie_source_interface_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -872,18 +872,18 @@ decode_source_interface (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_source_interface (void *p, u8 **vec)
+encode_pfcp_ie_source_interface (void *p, u8 **vec)
 {
-  pfcp_source_interface_t *v = p;
+  pfcp_ie_source_interface_t *v = p;
 
   put_u8 (*vec, *v & 0x0f);
   return 0;
 }
 
 static u8 *
-format_f_teid (u8 *s, va_list *args)
+format_pfcp_ie_f_teid (u8 *s, va_list *args)
 {
-  pfcp_f_teid_t *v = va_arg (*args, pfcp_f_teid_t *);
+  pfcp_ie_f_teid_t *v = va_arg (*args, pfcp_ie_f_teid_t *);
   u16 flags = (v->flags & 0xf);
 
   s = format (s, "CH:%d,CHID:%d,V4:%d,V6:%d,", !!(flags & F_TEID_CH),
@@ -902,9 +902,9 @@ format_f_teid (u8 *s, va_list *args)
 }
 
 static int
-decode_f_teid (u8 *data, u16 length, void *p)
+decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
 {
-  pfcp_f_teid_t *v = p;
+  pfcp_ie_f_teid_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -971,9 +971,9 @@ decode_f_teid (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_f_teid (void *p, u8 **vec)
+encode_pfcp_ie_f_teid (void *p, u8 **vec)
 {
-  pfcp_f_teid_t *v = p;
+  pfcp_ie_f_teid_t *v = p;
 
   put_u8 (*vec, v->flags);
   put_u32 (*vec, v->teid);
@@ -986,14 +986,14 @@ encode_f_teid (void *p, u8 **vec)
   return 0;
 }
 
-#define decode_network_instance decode_simple_vec_ie
-#define encode_network_instance encode_simple_vec_ie
-#define free_network_instance   free_simple_vec_ie
+#define decode_pfcp_ie_network_instance decode_simple_vec_ie
+#define encode_pfcp_ie_network_instance encode_simple_vec_ie
+#define free_pfcp_ie_network_instance   free_simple_vec_ie
 
 static u8 *
-format_sdf_filter (u8 *s, va_list *args)
+format_pfcp_ie_sdf_filter (u8 *s, va_list *args)
 {
-  pfcp_sdf_filter_t *v = va_arg (*args, pfcp_sdf_filter_t *);
+  pfcp_ie_sdf_filter_t *v = va_arg (*args, pfcp_ie_sdf_filter_t *);
 
   if (v->flags & F_SDF_FD)
     s = format (s, "FD:%v,", v->flow);
@@ -1015,9 +1015,9 @@ format_sdf_filter (u8 *s, va_list *args)
 }
 
 static int
-decode_sdf_filter (u8 *data, u16 length, void *p)
+decode_pfcp_ie_sdf_filter (u8 *data, u16 length, void *p)
 {
-  pfcp_sdf_filter_t *v = p;
+  pfcp_ie_sdf_filter_t *v = p;
 
   if (length < 2)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -1083,9 +1083,9 @@ decode_sdf_filter (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_sdf_filter (void *p, u8 **vec)
+encode_pfcp_ie_sdf_filter (void *p, u8 **vec)
 {
-  pfcp_sdf_filter_t *v = p;
+  pfcp_ie_sdf_filter_t *v = p;
 
   put_u8 (*vec, v->flags & 0x0f);
   put_u8 (*vec, 0); /* spare */
@@ -1108,24 +1108,24 @@ encode_sdf_filter (void *p, u8 **vec)
 }
 
 static void
-free_sdf_filter (void *p)
+free_pfcp_ie_sdf_filter (void *p)
 {
-  pfcp_sdf_filter_t *v = p;
+  pfcp_ie_sdf_filter_t *v = p;
 
   vec_free (v->flow);
 }
 
-#define format_application_id format_simple_vec_ie
-#define decode_application_id decode_simple_vec_ie
-#define encode_application_id encode_simple_vec_ie
-#define free_application_id   free_simple_vec_ie
+#define format_pfcp_ie_application_id format_simple_vec_ie
+#define decode_pfcp_ie_application_id decode_simple_vec_ie
+#define encode_pfcp_ie_application_id encode_simple_vec_ie
+#define free_pfcp_ie_application_id   free_simple_vec_ie
 
 static const char *gate_status_flags[] = { "OPEN", "CLOSED", NULL };
 
 static u8 *
-format_gate_status (u8 *s, va_list *args)
+format_pfcp_ie_gate_status (u8 *s, va_list *args)
 {
-  pfcp_gate_status_t *v = va_arg (*args, pfcp_gate_status_t *);
+  pfcp_ie_gate_status_t *v = va_arg (*args, pfcp_ie_gate_status_t *);
 
   return format (s, "UL:%U,DL:%U", format_pfcp_enum, (u64) v->ul, gate_status_flags,
                  ARRAY_LEN (gate_status_flags), format_pfcp_enum, (u64) v->dl,
@@ -1133,9 +1133,9 @@ format_gate_status (u8 *s, va_list *args)
 }
 
 static int
-decode_gate_status (u8 *data, u16 length, void *p)
+decode_pfcp_ie_gate_status (u8 *data, u16 length, void *p)
 {
-  pfcp_gate_status_t *v = p;
+  pfcp_ie_gate_status_t *v = p;
   u8 status;
 
   if (length < 1)
@@ -1151,9 +1151,9 @@ decode_gate_status (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_gate_status (void *p, u8 **vec)
+encode_pfcp_ie_gate_status (void *p, u8 **vec)
 {
-  pfcp_gate_status_t *v = p;
+  pfcp_ie_gate_status_t *v = p;
 
   put_u8 (*vec, (v->dl & 0x03) | ((v->ul & 0x03) << 2));
 
@@ -1161,17 +1161,17 @@ encode_gate_status (void *p, u8 **vec)
 }
 
 static u8 *
-format_bit_rate (u8 *s, va_list *args)
+format_pfcp_ie_bit_rate (u8 *s, va_list *args)
 {
-  pfcp_bit_rate_t *v = va_arg (*args, pfcp_bit_rate_t *);
+  pfcp_ie_bit_rate_t *v = va_arg (*args, pfcp_ie_bit_rate_t *);
 
   return format (s, "UL:%u,DL:%u", v->ul, v->dl);
 }
 
 static int
-decode_bit_rate (u8 *data, u16 length, void *p)
+decode_pfcp_ie_bit_rate (u8 *data, u16 length, void *p)
 {
-  pfcp_bit_rate_t *v = p;
+  pfcp_ie_bit_rate_t *v = p;
 
   if (length < 10)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -1183,9 +1183,9 @@ decode_bit_rate (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_bit_rate (void *p, u8 **vec)
+encode_pfcp_ie_bit_rate (void *p, u8 **vec)
 {
-  pfcp_bit_rate_t *v = p;
+  pfcp_ie_bit_rate_t *v = p;
 
   put_u40 (*vec, v->ul);
   put_u40 (*vec, v->dl);
@@ -1193,62 +1193,62 @@ encode_bit_rate (void *p, u8 **vec)
   return 0;
 }
 
-#define format_mbr format_bit_rate
-#define decode_mbr decode_bit_rate
-#define encode_mbr encode_bit_rate
+#define format_pfcp_ie_mbr format_pfcp_ie_bit_rate
+#define decode_pfcp_ie_mbr decode_pfcp_ie_bit_rate
+#define encode_pfcp_ie_mbr encode_pfcp_ie_bit_rate
 
-#define format_gbr format_bit_rate
-#define decode_gbr decode_bit_rate
-#define encode_gbr encode_bit_rate
+#define format_pfcp_ie_gbr format_pfcp_ie_bit_rate
+#define decode_pfcp_ie_gbr decode_pfcp_ie_bit_rate
+#define encode_pfcp_ie_gbr encode_pfcp_ie_bit_rate
 
-#define format_qer_correlation_id format_u32_ie
-#define decode_qer_correlation_id decode_u32_ie
-#define encode_qer_correlation_id encode_u32_ie
+#define format_pfcp_ie_qer_correlation_id format_u32_ie
+#define decode_pfcp_ie_qer_correlation_id decode_u32_ie
+#define encode_pfcp_ie_qer_correlation_id encode_u32_ie
 
-#define format_precedence format_u32_ie
-#define decode_precedence decode_u32_ie
-#define encode_precedence encode_u32_ie
+#define format_pfcp_ie_precedence format_u32_ie
+#define decode_pfcp_ie_precedence decode_u32_ie
+#define encode_pfcp_ie_precedence encode_u32_ie
 
 static u8 *
-format_transport_level_marking (u8 *s, va_list *args)
+format_pfcp_ie_transport_level_marking (u8 *s, va_list *args)
 {
-  pfcp_transport_level_marking_t *v =
-    va_arg (*args, pfcp_transport_level_marking_t *);
+  pfcp_ie_transport_level_marking_t *v =
+    va_arg (*args, pfcp_ie_transport_level_marking_t *);
 
   return format (s, "0x%04x", *v);
 }
 
-#define decode_transport_level_marking decode_u16_ie
-#define encode_transport_level_marking encode_u16_ie
+#define decode_pfcp_ie_transport_level_marking decode_u16_ie
+#define encode_pfcp_ie_transport_level_marking encode_u16_ie
 
-#define format_volume_threshold format_volume_ie
-#define decode_volume_threshold decode_volume_ie
-#define encode_volume_threshold encode_volume_ie
+#define format_pfcp_ie_volume_threshold format_pfcp_ie_volume
+#define decode_pfcp_ie_volume_threshold decode_pfcp_ie_volume
+#define encode_pfcp_ie_volume_threshold encode_pfcp_ie_volume
 
-#define format_time_threshold format_u32_ie
-#define decode_time_threshold decode_u32_ie
-#define encode_time_threshold encode_u32_ie
+#define format_pfcp_ie_time_threshold format_u32_ie
+#define decode_pfcp_ie_time_threshold decode_u32_ie
+#define encode_pfcp_ie_time_threshold encode_u32_ie
 
-#define format_monitoring_time format_time_stamp
-#define decode_monitoring_time decode_time_stamp_ie
-#define encode_monitoring_time encode_time_stamp_ie
+#define format_pfcp_ie_monitoring_time format_time_stamp
+#define decode_pfcp_ie_monitoring_time decode_time_stamp
+#define encode_pfcp_ie_monitoring_time encode_time_stamp
 
-#define format_subsequent_volume_threshold format_volume_ie
-#define decode_subsequent_volume_threshold decode_volume_ie
-#define encode_subsequent_volume_threshold encode_volume_ie
+#define format_pfcp_ie_subsequent_volume_threshold format_pfcp_ie_volume
+#define decode_pfcp_ie_subsequent_volume_threshold decode_pfcp_ie_volume
+#define encode_pfcp_ie_subsequent_volume_threshold encode_pfcp_ie_volume
 
-#define format_subsequent_time_threshold format_u32_ie
-#define decode_subsequent_time_threshold decode_u32_ie
-#define encode_subsequent_time_threshold encode_u32_ie
+#define format_pfcp_ie_subsequent_time_threshold format_u32_ie
+#define decode_pfcp_ie_subsequent_time_threshold decode_u32_ie
+#define encode_pfcp_ie_subsequent_time_threshold encode_u32_ie
 
-#define format_inactivity_detection_time format_u32_ie
-#define decode_inactivity_detection_time decode_u32_ie
-#define encode_inactivity_detection_time encode_u32_ie
+#define format_pfcp_ie_inactivity_detection_time format_u32_ie
+#define decode_pfcp_ie_inactivity_detection_time decode_u32_ie
+#define encode_pfcp_ie_inactivity_detection_time encode_u32_ie
 
 static u8 *
-format_reporting_triggers (u8 *s, va_list *args)
+format_pfcp_ie_reporting_triggers (u8 *s, va_list *args)
 {
-  pfcp_reporting_triggers_t *v = va_arg (*args, pfcp_reporting_triggers_t *);
+  pfcp_ie_reporting_triggers_t *v = va_arg (*args, pfcp_ie_reporting_triggers_t *);
 
   s = format (s,
               "PERIO:%d,VOLTH:%d,TIMTH:%d,QUHTI:%d,"
@@ -1274,8 +1274,8 @@ format_reporting_triggers (u8 *s, va_list *args)
   return s;
 }
 
-#define decode_reporting_triggers decode_u16_little_ie
-#define encode_reporting_triggers encode_u16_little_ie
+#define decode_pfcp_ie_reporting_triggers decode_u16_little_ie
+#define encode_pfcp_ie_reporting_triggers encode_u16_little_ie
 
 static char *redir_info_type[] = {
   [REDIRECT_INFORMATION_IPv4] = "IPv4",
@@ -1285,10 +1285,10 @@ static char *redir_info_type[] = {
 };
 
 u8 *
-format_pfcp_redirect_information (u8 *s, va_list *args)
+format_pfcp_ie_redirect_information (u8 *s, va_list *args)
 {
-  pfcp_redirect_information_t *n =
-    va_arg (*args, pfcp_redirect_information_t *);
+  pfcp_ie_redirect_information_t *n =
+    va_arg (*args, pfcp_ie_redirect_information_t *);
 
   switch (n->type)
     {
@@ -1313,9 +1313,9 @@ format_pfcp_redirect_information (u8 *s, va_list *args)
 }
 
 static int
-decode_redirect_information (u8 *data, u16 length, void *p)
+decode_pfcp_ie_redirect_information (u8 *data, u16 length, void *p)
 {
-  pfcp_redirect_information_t *v = p;
+  pfcp_ie_redirect_information_t *v = p;
   unformat_input_t input;
   u16 addr_len;
   int rv;
@@ -1389,9 +1389,9 @@ decode_redirect_information (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_redirect_information (void *p, u8 **vec)
+encode_pfcp_ie_redirect_information (void *p, u8 **vec)
 {
-  pfcp_redirect_information_t *v = p;
+  pfcp_ie_redirect_information_t *v = p;
   u8 *s;
 
   put_u8 (*vec, v->type);
@@ -1417,8 +1417,8 @@ encode_redirect_information (void *p, u8 **vec)
 }
 
 void
-cpy_redirect_information (pfcp_redirect_information_t *dst,
-                          pfcp_redirect_information_t *src)
+copy_pfcp_ie_redirect_information (pfcp_ie_redirect_information_t *dst,
+                          pfcp_ie_redirect_information_t *src)
 {
   dst->type = src->type;
 
@@ -1437,9 +1437,9 @@ cpy_redirect_information (pfcp_redirect_information_t *dst,
 }
 
 void
-free_pfcp_redirect_information (void *p)
+free_pfcp_ie_redirect_information (void *p)
 {
-  pfcp_redirect_information_t *v = p;
+  pfcp_ie_redirect_information_t *v = p;
 
   if (v->type == REDIRECT_INFORMATION_HTTP ||
       v->type == REDIRECT_INFORMATION_SIP)
@@ -1447,9 +1447,9 @@ free_pfcp_redirect_information (void *p)
 }
 
 static u8 *
-format_report_type (u8 *s, va_list *args)
+format_pfcp_ie_report_type (u8 *s, va_list *args)
 {
-  pfcp_report_type_t *v = va_arg (*args, pfcp_report_type_t *);
+  pfcp_ie_report_type_t *v = va_arg (*args, pfcp_ie_report_type_t *);
 
   return format (s, "DLDR:%d,USAR:%d,ERIR:%d,UPIR:%d,PMIR:%d,SESR:%d,UISR:%d",
                  !!(*v & REPORT_TYPE_DLDR), !!(*v & REPORT_TYPE_USAR),
@@ -1458,25 +1458,25 @@ format_report_type (u8 *s, va_list *args)
                  !!(*v & REPORT_TYPE_UISR));
 }
 
-#define decode_report_type decode_u8_ie
-#define encode_report_type encode_u8_ie
+#define decode_pfcp_ie_report_type decode_u8_ie
+#define encode_pfcp_ie_report_type encode_u8_ie
 
-#define format_offending_ie format_u16_ie
-#define decode_offending_ie decode_u16_ie
-#define encode_offending_ie encode_u16_ie
+#define format_pfcp_ie_offending_ie format_u16_ie
+#define decode_pfcp_ie_offending_ie decode_u16_ie
+#define encode_pfcp_ie_offending_ie encode_u16_ie
 
 static u8 *
-format_forwarding_policy (u8 *s, va_list *args)
+format_pfcp_ie_forwarding_policy (u8 *s, va_list *args)
 {
-  pfcp_forwarding_policy_t *v = va_arg (*args, pfcp_forwarding_policy_t *);
+  pfcp_ie_forwarding_policy_t *v = va_arg (*args, pfcp_ie_forwarding_policy_t *);
 
   return format (s, "%v", v->identifier);
 }
 
 static int
-decode_forwarding_policy (u8 *data, u16 length, void *p)
+decode_pfcp_ie_forwarding_policy (u8 *data, u16 length, void *p)
 {
-  pfcp_forwarding_policy_t *v = p;
+  pfcp_ie_forwarding_policy_t *v = p;
   u8 fpi_len;
 
   if (length < 1)
@@ -1494,9 +1494,9 @@ decode_forwarding_policy (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_forwarding_policy (void *p, u8 **vec)
+encode_pfcp_ie_forwarding_policy (void *p, u8 **vec)
 {
-  pfcp_forwarding_policy_t *v = p;
+  pfcp_ie_forwarding_policy_t *v = p;
 
   put_u8 (*vec, vec_len (v->identifier));
   vec_append (*vec, v->identifier);
@@ -1505,9 +1505,9 @@ encode_forwarding_policy (void *p, u8 **vec)
 }
 
 void
-free_forwarding_policy (void *p)
+free_pfcp_ie_forwarding_policy (void *p)
 {
-  pfcp_forwarding_policy_t *v = p;
+  pfcp_ie_forwarding_policy_t *v = p;
   vec_free (v->identifier);
 }
 
@@ -1523,18 +1523,18 @@ static char *destination_interface_name[] = {
 /* clang-format on */
 
 static u8 *
-format_destination_interface (u8 *s, va_list *args)
+format_pfcp_ie_destination_interface (u8 *s, va_list *args)
 {
-  pfcp_destination_interface_t *v =
-    va_arg (*args, pfcp_destination_interface_t *);
+  pfcp_ie_destination_interface_t *v =
+    va_arg (*args, pfcp_ie_destination_interface_t *);
 
   return format (s, "%s", destination_interface_name[*v]);
 }
 
 static int
-decode_destination_interface (u8 *data, u16 length, void *p)
+decode_pfcp_ie_destination_interface (u8 *data, u16 length, void *p)
 {
-  pfcp_destination_interface_t *v = p;
+  pfcp_ie_destination_interface_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -1547,19 +1547,19 @@ decode_destination_interface (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_destination_interface (void *p, u8 **vec)
+encode_pfcp_ie_destination_interface (void *p, u8 **vec)
 {
-  pfcp_destination_interface_t *v = p;
+  pfcp_ie_destination_interface_t *v = p;
 
   put_u8 (*vec, *v);
   return 0;
 }
 
 static u8 *
-format_up_function_features (u8 *s, va_list *args)
+format_pfcp_ie_up_function_features (u8 *s, va_list *args)
 {
-  pfcp_up_function_features_t *v =
-    va_arg (*args, pfcp_up_function_features_t *);
+  pfcp_ie_up_function_features_t *v =
+    va_arg (*args, pfcp_ie_up_function_features_t *);
 
   return format (
     s,
@@ -1587,7 +1587,7 @@ format_up_function_features (u8 *s, va_list *args)
 }
 
 static int
-decode_up_function_features (u8 *data, u16 length, void *p)
+decode_pfcp_ie_up_function_features (u8 *data, u16 length, void *p)
 {
   u64 *v = p;
 
@@ -1615,7 +1615,7 @@ decode_up_function_features (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_up_function_features (void *p, u8 **vec)
+encode_pfcp_ie_up_function_features (void *p, u8 **vec)
 {
   u64 *v = p;
 
@@ -1627,9 +1627,9 @@ encode_up_function_features (void *p, u8 **vec)
 }
 
 static u8 *
-format_apply_action (u8 *s, va_list *args)
+format_pfcp_ie_apply_action (u8 *s, va_list *args)
 {
-  pfcp_apply_action_t *v = va_arg (*args, pfcp_apply_action_t *);
+  pfcp_ie_apply_action_t *v = va_arg (*args, pfcp_ie_apply_action_t *);
 
   return format (s, "DROP:%d,FORW:%d,BUFF:%d,NOCP:%d,DUPL:%d,IPMA:%d,IPMD:%d",
                  !!(*v & F_APPLY_DROP), !!(*v & F_APPLY_FORW),
@@ -1638,14 +1638,14 @@ format_apply_action (u8 *s, va_list *args)
                  !!(*v & F_APPLY_IPMD));
 }
 
-#define decode_apply_action decode_u8_ie
-#define encode_apply_action encode_u8_ie
+#define decode_pfcp_ie_apply_action decode_u8_ie
+#define encode_pfcp_ie_apply_action encode_u8_ie
 
 static u8 *
-format_downlink_data_service_information (u8 *s, va_list *args)
+format_pfcp_ie_downlink_data_service_information (u8 *s, va_list *args)
 {
-  pfcp_downlink_data_service_information_t *v =
-    va_arg (*args, pfcp_downlink_data_service_information_t *);
+  pfcp_ie_downlink_data_service_information_t *v =
+    va_arg (*args, pfcp_ie_downlink_data_service_information_t *);
 
   if (v->flags & F_DDSI_PPI)
     s = format (s, "PPI:0x%02x", v->paging_policy_indication);
@@ -1661,9 +1661,9 @@ format_downlink_data_service_information (u8 *s, va_list *args)
 }
 
 static int
-decode_downlink_data_service_information (u8 *data, u16 length, void *p)
+decode_pfcp_ie_downlink_data_service_information (u8 *data, u16 length, void *p)
 {
-  pfcp_downlink_data_service_information_t *v = p;
+  pfcp_ie_downlink_data_service_information_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -1693,9 +1693,9 @@ decode_downlink_data_service_information (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_downlink_data_service_information (void *p, u8 **vec)
+encode_pfcp_ie_downlink_data_service_information (void *p, u8 **vec)
 {
-  pfcp_downlink_data_service_information_t *v = p;
+  pfcp_ie_downlink_data_service_information_t *v = p;
 
   put_u8 (*vec, v->flags);
   if (v->flags & F_DDSI_PPI)
@@ -1706,27 +1706,27 @@ encode_downlink_data_service_information (void *p, u8 **vec)
   return 0;
 }
 
-#define format_downlink_data_notification_delay format_u8_ie
-#define decode_downlink_data_notification_delay decode_u8_ie
-#define encode_downlink_data_notification_delay encode_u8_ie
+#define format_pfcp_ie_downlink_data_notification_delay format_u8_ie
+#define decode_pfcp_ie_downlink_data_notification_delay decode_u8_ie
+#define encode_pfcp_ie_downlink_data_notification_delay encode_u8_ie
 
-#define format_dl_buffering_duration format_timer_ie
-#define decode_dl_buffering_duration decode_timer_ie
-#define encode_dl_buffering_duration encode_timer_ie
+#define format_pfcp_ie_dl_buffering_duration format_pfcp_ie_timer
+#define decode_pfcp_ie_dl_buffering_duration decode_pfcp_ie_timer
+#define encode_pfcp_ie_dl_buffering_duration encode_pfcp_ie_timer
 
 static u8 *
-format_dl_buffering_suggested_packet_count (u8 *s, va_list *args)
+format_pfcp_ie_dl_buffering_suggested_packet_count (u8 *s, va_list *args)
 {
-  pfcp_dl_buffering_suggested_packet_count_t *v =
-    va_arg (*args, pfcp_dl_buffering_suggested_packet_count_t *);
+  pfcp_ie_dl_buffering_suggested_packet_count_t *v =
+    va_arg (*args, pfcp_ie_dl_buffering_suggested_packet_count_t *);
 
   return format (s, "%u", v);
 }
 
 static int
-decode_dl_buffering_suggested_packet_count (u8 *data, u16 length, void *p)
+decode_pfcp_ie_dl_buffering_suggested_packet_count (u8 *data, u16 length, void *p)
 {
-  pfcp_dl_buffering_suggested_packet_count_t *v = p;
+  pfcp_ie_dl_buffering_suggested_packet_count_t *v = p;
 
   switch (length)
     {
@@ -1744,9 +1744,9 @@ decode_dl_buffering_suggested_packet_count (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_dl_buffering_suggested_packet_count (void *p, u8 **vec)
+encode_pfcp_ie_dl_buffering_suggested_packet_count (void *p, u8 **vec)
 {
-  pfcp_dl_buffering_suggested_packet_count_t *v = p;
+  pfcp_ie_dl_buffering_suggested_packet_count_t *v = p;
 
   if (*v < 256)
     put_u8 (*vec, *v);
@@ -1757,48 +1757,44 @@ encode_dl_buffering_suggested_packet_count (void *p, u8 **vec)
 }
 
 static u8 *
-format_pfcpsmreq_flags (u8 *s, va_list *args)
+format_pfcp_ie_pfcpsmreq_flags (u8 *s, va_list *args)
 {
-  pfcp_pfcpsmreq_flags_t *v = va_arg (*args, pfcp_pfcpsmreq_flags_t *);
+  pfcp_ie_pfcpsmreq_flags_t *v = va_arg (*args, pfcp_ie_pfcpsmreq_flags_t *);
 
   return format (s, "DROBU:%d,SNDEM:%d,QUARR:%d", !!(*v & PFCPSMREQ_DROBU),
                  !!(*v & PFCPSMREQ_SNDEM), !!(*v & PFCPSMREQ_QAURR));
 }
 
-#define decode_pfcpsmreq_flags decode_u8_ie
-#define encode_pfcpsmreq_flags encode_u8_ie
+#define decode_pfcp_ie_pfcpsmreq_flags decode_u8_ie
+#define encode_pfcp_ie_pfcpsmreq_flags encode_u8_ie
 
 static u8 *
-format_pfcpsrrsp_flags (u8 *s, va_list *args)
+format_pfcp_ie_pfcpsrrsp_flags (u8 *s, va_list *args)
 {
-  pfcp_pfcpsrrsp_flags_t *v = va_arg (*args, pfcp_pfcpsrrsp_flags_t *);
+  pfcp_ie_pfcpsrrsp_flags_t *v = va_arg (*args, pfcp_ie_pfcpsrrsp_flags_t *);
 
   return format (s, "DROBU:%d", !!(*v & PFCPSRRSP_DROBU));
 }
 
-#define decode_pfcpsrrsp_flags decode_u8_ie
-#define encode_pfcpsrrsp_flags encode_u8_ie
+#define decode_pfcp_ie_pfcpsrrsp_flags decode_u8_ie
+#define encode_pfcp_ie_pfcpsrrsp_flags encode_u8_ie
 
-#define format_sequence_number format_u32_ie
-#define decode_sequence_number decode_u32_ie
-#define encode_sequence_number encode_u32_ie
+#define format_pfcp_ie_sequence_number format_u32_ie
+#define decode_pfcp_ie_sequence_number decode_u32_ie
+#define encode_pfcp_ie_sequence_number encode_u32_ie
 
-#define format_metric format_u8_ie
-#define decode_metric decode_u8_ie
-#define encode_metric encode_u8_ie
+#define format_pfcp_ie_metric format_u8_ie
+#define decode_pfcp_ie_metric decode_u8_ie
+#define encode_pfcp_ie_metric encode_u8_ie
 
-#define format_timer format_timer_ie
-#define decode_timer decode_timer_ie
-#define encode_timer encode_timer_ie
-
-#define format_pdr_id format_u16_ie
-#define decode_pdr_id decode_u16_ie
-#define encode_pdr_id encode_u16_ie
+#define format_pfcp_ie_pdr_id format_u16_ie
+#define decode_pfcp_ie_pdr_id decode_u16_ie
+#define encode_pfcp_ie_pdr_id encode_u16_ie
 
 u8 *
-format_pfcp_f_seid (u8 *s, va_list *args)
+format_pfcp_ie_f_seid (u8 *s, va_list *args)
 {
-  pfcp_f_seid_t *n = va_arg (*args, pfcp_f_seid_t *);
+  pfcp_ie_f_seid_t *n = va_arg (*args, pfcp_ie_f_seid_t *);
 
   s = format (s, "0x%016" PRIx64 "@", n->seid);
 
@@ -1822,9 +1818,9 @@ format_pfcp_f_seid (u8 *s, va_list *args)
 }
 
 static int
-decode_f_seid (u8 *data, u16 length, void *p)
+decode_pfcp_ie_f_seid (u8 *data, u16 length, void *p)
 {
-  pfcp_f_seid_t *v = p;
+  pfcp_ie_f_seid_t *v = p;
 
   if (length < 9)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -1859,9 +1855,9 @@ decode_f_seid (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_f_seid (void *p, u8 **vec)
+encode_pfcp_ie_f_seid (void *p, u8 **vec)
 {
-  pfcp_f_seid_t *v = p;
+  pfcp_ie_f_seid_t *v = p;
 
   put_u8 (*vec, v->flags);
   put_u64 (*vec, v->seid);
@@ -1876,9 +1872,9 @@ encode_f_seid (void *p, u8 **vec)
 }
 
 u8 *
-format_pfcp_node_id (u8 *s, va_list *args)
+format_pfcp_ie_node_id (u8 *s, va_list *args)
 {
-  pfcp_node_id_t *n = va_arg (*args, pfcp_node_id_t *);
+  pfcp_ie_node_id_t *n = va_arg (*args, pfcp_ie_node_id_t *);
 
   switch (n->type)
     {
@@ -1895,9 +1891,9 @@ format_pfcp_node_id (u8 *s, va_list *args)
 }
 
 static int
-decode_node_id (u8 *data, u16 length, void *p)
+decode_pfcp_ie_node_id (u8 *data, u16 length, void *p)
 {
-  pfcp_node_id_t *v = p;
+  pfcp_ie_node_id_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -1931,9 +1927,9 @@ decode_node_id (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_node_id (void *p, u8 **vec)
+encode_pfcp_ie_node_id (void *p, u8 **vec)
 {
-  pfcp_node_id_t *v = p;
+  pfcp_ie_node_id_t *v = p;
 
   put_u8 (*vec, v->type);
 
@@ -1956,18 +1952,18 @@ encode_node_id (void *p, u8 **vec)
 }
 
 void
-free_pfcp_node_id (void *p)
+free_pfcp_ie_node_id (void *p)
 {
-  pfcp_node_id_t *v = p;
+  pfcp_ie_node_id_t *v = p;
 
   if (v->type == NID_FQDN)
     vec_free (v->fqdn);
 }
 
 static u8 *
-format_pfd_contents (u8 *s0, va_list *args)
+format_pfcp_ie_pfd_contents (u8 *s0, va_list *args)
 {
-  pfcp_pfd_contents_t *v = va_arg (*args, pfcp_pfd_contents_t *);
+  pfcp_ie_pfd_contents_t *v = va_arg (*args, pfcp_ie_pfd_contents_t *);
   u8 *s = s0;
 
   if (vec_len (v->flow_description) > 0)
@@ -1990,9 +1986,9 @@ format_pfd_contents (u8 *s0, va_list *args)
 }
 
 static int
-decode_pfd_contents (u8 *data, u16 length, void *p)
+decode_pfcp_ie_pfd_contents (u8 *data, u16 length, void *p)
 {
-  pfcp_pfd_contents_t *v = p;
+  pfcp_ie_pfd_contents_t *v = p;
   u8 flags;
   u16 len;
 
@@ -2082,9 +2078,9 @@ decode_pfd_contents (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_pfd_contents (void *p, u8 **vec)
+encode_pfcp_ie_pfd_contents (void *p, u8 **vec)
 {
-  pfcp_pfd_contents_t *v = p;
+  pfcp_ie_pfd_contents_t *v = p;
   u8 flags;
 
   flags = ((vec_len (v->flow_description) > 0) ? F_PFD_C_FD : 0) |
@@ -2124,9 +2120,9 @@ encode_pfd_contents (void *p, u8 **vec)
 }
 
 static void
-free_pfd_contents (void *p)
+free_pfcp_ie_pfd_contents (void *p)
 {
-  pfcp_pfd_contents_t *v = p;
+  pfcp_ie_pfd_contents_t *v = p;
 
   vec_free (v->flow_description);
   vec_free (v->url);
@@ -2136,9 +2132,9 @@ free_pfd_contents (void *p)
 }
 
 static u8 *
-format_measurement_method (u8 *s, va_list *args)
+format_pfcp_ie_measurement_method (u8 *s, va_list *args)
 {
-  pfcp_measurement_method_t *v = va_arg (*args, pfcp_measurement_method_t *);
+  pfcp_ie_measurement_method_t *v = va_arg (*args, pfcp_ie_measurement_method_t *);
 
   s = format (
     s, "DURAT:%d,VOLUM:%d,EVENT:%d", !!(*v & MEASUREMENT_METHOD_DURATION),
@@ -2146,14 +2142,14 @@ format_measurement_method (u8 *s, va_list *args)
   return s;
 }
 
-#define decode_measurement_method decode_u8_ie
-#define encode_measurement_method encode_u8_ie
+#define decode_pfcp_ie_measurement_method decode_u8_ie
+#define encode_pfcp_ie_measurement_method encode_u8_ie
 
 static u8 *
-format_usage_report_trigger (u8 *s, va_list *args)
+format_pfcp_ie_usage_report_trigger (u8 *s, va_list *args)
 {
-  pfcp_usage_report_trigger_t *v =
-    va_arg (*args, pfcp_usage_report_trigger_t *);
+  pfcp_ie_usage_report_trigger_t *v =
+    va_arg (*args, pfcp_ie_usage_report_trigger_t *);
 
   s = format (s,
               "PERIO:%d,VOLTH:%d,TIMTH:%d,QUHTI:%d,"
@@ -2185,7 +2181,7 @@ format_usage_report_trigger (u8 *s, va_list *args)
 }
 
 static int
-decode_usage_report_trigger (u8 *data, u16 length, void *p)
+decode_pfcp_ie_usage_report_trigger (u8 *data, u16 length, void *p)
 {
   u64 *v = p;
 
@@ -2202,7 +2198,7 @@ decode_usage_report_trigger (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_usage_report_trigger (void *p, u8 **vec)
+encode_pfcp_ie_usage_report_trigger (void *p, u8 **vec)
 {
   u32 *v = p;
 
@@ -2212,14 +2208,14 @@ encode_usage_report_trigger (void *p, u8 **vec)
   return 0;
 }
 
-#define format_measurement_period format_u32_ie
-#define decode_measurement_period decode_u32_ie
-#define encode_measurement_period encode_u32_ie
+#define format_pfcp_ie_measurement_period format_u32_ie
+#define decode_pfcp_ie_measurement_period decode_u32_ie
+#define encode_pfcp_ie_measurement_period encode_u32_ie
 
 static u8 *
-format_fq_csid (u8 *s, va_list *args)
+format_pfcp_ie_fq_csid (u8 *s, va_list *args)
 {
-  pfcp_fq_csid_t *v = va_arg (*args, pfcp_fq_csid_t *);
+  pfcp_ie_fq_csid_t *v = va_arg (*args, pfcp_ie_fq_csid_t *);
   u16 *csid;
 
   switch (v->node_id_type)
@@ -2251,9 +2247,9 @@ format_fq_csid (u8 *s, va_list *args)
 }
 
 static int
-decode_fq_csid (u8 *data, u16 length, void *p)
+decode_pfcp_ie_fq_csid (u8 *data, u16 length, void *p)
 {
-  pfcp_fq_csid_t *v = p;
+  pfcp_ie_fq_csid_t *v = p;
   u32 id;
   u8 n;
 
@@ -2307,9 +2303,9 @@ decode_fq_csid (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_fq_csid (void *p, u8 **vec)
+encode_pfcp_ie_fq_csid (void *p, u8 **vec)
 {
-  pfcp_fq_csid_t *v = p;
+  pfcp_ie_fq_csid_t *v = p;
   u16 *csid;
 
   put_u8 (*vec, (v->node_id_type << 4) | (vec_len (v->csid) & 0x0f));
@@ -2339,9 +2335,9 @@ encode_fq_csid (void *p, u8 **vec)
 }
 
 static u8 *
-format_volume_measurement (u8 *s, va_list *args)
+format_pfcp_ie_volume_measurement (u8 *s, va_list *args)
 {
-  pfcp_volume_measurement_t *v = va_arg (*args, pfcp_volume_measurement_t *);
+  pfcp_ie_volume_measurement_t *v = va_arg (*args, pfcp_ie_volume_measurement_t *);
 
   return format (s, "V:[T:%d,U:%d,D:%d],P:[T:%d,U:%d,D:%d]", v->volume.total,
                  v->volume.ul, v->volume.dl, v->packets.total, v->packets.ul,
@@ -2349,9 +2345,9 @@ format_volume_measurement (u8 *s, va_list *args)
 }
 
 static int
-decode_volume_measurement (u8 *data, u16 length, void *p)
+decode_pfcp_ie_volume_measurement (u8 *data, u16 length, void *p)
 {
-  pfcp_volume_measurement_t *v = (pfcp_volume_measurement_t *) p;
+  pfcp_ie_volume_measurement_t *v = (pfcp_ie_volume_measurement_t *) p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -2378,9 +2374,9 @@ decode_volume_measurement (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_volume_measurement (void *p, u8 **vec)
+encode_pfcp_ie_volume_measurement (void *p, u8 **vec)
 {
-  pfcp_volume_measurement_t *v = (pfcp_volume_measurement_t *) p;
+  pfcp_ie_volume_measurement_t *v = (pfcp_ie_volume_measurement_t *) p;
 
   put_u8 (*vec, v->fields);
 
@@ -2400,27 +2396,27 @@ encode_volume_measurement (void *p, u8 **vec)
   return 0;
 }
 
-#define format_duration_measurement format_u32_ie
-#define decode_duration_measurement decode_u32_ie
-#define encode_duration_measurement encode_u32_ie
+#define format_pfcp_ie_duration_measurement format_u32_ie
+#define decode_pfcp_ie_duration_measurement decode_u32_ie
+#define encode_pfcp_ie_duration_measurement encode_u32_ie
 
-#define format_time_of_first_packet format_time_stamp
-#define decode_time_of_first_packet decode_time_stamp_ie
-#define encode_time_of_first_packet encode_time_stamp_ie
+#define format_pfcp_ie_time_of_first_packet format_time_stamp
+#define decode_pfcp_ie_time_of_first_packet decode_time_stamp
+#define encode_pfcp_ie_time_of_first_packet encode_time_stamp
 
-#define format_time_of_last_packet format_time_stamp
-#define decode_time_of_last_packet decode_time_stamp_ie
-#define encode_time_of_last_packet encode_time_stamp_ie
+#define format_pfcp_ie_time_of_last_packet format_time_stamp
+#define decode_pfcp_ie_time_of_last_packet decode_time_stamp
+#define encode_pfcp_ie_time_of_last_packet encode_time_stamp
 
-#define format_quota_holding_time format_u32_ie
-#define decode_quota_holding_time decode_u32_ie
-#define encode_quota_holding_time encode_u32_ie
+#define format_pfcp_ie_quota_holding_time format_u32_ie
+#define decode_pfcp_ie_quota_holding_time decode_u32_ie
+#define encode_pfcp_ie_quota_holding_time encode_u32_ie
 
 static u8 *
-format_dropped_dl_traffic_threshold (u8 *s, va_list *args)
+format_pfcp_ie_dropped_dl_traffic_threshold (u8 *s, va_list *args)
 {
-  pfcp_dropped_dl_traffic_threshold_t *v =
-    va_arg (*args, pfcp_dropped_dl_traffic_threshold_t *);
+  pfcp_ie_dropped_dl_traffic_threshold_t *v =
+    va_arg (*args, pfcp_ie_dropped_dl_traffic_threshold_t *);
 
   if (v->flags & DDTT_DLPA)
     s = format (s, "DLPA:%lu", v->downlink_packets);
@@ -2437,9 +2433,9 @@ format_dropped_dl_traffic_threshold (u8 *s, va_list *args)
 }
 
 static int
-decode_dropped_dl_traffic_threshold (u8 *data, u16 length, void *p)
+decode_pfcp_ie_dropped_dl_traffic_threshold (u8 *data, u16 length, void *p)
 {
-  pfcp_dropped_dl_traffic_threshold_t *v = p;
+  pfcp_ie_dropped_dl_traffic_threshold_t *v = p;
 
   if (length < 2)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -2469,9 +2465,9 @@ decode_dropped_dl_traffic_threshold (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_dropped_dl_traffic_threshold (void *p, u8 **vec)
+encode_pfcp_ie_dropped_dl_traffic_threshold (void *p, u8 **vec)
 {
-  pfcp_dropped_dl_traffic_threshold_t *v = p;
+  pfcp_ie_dropped_dl_traffic_threshold_t *v = p;
 
   put_u8 (*vec, v->flags);
   if (v->flags & DDTT_DLBY)
@@ -2482,29 +2478,29 @@ encode_dropped_dl_traffic_threshold (void *p, u8 **vec)
   return 0;
 }
 
-#define format_volume_quota format_volume_ie
-#define decode_volume_quota decode_volume_ie
-#define encode_volume_quota encode_volume_ie
+#define format_pfcp_ie_volume_quota format_pfcp_ie_volume
+#define decode_pfcp_ie_volume_quota decode_pfcp_ie_volume
+#define encode_pfcp_ie_volume_quota encode_pfcp_ie_volume
 
-#define format_time_quota format_u32_ie
-#define decode_time_quota decode_u32_ie
-#define encode_time_quota encode_u32_ie
+#define format_pfcp_ie_time_quota format_u32_ie
+#define decode_pfcp_ie_time_quota decode_u32_ie
+#define encode_pfcp_ie_time_quota encode_u32_ie
 
-#define format_start_time format_time_stamp
-#define decode_start_time decode_time_stamp_ie
-#define encode_start_time encode_time_stamp_ie
+#define format_pfcp_ie_start_time format_time_stamp
+#define decode_pfcp_ie_start_time decode_time_stamp
+#define encode_pfcp_ie_start_time encode_time_stamp
 
-#define format_end_time format_time_stamp
-#define decode_end_time decode_time_stamp_ie
-#define encode_end_time encode_time_stamp_ie
+#define format_pfcp_ie_end_time format_time_stamp
+#define decode_pfcp_ie_end_time decode_time_stamp
+#define encode_pfcp_ie_end_time encode_time_stamp
 
-#define format_urr_id format_u32_ie
-#define decode_urr_id decode_u32_ie
-#define encode_urr_id encode_u32_ie
+#define format_pfcp_ie_urr_id format_u32_ie
+#define decode_pfcp_ie_urr_id decode_u32_ie
+#define encode_pfcp_ie_urr_id encode_u32_ie
 
-#define format_linked_urr_id format_u32_ie
-#define decode_linked_urr_id decode_u32_ie
-#define encode_linked_urr_id encode_u32_ie
+#define format_pfcp_ie_linked_urr_id format_u32_ie
+#define decode_pfcp_ie_linked_urr_id decode_u32_ie
+#define encode_pfcp_ie_linked_urr_id encode_u32_ie
 
 static const char *outer_header_creation_description_flags[] = {
   "GTP-U/UDP/IPv4", "GTP-U/UDP/IPv6", "UDP/IPv4", "UDP/IPv6",
@@ -2513,10 +2509,10 @@ static const char *outer_header_creation_description_flags[] = {
 };
 
 u8 *
-format_pfcp_outer_header_creation (u8 *s, va_list *args)
+format_pfcp_ie_outer_header_creation (u8 *s, va_list *args)
 {
-  pfcp_outer_header_creation_t *v =
-    va_arg (*args, pfcp_outer_header_creation_t *);
+  pfcp_ie_outer_header_creation_t *v =
+    va_arg (*args, pfcp_ie_outer_header_creation_t *);
 
   s = format (s, "%U", format_pfcp_flags, (u64) v->description,
               outer_header_creation_description_flags);
@@ -2584,9 +2580,9 @@ format_pfcp_tbcd (u8 *s, va_list *args)
 }
 
 static int
-decode_outer_header_creation (u8 *data, u16 length, void *p)
+decode_pfcp_ie_outer_header_creation (u8 *data, u16 length, void *p)
 {
-  pfcp_outer_header_creation_t *v = p;
+  pfcp_ie_outer_header_creation_t *v = p;
 
   if (length < 2)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -2655,9 +2651,9 @@ decode_outer_header_creation (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_outer_header_creation (void *p, u8 **vec)
+encode_pfcp_ie_outer_header_creation (void *p, u8 **vec)
 {
-  pfcp_outer_header_creation_t *v = p;
+  pfcp_ie_outer_header_creation_t *v = p;
 
   put_u16_little (*vec, v->description);
 
@@ -2682,15 +2678,15 @@ encode_outer_header_creation (void *p, u8 **vec)
   return 0;
 }
 
-#define format_bar_id format_u8_ie
-#define decode_bar_id decode_u8_ie
-#define encode_bar_id encode_u8_ie
+#define format_pfcp_ie_bar_id format_u8_ie
+#define decode_pfcp_ie_bar_id decode_u8_ie
+#define encode_pfcp_ie_bar_id encode_u8_ie
 
 static u8 *
-format_cp_function_features (u8 *s, va_list *args)
+format_pfcp_ie_cp_function_features (u8 *s, va_list *args)
 {
-  pfcp_cp_function_features_t *v =
-    va_arg (*args, pfcp_cp_function_features_t *);
+  pfcp_ie_cp_function_features_t *v =
+    va_arg (*args, pfcp_ie_cp_function_features_t *);
 
   return format (s,
                  "LOAD:%d,OVRL:%d,EPFAR:%d,SSET:%d,"
@@ -2701,13 +2697,13 @@ format_cp_function_features (u8 *s, va_list *args)
                  !!(*v & F_CPFF_ARDR));
 }
 
-#define decode_cp_function_features decode_u8_ie
-#define encode_cp_function_features encode_u8_ie
+#define decode_pfcp_ie_cp_function_features decode_u8_ie
+#define encode_pfcp_ie_cp_function_features encode_u8_ie
 
 static u8 *
-format_usage_information (u8 *s, va_list *args)
+format_pfcp_ie_usage_information (u8 *s, va_list *args)
 {
-  pfcp_usage_information_t *v = va_arg (*args, pfcp_usage_information_t *);
+  pfcp_ie_usage_information_t *v = va_arg (*args, pfcp_ie_usage_information_t *);
 
   s = format (s, "UBE:%d,UAE:%d,AFT:%d,BEF:%d",
               !!(*v & USAGE_INFORMATION_BEFORE_QoS_ENFORCEMENT),
@@ -2718,21 +2714,21 @@ format_usage_information (u8 *s, va_list *args)
   return s;
 }
 
-#define decode_usage_information decode_u8_ie
-#define encode_usage_information encode_u8_ie
+#define decode_pfcp_ie_usage_information decode_u8_ie
+#define encode_pfcp_ie_usage_information encode_u8_ie
 
-#define format_application_instance_id format_simple_vec_ie
-#define decode_application_instance_id decode_simple_vec_ie
-#define encode_application_instance_id encode_simple_vec_ie
-#define free_application_instance_id   free_simple_vec_ie
+#define format_pfcp_ie_application_instance_id format_simple_vec_ie
+#define decode_pfcp_ie_application_instance_id decode_simple_vec_ie
+#define encode_pfcp_ie_application_instance_id encode_simple_vec_ie
+#define free_pfcp_ie_application_instance_id   free_simple_vec_ie
 
 static const char *flow_direction[] = { "Unspecified", "Downlink", "Uplink",
                                         "Bidirectional", NULL };
 
 static u8 *
-format_flow_information (u8 *s, va_list *args)
+format_pfcp_ie_flow_information (u8 *s, va_list *args)
 {
-  pfcp_flow_information_t *v = va_arg (*args, pfcp_flow_information_t *);
+  pfcp_ie_flow_information_t *v = va_arg (*args, pfcp_ie_flow_information_t *);
 
   return format (s, "Direction:%U,FD:%v", format_pfcp_enum, (u64) v->direction,
                  flow_direction, ARRAY_LEN (flow_direction),
@@ -2740,9 +2736,9 @@ format_flow_information (u8 *s, va_list *args)
 }
 
 static int
-decode_flow_information (u8 *data, u16 length, void *p)
+decode_pfcp_ie_flow_information (u8 *data, u16 length, void *p)
 {
-  pfcp_flow_information_t *v = p;
+  pfcp_ie_flow_information_t *v = p;
   u16 len;
 
   if (length < 3)
@@ -2762,9 +2758,9 @@ decode_flow_information (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_flow_information (void *p, u8 **vec)
+encode_pfcp_ie_flow_information (void *p, u8 **vec)
 {
-  pfcp_flow_information_t *v = p;
+  pfcp_ie_flow_information_t *v = p;
 
   put_u8 (*vec, v->direction);
   put_u16 (*vec, vec_len (v->flow_description));
@@ -2774,17 +2770,17 @@ encode_flow_information (void *p, u8 **vec)
 }
 
 static void
-free_flow_information (void *p)
+free_pfcp_ie_flow_information (void *p)
 {
-  pfcp_flow_information_t *v = p;
+  pfcp_ie_flow_information_t *v = p;
 
   vec_free (v->flow_description);
 }
 
 u8 *
-format_pfcp_ue_ip_address (u8 *s, va_list *args)
+format_pfcp_ie_ue_ip_address (u8 *s, va_list *args)
 {
-  pfcp_ue_ip_address_t *v = va_arg (*args, pfcp_ue_ip_address_t *);
+  pfcp_ie_ue_ip_address_t *v = va_arg (*args, pfcp_ie_ue_ip_address_t *);
 
   s = format (s, "S/D:%d,CHv4:%d,CHv6:%d", !!(v->flags & IE_UE_IP_ADDRESS_SD),
               !!(v->flags & IE_UE_IP_ADDRESS_CHV4),
@@ -2804,9 +2800,9 @@ format_pfcp_ue_ip_address (u8 *s, va_list *args)
 }
 
 static int
-decode_ue_ip_address (u8 *data, u16 length, void *p)
+decode_pfcp_ie_ue_ip_address (u8 *data, u16 length, void *p)
 {
-  pfcp_ue_ip_address_t *v = p;
+  pfcp_ie_ue_ip_address_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -2853,9 +2849,9 @@ decode_ue_ip_address (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_ue_ip_address (void *p, u8 **vec)
+encode_pfcp_ie_ue_ip_address (void *p, u8 **vec)
 {
-  pfcp_ue_ip_address_t *v = p;
+  pfcp_ie_ue_ip_address_t *v = p;
 
   put_u8 (*vec, v->flags);
   if (v->flags & IE_UE_IP_ADDRESS_V4)
@@ -2872,9 +2868,9 @@ encode_ue_ip_address (void *p, u8 **vec)
 }
 
 static u8 *
-format_packet_rate_t (u8 *s, va_list *args)
+format_pfcp_ie_packet_rate_t (u8 *s, va_list *args)
 {
-  packet_rate_t *v = va_arg (*args, packet_rate_t *);
+  pfcp_packet_rate_t *v = va_arg (*args, pfcp_packet_rate_t *);
 
   switch (v->unit)
     {
@@ -2899,30 +2895,30 @@ format_packet_rate_t (u8 *s, va_list *args)
 }
 
 static u8 *
-format_packet_rate (u8 *s, va_list *args)
+format_pfcp_ie_packet_rate (u8 *s, va_list *args)
 {
-  pfcp_packet_rate_t *v = va_arg (*args, pfcp_packet_rate_t *);
+  pfcp_ie_packet_rate_t *v = va_arg (*args, pfcp_ie_packet_rate_t *);
 
   s = format (s, "RCSR:%d", !!(v->flags & PACKET_RATE_RCSR));
 
   if (v->flags & PACKET_RATE_ULPR)
-    s = format (s, ",UL:%U", format_packet_rate_t, &v->ul);
+    s = format (s, ",UL:%U", format_pfcp_ie_packet_rate_t, &v->ul);
   if (v->flags & PACKET_RATE_DLPR)
-    s = format (s, ",DL:%U", format_packet_rate_t, &v->dl);
+    s = format (s, ",DL:%U", format_pfcp_ie_packet_rate_t, &v->dl);
   if (v->flags & PACKET_RATE_APRC)
     {
       if (v->flags & PACKET_RATE_ULPR)
-        s = format (s, ",A-UL:%U", format_packet_rate_t, &v->a_ul);
+        s = format (s, ",A-UL:%U", format_pfcp_ie_packet_rate_t, &v->a_ul);
       if (v->flags & PACKET_RATE_DLPR)
-        s = format (s, ",A-DL:%U", format_packet_rate_t, &v->a_dl);
+        s = format (s, ",A-DL:%U", format_pfcp_ie_packet_rate_t, &v->a_dl);
     }
   return s;
 }
 
 static int
-decode_packet_rate (u8 *data, u16 length, void *p)
+decode_pfcp_ie_packet_rate (u8 *data, u16 length, void *p)
 {
-  pfcp_packet_rate_t *v = p;
+  pfcp_ie_packet_rate_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -2977,9 +2973,9 @@ decode_packet_rate (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_packet_rate (void *p, u8 **vec)
+encode_pfcp_ie_packet_rate (void *p, u8 **vec)
 {
-  pfcp_packet_rate_t *v = p;
+  pfcp_ie_packet_rate_t *v = p;
 
   put_u8 (*vec, v->flags);
   if (v->flags & PACKET_RATE_ULPR)
@@ -3009,26 +3005,26 @@ encode_packet_rate (void *p, u8 **vec)
 }
 
 static u8 *
-format_outer_header_removal (u8 *s, va_list *args)
+format_pfcp_ie_outer_header_removal (u8 *s, va_list *args)
 {
-  pfcp_outer_header_removal_t *v =
-    va_arg (*args, pfcp_outer_header_removal_t *);
+  pfcp_ie_outer_header_removal_t *v =
+    va_arg (*args, pfcp_ie_outer_header_removal_t *);
 
   return format (s, "%s", *v ? "true" : "false");
 }
 
-#define decode_outer_header_removal decode_u8_ie
-#define encode_outer_header_removal encode_u8_ie
+#define decode_pfcp_ie_outer_header_removal decode_u8_ie
+#define encode_pfcp_ie_outer_header_removal encode_u8_ie
 
-#define format_recovery_time_stamp format_time_stamp
-#define decode_recovery_time_stamp decode_time_stamp_ie
-#define encode_recovery_time_stamp encode_time_stamp_ie
+#define format_pfcp_ie_recovery_time_stamp format_time_stamp
+#define decode_pfcp_ie_recovery_time_stamp decode_time_stamp
+#define encode_pfcp_ie_recovery_time_stamp encode_time_stamp
 
 static u8 *
-format_dl_flow_level_marking (u8 *s, va_list *args)
+format_pfcp_ie_dl_flow_level_marking (u8 *s, va_list *args)
 {
-  pfcp_dl_flow_level_marking_t *v =
-    va_arg (*args, pfcp_dl_flow_level_marking_t *);
+  pfcp_ie_dl_flow_level_marking_t *v =
+    va_arg (*args, pfcp_ie_dl_flow_level_marking_t *);
 
   if (v->flags & DL_FLM_TTC)
     {
@@ -3047,9 +3043,9 @@ format_dl_flow_level_marking (u8 *s, va_list *args)
 }
 
 static int
-decode_dl_flow_level_marking (u8 *data, u16 length, void *p)
+decode_pfcp_ie_dl_flow_level_marking (u8 *data, u16 length, void *p)
 {
-  pfcp_dl_flow_level_marking_t *v = p;
+  pfcp_ie_dl_flow_level_marking_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3078,9 +3074,9 @@ decode_dl_flow_level_marking (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_dl_flow_level_marking (void *p, u8 **vec)
+encode_pfcp_ie_dl_flow_level_marking (void *p, u8 **vec)
 {
-  pfcp_dl_flow_level_marking_t *v = p;
+  pfcp_ie_dl_flow_level_marking_t *v = p;
 
   put_u8 (*vec, v->flags);
 
@@ -3096,9 +3092,9 @@ encode_dl_flow_level_marking (void *p, u8 **vec)
 static const char *header_type_enum[] = { "HTTP", NULL };
 
 static u8 *
-format_header_enrichment (u8 *s, va_list *args)
+format_pfcp_ie_header_enrichment (u8 *s, va_list *args)
 {
-  pfcp_header_enrichment_t *v = va_arg (*args, pfcp_header_enrichment_t *);
+  pfcp_ie_header_enrichment_t *v = va_arg (*args, pfcp_ie_header_enrichment_t *);
 
   return format (s, "%U,Name:%v,Value:%v", format_pfcp_enum, (u64) v->type,
                  header_type_enum, ARRAY_LEN (header_type_enum), v->name,
@@ -3106,9 +3102,9 @@ format_header_enrichment (u8 *s, va_list *args)
 }
 
 static int
-decode_header_enrichment (u8 *data, u16 length, void *p)
+decode_pfcp_ie_header_enrichment (u8 *data, u16 length, void *p)
 {
-  pfcp_header_enrichment_t *v = p;
+  pfcp_ie_header_enrichment_t *v = p;
   u16 len;
 
   if (length < 1)
@@ -3145,9 +3141,9 @@ decode_header_enrichment (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_header_enrichment (void *p, u8 **vec)
+encode_pfcp_ie_header_enrichment (void *p, u8 **vec)
 {
-  pfcp_header_enrichment_t *v = p;
+  pfcp_ie_header_enrichment_t *v = p;
 
   put_u8 (*vec, v->type);
   put_u16 (*vec, vec_len (v->name));
@@ -3159,10 +3155,10 @@ encode_header_enrichment (void *p, u8 **vec)
 }
 
 static u8 *
-format_measurement_information (u8 *s, va_list *args)
+format_pfcp_ie_measurement_information (u8 *s, va_list *args)
 {
-  pfcp_measurement_information_t *v =
-    va_arg (*args, pfcp_measurement_information_t *);
+  pfcp_ie_measurement_information_t *v =
+    va_arg (*args, pfcp_ie_measurement_information_t *);
 
   return format (s, "MBQE:%d,INAM:%d,RADI:%d,ISTM:%d,MNOP:%d",
                  !!(v->flags & MEASUREMENT_INFORMATION_MBQE),
@@ -3173,9 +3169,9 @@ format_measurement_information (u8 *s, va_list *args)
 }
 
 static int
-decode_measurement_information (u8 *data, u16 length, void *p)
+decode_pfcp_ie_measurement_information (u8 *data, u16 length, void *p)
 {
-  pfcp_measurement_information_t *v = p;
+  pfcp_ie_measurement_information_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3186,9 +3182,9 @@ decode_measurement_information (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_measurement_information (void *p, u8 **vec)
+encode_pfcp_ie_measurement_information (void *p, u8 **vec)
 {
-  pfcp_measurement_information_t *v = p;
+  pfcp_ie_measurement_information_t *v = p;
 
   put_u8 (*vec, v->flags);
 
@@ -3196,9 +3192,9 @@ encode_measurement_information (void *p, u8 **vec)
 }
 
 static u8 *
-format_node_report_type (u8 *s, va_list *args)
+format_pfcp_ie_node_report_type (u8 *s, va_list *args)
 {
-  pfcp_node_report_type_t *v = va_arg (*args, pfcp_node_report_type_t *);
+  pfcp_ie_node_report_type_t *v = va_arg (*args, pfcp_ie_node_report_type_t *);
 
   return format (s, "UPFR:%d,UPRR:%d,GKDR:%d,GPQR",
                  !!(v->flags & NRT_USER_PLANE_PATH_FAILURE_REPORT),
@@ -3208,9 +3204,9 @@ format_node_report_type (u8 *s, va_list *args)
 }
 
 static int
-decode_node_report_type (u8 *data, u16 length, void *p)
+decode_pfcp_ie_node_report_type (u8 *data, u16 length, void *p)
 {
-  pfcp_node_report_type_t *v = p;
+  pfcp_ie_node_report_type_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3221,9 +3217,9 @@ decode_node_report_type (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_node_report_type (void *p, u8 **vec)
+encode_pfcp_ie_node_report_type (void *p, u8 **vec)
 {
-  pfcp_node_report_type_t *v = p;
+  pfcp_ie_node_report_type_t *v = p;
 
   put_u8 (*vec, v->flags);
 
@@ -3231,13 +3227,13 @@ encode_node_report_type (void *p, u8 **vec)
 }
 
 static u8 *
-format_remote_gtp_u_peer (u8 *s, va_list *args)
+format_pfcp_ie_remote_gtp_u_peer (u8 *s, va_list *args)
 {
-  pfcp_remote_gtp_u_peer_t *v = va_arg (*args, pfcp_remote_gtp_u_peer_t *);
+  pfcp_ie_remote_gtp_u_peer_t *v = va_arg (*args, pfcp_ie_remote_gtp_u_peer_t *);
 
   s = format (s, "%U", format_ip46_address, &v->ip, IP46_TYPE_ANY);
   if (v->destination_interface < DST_INTF_NUM)
-    s = format (s, ",DI:%U", format_destination_interface,
+    s = format (s, ",DI:%U", format_pfcp_ie_destination_interface,
                 v->destination_interface);
   if (vec_len (v->network_instance) > 0)
     s = format (s, ",NI: %U", format_pfcp_dns_labels, v->network_instance);
@@ -3246,9 +3242,9 @@ format_remote_gtp_u_peer (u8 *s, va_list *args)
 }
 
 static int
-decode_remote_gtp_u_peer (u8 *data, u16 length, void *p)
+decode_pfcp_ie_remote_gtp_u_peer (u8 *data, u16 length, void *p)
 {
-  pfcp_remote_gtp_u_peer_t *v = p;
+  pfcp_ie_remote_gtp_u_peer_t *v = p;
   u8 flags;
 
   if (length < 1)
@@ -3314,9 +3310,9 @@ decode_remote_gtp_u_peer (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_remote_gtp_u_peer (void *p, u8 **vec)
+encode_pfcp_ie_remote_gtp_u_peer (void *p, u8 **vec)
 {
-  pfcp_remote_gtp_u_peer_t *v = p;
+  pfcp_ie_remote_gtp_u_peer_t *v = p;
   u8 flags;
 
   flags = (v->destination_interface != (u8) ~0 ? REMOTE_GTP_U_PEER_DI : 0) |
@@ -3348,40 +3344,40 @@ encode_remote_gtp_u_peer (void *p, u8 **vec)
   return 0;
 }
 
-#define format_ur_seqn format_u32_ie
-#define decode_ur_seqn decode_u32_ie
-#define encode_ur_seqn encode_u32_ie
+#define format_pfcp_ie_ur_seqn format_u32_ie
+#define decode_pfcp_ie_ur_seqn decode_u32_ie
+#define encode_pfcp_ie_ur_seqn encode_u32_ie
 
-#define format_activate_predefined_rules format_simple_vec_ie
-#define decode_activate_predefined_rules decode_simple_vec_ie
-#define encode_activate_predefined_rules encode_simple_vec_ie
-#define free_activate_predefined_rules   free_simple_vec_ie
+#define format_pfcp_ie_activate_predefined_rules format_simple_vec_ie
+#define decode_pfcp_ie_activate_predefined_rules decode_simple_vec_ie
+#define encode_pfcp_ie_activate_predefined_rules encode_simple_vec_ie
+#define free_pfcp_ie_activate_predefined_rules   free_simple_vec_ie
 
-#define format_deactivate_predefined_rules format_simple_vec_ie
-#define decode_deactivate_predefined_rules decode_simple_vec_ie
-#define encode_deactivate_predefined_rules encode_simple_vec_ie
-#define free_deactivate_predefined_rules   free_simple_vec_ie
+#define format_pfcp_ie_deactivate_predefined_rules format_simple_vec_ie
+#define decode_pfcp_ie_deactivate_predefined_rules decode_simple_vec_ie
+#define encode_pfcp_ie_deactivate_predefined_rules encode_simple_vec_ie
+#define free_pfcp_ie_deactivate_predefined_rules   free_simple_vec_ie
 
-#define format_far_id format_u32_ie
-#define decode_far_id decode_u32_ie
-#define encode_far_id encode_u32_ie
+#define format_pfcp_ie_far_id format_u32_ie
+#define decode_pfcp_ie_far_id decode_u32_ie
+#define encode_pfcp_ie_far_id encode_u32_ie
 
-#define format_qer_id format_u32_ie
-#define decode_qer_id decode_u32_ie
-#define encode_qer_id encode_u32_ie
+#define format_pfcp_ie_qer_id format_u32_ie
+#define decode_pfcp_ie_qer_id decode_u32_ie
+#define encode_pfcp_ie_qer_id encode_u32_ie
 
 static u8 *
-format_oci_flags (u8 *s, va_list *args)
+format_pfcp_ie_oci_flags (u8 *s, va_list *args)
 {
-  pfcp_oci_flags_t *v = va_arg (*args, pfcp_oci_flags_t *);
+  pfcp_ie_oci_flags_t *v = va_arg (*args, pfcp_ie_oci_flags_t *);
 
   return format (s, "AOCI:%d", !!(v->flags & OCI_ASSOCIATE_OCI_WITH_NODE_ID));
 }
 
 static int
-decode_oci_flags (u8 *data, u16 length, void *p)
+decode_pfcp_ie_oci_flags (u8 *data, u16 length, void *p)
 {
-  pfcp_oci_flags_t *v = p;
+  pfcp_ie_oci_flags_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3392,9 +3388,9 @@ decode_oci_flags (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_oci_flags (void *p, u8 **vec)
+encode_pfcp_ie_oci_flags (void *p, u8 **vec)
 {
-  pfcp_oci_flags_t *v = p;
+  pfcp_ie_oci_flags_t *v = p;
 
   put_u8 (*vec, v->flags);
 
@@ -3402,10 +3398,10 @@ encode_oci_flags (void *p, u8 **vec)
 }
 
 static u8 *
-format_pfcp_association_release_request (u8 *s, va_list *args)
+format_pfcp_ie_pfcp_association_release_request (u8 *s, va_list *args)
 {
-  pfcp_pfcp_association_release_request_t *v =
-    va_arg (*args, pfcp_pfcp_association_release_request_t *);
+  pfcp_ie_pfcp_association_release_request_t *v =
+    va_arg (*args, pfcp_ie_pfcp_association_release_request_t *);
 
   return format (s, "SARR:%d,URSS:%d",
                  !!(v->flags & F_PFCP_ASSOCIATION_RELEASE_REQUEST_SARR),
@@ -3413,9 +3409,9 @@ format_pfcp_association_release_request (u8 *s, va_list *args)
 }
 
 static int
-decode_pfcp_association_release_request (u8 *data, u16 length, void *p)
+decode_pfcp_ie_pfcp_association_release_request (u8 *data, u16 length, void *p)
 {
-  pfcp_pfcp_association_release_request_t *v = p;
+  pfcp_ie_pfcp_association_release_request_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3426,18 +3422,18 @@ decode_pfcp_association_release_request (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_pfcp_association_release_request (void *p, u8 **vec)
+encode_pfcp_ie_pfcp_association_release_request (void *p, u8 **vec)
 {
-  pfcp_pfcp_association_release_request_t *v = p;
+  pfcp_ie_pfcp_association_release_request_t *v = p;
 
   put_u8 (*vec, v->flags);
 
   return 0;
 }
 
-#define format_graceful_release_period format_timer_ie
-#define decode_graceful_release_period decode_timer_ie
-#define encode_graceful_release_period encode_timer_ie
+#define format_pfcp_ie_graceful_release_period format_pfcp_ie_timer
+#define decode_pfcp_ie_graceful_release_period decode_pfcp_ie_timer
+#define encode_pfcp_ie_graceful_release_period encode_pfcp_ie_timer
 
 static char *pdn_type[] = {
   [PDN_TYPE_IPv4] = "IPv4",         [PDN_TYPE_IPv6] = "IPv6",
@@ -3446,18 +3442,18 @@ static char *pdn_type[] = {
 };
 
 static u8 *
-format_pdn_type (u8 *s, va_list *args)
+format_pfcp_ie_pdn_type (u8 *s, va_list *args)
 {
-  pfcp_pdn_type_t *v = va_arg (*args, pfcp_pdn_type_t *);
+  pfcp_ie_pdn_type_t *v = va_arg (*args, pfcp_ie_pdn_type_t *);
 
   return format (s, "%U", format_pfcp_enum, (u64) v->type, pdn_type,
                  ARRAY_LEN (pdn_type));
 }
 
 static int
-decode_pdn_type (u8 *data, u16 length, void *p)
+decode_pfcp_ie_pdn_type (u8 *data, u16 length, void *p)
 {
-  pfcp_pdn_type_t *v = p;
+  pfcp_ie_pdn_type_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3468,9 +3464,9 @@ decode_pdn_type (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_pdn_type (void *p, u8 **vec)
+encode_pfcp_ie_pdn_type (void *p, u8 **vec)
 {
-  pfcp_pdn_type_t *v = p;
+  pfcp_ie_pdn_type_t *v = p;
 
   put_u8 (*vec, v->type);
 
@@ -3484,18 +3480,18 @@ static char *failed_rule_type[] = {
 };
 
 static u8 *
-format_failed_rule_id (u8 *s, va_list *args)
+format_pfcp_ie_failed_rule_id (u8 *s, va_list *args)
 {
-  pfcp_failed_rule_id_t *n = va_arg (*args, pfcp_failed_rule_id_t *);
+  pfcp_ie_failed_rule_id_t *n = va_arg (*args, pfcp_ie_failed_rule_id_t *);
 
   return format (s, "%U: %u", format_pfcp_enum, (u64) n->type, failed_rule_type,
                  ARRAY_LEN (failed_rule_type), n->id);
 }
 
 static int
-decode_failed_rule_id (u8 *data, u16 length, void *p)
+decode_pfcp_ie_failed_rule_id (u8 *data, u16 length, void *p)
 {
-  pfcp_failed_rule_id_t *v = p;
+  pfcp_ie_failed_rule_id_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3545,9 +3541,9 @@ decode_failed_rule_id (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_failed_rule_id (void *p, u8 **vec)
+encode_pfcp_ie_failed_rule_id (void *p, u8 **vec)
 {
-  pfcp_failed_rule_id_t *v = p;
+  pfcp_ie_failed_rule_id_t *v = p;
 
   put_u8 (*vec, v->type);
   switch (v->type)
@@ -3582,10 +3578,10 @@ encode_failed_rule_id (void *p, u8 **vec)
 static const char *base_time_interval_type[] = { "CTP", "DTP", NULL };
 
 static u8 *
-format_time_quota_mechanism (u8 *s, va_list *args)
+format_pfcp_ie_time_quota_mechanism (u8 *s, va_list *args)
 {
-  pfcp_time_quota_mechanism_t *v =
-    va_arg (*args, pfcp_time_quota_mechanism_t *);
+  pfcp_ie_time_quota_mechanism_t *v =
+    va_arg (*args, pfcp_ie_time_quota_mechanism_t *);
 
   return format (s, "%U,%u", format_pfcp_enum, (u64) v->base_time_interval_type,
                  base_time_interval_type, ARRAY_LEN (base_time_interval_type),
@@ -3593,9 +3589,9 @@ format_time_quota_mechanism (u8 *s, va_list *args)
 }
 
 static int
-decode_time_quota_mechanism (u8 *data, u16 length, void *p)
+decode_pfcp_ie_time_quota_mechanism (u8 *data, u16 length, void *p)
 {
-  pfcp_time_quota_mechanism_t *v = p;
+  pfcp_ie_time_quota_mechanism_t *v = p;
 
   if (length < 3)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3607,9 +3603,9 @@ decode_time_quota_mechanism (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_time_quota_mechanism (void *p, u8 **vec)
+encode_pfcp_ie_time_quota_mechanism (void *p, u8 **vec)
 {
-  pfcp_time_quota_mechanism_t *v = p;
+  pfcp_ie_time_quota_mechanism_t *v = p;
 
   put_u8 (*vec, v->base_time_interval_type);
   put_u32 (*vec, v->base_time_interval);
@@ -3618,10 +3614,10 @@ encode_time_quota_mechanism (void *p, u8 **vec)
 }
 
 u8 *
-format_pfcp_user_plane_ip_resource_information (u8 *s, va_list *args)
+format_pfcp_ie_user_plane_ip_resource_information (u8 *s, va_list *args)
 {
-  pfcp_user_plane_ip_resource_information_t *v =
-    va_arg (*args, pfcp_user_plane_ip_resource_information_t *);
+  pfcp_ie_user_plane_ip_resource_information_t *v =
+    va_arg (*args, pfcp_ie_user_plane_ip_resource_information_t *);
 
   if (v->network_instance)
     s = format (s, "Network Instance: %U, ", format_pfcp_dns_labels,
@@ -3642,9 +3638,9 @@ format_pfcp_user_plane_ip_resource_information (u8 *s, va_list *args)
 }
 
 static int
-decode_user_plane_ip_resource_information (u8 *data, u16 length, void *p)
+decode_pfcp_ie_user_plane_ip_resource_information (u8 *data, u16 length, void *p)
 {
-  pfcp_user_plane_ip_resource_information_t *v = p;
+  pfcp_ie_user_plane_ip_resource_information_t *v = p;
   u8 flags;
 
   if (length < 1)
@@ -3690,9 +3686,9 @@ decode_user_plane_ip_resource_information (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_user_plane_ip_resource_information (void *p, u8 **vec)
+encode_pfcp_ie_user_plane_ip_resource_information (void *p, u8 **vec)
 {
-  pfcp_user_plane_ip_resource_information_t *v = p;
+  pfcp_ie_user_plane_ip_resource_information_t *v = p;
   u8 flags;
 
   flags = v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_MASK;
@@ -3720,30 +3716,30 @@ encode_user_plane_ip_resource_information (void *p, u8 **vec)
 }
 
 static void
-free_user_plane_ip_resource_information (void *p)
+free_pfcp_ie_user_plane_ip_resource_information (void *p)
 {
-  pfcp_user_plane_ip_resource_information_t *v = p;
+  pfcp_ie_user_plane_ip_resource_information_t *v = p;
 
   vec_free (v->network_instance);
 }
 
-#define format_user_plane_inactivity_timer format_u32_ie
-#define decode_user_plane_inactivity_timer decode_u32_ie
-#define encode_user_plane_inactivity_timer encode_u32_ie
+#define format_pfcp_ie_user_plane_inactivity_timer format_u32_ie
+#define decode_pfcp_ie_user_plane_inactivity_timer decode_u32_ie
+#define encode_pfcp_ie_user_plane_inactivity_timer encode_u32_ie
 
 static u8 *
-format_multiplier (u8 *s, va_list *args)
+format_pfcp_ie_multiplier (u8 *s, va_list *args)
 {
-  pfcp_multiplier_t *v = va_arg (*args, pfcp_multiplier_t *);
+  pfcp_ie_multiplier_t *v = va_arg (*args, pfcp_ie_multiplier_t *);
 
   return format (s, "%ldE%d (%f)", v->digits, v->exponent,
                  v->digits * pow (10, v->exponent));
 }
 
 static int
-decode_multiplier (u8 *data, u16 length, void *p)
+decode_pfcp_ie_multiplier (u8 *data, u16 length, void *p)
 {
-  pfcp_multiplier_t *v = p;
+  pfcp_ie_multiplier_t *v = p;
 
   if (length < 12)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3755,9 +3751,9 @@ decode_multiplier (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_multiplier (void *p, u8 **vec)
+encode_pfcp_ie_multiplier (void *p, u8 **vec)
 {
-  pfcp_multiplier_t *v = p;
+  pfcp_ie_multiplier_t *v = p;
 
   put_u64 (*vec, (u64) v->digits);
   put_u32 (*vec, (u32) v->exponent);
@@ -3765,30 +3761,30 @@ encode_multiplier (void *p, u8 **vec)
   return 0;
 }
 
-#define format_aggregated_urr_id format_u32_ie
-#define decode_aggregated_urr_id decode_u32_ie
-#define encode_aggregated_urr_id encode_u32_ie
+#define format_pfcp_ie_aggregated_urr_id format_u32_ie
+#define decode_pfcp_ie_aggregated_urr_id decode_u32_ie
+#define encode_pfcp_ie_aggregated_urr_id encode_u32_ie
 
-#define format_subsequent_volume_quota format_volume_ie
-#define decode_subsequent_volume_quota decode_volume_ie
-#define encode_subsequent_volume_quota encode_volume_ie
+#define format_pfcp_ie_subsequent_volume_quota format_pfcp_ie_volume
+#define decode_pfcp_ie_subsequent_volume_quota decode_pfcp_ie_volume
+#define encode_pfcp_ie_subsequent_volume_quota encode_pfcp_ie_volume
 
-#define format_subsequent_time_quota format_u32_ie
-#define decode_subsequent_time_quota decode_u32_ie
-#define encode_subsequent_time_quota encode_u32_ie
+#define format_pfcp_ie_subsequent_time_quota format_u32_ie
+#define decode_pfcp_ie_subsequent_time_quota decode_u32_ie
+#define encode_pfcp_ie_subsequent_time_quota encode_u32_ie
 
 static u8 *
-format_rqi (u8 *s, va_list *args)
+format_pfcp_ie_rqi (u8 *s, va_list *args)
 {
-  pfcp_rqi_t *v = va_arg (*args, pfcp_rqi_t *);
+  pfcp_ie_rqi_t *v = va_arg (*args, pfcp_ie_rqi_t *);
 
   return format (s, "RQI:%d", !!(v->flags & RQI_FLAG));
 }
 
 static int
-decode_rqi (u8 *data, u16 length, void *p)
+decode_pfcp_ie_rqi (u8 *data, u16 length, void *p)
 {
-  pfcp_rqi_t *v = p;
+  pfcp_ie_rqi_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3799,28 +3795,28 @@ decode_rqi (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_rqi (void *p, u8 **vec)
+encode_pfcp_ie_rqi (void *p, u8 **vec)
 {
-  pfcp_rqi_t *v = p;
+  pfcp_ie_rqi_t *v = p;
 
   put_u8 (*vec, v->flags);
 
   return 0;
 }
 
-#define format_qfi format_u8_ie
-#define decode_qfi decode_u8_ie
-#define encode_qfi encode_u8_ie
+#define format_pfcp_ie_qfi format_u8_ie
+#define decode_pfcp_ie_qfi decode_u8_ie
+#define encode_pfcp_ie_qfi encode_u8_ie
 
-#define format_query_urr_reference format_u32_ie
-#define decode_query_urr_reference decode_u32_ie
-#define encode_query_urr_reference encode_u32_ie
+#define format_pfcp_ie_query_urr_reference format_u32_ie
+#define decode_pfcp_ie_query_urr_reference decode_u32_ie
+#define encode_pfcp_ie_query_urr_reference encode_u32_ie
 
 static u8 *
-format_additional_usage_reports_information (u8 *s, va_list *args)
+format_pfcp_ie_additional_usage_reports_information (u8 *s, va_list *args)
 {
-  pfcp_additional_usage_reports_information_t *v =
-    va_arg (*args, pfcp_additional_usage_reports_information_t *);
+  pfcp_ie_additional_usage_reports_information_t *v =
+    va_arg (*args, pfcp_ie_additional_usage_reports_information_t *);
 
   if (*v & AURI_FLAG)
     s = format (s, "AURI:true");
@@ -3830,17 +3826,17 @@ format_additional_usage_reports_information (u8 *s, va_list *args)
   return s;
 }
 
-#define decode_additional_usage_reports_information decode_u16_ie
-#define encode_additional_usage_reports_information encode_u16_ie
+#define decode_pfcp_ie_additional_usage_reports_information decode_u16_ie
+#define encode_pfcp_ie_additional_usage_reports_information encode_u16_ie
 
-#define format_traffic_endpoint_id format_u8_ie
-#define decode_traffic_endpoint_id decode_u8_ie
-#define encode_traffic_endpoint_id encode_u8_ie
+#define format_pfcp_ie_traffic_endpoint_id format_u8_ie
+#define decode_pfcp_ie_traffic_endpoint_id decode_u8_ie
+#define encode_pfcp_ie_traffic_endpoint_id encode_u8_ie
 
 static u8 *
-format_pfcp_mac_address (u8 *s, va_list *args)
+format_pfcp_ie_mac_address (u8 *s, va_list *args)
 {
-  pfcp_mac_address_t *v = va_arg (*args, pfcp_mac_address_t *);
+  pfcp_ie_mac_address_t *v = va_arg (*args, pfcp_ie_mac_address_t *);
 
   if (v->flags & F_SOURCE_MAC)
     s = format (s, "SRC:%U,", format_mac_address_t, v->src_mac);
@@ -3858,9 +3854,9 @@ format_pfcp_mac_address (u8 *s, va_list *args)
 }
 
 static int
-decode_pfcp_mac_address (u8 *data, u16 length, void *p)
+decode_pfcp_ie_mac_address (u8 *data, u16 length, void *p)
 {
-  pfcp_mac_address_t *v = p;
+  pfcp_ie_mac_address_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3912,9 +3908,9 @@ decode_pfcp_mac_address (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_pfcp_mac_address (void *p, u8 **vec)
+encode_pfcp_ie_mac_address (void *p, u8 **vec)
 {
-  pfcp_mac_address_t *v = p;
+  pfcp_ie_mac_address_t *v = p;
 
   put_u8 (*vec, v->flags);
   if (v->flags & F_SOURCE_MAC)
@@ -3930,17 +3926,17 @@ encode_pfcp_mac_address (void *p, u8 **vec)
 }
 
 static u8 *
-format_vlan_tag (u8 *s, va_list *args)
+format_pfcp_ie_vlan_tag (u8 *s, va_list *args)
 {
-  pfcp_vlan_tag_t *v = va_arg (*args, pfcp_vlan_tag_t *);
+  pfcp_ie_vlan_tag_t *v = va_arg (*args, pfcp_ie_vlan_tag_t *);
 
   return format (s, "0x%04x/0x%04", v->tci, v->mask);
 }
 
 static int
-decode_vlan_tag (u8 *data, u16 length, void *p)
+decode_pfcp_ie_vlan_tag (u8 *data, u16 length, void *p)
 {
-  pfcp_vlan_tag_t *v = p;
+  pfcp_ie_vlan_tag_t *v = p;
 
   if (length < 3)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -3959,9 +3955,9 @@ decode_vlan_tag (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_vlan_tag (void *p, u8 **vec)
+encode_pfcp_ie_vlan_tag (void *p, u8 **vec)
 {
-  pfcp_vlan_tag_t *v = p;
+  pfcp_ie_vlan_tag_t *v = p;
   u16 mask = clib_net_to_host_u16 (v->mask);
   u16 tci = clib_net_to_host_u16 (v->tci);
 
@@ -3973,31 +3969,31 @@ encode_vlan_tag (void *p, u8 **vec)
   return 0;
 }
 
-#define format_c_tag format_vlan_tag
-#define decode_c_tag decode_vlan_tag
-#define encode_c_tag encode_vlan_tag
+#define format_pfcp_ie_c_tag format_pfcp_ie_vlan_tag
+#define decode_pfcp_ie_c_tag decode_pfcp_ie_vlan_tag
+#define encode_pfcp_ie_c_tag encode_pfcp_ie_vlan_tag
 
-#define format_s_tag format_vlan_tag
-#define decode_s_tag decode_vlan_tag
-#define encode_s_tag encode_vlan_tag
+#define format_pfcp_ie_s_tag format_pfcp_ie_vlan_tag
+#define decode_pfcp_ie_s_tag decode_pfcp_ie_vlan_tag
+#define encode_pfcp_ie_s_tag encode_pfcp_ie_vlan_tag
 
-#define format_ethertype format_u16_ie
-#define decode_ethertype decode_u16_ie
-#define encode_ethertype encode_u16_ie
+#define format_pfcp_ie_ethertype format_u16_ie
+#define decode_pfcp_ie_ethertype decode_u16_ie
+#define encode_pfcp_ie_ethertype encode_u16_ie
 
 static u8 *
-format_proxying (u8 *s, va_list *args)
+format_pfcp_ie_proxying (u8 *s, va_list *args)
 {
-  pfcp_proxying_t *v = va_arg (*args, pfcp_proxying_t *);
+  pfcp_ie_proxying_t *v = va_arg (*args, pfcp_ie_proxying_t *);
 
   return format (s, "ARP:%d,INS:%d", !!(v->flags & F_PROXY_ARP),
                  !!(v->flags & F_PROXY_IP6_NS));
 }
 
 static int
-decode_proxying (u8 *data, u16 length, void *p)
+decode_pfcp_ie_proxying (u8 *data, u16 length, void *p)
 {
-  pfcp_proxying_t *v = p;
+  pfcp_ie_proxying_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -4008,32 +4004,32 @@ decode_proxying (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_proxying (void *p, u8 **vec)
+encode_pfcp_ie_proxying (void *p, u8 **vec)
 {
-  pfcp_proxying_t *v = p;
+  pfcp_ie_proxying_t *v = p;
 
   put_u8 (*vec, v->flags);
 
   return 0;
 }
 
-#define format_ethernet_filter_id format_u32_ie
-#define decode_ethernet_filter_id decode_u32_ie
-#define encode_ethernet_filter_id encode_u32_ie
+#define format_pfcp_ie_ethernet_filter_id format_u32_ie
+#define decode_pfcp_ie_ethernet_filter_id decode_u32_ie
+#define encode_pfcp_ie_ethernet_filter_id encode_u32_ie
 
 static u8 *
-format_ethernet_filter_properties (u8 *s, va_list *args)
+format_pfcp_ie_ethernet_filter_properties (u8 *s, va_list *args)
 {
-  pfcp_ethernet_filter_properties_t *v =
-    va_arg (*args, pfcp_ethernet_filter_properties_t *);
+  pfcp_ie_ethernet_filter_properties_t *v =
+    va_arg (*args, pfcp_ie_ethernet_filter_properties_t *);
 
   return format (s, "BIDE:%d", !!(v->flags & F_BIDIRECTIONAL_ETHERNET_FILTER));
 }
 
 static int
-decode_ethernet_filter_properties (u8 *data, u16 length, void *p)
+decode_pfcp_ie_ethernet_filter_properties (u8 *data, u16 length, void *p)
 {
-  pfcp_ethernet_filter_properties_t *v = p;
+  pfcp_ie_ethernet_filter_properties_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -4044,23 +4040,23 @@ decode_ethernet_filter_properties (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_ethernet_filter_properties (void *p, u8 **vec)
+encode_pfcp_ie_ethernet_filter_properties (void *p, u8 **vec)
 {
-  pfcp_ethernet_filter_properties_t *v = p;
+  pfcp_ie_ethernet_filter_properties_t *v = p;
 
   put_u8 (*vec, v->flags);
 
   return 0;
 }
 
-#define format_suggested_buffering_packets_count format_u8_ie
-#define decode_suggested_buffering_packets_count decode_u8_ie
-#define encode_suggested_buffering_packets_count encode_u8_ie
+#define format_pfcp_ie_suggested_buffering_packets_count format_u8_ie
+#define decode_pfcp_ie_suggested_buffering_packets_count decode_u8_ie
+#define encode_pfcp_ie_suggested_buffering_packets_count encode_u8_ie
 
 u8 *
-format_pfcp_user_id (u8 *s0, va_list *args)
+format_pfcp_ie_user_id (u8 *s0, va_list *args)
 {
-  pfcp_user_id_t *v = va_arg (*args, pfcp_user_id_t *);
+  pfcp_ie_user_id_t *v = va_arg (*args, pfcp_ie_user_id_t *);
   u8 *s = s0;
 
   if (v->imsi_len > 0)
@@ -4079,9 +4075,9 @@ format_pfcp_user_id (u8 *s0, va_list *args)
 }
 
 static int
-decode_user_id (u8 *data, u16 length, void *p)
+decode_pfcp_ie_user_id (u8 *data, u16 length, void *p)
 {
-  pfcp_user_id_t *v = p;
+  pfcp_ie_user_id_t *v = p;
   u8 flags;
 
   if (length < 1)
@@ -4161,9 +4157,9 @@ decode_user_id (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_user_id (void *p, u8 **vec)
+encode_pfcp_ie_user_id (void *p, u8 **vec)
 {
-  pfcp_user_id_t *v = p;
+  pfcp_ie_user_id_t *v = p;
   u8 flags;
 
   flags = ((v->imei_len > 0) ? USER_ID_IMEI : 0) |
@@ -4201,26 +4197,26 @@ encode_user_id (void *p, u8 **vec)
 }
 
 void
-free_pfcp_user_id (void *p)
+free_pfcp_ie_user_id (void *p)
 {
-  pfcp_user_id_t *v = p;
+  pfcp_ie_user_id_t *v = p;
 
   vec_free (v->nai);
 }
 
 static u8 *
-format_ethernet_pdu_session_information (u8 *s, va_list *args)
+format_pfcp_ie_ethernet_pdu_session_information (u8 *s, va_list *args)
 {
-  pfcp_ethernet_pdu_session_information_t *v =
-    va_arg (*args, pfcp_ethernet_pdu_session_information_t *);
+  pfcp_ie_ethernet_pdu_session_information_t *v =
+    va_arg (*args, pfcp_ie_ethernet_pdu_session_information_t *);
 
   return format (s, "ETHI:%d", !!(v->flags & F_ETHERNET_INDICATION));
 }
 
 static int
-decode_ethernet_pdu_session_information (u8 *data, u16 length, void *p)
+decode_pfcp_ie_ethernet_pdu_session_information (u8 *data, u16 length, void *p)
 {
-  pfcp_ethernet_pdu_session_information_t *v = p;
+  pfcp_ie_ethernet_pdu_session_information_t *v = p;
 
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -4231,9 +4227,9 @@ decode_ethernet_pdu_session_information (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_ethernet_pdu_session_information (void *p, u8 **vec)
+encode_pfcp_ie_ethernet_pdu_session_information (void *p, u8 **vec)
 {
-  pfcp_ethernet_pdu_session_information_t *v = p;
+  pfcp_ie_ethernet_pdu_session_information_t *v = p;
 
   put_u8 (*vec, v->flags);
 
@@ -4241,7 +4237,7 @@ encode_ethernet_pdu_session_information (void *p, u8 **vec)
 }
 
 static u8 *
-format_mac_addresses_vec (u8 *s, va_list *args)
+format_pfcp_mac_addresses_vec (u8 *s, va_list *args)
 {
   pfcp_mac_addresses_vec_t *v = va_arg (*args, pfcp_mac_addresses_vec_t *);
   mac_address_t *mac;
@@ -4259,7 +4255,7 @@ format_mac_addresses_vec (u8 *s, va_list *args)
 }
 
 static int
-decode_mac_addresses_vec (u8 *data, u16 length, void *p)
+decode_pfcp_mac_addresses_vec (u8 *data, u16 length, void *p)
 {
   pfcp_mac_addresses_vec_t *v = p;
   u8 cnt;
@@ -4279,7 +4275,7 @@ decode_mac_addresses_vec (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_mac_addresses_vec (void *p, u8 **vec)
+encode_pfcp_mac_addresses_vec (void *p, u8 **vec)
 {
   pfcp_mac_addresses_vec_t *v = p;
   mac_address_t *mac;
@@ -4295,42 +4291,42 @@ encode_mac_addresses_vec (void *p, u8 **vec)
 }
 
 static void
-free_mac_addresses_vec (void *p)
+free_pfcp_mac_addresses_vec (void *p)
 {
   pfcp_mac_addresses_vec_t *v = p;
 
   vec_free (*v);
 }
 
-#define format_mac_addresses_detected format_mac_addresses_vec
-#define decode_mac_addresses_detected decode_mac_addresses_vec
-#define encode_mac_addresses_detected encode_mac_addresses_vec
-#define free_mac_addresses_detected   free_mac_addresses_vec
+#define format_pfcp_ie_mac_addresses_detected format_pfcp_mac_addresses_vec
+#define decode_pfcp_ie_mac_addresses_detected decode_pfcp_mac_addresses_vec
+#define encode_pfcp_ie_mac_addresses_detected encode_pfcp_mac_addresses_vec
+#define free_pfcp_ie_mac_addresses_detected   free_pfcp_mac_addresses_vec
 
-#define format_mac_addresses_removed format_mac_addresses_vec
-#define decode_mac_addresses_removed decode_mac_addresses_vec
-#define encode_mac_addresses_removed encode_mac_addresses_vec
-#define free_mac_addresses_removed   free_mac_addresses_vec
+#define format_pfcp_ie_mac_addresses_removed format_pfcp_mac_addresses_vec
+#define decode_pfcp_ie_mac_addresses_removed decode_pfcp_mac_addresses_vec
+#define encode_pfcp_ie_mac_addresses_removed encode_pfcp_mac_addresses_vec
+#define free_pfcp_ie_mac_addresses_removed   free_pfcp_mac_addresses_vec
 
-#define format_ethernet_inactivity_timer format_u32_ie
-#define decode_ethernet_inactivity_timer decode_u32_ie
-#define encode_ethernet_inactivity_timer encode_u32_ie
+#define format_pfcp_ie_ethernet_inactivity_timer format_u32_ie
+#define decode_pfcp_ie_ethernet_inactivity_timer decode_u32_ie
+#define encode_pfcp_ie_ethernet_inactivity_timer encode_u32_ie
 
-#define format_event_quota format_u32_ie
-#define decode_event_quota decode_u32_ie
-#define encode_event_quota encode_u32_ie
+#define format_pfcp_ie_event_quota format_u32_ie
+#define decode_pfcp_ie_event_quota decode_u32_ie
+#define encode_pfcp_ie_event_quota encode_u32_ie
 
-#define format_event_threshold format_u32_ie
-#define decode_event_threshold decode_u32_ie
-#define encode_event_threshold encode_u32_ie
+#define format_pfcp_ie_event_threshold format_u32_ie
+#define decode_pfcp_ie_event_threshold decode_u32_ie
+#define encode_pfcp_ie_event_threshold encode_u32_ie
 
-#define format_subsequent_event_quota format_u32_ie
-#define decode_subsequent_event_quota decode_u32_ie
-#define encode_subsequent_event_quota encode_u32_ie
+#define format_pfcp_ie_subsequent_event_quota format_u32_ie
+#define decode_pfcp_ie_subsequent_event_quota decode_u32_ie
+#define encode_pfcp_ie_subsequent_event_quota encode_u32_ie
 
-#define format_subsequent_event_threshold format_u32_ie
-#define decode_subsequent_event_threshold decode_u32_ie
-#define encode_subsequent_event_threshold encode_u32_ie
+#define format_pfcp_ie_subsequent_event_threshold format_u32_ie
+#define decode_pfcp_ie_subsequent_event_threshold decode_u32_ie
+#define encode_pfcp_ie_subsequent_event_threshold encode_u32_ie
 
 static u8 *
 format_digit (u8 *s, u8 c)
@@ -4363,9 +4359,9 @@ format_mccmcn (u8 *s, va_list *args)
 }
 
 static u8 *
-format_trace_information (u8 *s, va_list *args)
+format_pfcp_ie_trace_information (u8 *s, va_list *args)
 {
-  pfcp_trace_information_t *v = va_arg (*args, pfcp_trace_information_t *);
+  pfcp_ie_trace_information_t *v = va_arg (*args, pfcp_ie_trace_information_t *);
   u8 *i;
 
   s = format (s, "MCC/MNC:%U,Id:0x%08x,Evs:", format_mccmcn, &v->mccmnc[0],
@@ -4382,9 +4378,9 @@ format_trace_information (u8 *s, va_list *args)
 }
 
 static int
-decode_trace_information (u8 *data, u16 length, void *p)
+decode_pfcp_ie_trace_information (u8 *data, u16 length, void *p)
 {
-  pfcp_trace_information_t *v = p;
+  pfcp_ie_trace_information_t *v = p;
   u8 len;
 
   if (length < 8)
@@ -4444,9 +4440,9 @@ decode_trace_information (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_trace_information (void *p, u8 **vec)
+encode_pfcp_ie_trace_information (void *p, u8 **vec)
 {
-  pfcp_trace_information_t *v = p;
+  pfcp_ie_trace_information_t *v = p;
 
   put_u8 (*vec, v->mccmnc[0]);
   put_u8 (*vec, v->mccmnc[1]);
@@ -4476,42 +4472,42 @@ encode_trace_information (void *p, u8 **vec)
 }
 
 static void
-free_trace_information (void *p)
+free_pfcp_ie_trace_information (void *p)
 {
-  pfcp_trace_information_t *v = p;
+  pfcp_ie_trace_information_t *v = p;
 
   vec_free (v->triggering_events);
   vec_free (v->interfaces);
 }
 
-#define format_framed_route format_simple_vec_ie
-#define decode_framed_route decode_simple_vec_ie
-#define encode_framed_route encode_simple_vec_ie
+#define format_pfcp_ie_framed_route format_simple_vec_ie
+#define decode_pfcp_ie_framed_route decode_simple_vec_ie
+#define encode_pfcp_ie_framed_route encode_simple_vec_ie
 
-#define format_framed_routing format_u8_ie
-#define decode_framed_routing decode_u8_ie
-#define encode_framed_routing encode_u8_ie
+#define format_pfcp_ie_framed_routing format_u8_ie
+#define decode_pfcp_ie_framed_routing decode_u8_ie
+#define encode_pfcp_ie_framed_routing encode_u8_ie
 
-#define format_framed_ipv6_route format_simple_vec_ie
-#define decode_framed_ipv6_route decode_simple_vec_ie
-#define encode_framed_ipv6_route encode_simple_vec_ie
+#define format_pfcp_ie_framed_ipv6_route format_simple_vec_ie
+#define decode_pfcp_ie_framed_ipv6_route decode_simple_vec_ie
+#define encode_pfcp_ie_framed_ipv6_route encode_simple_vec_ie
 
-#define format_event_time_stamp format_time_stamp
-#define decode_event_time_stamp decode_time_stamp_ie
-#define encode_event_time_stamp encode_time_stamp_ie
+#define format_pfcp_ie_event_time_stamp format_time_stamp
+#define decode_pfcp_ie_event_time_stamp decode_time_stamp
+#define encode_pfcp_ie_event_time_stamp encode_time_stamp
 
-#define format_averaging_window format_u32_ie
-#define decode_averaging_window decode_u32_ie
-#define encode_averaging_window encode_u32_ie
+#define format_pfcp_ie_averaging_window format_u32_ie
+#define decode_pfcp_ie_averaging_window decode_u32_ie
+#define encode_pfcp_ie_averaging_window encode_u32_ie
 
-#define format_paging_policy_indicator format_u8_ie
-#define decode_paging_policy_indicator decode_u8_ie
-#define encode_paging_policy_indicator encode_u8_ie
+#define format_pfcp_ie_paging_policy_indicator format_u8_ie
+#define decode_pfcp_ie_paging_policy_indicator decode_u8_ie
+#define encode_pfcp_ie_paging_policy_indicator encode_u8_ie
 
-#define format_apn_dnn format_simple_vec_ie
-#define decode_apn_dnn decode_simple_vec_ie
-#define encode_apn_dnn encode_simple_vec_ie
-#define free_apn_dnn   free_simple_vec_ie
+#define format_pfcp_ie_apn_dnn format_simple_vec_ie
+#define decode_pfcp_ie_apn_dnn decode_simple_vec_ie
+#define encode_pfcp_ie_apn_dnn encode_simple_vec_ie
+#define free_pfcp_ie_apn_dnn   free_simple_vec_ie
 
 static char *tgpp_interface_type[] = {
   [0] = "S1-U",
@@ -4536,50 +4532,50 @@ static char *tgpp_interface_type[] = {
 };
 
 static u8 *
-format_tgpp_interface_type (u8 *s, va_list *args)
+format_pfcp_ie_tgpp_interface_type (u8 *s, va_list *args)
 {
-  pfcp_tgpp_interface_type_t *v = va_arg (*args, pfcp_tgpp_interface_type_t *);
+  pfcp_ie_tgpp_interface_type_t *v = va_arg (*args, pfcp_ie_tgpp_interface_type_t *);
 
   return format (s, "%U", format_pfcp_enum, (u64) *v, tgpp_interface_type,
                  ARRAY_LEN (tgpp_interface_type));
 }
 
-#define decode_tgpp_interface_type decode_u8_ie
-#define encode_tgpp_interface_type encode_u8_ie
+#define decode_pfcp_ie_tgpp_interface_type decode_u8_ie
+#define encode_pfcp_ie_tgpp_interface_type encode_u8_ie
 
 static u8 *
-format_pfcpsrreq_flags (u8 *s, va_list *args)
+format_pfcp_ie_pfcpsrreq_flags (u8 *s, va_list *args)
 {
-  pfcp_pfcpsrreq_flags_t *v = va_arg (*args, pfcp_pfcpsrreq_flags_t *);
+  pfcp_ie_pfcpsrreq_flags_t *v = va_arg (*args, pfcp_ie_pfcpsrreq_flags_t *);
 
   return format (s, "PSDBU:%d", !!(*v & PFCPSRREQ_PSDBU));
 }
 
-#define decode_pfcpsrreq_flags decode_u8_ie
-#define encode_pfcpsrreq_flags encode_u8_ie
+#define decode_pfcp_ie_pfcpsrreq_flags decode_u8_ie
+#define encode_pfcp_ie_pfcpsrreq_flags encode_u8_ie
 
 static u8 *
-format_pfcpaureq_flags (u8 *s, va_list *args)
+format_pfcp_ie_pfcpaureq_flags (u8 *s, va_list *args)
 {
-  pfcp_pfcpaureq_flags_t *v = va_arg (*args, pfcp_pfcpaureq_flags_t *);
+  pfcp_ie_pfcpaureq_flags_t *v = va_arg (*args, pfcp_ie_pfcpaureq_flags_t *);
 
   return format (s, "PARPS:%d", !!(*v & PFCPAUREQ_PARPS));
 }
 
-#define decode_pfcpaureq_flags decode_u8_ie
-#define encode_pfcpaureq_flags encode_u8_ie
+#define decode_pfcp_ie_pfcpaureq_flags decode_u8_ie
+#define encode_pfcp_ie_pfcpaureq_flags encode_u8_ie
 
-#define format_activation_time format_time_stamp
-#define decode_activation_time decode_time_stamp_ie
-#define encode_activation_time encode_time_stamp_ie
+#define format_pfcp_ie_activation_time format_time_stamp
+#define decode_pfcp_ie_activation_time decode_time_stamp
+#define encode_pfcp_ie_activation_time encode_time_stamp
 
-#define format_deactivation_time format_time_stamp
-#define decode_deactivation_time decode_time_stamp_ie
-#define encode_deactivation_time encode_time_stamp_ie
+#define format_pfcp_ie_deactivation_time format_time_stamp
+#define decode_pfcp_ie_deactivation_time decode_time_stamp
+#define encode_pfcp_ie_deactivation_time encode_time_stamp
 
-#define format_mar_id format_u16_ie
-#define decode_mar_id decode_u16_ie
-#define encode_mar_id encode_u16_ie
+#define format_pfcp_ie_mar_id format_u16_ie
+#define decode_pfcp_ie_mar_id decode_u16_ie
+#define encode_pfcp_ie_mar_id encode_u16_ie
 
 static char *steering_functionality[] = {
   [STEERING_FUNCTIONALITY_ATSSS_LL] = "ATSSS-LL",
@@ -4587,17 +4583,17 @@ static char *steering_functionality[] = {
 };
 
 static u8 *
-format_steering_functionality (u8 *s, va_list *args)
+format_pfcp_ie_steering_functionality (u8 *s, va_list *args)
 {
-  pfcp_steering_functionality_t *v =
-    va_arg (*args, pfcp_steering_functionality_t *);
+  pfcp_ie_steering_functionality_t *v =
+    va_arg (*args, pfcp_ie_steering_functionality_t *);
 
   return format (s, "%U", format_pfcp_enum, (u64) *v, steering_functionality,
                  ARRAY_LEN (steering_functionality));
 }
 
-#define decode_steering_functionality decode_u8_ie
-#define encode_steering_functionality encode_u8_ie
+#define decode_pfcp_ie_steering_functionality decode_u8_ie
+#define encode_pfcp_ie_steering_functionality encode_u8_ie
 
 static char *steering_mode[] = {
   [STEERING_MODE_ACTIVE_STANDBY] = "Active-Standby",
@@ -4607,20 +4603,20 @@ static char *steering_mode[] = {
 };
 
 static u8 *
-format_steering_mode (u8 *s, va_list *args)
+format_pfcp_ie_steering_mode (u8 *s, va_list *args)
 {
-  pfcp_steering_mode_t *v = va_arg (*args, pfcp_steering_mode_t *);
+  pfcp_ie_steering_mode_t *v = va_arg (*args, pfcp_ie_steering_mode_t *);
 
   return format (s, "%U", format_pfcp_enum, (u64) *v, steering_mode,
                  ARRAY_LEN (steering_mode));
 }
 
-#define decode_steering_mode decode_u8_ie
-#define encode_steering_mode encode_u8_ie
+#define decode_pfcp_ie_steering_mode decode_u8_ie
+#define encode_pfcp_ie_steering_mode encode_u8_ie
 
-#define format_weight format_u8_ie
-#define decode_weight decode_u8_ie
-#define encode_weight encode_u8_ie
+#define format_pfcp_ie_weight format_u8_ie
+#define decode_pfcp_ie_weight decode_u8_ie
+#define encode_pfcp_ie_weight encode_u8_ie
 
 static char *priority[] = {
   [PRIORITY_ACTIVE] = "Active",
@@ -4630,23 +4626,23 @@ static char *priority[] = {
 };
 
 static u8 *
-format_priority (u8 *s, va_list *args)
+format_pfcp_ie_priority (u8 *s, va_list *args)
 {
-  pfcp_priority_t *v = va_arg (*args, pfcp_priority_t *);
+  pfcp_ie_priority_t *v = va_arg (*args, pfcp_ie_priority_t *);
 
   return format (s, "%U", format_pfcp_enum, (u64) *v, priority,
                  ARRAY_LEN (priority));
 }
 
-#define decode_priority decode_u8_ie
-#define encode_priority encode_u8_ie
+#define decode_pfcp_ie_priority decode_u8_ie
+#define encode_pfcp_ie_priority encode_u8_ie
 
-#define format_ue_ip_address_pool_identity format_simple_vec_ie
+#define format_pfcp_ie_ue_ip_address_pool_identity format_simple_vec_ie
 
 static int
-decode_ue_ip_address_pool_identity (u8 *data, u16 length, void *p)
+decode_pfcp_ie_ue_ip_address_pool_identity (u8 *data, u16 length, void *p)
 {
-  pfcp_ue_ip_address_pool_identity_t *v = p;
+  pfcp_ie_ue_ip_address_pool_identity_t *v = p;
   u16 id_len = 0;
 
   if (length < 2)
@@ -4664,10 +4660,10 @@ decode_ue_ip_address_pool_identity (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_ue_ip_address_pool_identity (void *p, u8 **vec)
+encode_pfcp_ie_ue_ip_address_pool_identity (void *p, u8 **vec)
 {
-  pfcp_ue_ip_address_pool_identity_t *v =
-    (pfcp_ue_ip_address_pool_identity_t *) p;
+  pfcp_ie_ue_ip_address_pool_identity_t *v =
+    (pfcp_ie_ue_ip_address_pool_identity_t *) p;
 
   put_u16 (*vec, vec_len (*v));
   vec_append (*vec, *v);
@@ -4676,10 +4672,10 @@ encode_ue_ip_address_pool_identity (void *p, u8 **vec)
 }
 
 static u8 *
-format_alternative_smf_ip_address (u8 *s, va_list *args)
+format_pfcp_ie_alternative_smf_ip_address (u8 *s, va_list *args)
 {
-  pfcp_alternative_smf_ip_address_t *n =
-    va_arg (*args, pfcp_alternative_smf_ip_address_t *);
+  pfcp_ie_alternative_smf_ip_address_t *n =
+    va_arg (*args, pfcp_ie_alternative_smf_ip_address_t *);
 
   switch (n->flags &
           (ALTERNATIVE_SMF_IP_ADDRESS_V4 | ALTERNATIVE_SMF_IP_ADDRESS_V6))
@@ -4702,9 +4698,9 @@ format_alternative_smf_ip_address (u8 *s, va_list *args)
 }
 
 static int
-decode_alternative_smf_ip_address (u8 *data, u16 length, void *p)
+decode_pfcp_ie_alternative_smf_ip_address (u8 *data, u16 length, void *p)
 {
-  pfcp_alternative_smf_ip_address_t *v = p;
+  pfcp_ie_alternative_smf_ip_address_t *v = p;
 
   if (length < 9)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -4739,9 +4735,9 @@ decode_alternative_smf_ip_address (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_alternative_smf_ip_address (void *p, u8 **vec)
+encode_pfcp_ie_alternative_smf_ip_address (void *p, u8 **vec)
 {
-  pfcp_alternative_smf_ip_address_t *v = p;
+  pfcp_ie_alternative_smf_ip_address_t *v = p;
 
   put_u8 (*vec, v->flags);
 
@@ -4755,17 +4751,17 @@ encode_alternative_smf_ip_address (void *p, u8 **vec)
 }
 
 u8 *
-format_pfcp_smf_set_id (u8 *s, va_list *args)
+format_pfcp_ie_smf_set_id (u8 *s, va_list *args)
 {
-  pfcp_smf_set_id_t *n = va_arg (*args, pfcp_smf_set_id_t *);
+  pfcp_ie_smf_set_id_t *n = va_arg (*args, pfcp_ie_smf_set_id_t *);
 
   return format (s, "%U", format_pfcp_dns_labels, n->fqdn);
 }
 
 static int
-decode_smf_set_id (u8 *data, u16 length, void *p)
+decode_pfcp_ie_smf_set_id (u8 *data, u16 length, void *p)
 {
-  pfcp_smf_set_id_t *v = p;
+  pfcp_ie_smf_set_id_t *v = p;
 
   get_u8 (data); // skip spare
   length--;
@@ -4776,9 +4772,9 @@ decode_smf_set_id (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_smf_set_id (void *p, u8 **vec)
+encode_pfcp_ie_smf_set_id (void *p, u8 **vec)
 {
-  pfcp_smf_set_id_t *v = p;
+  pfcp_ie_smf_set_id_t *v = p;
 
   put_u8 (*vec, 0); // spare
   vec_append (*vec, v->fqdn);
@@ -4787,71 +4783,71 @@ encode_smf_set_id (void *p, u8 **vec)
 }
 
 static void
-free_smf_set_id (void *p)
+free_pfcp_ie_smf_set_id (void *p)
 {
-  pfcp_smf_set_id_t *v = p;
+  pfcp_ie_smf_set_id_t *v = p;
 
   vec_free (v->fqdn);
 }
 
-#define format_quota_validity_time format_u32_ie
-#define decode_quota_validity_time decode_u32_ie
-#define encode_quota_validity_time encode_u32_ie
+#define format_pfcp_ie_quota_validity_time format_u32_ie
+#define decode_pfcp_ie_quota_validity_time decode_u32_ie
+#define encode_pfcp_ie_quota_validity_time encode_u32_ie
 
-#define format_tp_packet_measurement format_volume_ie
-#define decode_tp_packet_measurement decode_volume_ie
-#define encode_tp_packet_measurement encode_volume_ie
+#define format_pfcp_ie_tp_packet_measurement format_pfcp_ie_volume
+#define decode_pfcp_ie_tp_packet_measurement decode_pfcp_ie_volume
+#define encode_pfcp_ie_tp_packet_measurement encode_pfcp_ie_volume
 
-#define format_tp_build_id format_simple_vec_ie
-#define decode_tp_build_id decode_simple_vec_ie
-#define encode_tp_build_id encode_simple_vec_ie
-#define free_tp_build_id   free_simple_vec_ie
+#define format_pfcp_ie_tp_build_id format_simple_vec_ie
+#define decode_pfcp_ie_tp_build_id decode_simple_vec_ie
+#define encode_pfcp_ie_tp_build_id encode_simple_vec_ie
+#define free_pfcp_ie_tp_build_id   free_simple_vec_ie
 
-#define format_tp_now format_sntp_time_stamp
-#define decode_tp_now decode_sntp_time_stamp_ie
-#define encode_tp_now encode_sntp_time_stamp_ie
+#define format_pfcp_ie_tp_now format_sntp_time_stamp
+#define decode_pfcp_ie_tp_now decode_sntp_time_stamp
+#define encode_pfcp_ie_tp_now encode_sntp_time_stamp
 
-#define format_tp_start_time format_sntp_time_stamp
-#define decode_tp_start_time decode_sntp_time_stamp_ie
-#define encode_tp_start_time encode_sntp_time_stamp_ie
+#define format_pfcp_ie_tp_start_time format_sntp_time_stamp
+#define decode_pfcp_ie_tp_start_time decode_sntp_time_stamp
+#define encode_pfcp_ie_tp_start_time encode_sntp_time_stamp
 
-#define format_tp_end_time format_sntp_time_stamp
-#define decode_tp_end_time decode_sntp_time_stamp_ie
-#define encode_tp_end_time encode_sntp_time_stamp_ie
+#define format_pfcp_ie_tp_end_time format_sntp_time_stamp
+#define decode_pfcp_ie_tp_end_time decode_sntp_time_stamp
+#define encode_pfcp_ie_tp_end_time encode_sntp_time_stamp
 
-#define format_tp_error_message format_simple_vec_ie
-#define decode_tp_error_message decode_simple_vec_ie
-#define encode_tp_error_message encode_simple_vec_ie
-#define free_tp_error_message   free_simple_vec_ie
+#define format_pfcp_ie_tp_error_message format_simple_vec_ie
+#define decode_pfcp_ie_tp_error_message decode_simple_vec_ie
+#define encode_pfcp_ie_tp_error_message encode_simple_vec_ie
+#define free_pfcp_ie_tp_error_message   free_simple_vec_ie
 
-#define format_tp_file_name format_simple_vec_ie
-#define decode_tp_file_name decode_simple_vec_ie
-#define encode_tp_file_name encode_simple_vec_ie
-#define free_tp_file_name   free_simple_vec_ie
+#define format_pfcp_ie_tp_file_name format_simple_vec_ie
+#define decode_pfcp_ie_tp_file_name decode_simple_vec_ie
+#define encode_pfcp_ie_tp_file_name encode_simple_vec_ie
+#define free_pfcp_ie_tp_file_name   free_simple_vec_ie
 
-#define format_tp_line_number format_u32_ie
-#define decode_tp_line_number decode_u32_ie
-#define encode_tp_line_number encode_u32_ie
+#define format_pfcp_ie_tp_line_number format_u32_ie
+#define decode_pfcp_ie_tp_line_number decode_u32_ie
+#define encode_pfcp_ie_tp_line_number encode_u32_ie
 
-#define format_tp_ipfix_policy format_simple_vec_ie
-#define decode_tp_ipfix_policy decode_simple_vec_ie
-#define encode_tp_ipfix_policy encode_simple_vec_ie
-#define free_tp_ipfix_policy   free_simple_vec_ie
+#define format_pfcp_ie_tp_ipfix_policy format_simple_vec_ie
+#define decode_pfcp_ie_tp_ipfix_policy decode_simple_vec_ie
+#define encode_pfcp_ie_tp_ipfix_policy encode_simple_vec_ie
+#define free_pfcp_ie_tp_ipfix_policy   free_simple_vec_ie
 
 /* BBF Encoder-decoder */
 
 // BBF NAT port block
-#define format_bbf_nat_port_block format_simple_vec_ie
-#define decode_bbf_nat_port_block decode_simple_vec_ie
-#define encode_bbf_nat_port_block encode_simple_vec_ie
-#define free_bbf_nat_port_block   free_simple_vec_ie
+#define format_pfcp_ie_bbf_nat_port_block format_simple_vec_ie
+#define decode_pfcp_ie_bbf_nat_port_block decode_simple_vec_ie
+#define encode_pfcp_ie_bbf_nat_port_block encode_simple_vec_ie
+#define free_pfcp_ie_bbf_nat_port_block   free_simple_vec_ie
 
 // BBF NAT outside address
 static u8 *
-format_bbf_nat_outside_address (u8 *s, va_list *args)
+format_pfcp_ie_bbf_nat_outside_address (u8 *s, va_list *args)
 {
-  pfcp_bbf_nat_outside_address_t *n =
-    va_arg (*args, pfcp_bbf_nat_outside_address_t *);
+  pfcp_ie_bbf_nat_outside_address_t *n =
+    va_arg (*args, pfcp_ie_bbf_nat_outside_address_t *);
 
   s = format (s, "%U", format_ip4_address, n);
 
@@ -4859,9 +4855,9 @@ format_bbf_nat_outside_address (u8 *s, va_list *args)
 }
 
 static int
-decode_bbf_nat_outside_address (u8 *data, u16 length, void *p)
+decode_pfcp_ie_bbf_nat_outside_address (u8 *data, u16 length, void *p)
 {
-  pfcp_bbf_nat_outside_address_t *v = p;
+  pfcp_ie_bbf_nat_outside_address_t *v = p;
 
   if (length < 4)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -4872,9 +4868,9 @@ decode_bbf_nat_outside_address (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_bbf_nat_outside_address (void *p, u8 **vec)
+encode_pfcp_ie_bbf_nat_outside_address (void *p, u8 **vec)
 {
-  pfcp_bbf_nat_outside_address_t *v = p;
+  pfcp_ie_bbf_nat_outside_address_t *v = p;
 
   put_ip4 (*vec, *v);
 
@@ -4884,19 +4880,19 @@ encode_bbf_nat_outside_address (void *p, u8 **vec)
 // BBF NAT external port range
 
 static u8 *
-format_bbf_nat_external_port_range (u8 *s, va_list *args)
+format_pfcp_ie_bbf_nat_external_port_range (u8 *s, va_list *args)
 {
-  pfcp_bbf_nat_external_port_range_t *n =
-    va_arg (*args, pfcp_bbf_nat_external_port_range_t *);
+  pfcp_ie_bbf_nat_external_port_range_t *n =
+    va_arg (*args, pfcp_ie_bbf_nat_external_port_range_t *);
 
   s = format (s, "Start:%u End:%u", n->start_port, n->end_port);
   return s;
 }
 
 static int
-decode_bbf_nat_external_port_range (u8 *data, u16 length, void *p)
+decode_pfcp_ie_bbf_nat_external_port_range (u8 *data, u16 length, void *p)
 {
-  pfcp_bbf_nat_external_port_range_t *v = p;
+  pfcp_ie_bbf_nat_external_port_range_t *v = p;
 
   if (length < 4)
     return PFCP_CAUSE_INVALID_LENGTH;
@@ -4909,9 +4905,9 @@ decode_bbf_nat_external_port_range (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_bbf_nat_external_port_range (void *p, u8 **vec)
+encode_pfcp_ie_bbf_nat_external_port_range (void *p, u8 **vec)
 {
-  pfcp_bbf_nat_external_port_range_t *v = p;
+  pfcp_ie_bbf_nat_external_port_range_t *v = p;
 
   put_u16 (*vec, v->start_port);
   put_u16 (*vec, v->end_port);
@@ -4920,17 +4916,17 @@ encode_bbf_nat_external_port_range (void *p, u8 **vec)
 
 // BBF UE Function Features
 static u8 *
-format_bbf_up_function_features (u8 *s, va_list *args)
+format_pfcp_ie_bbf_up_function_features (u8 *s, va_list *args)
 {
-  pfcp_bbf_up_function_features_t *n =
-    va_arg (*args, pfcp_bbf_up_function_features_t *);
+  pfcp_ie_bbf_up_function_features_t *n =
+    va_arg (*args, pfcp_ie_bbf_up_function_features_t *);
 
   s = format (s, "NAT:%u", !!(*n & BBF_UP_NAT));
   return s;
 }
 
 static int
-decode_bbf_up_function_features (u8 *data, u16 length, void *p)
+decode_pfcp_ie_bbf_up_function_features (u8 *data, u16 length, void *p)
 {
   u32 *v = p;
 
@@ -4946,7 +4942,7 @@ decode_bbf_up_function_features (u8 *data, u16 length, void *p)
 }
 
 static int
-encode_bbf_up_function_features (void *p, u8 **vec)
+encode_pfcp_ie_bbf_up_function_features (void *p, u8 **vec)
 {
   u32 *v = p;
 
@@ -4956,9 +4952,9 @@ encode_bbf_up_function_features (void *p, u8 **vec)
 }
 
 // BBF BBF Apply Action
-#define format_bbf_apply_action format_u8_ie
-#define decode_bbf_apply_action decode_u8_ie
-#define encode_bbf_apply_action encode_u8_ie
+#define format_pfcp_ie_bbf_apply_action format_u8_ie
+#define decode_pfcp_ie_bbf_apply_action decode_u8_ie
+#define encode_pfcp_ie_bbf_apply_action encode_u8_ie
 
 /* Grouped Information Elements */
 
@@ -4969,49 +4965,49 @@ static struct pfcp_group_ie_def pfcp_create_pdr_group[] =
   {
     [CREATE_PDR_PDR_ID] = {
       .type = PFCP_IE_PDR_ID,
-      .offset = offsetof(pfcp_create_pdr_t, pdr_id)
+      .offset = offsetof(pfcp_ie_create_pdr_t, pdr_id)
     },
     [CREATE_PDR_PRECEDENCE] = {
       .type = PFCP_IE_PRECEDENCE,
-      .offset = offsetof(pfcp_create_pdr_t, precedence)
+      .offset = offsetof(pfcp_ie_create_pdr_t, precedence)
     },
     [CREATE_PDR_PDI] = {
       .type = PFCP_IE_PDI,
-      .offset = offsetof(pfcp_create_pdr_t, pdi)
+      .offset = offsetof(pfcp_ie_create_pdr_t, pdi)
     },
     [CREATE_PDR_OUTER_HEADER_REMOVAL] = {
       .type = PFCP_IE_OUTER_HEADER_REMOVAL,
-      .offset = offsetof(pfcp_create_pdr_t, outer_header_removal)
+      .offset = offsetof(pfcp_ie_create_pdr_t, outer_header_removal)
     },
     [CREATE_PDR_FAR_ID] = {
       .type = PFCP_IE_FAR_ID,
-      .offset = offsetof(pfcp_create_pdr_t, far_id)
+      .offset = offsetof(pfcp_ie_create_pdr_t, far_id)
     },
     [CREATE_PDR_URR_ID] = {
       .type = PFCP_IE_URR_ID,
       .is_array = true,
-      .offset = offsetof(pfcp_create_pdr_t, urr_id)
+      .offset = offsetof(pfcp_ie_create_pdr_t, urr_id)
     },
     [CREATE_PDR_QER_ID] = {
       .type = PFCP_IE_QER_ID,
       .is_array = true,
-      .offset = offsetof(pfcp_create_pdr_t, qer_id)
+      .offset = offsetof(pfcp_ie_create_pdr_t, qer_id)
     },
     [CREATE_PDR_ACTIVATE_PREDEFINED_RULES] = {
       .type = PFCP_IE_ACTIVATE_PREDEFINED_RULES,
-      .offset = offsetof(pfcp_create_pdr_t, activate_predefined_rules)
+      .offset = offsetof(pfcp_ie_create_pdr_t, activate_predefined_rules)
     },
     [CREATE_PDR_ACTIVATION_TIME] = {
       .type = PFCP_IE_ACTIVATION_TIME,
-      .offset = offsetof(pfcp_create_pdr_t, activation_time)
+      .offset = offsetof(pfcp_ie_create_pdr_t, activation_time)
     },
     [CREATE_PDR_DEACTIVATION_TIME] = {
       .type = PFCP_IE_DEACTIVATION_TIME,
-      .offset = offsetof(pfcp_create_pdr_t, deactivation_time)
+      .offset = offsetof(pfcp_ie_create_pdr_t, deactivation_time)
     },
     [CREATE_PDR_MAR_ID] = {
       .type = PFCP_IE_MAR_ID,
-      .offset = offsetof(pfcp_create_pdr_t, mar_id)
+      .offset = offsetof(pfcp_ie_create_pdr_t, mar_id)
     },
   };
 
@@ -5019,58 +5015,58 @@ static struct pfcp_group_ie_def pfcp_pdi_group[] =
   {
     [PDI_SOURCE_INTERFACE] = {
       .type = PFCP_IE_SOURCE_INTERFACE,
-      .offset = offsetof(pfcp_pdi_t, source_interface)
+      .offset = offsetof(pfcp_ie_pdi_t, source_interface)
     },
     [PDI_F_TEID] = {
       .type = PFCP_IE_F_TEID,
-      .offset = offsetof(pfcp_pdi_t, f_teid)
+      .offset = offsetof(pfcp_ie_pdi_t, f_teid)
     },
     [PDI_NETWORK_INSTANCE] = {
       .type = PFCP_IE_NETWORK_INSTANCE,
-      .offset = offsetof(pfcp_pdi_t, network_instance)
+      .offset = offsetof(pfcp_ie_pdi_t, network_instance)
     },
     [PDI_UE_IP_ADDRESS] = {
       .type = PFCP_IE_UE_IP_ADDRESS,
-      .offset = offsetof(pfcp_pdi_t, ue_ip_address)
+      .offset = offsetof(pfcp_ie_pdi_t, ue_ip_address)
     },
     [PDI_SDF_FILTER] = {
       .type = PFCP_IE_SDF_FILTER,
       .is_array = true,
-      .offset = offsetof(pfcp_pdi_t, sdf_filter)
+      .offset = offsetof(pfcp_ie_pdi_t, sdf_filter)
     },
     [PDI_APPLICATION_ID] = {
       .type = PFCP_IE_APPLICATION_ID,
-      .offset = offsetof(pfcp_pdi_t, application_id)
+      .offset = offsetof(pfcp_ie_pdi_t, application_id)
     },
     [PDI_ETHERNET_PDU_SESSION_INFORMATION] = {
       .type = PFCP_IE_ETHERNET_PDU_SESSION_INFORMATION,
-      .offset = offsetof(pfcp_pdi_t, ethernet_pdu_session_information)
+      .offset = offsetof(pfcp_ie_pdi_t, ethernet_pdu_session_information)
     },
     [PDI_ETHERNET_PACKET_FILTER] = {
       .type = PFCP_IE_ETHERNET_PACKET_FILTER,
-      .offset = offsetof(pfcp_pdi_t, ethernet_packet_filter)
+      .offset = offsetof(pfcp_ie_pdi_t, ethernet_packet_filter)
     },
     [PDI_QFI] = {
       .type = PFCP_IE_QFI,
-      .offset = offsetof(pfcp_pdi_t, qfi)
+      .offset = offsetof(pfcp_ie_pdi_t, qfi)
     },
     [PDI_FRAMED_ROUTE] = {
       .type = PFCP_IE_FRAMED_ROUTE,
       .is_array = true,
-      .offset = offsetof(pfcp_pdi_t, framed_route)
+      .offset = offsetof(pfcp_ie_pdi_t, framed_route)
     },
     [PDI_FRAMED_ROUTING] = {
       .type = PFCP_IE_FRAMED_ROUTING,
-      .offset = offsetof(pfcp_pdi_t, framed_routing)
+      .offset = offsetof(pfcp_ie_pdi_t, framed_routing)
     },
     [PDI_FRAMED_IPV6_ROUTE] = {
       .type = PFCP_IE_FRAMED_IPV6_ROUTE,
       .is_array = true,
-      .offset = offsetof(pfcp_pdi_t, framed_ipv6_route)
+      .offset = offsetof(pfcp_ie_pdi_t, framed_ipv6_route)
     },
     [PDI_SOURCE_INTERFACE_TYPE] = {
       .type = PFCP_IE_TGPP_INTERFACE_TYPE,
-      .offset = offsetof(pfcp_pdi_t, source_interface_type)
+      .offset = offsetof(pfcp_ie_pdi_t, source_interface_type)
     },
   };
 
@@ -5078,28 +5074,28 @@ static struct pfcp_group_ie_def pfcp_create_far_group[] =
   {
     [CREATE_FAR_FAR_ID] = {
       .type = PFCP_IE_FAR_ID,
-      .offset = offsetof(pfcp_create_far_t, far_id)
+      .offset = offsetof(pfcp_ie_create_far_t, far_id)
     },
     [CREATE_FAR_APPLY_ACTION] = {
       .type = PFCP_IE_APPLY_ACTION,
-      .offset = offsetof(pfcp_create_far_t, apply_action)
+      .offset = offsetof(pfcp_ie_create_far_t, apply_action)
     },
     [CREATE_FAR_FORWARDING_PARAMETERS] = {
       .type = PFCP_IE_FORWARDING_PARAMETERS,
-      .offset = offsetof(pfcp_create_far_t, forwarding_parameters)
+      .offset = offsetof(pfcp_ie_create_far_t, forwarding_parameters)
     },
     [CREATE_FAR_DUPLICATING_PARAMETERS] = {
       .type = PFCP_IE_DUPLICATING_PARAMETERS,
-      .offset = offsetof(pfcp_create_far_t, duplicating_parameters)
+      .offset = offsetof(pfcp_ie_create_far_t, duplicating_parameters)
     },
     [CREATE_FAR_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
-      .offset = offsetof(pfcp_create_far_t, bar_id)
+      .offset = offsetof(pfcp_ie_create_far_t, bar_id)
     },
     [CREATE_FAR_TP_IPFIX_POLICY] = {
       .type = PFCP_IE_TP_IPFIX_POLICY,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_create_far_t, ipfix_policy)
+      .offset = offsetof(pfcp_ie_create_far_t, ipfix_policy)
     },
   };
 
@@ -5107,53 +5103,53 @@ static struct pfcp_group_ie_def pfcp_forwarding_parameters_group[] =
   {
     [FORWARDING_PARAMETERS_DESTINATION_INTERFACE] = {
       .type = PFCP_IE_DESTINATION_INTERFACE,
-      .offset = offsetof(pfcp_forwarding_parameters_t, destination_interface)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, destination_interface)
     },
     [FORWARDING_PARAMETERS_NETWORK_INSTANCE] = {
       .type = PFCP_IE_NETWORK_INSTANCE,
-      .offset = offsetof(pfcp_forwarding_parameters_t, network_instance)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, network_instance)
     },
     [FORWARDING_PARAMETERS_REDIRECT_INFORMATION] = {
       .type = PFCP_IE_REDIRECT_INFORMATION,
-      .offset = offsetof(pfcp_forwarding_parameters_t, redirect_information)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, redirect_information)
     },
     [FORWARDING_PARAMETERS_OUTER_HEADER_CREATION] = {
       .type = PFCP_IE_OUTER_HEADER_CREATION,
-      .offset = offsetof(pfcp_forwarding_parameters_t, outer_header_creation)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, outer_header_creation)
     },
     [FORWARDING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = {
       .type = PFCP_IE_TRANSPORT_LEVEL_MARKING,
-      .offset = offsetof(pfcp_forwarding_parameters_t, transport_level_marking)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, transport_level_marking)
     },
     [FORWARDING_PARAMETERS_FORWARDING_POLICY] = {
       .type = PFCP_IE_FORWARDING_POLICY,
-      .offset = offsetof(pfcp_forwarding_parameters_t, forwarding_policy)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, forwarding_policy)
     },
     [FORWARDING_PARAMETERS_HEADER_ENRICHMENT] = {
       .type = PFCP_IE_HEADER_ENRICHMENT,
-      .offset = offsetof(pfcp_forwarding_parameters_t, header_enrichment)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, header_enrichment)
     },
     [FORWARDING_PARAMETERS_LINKED_TRAFFIC_ENDPOINT_ID] = {
       .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
-      .offset = offsetof(pfcp_forwarding_parameters_t, linked_traffic_endpoint_id)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, linked_traffic_endpoint_id)
     },
     [FORWARDING_PARAMETERS_PROXYING] = {
       .type = PFCP_IE_PROXYING,
-      .offset = offsetof(pfcp_forwarding_parameters_t, proxying)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, proxying)
     },
     [FORWARDING_PARAMETERS_DESTINATION_INTERFACE_TYPE] = {
       .type = PFCP_IE_TGPP_INTERFACE_TYPE,
-      .offset = offsetof(pfcp_forwarding_parameters_t, destination_interface_type)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, destination_interface_type)
     },
     [FORWARDING_PARAMETERS_BBF_APPLY_ACTION] = {
       .type = PFCP_IE_BBF_APPLY_ACTION,
       .vendor = VENDOR_BBF,
-      .offset = offsetof(pfcp_forwarding_parameters_t, bbf_apply_action)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, bbf_apply_action)
     },
     [FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK] = {
       .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
       .vendor = VENDOR_BBF,
-      .offset = offsetof(pfcp_forwarding_parameters_t, nat_port_block)
+      .offset = offsetof(pfcp_ie_forwarding_parameters_t, nat_port_block)
     },
   };
 
@@ -5161,19 +5157,19 @@ static struct pfcp_group_ie_def pfcp_duplicating_parameters_group[] =
   {
     [DUPLICATING_PARAMETERS_DESTINATION_INTERFACE] = {
       .type = PFCP_IE_DESTINATION_INTERFACE,
-      .offset = offsetof(pfcp_duplicating_parameters_t, destination_interface)
+      .offset = offsetof(pfcp_ie_duplicating_parameters_t, destination_interface)
     },
     [DUPLICATING_PARAMETERS_OUTER_HEADER_CREATION] = {
       .type = PFCP_IE_OUTER_HEADER_CREATION,
-      .offset = offsetof(pfcp_duplicating_parameters_t, outer_header_creation)
+      .offset = offsetof(pfcp_ie_duplicating_parameters_t, outer_header_creation)
     },
     [DUPLICATING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = {
       .type = PFCP_IE_TRANSPORT_LEVEL_MARKING,
-      .offset = offsetof(pfcp_duplicating_parameters_t, transport_level_marking)
+      .offset = offsetof(pfcp_ie_duplicating_parameters_t, transport_level_marking)
     },
     [DUPLICATING_PARAMETERS_FORWARDING_POLICY] = {
       .type = PFCP_IE_FORWARDING_POLICY,
-      .offset = offsetof(pfcp_duplicating_parameters_t, forwarding_policy)
+      .offset = offsetof(pfcp_ie_duplicating_parameters_t, forwarding_policy)
     },
   };
 
@@ -5181,93 +5177,93 @@ static struct pfcp_group_ie_def pfcp_create_urr_group[] =
   {
     [CREATE_URR_URR_ID] = {
       .type = PFCP_IE_URR_ID,
-      .offset = offsetof(pfcp_create_urr_t, urr_id)
+      .offset = offsetof(pfcp_ie_create_urr_t, urr_id)
     },
     [CREATE_URR_MEASUREMENT_METHOD] = {
       .type = PFCP_IE_MEASUREMENT_METHOD,
-      .offset = offsetof(pfcp_create_urr_t, measurement_method)
+      .offset = offsetof(pfcp_ie_create_urr_t, measurement_method)
     },
     [CREATE_URR_REPORTING_TRIGGERS] = {
       .type = PFCP_IE_REPORTING_TRIGGERS,
-      .offset = offsetof(pfcp_create_urr_t, reporting_triggers)
+      .offset = offsetof(pfcp_ie_create_urr_t, reporting_triggers)
     },
     [CREATE_URR_MEASUREMENT_PERIOD] = {
       .type = PFCP_IE_MEASUREMENT_PERIOD,
-      .offset = offsetof(pfcp_create_urr_t, measurement_period)
+      .offset = offsetof(pfcp_ie_create_urr_t, measurement_period)
     },
     [CREATE_URR_VOLUME_THRESHOLD] = {
       .type = PFCP_IE_VOLUME_THRESHOLD,
-      .offset = offsetof(pfcp_create_urr_t, volume_threshold)
+      .offset = offsetof(pfcp_ie_create_urr_t, volume_threshold)
     },
     [CREATE_URR_VOLUME_QUOTA] = {
       .type = PFCP_IE_VOLUME_QUOTA,
-      .offset = offsetof(pfcp_create_urr_t, volume_quota)
+      .offset = offsetof(pfcp_ie_create_urr_t, volume_quota)
     },
     [CREATE_URR_TIME_THRESHOLD] = {
       .type = PFCP_IE_TIME_THRESHOLD,
-      .offset = offsetof(pfcp_create_urr_t, time_threshold)
+      .offset = offsetof(pfcp_ie_create_urr_t, time_threshold)
     },
     [CREATE_URR_TIME_QUOTA] = {
       .type = PFCP_IE_TIME_QUOTA,
-      .offset = offsetof(pfcp_create_urr_t, time_quota)
+      .offset = offsetof(pfcp_ie_create_urr_t, time_quota)
     },
     [CREATE_URR_QUOTA_HOLDING_TIME] = {
       .type = PFCP_IE_QUOTA_HOLDING_TIME,
-      .offset = offsetof(pfcp_create_urr_t, quota_holding_time)
+      .offset = offsetof(pfcp_ie_create_urr_t, quota_holding_time)
     },
     [CREATE_URR_DROPPED_DL_TRAFFIC_THRESHOLD] = {
       .type = PFCP_IE_DROPPED_DL_TRAFFIC_THRESHOLD,
-      .offset = offsetof(pfcp_create_urr_t, dropped_dl_traffic_threshold)
+      .offset = offsetof(pfcp_ie_create_urr_t, dropped_dl_traffic_threshold)
     },
     [CREATE_URR_QUOTA_VALIDITY_TIME] = {
       .type = PFCP_IE_QUOTA_VALIDITY_TIME,
-      .offset = offsetof(pfcp_create_urr_t, quota_validity_time)
+      .offset = offsetof(pfcp_ie_create_urr_t, quota_validity_time)
     },
     [CREATE_URR_MONITORING_TIME] = {
       .type = PFCP_IE_MONITORING_TIME,
-      .offset = offsetof(pfcp_create_urr_t, monitoring_time)
+      .offset = offsetof(pfcp_ie_create_urr_t, monitoring_time)
     },
     [CREATE_URR_SUBSEQUENT_VOLUME_THRESHOLD] = {
       .type = PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD,
-      .offset = offsetof(pfcp_create_urr_t, subsequent_volume_threshold)
+      .offset = offsetof(pfcp_ie_create_urr_t, subsequent_volume_threshold)
     },
     [CREATE_URR_SUBSEQUENT_TIME_THRESHOLD] = {
       .type = PFCP_IE_SUBSEQUENT_TIME_THRESHOLD,
-      .offset = offsetof(pfcp_create_urr_t, subsequent_time_threshold)
+      .offset = offsetof(pfcp_ie_create_urr_t, subsequent_time_threshold)
     },
     [CREATE_URR_INACTIVITY_DETECTION_TIME] = {
       .type = PFCP_IE_INACTIVITY_DETECTION_TIME,
-      .offset = offsetof(pfcp_create_urr_t, inactivity_detection_time)
+      .offset = offsetof(pfcp_ie_create_urr_t, inactivity_detection_time)
     },
     [CREATE_URR_LINKED_URR_ID] = {
       .type = PFCP_IE_LINKED_URR_ID,
       .is_array = true,
-      .offset = offsetof(pfcp_create_urr_t, linked_urr_id)
+      .offset = offsetof(pfcp_ie_create_urr_t, linked_urr_id)
     },
     [CREATE_URR_MEASUREMENT_INFORMATION] = {
       .type = PFCP_IE_MEASUREMENT_INFORMATION,
-      .offset = offsetof(pfcp_create_urr_t, measurement_information)
+      .offset = offsetof(pfcp_ie_create_urr_t, measurement_information)
     },
     [CREATE_URR_TIME_QUOTA_MECHANISM] = {
       .type = PFCP_IE_TIME_QUOTA_MECHANISM,
-      .offset = offsetof(pfcp_create_urr_t, time_quota_mechanism)
+      .offset = offsetof(pfcp_ie_create_urr_t, time_quota_mechanism)
     },
     [CREATE_URR_AGGREGATED_URRS] = {
       .type = PFCP_IE_AGGREGATED_URRS,
-      .offset = offsetof(pfcp_create_urr_t, aggregated_urrs)
+      .offset = offsetof(pfcp_ie_create_urr_t, aggregated_urrs)
     },
     [CREATE_URR_FAR_ID_FOR_QUOTE_ACTION] = {
       .type = PFCP_IE_FAR_ID,
-      .offset = offsetof(pfcp_create_urr_t, far_id_for_quota_action)
+      .offset = offsetof(pfcp_ie_create_urr_t, far_id_for_quota_action)
     },
     [CREATE_URR_ETHERNET_INACTIVITY_TIMER] = {
       .type = PFCP_IE_ETHERNET_INACTIVITY_TIMER,
-      .offset = offsetof(pfcp_create_urr_t, ethernet_inactivity_timer)
+      .offset = offsetof(pfcp_ie_create_urr_t, ethernet_inactivity_timer)
     },
     [CREATE_URR_ADDITIONAL_MONITORING_TIME] = {
       .type = PFCP_IE_ADDITIONAL_MONITORING_TIME,
       .is_array = true,
-     .offset = offsetof(pfcp_create_urr_t, additional_monitoring_time)
+     .offset = offsetof(pfcp_ie_create_urr_t, additional_monitoring_time)
     },
   };
 
@@ -5275,47 +5271,47 @@ static struct pfcp_group_ie_def pfcp_create_qer_group[] =
   {
     [CREATE_QER_QER_ID] = {
       .type = PFCP_IE_QER_ID,
-      .offset = offsetof(pfcp_create_qer_t, qer_id)
+      .offset = offsetof(pfcp_ie_create_qer_t, qer_id)
     },
     [CREATE_QER_QER_CORRELATION_ID] = {
       .type = PFCP_IE_QER_CORRELATION_ID,
-      .offset = offsetof(pfcp_create_qer_t, qer_correlation_id)
+      .offset = offsetof(pfcp_ie_create_qer_t, qer_correlation_id)
     },
     [CREATE_QER_GATE_STATUS] = {
       .type = PFCP_IE_GATE_STATUS,
-      .offset = offsetof(pfcp_create_qer_t, gate_status)
+      .offset = offsetof(pfcp_ie_create_qer_t, gate_status)
     },
     [CREATE_QER_MBR] = {
       .type = PFCP_IE_MBR,
-      .offset = offsetof(pfcp_create_qer_t, mbr)
+      .offset = offsetof(pfcp_ie_create_qer_t, mbr)
     },
     [CREATE_QER_GBR] = {
       .type = PFCP_IE_GBR,
-      .offset = offsetof(pfcp_create_qer_t, gbr)
+      .offset = offsetof(pfcp_ie_create_qer_t, gbr)
     },
     [CREATE_QER_PACKET_RATE] = {
       .type = PFCP_IE_PACKET_RATE,
-      .offset = offsetof(pfcp_create_qer_t, packet_rate)
+      .offset = offsetof(pfcp_ie_create_qer_t, packet_rate)
     },
     [CREATE_QER_DL_FLOW_LEVEL_MARKING] = {
       .type = PFCP_IE_DL_FLOW_LEVEL_MARKING,
-      .offset = offsetof(pfcp_create_qer_t, dl_flow_level_marking)
+      .offset = offsetof(pfcp_ie_create_qer_t, dl_flow_level_marking)
     },
     [CREATE_QER_QOS_FLOW_IDENTIFIER] = {
       .type = PFCP_IE_QFI,
-      .offset = offsetof(pfcp_create_qer_t, qos_flow_identifier)
+      .offset = offsetof(pfcp_ie_create_qer_t, qos_flow_identifier)
     },
     [CREATE_QER_REFLECTIVE_QOS] = {
       .type = PFCP_IE_RQI,
-      .offset = offsetof(pfcp_create_qer_t, reflective_qos)
+      .offset = offsetof(pfcp_ie_create_qer_t, reflective_qos)
     },
     [CREATE_QER_PAGING_POLICY_INDICATOR] = {
       .type = PFCP_IE_PAGING_POLICY_INDICATOR,
-      .offset = offsetof(pfcp_create_qer_t, paging_policy_indicator)
+      .offset = offsetof(pfcp_ie_create_qer_t, paging_policy_indicator)
     },
     [CREATE_QER_AVERAGING_WINDOW] = {
       .type = PFCP_IE_AVERAGING_WINDOW,
-      .offset = offsetof(pfcp_create_qer_t, averaging_window)
+      .offset = offsetof(pfcp_ie_create_qer_t, averaging_window)
     },
   };
 
@@ -5323,15 +5319,15 @@ static struct pfcp_group_ie_def pfcp_created_pdr_group[] =
   {
     [CREATED_PDR_PDR_ID] = {
       .type = PFCP_IE_PDR_ID,
-      .offset = offsetof(pfcp_created_pdr_t, pdr_id)
+      .offset = offsetof(pfcp_ie_created_pdr_t, pdr_id)
     },
     [CREATED_PDR_F_TEID] = {
       .type = PFCP_IE_F_TEID,
-      .offset = offsetof(pfcp_created_pdr_t, f_teid)
+      .offset = offsetof(pfcp_ie_created_pdr_t, f_teid)
     },
     [CREATED_PDR_UE_IP_ADDRESS] = {
       .type = PFCP_IE_UE_IP_ADDRESS,
-      .offset = offsetof(pfcp_created_pdr_t, ue_ip_address)
+      .offset = offsetof(pfcp_ie_created_pdr_t, ue_ip_address)
     },
   };
 
@@ -5339,49 +5335,49 @@ static struct pfcp_group_ie_def pfcp_update_pdr_group[] =
   {
     [UPDATE_PDR_PDR_ID] = {
       .type = PFCP_IE_PDR_ID,
-      .offset = offsetof(pfcp_update_pdr_t, pdr_id)
+      .offset = offsetof(pfcp_ie_update_pdr_t, pdr_id)
     },
     [UPDATE_PDR_OUTER_HEADER_REMOVAL] = {
       .type = PFCP_IE_OUTER_HEADER_REMOVAL,
-      .offset = offsetof(pfcp_update_pdr_t, outer_header_removal)
+      .offset = offsetof(pfcp_ie_update_pdr_t, outer_header_removal)
     },
     [UPDATE_PDR_PRECEDENCE] = {
       .type = PFCP_IE_PRECEDENCE,
-      .offset = offsetof(pfcp_update_pdr_t, precedence)
+      .offset = offsetof(pfcp_ie_update_pdr_t, precedence)
     },
     [UPDATE_PDR_PDI] = {
       .type = PFCP_IE_PDI,
-      .offset = offsetof(pfcp_update_pdr_t, pdi)
+      .offset = offsetof(pfcp_ie_update_pdr_t, pdi)
     },
     [UPDATE_PDR_FAR_ID] = {
       .type = PFCP_IE_FAR_ID,
-      .offset = offsetof(pfcp_update_pdr_t, far_id)
+      .offset = offsetof(pfcp_ie_update_pdr_t, far_id)
     },
     [UPDATE_PDR_URR_ID] = {
       .type = PFCP_IE_URR_ID,
       .is_array = true,
-      .offset = offsetof(pfcp_update_pdr_t, urr_id)
+      .offset = offsetof(pfcp_ie_update_pdr_t, urr_id)
     },
     [UPDATE_PDR_QER_ID] = {
       .type = PFCP_IE_QER_ID,
       .is_array = true,
-      .offset = offsetof(pfcp_update_pdr_t, qer_id)
+      .offset = offsetof(pfcp_ie_update_pdr_t, qer_id)
     },
     [UPDATE_PDR_ACTIVATE_PREDEFINED_RULES] = {
       .type = PFCP_IE_ACTIVATE_PREDEFINED_RULES,
-      .offset = offsetof(pfcp_update_pdr_t, activate_predefined_rules)
+      .offset = offsetof(pfcp_ie_update_pdr_t, activate_predefined_rules)
     },
     [UPDATE_PDR_DEACTIVATE_PREDEFINED_RULES] = {
       .type = PFCP_IE_DEACTIVATE_PREDEFINED_RULES,
-      .offset = offsetof(pfcp_update_pdr_t, deactivate_predefined_rules)
+      .offset = offsetof(pfcp_ie_update_pdr_t, deactivate_predefined_rules)
     },
     [UPDATE_PDR_ACTIVATION_TIME] = {
       .type = PFCP_IE_ACTIVATION_TIME,
-      .offset = offsetof(pfcp_update_pdr_t, activation_time)
+      .offset = offsetof(pfcp_ie_update_pdr_t, activation_time)
     },
     [UPDATE_PDR_DEACTIVATION_TIME] = {
       .type = PFCP_IE_DEACTIVATION_TIME,
-      .offset = offsetof(pfcp_update_pdr_t, deactivation_time)
+      .offset = offsetof(pfcp_ie_update_pdr_t, deactivation_time)
     },
   };
 
@@ -5389,28 +5385,28 @@ static struct pfcp_group_ie_def pfcp_update_far_group[] =
   {
     [UPDATE_FAR_FAR_ID] = {
       .type = PFCP_IE_FAR_ID,
-      .offset = offsetof(pfcp_update_far_t, far_id)
+      .offset = offsetof(pfcp_ie_update_far_t, far_id)
     },
     [UPDATE_FAR_APPLY_ACTION] = {
       .type = PFCP_IE_APPLY_ACTION,
-      .offset = offsetof(pfcp_update_far_t, apply_action)
+      .offset = offsetof(pfcp_ie_update_far_t, apply_action)
     },
     [UPDATE_FAR_UPDATE_FORWARDING_PARAMETERS] = {
       .type = PFCP_IE_UPDATE_FORWARDING_PARAMETERS,
-      .offset = offsetof(pfcp_update_far_t, update_forwarding_parameters)
+      .offset = offsetof(pfcp_ie_update_far_t, update_forwarding_parameters)
     },
     [UPDATE_FAR_UPDATE_DUPLICATING_PARAMETERS] = {
       .type = PFCP_IE_UPDATE_DUPLICATING_PARAMETERS,
-      .offset = offsetof(pfcp_update_far_t, update_duplicating_parameters)
+      .offset = offsetof(pfcp_ie_update_far_t, update_duplicating_parameters)
     },
     [UPDATE_FAR_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
-      .offset = offsetof(pfcp_update_far_t, bar_id)
+      .offset = offsetof(pfcp_ie_update_far_t, bar_id)
     },
     [UPDATE_FAR_TP_IPFIX_POLICY] = {
       .type = PFCP_IE_TP_IPFIX_POLICY,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_update_far_t, ipfix_policy)
+      .offset = offsetof(pfcp_ie_update_far_t, ipfix_policy)
     },
   };
 
@@ -5418,43 +5414,43 @@ static struct pfcp_group_ie_def pfcp_update_forwarding_parameters_group[] =
   {
     [UPDATE_FORWARDING_PARAMETERS_DESTINATION_INTERFACE] = {
       .type = PFCP_IE_DESTINATION_INTERFACE,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, destination_interface)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, destination_interface)
     },
     [UPDATE_FORWARDING_PARAMETERS_NETWORK_INSTANCE] = {
       .type = PFCP_IE_NETWORK_INSTANCE,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, network_instance)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, network_instance)
     },
     [UPDATE_FORWARDING_PARAMETERS_REDIRECT_INFORMATION] = {
       .type = PFCP_IE_REDIRECT_INFORMATION,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, redirect_information)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, redirect_information)
     },
     [UPDATE_FORWARDING_PARAMETERS_OUTER_HEADER_CREATION] = {
       .type = PFCP_IE_OUTER_HEADER_CREATION,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, outer_header_creation)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, outer_header_creation)
     },
     [UPDATE_FORWARDING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = {
       .type = PFCP_IE_TRANSPORT_LEVEL_MARKING,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, transport_level_marking)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, transport_level_marking)
     },
     [UPDATE_FORWARDING_PARAMETERS_FORWARDING_POLICY] = {
       .type = PFCP_IE_FORWARDING_POLICY,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, forwarding_policy)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, forwarding_policy)
     },
     [UPDATE_FORWARDING_PARAMETERS_HEADER_ENRICHMENT] = {
       .type = PFCP_IE_HEADER_ENRICHMENT,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, header_enrichment)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, header_enrichment)
     },
     [UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS] = {
       .type = PFCP_IE_PFCPSMREQ_FLAGS,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, pfcpsmreq_flags)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, pfcpsmreq_flags)
     },
     [UPDATE_FORWARDING_PARAMETERS_LINKED_TRAFFIC_ENDPOINT_ID] = {
       .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, linked_traffic_endpoint_id)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, linked_traffic_endpoint_id)
     },
     [UPDATE_FORWARDING_PARAMETERS_DESTINATION_INTERFACE_TYPE] = {
       .type = PFCP_IE_TGPP_INTERFACE_TYPE,
-      .offset = offsetof(pfcp_update_forwarding_parameters_t, destination_interface_type)
+      .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, destination_interface_type)
     },
   };
 
@@ -5462,23 +5458,23 @@ static struct pfcp_group_ie_def pfcp_update_bar_response_group[] =
   {
     [UPDATE_BAR_RESPONSE_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
-      .offset = offsetof(pfcp_update_bar_response_t, bar_id)
+      .offset = offsetof(pfcp_ie_update_bar_response_t, bar_id)
     },
     [UPDATE_BAR_RESPONSE_DOWNLINK_DATA_NOTIFICATION_DELAY] = {
       .type = PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY,
-      .offset = offsetof(pfcp_update_bar_response_t, downlink_data_notification_delay)
+      .offset = offsetof(pfcp_ie_update_bar_response_t, downlink_data_notification_delay)
     },
     [UPDATE_BAR_RESPONSE_DL_BUFFERING_DURATION] = {
       .type = PFCP_IE_DL_BUFFERING_DURATION,
-      .offset = offsetof(pfcp_update_bar_response_t, dl_buffering_duration)
+      .offset = offsetof(pfcp_ie_update_bar_response_t, dl_buffering_duration)
     },
     [UPDATE_BAR_RESPONSE_DL_BUFFERING_SUGGESTED_PACKET_COUNT] = {
       .type = PFCP_IE_DL_BUFFERING_SUGGESTED_PACKET_COUNT,
-      .offset = offsetof(pfcp_update_bar_response_t, dl_buffering_suggested_packet_count)
+      .offset = offsetof(pfcp_ie_update_bar_response_t, dl_buffering_suggested_packet_count)
     },
     [UPDATE_BAR_RESPONSE_SUGGESTED_BUFFERING_PACKETS_COUNT] = {
       .type = PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT,
-      .offset = offsetof(pfcp_update_bar_response_t, suggested_buffering_packets_count)
+      .offset = offsetof(pfcp_ie_update_bar_response_t, suggested_buffering_packets_count)
     },
   };
 
@@ -5486,88 +5482,88 @@ static struct pfcp_group_ie_def pfcp_update_urr_group[] =
   {
     [UPDATE_URR_URR_ID] = {
       .type = PFCP_IE_URR_ID,
-      .offset = offsetof(pfcp_update_urr_t, urr_id)
+      .offset = offsetof(pfcp_ie_update_urr_t, urr_id)
     },
     [UPDATE_URR_MEASUREMENT_METHOD] = {
       .type = PFCP_IE_MEASUREMENT_METHOD,
-      .offset = offsetof(pfcp_update_urr_t, measurement_method)
+      .offset = offsetof(pfcp_ie_update_urr_t, measurement_method)
     },
     [UPDATE_URR_REPORTING_TRIGGERS] = {
       .type = PFCP_IE_REPORTING_TRIGGERS,
-      .offset = offsetof(pfcp_update_urr_t, reporting_triggers)
+      .offset = offsetof(pfcp_ie_update_urr_t, reporting_triggers)
     },
     [UPDATE_URR_MEASUREMENT_PERIOD] = {
       .type = PFCP_IE_MEASUREMENT_PERIOD,
-      .offset = offsetof(pfcp_update_urr_t, measurement_period)
+      .offset = offsetof(pfcp_ie_update_urr_t, measurement_period)
     },
     [UPDATE_URR_VOLUME_THRESHOLD] = {
       .type = PFCP_IE_VOLUME_THRESHOLD,
-      .offset = offsetof(pfcp_update_urr_t, volume_threshold)
+      .offset = offsetof(pfcp_ie_update_urr_t, volume_threshold)
     },
     [UPDATE_URR_VOLUME_QUOTA] = {
       .type = PFCP_IE_VOLUME_QUOTA,
-      .offset = offsetof(pfcp_update_urr_t, volume_quota)
+      .offset = offsetof(pfcp_ie_update_urr_t, volume_quota)
     },
     [UPDATE_URR_TIME_THRESHOLD] = {
       .type = PFCP_IE_TIME_THRESHOLD,
-      .offset = offsetof(pfcp_update_urr_t, time_threshold)
+      .offset = offsetof(pfcp_ie_update_urr_t, time_threshold)
     },
     [UPDATE_URR_TIME_QUOTA] = {
       .type = PFCP_IE_TIME_QUOTA,
-      .offset = offsetof(pfcp_update_urr_t, time_quota)
+      .offset = offsetof(pfcp_ie_update_urr_t, time_quota)
     },
     [UPDATE_URR_QUOTA_HOLDING_TIME] = {
       .type = PFCP_IE_QUOTA_HOLDING_TIME,
-      .offset = offsetof(pfcp_update_urr_t, quota_holding_time)
+      .offset = offsetof(pfcp_ie_update_urr_t, quota_holding_time)
     },
     [UPDATE_URR_DROPPED_DL_TRAFFIC_THRESHOLD] = {
       .type = PFCP_IE_DROPPED_DL_TRAFFIC_THRESHOLD,
-      .offset = offsetof(pfcp_update_urr_t, dropped_dl_traffic_threshold)
+      .offset = offsetof(pfcp_ie_update_urr_t, dropped_dl_traffic_threshold)
     },
     [UPDATE_URR_QUOTA_VALIDITY_TIME] = {
       .type = PFCP_IE_QUOTA_VALIDITY_TIME,
-      .offset = offsetof(pfcp_update_urr_t, quota_validity_time)
+      .offset = offsetof(pfcp_ie_update_urr_t, quota_validity_time)
     },
     [UPDATE_URR_MONITORING_TIME] = {
       .type = PFCP_IE_MONITORING_TIME,
-      .offset = offsetof(pfcp_update_urr_t, monitoring_time)
+      .offset = offsetof(pfcp_ie_update_urr_t, monitoring_time)
     },
     [UPDATE_URR_SUBSEQUENT_VOLUME_THRESHOLD] = {
       .type = PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD,
-      .offset = offsetof(pfcp_update_urr_t, subsequent_volume_threshold)
+      .offset = offsetof(pfcp_ie_update_urr_t, subsequent_volume_threshold)
     },
     [UPDATE_URR_SUBSEQUENT_TIME_THRESHOLD] = {
       .type = PFCP_IE_SUBSEQUENT_TIME_THRESHOLD,
-      .offset = offsetof(pfcp_update_urr_t, subsequent_time_threshold)
+      .offset = offsetof(pfcp_ie_update_urr_t, subsequent_time_threshold)
     },
     [UPDATE_URR_INACTIVITY_DETECTION_TIME] = {
       .type = PFCP_IE_INACTIVITY_DETECTION_TIME,
-      .offset = offsetof(pfcp_update_urr_t, inactivity_detection_time)
+      .offset = offsetof(pfcp_ie_update_urr_t, inactivity_detection_time)
     },
     [UPDATE_URR_LINKED_URR_ID] = {
       .type = PFCP_IE_LINKED_URR_ID,
       .is_array = true,
-      .offset = offsetof(pfcp_update_urr_t, linked_urr_id)
+      .offset = offsetof(pfcp_ie_update_urr_t, linked_urr_id)
     },
     [UPDATE_URR_MEASUREMENT_INFORMATION] = {
       .type = PFCP_IE_MEASUREMENT_INFORMATION,
-      .offset = offsetof(pfcp_update_urr_t, measurement_information)
+      .offset = offsetof(pfcp_ie_update_urr_t, measurement_information)
     },
     [UPDATE_URR_TIME_QUOTA_MECHANISM] = {
       .type = PFCP_IE_TIME_QUOTA_MECHANISM,
-      .offset = offsetof(pfcp_update_urr_t, time_quota_mechanism)
+      .offset = offsetof(pfcp_ie_update_urr_t, time_quota_mechanism)
     },
     [UPDATE_URR_AGGREGATED_URRS] = {
       .type = PFCP_IE_AGGREGATED_URRS,
-      .offset = offsetof(pfcp_update_urr_t, aggregated_urrs)
+      .offset = offsetof(pfcp_ie_update_urr_t, aggregated_urrs)
     },
     [UPDATE_URR_FAR_ID_FOR_QUOTE_ACTION] = {
       .type = PFCP_IE_FAR_ID,
-      .offset = offsetof(pfcp_update_urr_t, far_id_for_quota_action)
+      .offset = offsetof(pfcp_ie_update_urr_t, far_id_for_quota_action)
     },
     [UPDATE_URR_ETHERNET_INACTIVITY_TIMER] = {
       .type = PFCP_IE_ETHERNET_INACTIVITY_TIMER,
-      .offset = offsetof(pfcp_update_urr_t, ethernet_inactivity_timer)
+      .offset = offsetof(pfcp_ie_update_urr_t, ethernet_inactivity_timer)
     },
   };
 
@@ -5575,47 +5571,47 @@ static struct pfcp_group_ie_def pfcp_update_qer_group[] =
   {
     [UPDATE_QER_QER_ID] = {
       .type = PFCP_IE_QER_ID,
-      .offset = offsetof(pfcp_update_qer_t, qer_id)
+      .offset = offsetof(pfcp_ie_update_qer_t, qer_id)
     },
     [UPDATE_QER_QER_CORRELATION_ID] = {
       .type = PFCP_IE_QER_CORRELATION_ID,
-      .offset = offsetof(pfcp_update_qer_t, qer_correlation_id)
+      .offset = offsetof(pfcp_ie_update_qer_t, qer_correlation_id)
     },
     [UPDATE_QER_GATE_STATUS] = {
       .type = PFCP_IE_GATE_STATUS,
-      .offset = offsetof(pfcp_update_qer_t, gate_status)
+      .offset = offsetof(pfcp_ie_update_qer_t, gate_status)
     },
     [UPDATE_QER_MBR] = {
       .type = PFCP_IE_MBR,
-      .offset = offsetof(pfcp_update_qer_t, mbr)
+      .offset = offsetof(pfcp_ie_update_qer_t, mbr)
     },
     [UPDATE_QER_GBR] = {
       .type = PFCP_IE_GBR,
-      .offset = offsetof(pfcp_update_qer_t, gbr)
+      .offset = offsetof(pfcp_ie_update_qer_t, gbr)
     },
     [UPDATE_QER_PACKET_RATE] = {
       .type = PFCP_IE_PACKET_RATE,
-      .offset = offsetof(pfcp_update_qer_t, packet_rate)
+      .offset = offsetof(pfcp_ie_update_qer_t, packet_rate)
     },
     [UPDATE_QER_DL_FLOW_LEVEL_MARKING] = {
       .type = PFCP_IE_DL_FLOW_LEVEL_MARKING,
-      .offset = offsetof(pfcp_update_qer_t, dl_flow_level_marking)
+      .offset = offsetof(pfcp_ie_update_qer_t, dl_flow_level_marking)
     },
     [UPDATE_QER_QOS_FLOW_IDENTIFIER] = {
       .type = PFCP_IE_QFI,
-      .offset = offsetof(pfcp_update_qer_t, qos_flow_identifier)
+      .offset = offsetof(pfcp_ie_update_qer_t, qos_flow_identifier)
     },
     [UPDATE_QER_REFLECTIVE_QOS] = {
       .type = PFCP_IE_RQI,
-      .offset = offsetof(pfcp_update_qer_t, reflective_qos)
+      .offset = offsetof(pfcp_ie_update_qer_t, reflective_qos)
     },
     [UPDATE_QER_PAGING_POLICY_INDICATOR] = {
       .type = PFCP_IE_PAGING_POLICY_INDICATOR,
-      .offset = offsetof(pfcp_update_qer_t, paging_policy_indicator)
+      .offset = offsetof(pfcp_ie_update_qer_t, paging_policy_indicator)
     },
     [UPDATE_QER_AVERAGING_WINDOW] = {
       .type = PFCP_IE_AVERAGING_WINDOW,
-      .offset = offsetof(pfcp_update_qer_t, averaging_window)
+      .offset = offsetof(pfcp_ie_update_qer_t, averaging_window)
     },
   };
 
@@ -5623,7 +5619,7 @@ static struct pfcp_group_ie_def pfcp_remove_pdr_group[] =
   {
     [REMOVE_PDR_PDR_ID] = {
       .type = PFCP_IE_PDR_ID,
-      .offset = offsetof(pfcp_remove_pdr_t, pdr_id)
+      .offset = offsetof(pfcp_ie_remove_pdr_t, pdr_id)
     },
   };
 
@@ -5631,7 +5627,7 @@ static struct pfcp_group_ie_def pfcp_remove_far_group[] =
   {
     [REMOVE_FAR_FAR_ID] = {
       .type = PFCP_IE_FAR_ID,
-      .offset = offsetof(pfcp_remove_far_t, far_id)
+      .offset = offsetof(pfcp_ie_remove_far_t, far_id)
     },
   };
 
@@ -5639,7 +5635,7 @@ static struct pfcp_group_ie_def pfcp_remove_urr_group[] =
   {
     [REMOVE_URR_URR_ID] = {
       .type = PFCP_IE_URR_ID,
-      .offset = offsetof(pfcp_remove_urr_t, urr_id)
+      .offset = offsetof(pfcp_ie_remove_urr_t, urr_id)
     },
   };
 
@@ -5647,7 +5643,7 @@ static struct pfcp_group_ie_def pfcp_remove_qer_group[] =
   {
     [REMOVE_QER_QER_ID] = {
       .type = PFCP_IE_QER_ID,
-      .offset = offsetof(pfcp_remove_qer_t, qer_id)
+      .offset = offsetof(pfcp_ie_remove_qer_t, qer_id)
     },
   };
 
@@ -5655,11 +5651,11 @@ static struct pfcp_group_ie_def pfcp_load_control_information_group[] =
   {
     [LOAD_CONTROL_INFORMATION_SEQUENCE_NUMBER] = {
       .type = PFCP_IE_SEQUENCE_NUMBER,
-      .offset = offsetof(pfcp_load_control_information_t, sequence_number)
+      .offset = offsetof(pfcp_ie_load_control_information_t, sequence_number)
     },
     [LOAD_CONTROL_INFORMATION_METRIC] = {
       .type = PFCP_IE_METRIC,
-      .offset = offsetof(pfcp_load_control_information_t, metric)
+      .offset = offsetof(pfcp_ie_load_control_information_t, metric)
     },
   };
 
@@ -5667,19 +5663,19 @@ static struct pfcp_group_ie_def pfcp_overload_control_information_group[] =
   {
     [OVERLOAD_CONTROL_INFORMATION_SEQUENCE_NUMBER] = {
       .type = PFCP_IE_SEQUENCE_NUMBER,
-      .offset = offsetof(pfcp_overload_control_information_t, sequence_number)
+      .offset = offsetof(pfcp_ie_overload_control_information_t, sequence_number)
     },
     [OVERLOAD_CONTROL_INFORMATION_METRIC] = {
       .type = PFCP_IE_METRIC,
-      .offset = offsetof(pfcp_overload_control_information_t, metric)
+      .offset = offsetof(pfcp_ie_overload_control_information_t, metric)
     },
     [OVERLOAD_CONTROL_INFORMATION_TIMER] = {
       .type = PFCP_IE_TIMER,
-      .offset = offsetof(pfcp_overload_control_information_t, timer)
+      .offset = offsetof(pfcp_ie_overload_control_information_t, timer)
     },
     [OVERLOAD_CONTROL_INFORMATION_OCI_FLAGS] = {
       .type = PFCP_IE_OCI_FLAGS,
-      .offset = offsetof(pfcp_overload_control_information_t, oci_flags)
+      .offset = offsetof(pfcp_ie_overload_control_information_t, oci_flags)
     },
   };
 
@@ -5687,12 +5683,12 @@ static struct pfcp_group_ie_def pfcp_application_id_pfds_group[] =
   {
     [APPLICATION_ID_PFDS_APPLICATION_ID] = {
       .type = PFCP_IE_APPLICATION_ID,
-      .offset = offsetof(pfcp_application_id_pfds_t, application_id)
+      .offset = offsetof(pfcp_ie_application_id_pfds_t, application_id)
     },
     [APPLICATION_ID_PFDS_PFD] = {
       .type = PFCP_IE_PFD,
       .is_array = true,
-      .offset = offsetof(pfcp_application_id_pfds_t, pfd)
+      .offset = offsetof(pfcp_ie_application_id_pfds_t, pfd)
     },
   };
 
@@ -5701,7 +5697,7 @@ static struct pfcp_group_ie_def pfcp_pfd_group[] =
     [PFD_PFD_CONTENTS] = {
       .type = PFCP_IE_PFD_CONTENTS,
       .is_array = true,
-      .offset = offsetof(pfcp_pfd_t, pfd_contents)
+      .offset = offsetof(pfcp_ie_pfd_t, pfd_contents)
     },
   };
 
@@ -5709,15 +5705,15 @@ static struct pfcp_group_ie_def pfcp_application_detection_information_group[] =
   {
     [APPLICATION_DETECTION_INFORMATION_APPLICATION_ID] = {
       .type = PFCP_IE_APPLICATION_ID,
-      .offset = offsetof(pfcp_application_detection_information_t, application_id)
+      .offset = offsetof(pfcp_ie_application_detection_information_t, application_id)
     },
     [APPLICATION_DETECTION_INFORMATION_APPLICATION_INSTANCE_ID] = {
       .type = PFCP_IE_APPLICATION_INSTANCE_ID,
-      .offset = offsetof(pfcp_application_detection_information_t, application_instance_id)
+      .offset = offsetof(pfcp_ie_application_detection_information_t, application_instance_id)
     },
     [APPLICATION_DETECTION_INFORMATION_FLOW_INFORMATION] = {
       .type = PFCP_IE_FLOW_INFORMATION,
-      .offset = offsetof(pfcp_application_detection_information_t, flow_information)
+      .offset = offsetof(pfcp_ie_application_detection_information_t, flow_information)
     },
   };
 
@@ -5725,7 +5721,7 @@ static struct pfcp_group_ie_def pfcp_query_urr_group[] =
   {
     [QUERY_URR_URR_ID] = {
       .type = PFCP_IE_URR_ID,
-      .offset = offsetof(pfcp_query_urr_t, urr_id)
+      .offset = offsetof(pfcp_ie_query_urr_t, urr_id)
     },
   };
 
@@ -5733,71 +5729,71 @@ static struct pfcp_group_ie_def pfcp_usage_report_smr_group[] =
   {
     [USAGE_REPORT_URR_ID] = {
       .type = PFCP_IE_URR_ID,
-      .offset = offsetof(pfcp_usage_report_t, urr_id)
+      .offset = offsetof(pfcp_ie_usage_report_t, urr_id)
     },
     [USAGE_REPORT_UR_SEQN] = {
       .type = PFCP_IE_UR_SEQN,
-      .offset = offsetof(pfcp_usage_report_t, ur_seqn)
+      .offset = offsetof(pfcp_ie_usage_report_t, ur_seqn)
     },
     [USAGE_REPORT_USAGE_REPORT_TRIGGER] = {
       .type = PFCP_IE_USAGE_REPORT_TRIGGER,
-      .offset = offsetof(pfcp_usage_report_t, usage_report_trigger)
+      .offset = offsetof(pfcp_ie_usage_report_t, usage_report_trigger)
     },
     [USAGE_REPORT_START_TIME] = {
       .type = PFCP_IE_START_TIME,
-      .offset = offsetof(pfcp_usage_report_t, start_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, start_time)
     },
     [USAGE_REPORT_END_TIME] = {
       .type = PFCP_IE_END_TIME,
-      .offset = offsetof(pfcp_usage_report_t, end_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, end_time)
     },
     [USAGE_REPORT_VOLUME_MEASUREMENT] = {
       .type = PFCP_IE_VOLUME_MEASUREMENT,
-      .offset = offsetof(pfcp_usage_report_t, volume_measurement)
+      .offset = offsetof(pfcp_ie_usage_report_t, volume_measurement)
     },
     [USAGE_REPORT_DURATION_MEASUREMENT] = {
       .type = PFCP_IE_DURATION_MEASUREMENT,
-      .offset = offsetof(pfcp_usage_report_t, duration_measurement)
+      .offset = offsetof(pfcp_ie_usage_report_t, duration_measurement)
     },
     [USAGE_REPORT_TIME_OF_FIRST_PACKET] = {
       .type = PFCP_IE_TIME_OF_FIRST_PACKET,
-      .offset = offsetof(pfcp_usage_report_t, time_of_first_packet)
+      .offset = offsetof(pfcp_ie_usage_report_t, time_of_first_packet)
     },
     [USAGE_REPORT_TIME_OF_LAST_PACKET] = {
       .type = PFCP_IE_TIME_OF_LAST_PACKET,
-      .offset = offsetof(pfcp_usage_report_t, time_of_last_packet)
+      .offset = offsetof(pfcp_ie_usage_report_t, time_of_last_packet)
     },
     [USAGE_REPORT_USAGE_INFORMATION] = {
       .type = PFCP_IE_USAGE_INFORMATION,
-      .offset = offsetof(pfcp_usage_report_t, usage_information)
+      .offset = offsetof(pfcp_ie_usage_report_t, usage_information)
     },
     [USAGE_REPORT_QUERY_URR_REFERENCE] = {
       .type = PFCP_IE_QUERY_URR_REFERENCE,
-      .offset = offsetof(pfcp_usage_report_t, query_urr_reference)
+      .offset = offsetof(pfcp_ie_usage_report_t, query_urr_reference)
     },
     [USAGE_REPORT_EVENT_TIME_STAMP] = {
       .type = PFCP_IE_EVENT_TIME_STAMP,
       .is_array = true,
-      .offset = offsetof(pfcp_usage_report_t, event_time_stamp)
+      .offset = offsetof(pfcp_ie_usage_report_t, event_time_stamp)
     },
     [USAGE_REPORT_ETHERNET_TRAFFIC_INFORMATION] = {
       .type = PFCP_IE_ETHERNET_TRAFFIC_INFORMATION,
-      .offset = offsetof(pfcp_usage_report_t, ethernet_traffic_information)
+      .offset = offsetof(pfcp_ie_usage_report_t, ethernet_traffic_information)
     },
     [USAGE_REPORT_TP_NOW] = {
       .type = PFCP_IE_TP_NOW,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_usage_report_t, tp_now)
+      .offset = offsetof(pfcp_ie_usage_report_t, tp_now)
     },
     [USAGE_REPORT_TP_START_TIME] = {
       .type = PFCP_IE_TP_START_TIME,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_usage_report_t, tp_start_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, tp_start_time)
     },
     [USAGE_REPORT_TP_END_TIME] = {
       .type = PFCP_IE_TP_END_TIME,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_usage_report_t, tp_end_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, tp_end_time)
     },
   };
 
@@ -5805,62 +5801,62 @@ static struct pfcp_group_ie_def pfcp_usage_report_sdr_group[] =
   {
     [USAGE_REPORT_URR_ID] = {
       .type = PFCP_IE_URR_ID,
-      .offset = offsetof(pfcp_usage_report_t, urr_id)
+      .offset = offsetof(pfcp_ie_usage_report_t, urr_id)
     },
     [USAGE_REPORT_UR_SEQN] = {
       .type = PFCP_IE_UR_SEQN,
-      .offset = offsetof(pfcp_usage_report_t, ur_seqn)
+      .offset = offsetof(pfcp_ie_usage_report_t, ur_seqn)
     },
     [USAGE_REPORT_USAGE_REPORT_TRIGGER] = {
       .type = PFCP_IE_USAGE_REPORT_TRIGGER,
-      .offset = offsetof(pfcp_usage_report_t, usage_report_trigger)
+      .offset = offsetof(pfcp_ie_usage_report_t, usage_report_trigger)
     },
     [USAGE_REPORT_START_TIME] = {
       .type = PFCP_IE_START_TIME,
-      .offset = offsetof(pfcp_usage_report_t, start_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, start_time)
     },
     [USAGE_REPORT_END_TIME] = {
       .type = PFCP_IE_END_TIME,
-      .offset = offsetof(pfcp_usage_report_t, end_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, end_time)
     },
     [USAGE_REPORT_VOLUME_MEASUREMENT] = {
       .type = PFCP_IE_VOLUME_MEASUREMENT,
-      .offset = offsetof(pfcp_usage_report_t, volume_measurement)
+      .offset = offsetof(pfcp_ie_usage_report_t, volume_measurement)
     },
     [USAGE_REPORT_DURATION_MEASUREMENT] = {
       .type = PFCP_IE_DURATION_MEASUREMENT,
-      .offset = offsetof(pfcp_usage_report_t, duration_measurement)
+      .offset = offsetof(pfcp_ie_usage_report_t, duration_measurement)
     },
     [USAGE_REPORT_TIME_OF_FIRST_PACKET] = {
       .type = PFCP_IE_TIME_OF_FIRST_PACKET,
-      .offset = offsetof(pfcp_usage_report_t, time_of_first_packet)
+      .offset = offsetof(pfcp_ie_usage_report_t, time_of_first_packet)
     },
     [USAGE_REPORT_TIME_OF_LAST_PACKET] = {
       .type = PFCP_IE_TIME_OF_LAST_PACKET,
-      .offset = offsetof(pfcp_usage_report_t, time_of_last_packet)
+      .offset = offsetof(pfcp_ie_usage_report_t, time_of_last_packet)
     },
     [USAGE_REPORT_USAGE_INFORMATION] = {
       .type = PFCP_IE_USAGE_INFORMATION,
-      .offset = offsetof(pfcp_usage_report_t, usage_information)
+      .offset = offsetof(pfcp_ie_usage_report_t, usage_information)
     },
     [USAGE_REPORT_ETHERNET_TRAFFIC_INFORMATION] = {
       .type = PFCP_IE_ETHERNET_TRAFFIC_INFORMATION,
-      .offset = offsetof(pfcp_usage_report_t, ethernet_traffic_information)
+      .offset = offsetof(pfcp_ie_usage_report_t, ethernet_traffic_information)
     },
     [USAGE_REPORT_TP_NOW] = {
       .type = PFCP_IE_TP_NOW,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_usage_report_t, tp_now)
+      .offset = offsetof(pfcp_ie_usage_report_t, tp_now)
     },
     [USAGE_REPORT_TP_START_TIME] = {
       .type = PFCP_IE_TP_START_TIME,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_usage_report_t, tp_start_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, tp_start_time)
     },
     [USAGE_REPORT_TP_END_TIME] = {
       .type = PFCP_IE_TP_END_TIME,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_usage_report_t, tp_end_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, tp_end_time)
     },
   };
 
@@ -5868,78 +5864,78 @@ static struct pfcp_group_ie_def pfcp_usage_report_srr_group[] =
   {
     [USAGE_REPORT_URR_ID] = {
       .type = PFCP_IE_URR_ID,
-      .offset = offsetof(pfcp_usage_report_t, urr_id)
+      .offset = offsetof(pfcp_ie_usage_report_t, urr_id)
     },
     [USAGE_REPORT_UR_SEQN] = {
       .type = PFCP_IE_UR_SEQN,
-      .offset = offsetof(pfcp_usage_report_t, ur_seqn)
+      .offset = offsetof(pfcp_ie_usage_report_t, ur_seqn)
     },
     [USAGE_REPORT_USAGE_REPORT_TRIGGER] = {
       .type = PFCP_IE_USAGE_REPORT_TRIGGER,
-      .offset = offsetof(pfcp_usage_report_t, usage_report_trigger)
+      .offset = offsetof(pfcp_ie_usage_report_t, usage_report_trigger)
     },
     [USAGE_REPORT_START_TIME] = {
       .type = PFCP_IE_START_TIME,
-      .offset = offsetof(pfcp_usage_report_t, start_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, start_time)
     },
     [USAGE_REPORT_END_TIME] = {
       .type = PFCP_IE_END_TIME,
-      .offset = offsetof(pfcp_usage_report_t, end_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, end_time)
     },
     [USAGE_REPORT_VOLUME_MEASUREMENT] = {
       .type = PFCP_IE_VOLUME_MEASUREMENT,
-      .offset = offsetof(pfcp_usage_report_t, volume_measurement)
+      .offset = offsetof(pfcp_ie_usage_report_t, volume_measurement)
     },
     [USAGE_REPORT_DURATION_MEASUREMENT] = {
       .type = PFCP_IE_DURATION_MEASUREMENT,
-      .offset = offsetof(pfcp_usage_report_t, duration_measurement)
+      .offset = offsetof(pfcp_ie_usage_report_t, duration_measurement)
     },
     [USAGE_REPORT_APPLICATION_DETECTION_INFORMATION] = {
       .type = PFCP_IE_APPLICATION_DETECTION_INFORMATION,
-      .offset = offsetof(pfcp_usage_report_t, application_detection_information)
+      .offset = offsetof(pfcp_ie_usage_report_t, application_detection_information)
     },
     [USAGE_REPORT_UE_IP_ADDRESS] = {
       .type = PFCP_IE_UE_IP_ADDRESS,
-      .offset = offsetof(pfcp_usage_report_t, ue_ip_address)
+      .offset = offsetof(pfcp_ie_usage_report_t, ue_ip_address)
     },
     [USAGE_REPORT_NETWORK_INSTANCE] = {
       .type = PFCP_IE_NETWORK_INSTANCE,
-      .offset = offsetof(pfcp_usage_report_t, network_instance)
+      .offset = offsetof(pfcp_ie_usage_report_t, network_instance)
     },
     [USAGE_REPORT_TIME_OF_FIRST_PACKET] = {
       .type = PFCP_IE_TIME_OF_FIRST_PACKET,
-      .offset = offsetof(pfcp_usage_report_t, time_of_first_packet)
+      .offset = offsetof(pfcp_ie_usage_report_t, time_of_first_packet)
     },
     [USAGE_REPORT_TIME_OF_LAST_PACKET] = {
       .type = PFCP_IE_TIME_OF_LAST_PACKET,
-      .offset = offsetof(pfcp_usage_report_t, time_of_last_packet)
+      .offset = offsetof(pfcp_ie_usage_report_t, time_of_last_packet)
     },
     [USAGE_REPORT_USAGE_INFORMATION] = {
       .type = PFCP_IE_USAGE_INFORMATION,
-      .offset = offsetof(pfcp_usage_report_t, usage_information)
+      .offset = offsetof(pfcp_ie_usage_report_t, usage_information)
     },
     [USAGE_REPORT_QUERY_URR_REFERENCE] = {
       .type = PFCP_IE_QUERY_URR_REFERENCE,
-      .offset = offsetof(pfcp_usage_report_t, query_urr_reference)
+      .offset = offsetof(pfcp_ie_usage_report_t, query_urr_reference)
     },
     [USAGE_REPORT_ETHERNET_TRAFFIC_INFORMATION] = {
       .type = PFCP_IE_ETHERNET_TRAFFIC_INFORMATION,
-      .offset = offsetof(pfcp_usage_report_t, ethernet_traffic_information)
+      .offset = offsetof(pfcp_ie_usage_report_t, ethernet_traffic_information)
     },
     [USAGE_REPORT_TP_NOW] = {
       .type = PFCP_IE_TP_NOW,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_usage_report_t, tp_now)
+      .offset = offsetof(pfcp_ie_usage_report_t, tp_now)
     },
     [USAGE_REPORT_TP_START_TIME] = {
       .type = PFCP_IE_TP_START_TIME,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_usage_report_t, tp_start_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, tp_start_time)
     },
     [USAGE_REPORT_TP_END_TIME] = {
       .type = PFCP_IE_TP_END_TIME,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_usage_report_t, tp_end_time)
+      .offset = offsetof(pfcp_ie_usage_report_t, tp_end_time)
     },
   };
 
@@ -5948,12 +5944,12 @@ static struct pfcp_group_ie_def pfcp_downlink_data_report_group[] =
     [DOWNLINK_DATA_REPORT_PDR_ID] = {
       .type = PFCP_IE_PDR_ID,
       .is_array = true,
-      .offset = offsetof(pfcp_downlink_data_report_t, pdr_id)
+      .offset = offsetof(pfcp_ie_downlink_data_report_t, pdr_id)
     },
     [DOWNLINK_DATA_REPORT_DOWNLINK_DATA_SERVICE_INFORMATION] = {
       .type = PFCP_IE_DOWNLINK_DATA_SERVICE_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_downlink_data_report_t, downlink_data_service_information)
+      .offset = offsetof(pfcp_ie_downlink_data_report_t, downlink_data_service_information)
     },
   };
 
@@ -5961,15 +5957,15 @@ static struct pfcp_group_ie_def pfcp_create_bar_group[] =
   {
     [CREATE_BAR_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
-      .offset = offsetof(pfcp_create_bar_t, bar_id)
+      .offset = offsetof(pfcp_ie_create_bar_t, bar_id)
     },
     [CREATE_BAR_DOWNLINK_DATA_NOTIFICATION_DELAY] = {
       .type = PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY,
-      .offset = offsetof(pfcp_create_bar_t, downlink_data_notification_delay)
+      .offset = offsetof(pfcp_ie_create_bar_t, downlink_data_notification_delay)
     },
     [CREATE_BAR_SUGGESTED_BUFFERING_PACKETS_COUNT] = {
       .type = PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT,
-      .offset = offsetof(pfcp_create_bar_t, suggested_buffering_packets_count)
+      .offset = offsetof(pfcp_ie_create_bar_t, suggested_buffering_packets_count)
     },
   };
 
@@ -5977,15 +5973,15 @@ static struct pfcp_group_ie_def pfcp_update_bar_request_group[] =
   {
     [UPDATE_BAR_REQUEST_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
-      .offset = offsetof(pfcp_update_bar_request_t, bar_id)
+      .offset = offsetof(pfcp_ie_update_bar_request_t, bar_id)
     },
     [UPDATE_BAR_REQUEST_DOWNLINK_DATA_NOTIFICATION_DELAY] = {
       .type = PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY,
-      .offset = offsetof(pfcp_update_bar_request_t, downlink_data_notification_delay)
+      .offset = offsetof(pfcp_ie_update_bar_request_t, downlink_data_notification_delay)
     },
     [UPDATE_BAR_REQUEST_SUGGESTED_BUFFERING_PACKETS_COUNT] = {
       .type = PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT,
-      .offset = offsetof(pfcp_update_bar_request_t, suggested_buffering_packets_count)
+      .offset = offsetof(pfcp_ie_update_bar_request_t, suggested_buffering_packets_count)
     },
   };
 
@@ -5993,7 +5989,7 @@ static struct pfcp_group_ie_def pfcp_remove_bar_group[] =
   {
     [REMOVE_BAR_BAR_ID] = {
       .type = PFCP_IE_BAR_ID,
-      .offset = offsetof(pfcp_remove_bar_t, bar_id)
+      .offset = offsetof(pfcp_ie_remove_bar_t, bar_id)
     },
   };
 
@@ -6002,7 +5998,7 @@ static struct pfcp_group_ie_def pfcp_error_indication_report_group[] =
     [ERROR_INDICATION_REPORT_F_TEID] = {
       .type = PFCP_IE_F_TEID,
       .is_array = true,
-      .offset = offsetof(pfcp_error_indication_report_t, f_teid)
+      .offset = offsetof(pfcp_ie_error_indication_report_t, f_teid)
     },
   };
 
@@ -6011,7 +6007,7 @@ static struct pfcp_group_ie_def pfcp_user_plane_path_failure_report_group[] =
     [USER_PLANE_PATH_FAILURE_REPORT_REMOTE_GTP_U_PEER] = {
       .type = PFCP_IE_REMOTE_GTP_U_PEER,
       .is_array = true,
-      .offset = offsetof(pfcp_user_plane_path_failure_report_t, remote_gtp_u_peer)
+      .offset = offsetof(pfcp_ie_user_plane_path_failure_report_t, remote_gtp_u_peer)
     },
   };
 
@@ -6019,19 +6015,19 @@ static struct pfcp_group_ie_def pfcp_update_duplicating_parameters_group[] =
   {
     [UPDATE_DUPLICATING_PARAMETERS_DESTINATION_INTERFACE] = {
       .type = PFCP_IE_DESTINATION_INTERFACE,
-      .offset = offsetof(pfcp_update_duplicating_parameters_t, destination_interface)
+      .offset = offsetof(pfcp_ie_update_duplicating_parameters_t, destination_interface)
     },
     [UPDATE_DUPLICATING_PARAMETERS_OUTER_HEADER_CREATION] = {
       .type = PFCP_IE_OUTER_HEADER_CREATION,
-      .offset = offsetof(pfcp_update_duplicating_parameters_t, outer_header_creation)
+      .offset = offsetof(pfcp_ie_update_duplicating_parameters_t, outer_header_creation)
     },
     [UPDATE_DUPLICATING_PARAMETERS_TRANSPORT_LEVEL_MARKING] = {
       .type = PFCP_IE_TRANSPORT_LEVEL_MARKING,
-      .offset = offsetof(pfcp_update_duplicating_parameters_t, transport_level_marking)
+      .offset = offsetof(pfcp_ie_update_duplicating_parameters_t, transport_level_marking)
     },
     [UPDATE_DUPLICATING_PARAMETERS_FORWARDING_POLICY] = {
       .type = PFCP_IE_FORWARDING_POLICY,
-      .offset = offsetof(pfcp_update_duplicating_parameters_t, forwarding_policy)
+      .offset = offsetof(pfcp_ie_update_duplicating_parameters_t, forwarding_policy)
     },
   };
 
@@ -6039,11 +6035,11 @@ static struct pfcp_group_ie_def pfcp_aggregated_urrs_group[] =
   {
     [AGGREGATED_URRS_AGGREGATED_URR_ID] = {
       .type = PFCP_IE_AGGREGATED_URR_ID,
-      .offset = offsetof(pfcp_aggregated_urrs_t, aggregated_urr_id)
+      .offset = offsetof(pfcp_ie_aggregated_urrs_t, aggregated_urr_id)
     },
     [AGGREGATED_URRS_MULTIPLIER] = {
       .type = PFCP_IE_MULTIPLIER,
-      .offset = offsetof(pfcp_aggregated_urrs_t, multiplier)
+      .offset = offsetof(pfcp_ie_aggregated_urrs_t, multiplier)
     },
   };
 
@@ -6051,37 +6047,37 @@ static struct pfcp_group_ie_def pfcp_create_traffic_endpoint_group[] =
   {
     [CREATE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = {
       .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
-      .offset = offsetof(pfcp_create_traffic_endpoint_t, traffic_endpoint_id)
+      .offset = offsetof(pfcp_ie_create_traffic_endpoint_t, traffic_endpoint_id)
     },
     [CREATE_TRAFFIC_ENDPOINT_F_TEID] = {
       .type = PFCP_IE_F_TEID,
-      .offset = offsetof(pfcp_create_traffic_endpoint_t, f_teid)
+      .offset = offsetof(pfcp_ie_create_traffic_endpoint_t, f_teid)
     },
     [CREATE_TRAFFIC_ENDPOINT_NETWORK_INSTANCE] = {
       .type = PFCP_IE_NETWORK_INSTANCE,
-      .offset = offsetof(pfcp_create_traffic_endpoint_t, network_instance)
+      .offset = offsetof(pfcp_ie_create_traffic_endpoint_t, network_instance)
     },
     [CREATE_TRAFFIC_ENDPOINT_UE_IP_ADDRESS] = {
       .type = PFCP_IE_UE_IP_ADDRESS,
-      .offset = offsetof(pfcp_create_traffic_endpoint_t, ue_ip_address)
+      .offset = offsetof(pfcp_ie_create_traffic_endpoint_t, ue_ip_address)
     },
     [CREATE_TRAFFIC_ENDPOINT_ETHERNET_PDU_SESSION_INFORMATION] = {
       .type = PFCP_IE_ETHERNET_PDU_SESSION_INFORMATION,
-      .offset = offsetof(pfcp_create_traffic_endpoint_t, ethernet_pdu_session_information)
+      .offset = offsetof(pfcp_ie_create_traffic_endpoint_t, ethernet_pdu_session_information)
     },
     [CREATE_TRAFFIC_ENDPOINT_FRAMED_ROUTE] = {
       .type = PFCP_IE_FRAMED_ROUTE,
       .is_array = true,
-      .offset = offsetof(pfcp_create_traffic_endpoint_t, framed_route)
+      .offset = offsetof(pfcp_ie_create_traffic_endpoint_t, framed_route)
     },
     [CREATE_TRAFFIC_ENDPOINT_FRAMED_ROUTING] = {
       .type = PFCP_IE_FRAMED_ROUTING,
-      .offset = offsetof(pfcp_create_traffic_endpoint_t, framed_routing)
+      .offset = offsetof(pfcp_ie_create_traffic_endpoint_t, framed_routing)
     },
     [CREATE_TRAFFIC_ENDPOINT_FRAMED_IPV6_ROUTE] = {
       .type = PFCP_IE_FRAMED_IPV6_ROUTE,
       .is_array = true,
-      .offset = offsetof(pfcp_create_traffic_endpoint_t, framed_ipv6_route)
+      .offset = offsetof(pfcp_ie_create_traffic_endpoint_t, framed_ipv6_route)
     },
   };
 
@@ -6089,15 +6085,15 @@ static struct pfcp_group_ie_def pfcp_created_traffic_endpoint_group[] =
   {
     [CREATED_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = {
       .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
-      .offset = offsetof(pfcp_created_traffic_endpoint_t, traffic_endpoint_id)
+      .offset = offsetof(pfcp_ie_created_traffic_endpoint_t, traffic_endpoint_id)
     },
     [CREATED_TRAFFIC_ENDPOINT_F_TEID] = {
       .type = PFCP_IE_F_TEID,
-      .offset = offsetof(pfcp_created_traffic_endpoint_t, f_teid)
+      .offset = offsetof(pfcp_ie_created_traffic_endpoint_t, f_teid)
     },
     [CREATED_TRAFFIC_ENDPOINT_UE_IP_ADDRESS] = {
       .type = PFCP_IE_UE_IP_ADDRESS,
-      .offset = offsetof(pfcp_created_traffic_endpoint_t, ue_ip_address)
+      .offset = offsetof(pfcp_ie_created_traffic_endpoint_t, ue_ip_address)
     },
   };
 
@@ -6105,33 +6101,33 @@ static struct pfcp_group_ie_def pfcp_update_traffic_endpoint_group[] =
   {
     [UPDATE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = {
       .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, traffic_endpoint_id)
+      .offset = offsetof(pfcp_ie_update_traffic_endpoint_t, traffic_endpoint_id)
     },
     [UPDATE_TRAFFIC_ENDPOINT_F_TEID] = {
       .type = PFCP_IE_F_TEID,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, f_teid)
+      .offset = offsetof(pfcp_ie_update_traffic_endpoint_t, f_teid)
     },
     [UPDATE_TRAFFIC_ENDPOINT_NETWORK_INSTANCE] = {
       .type = PFCP_IE_NETWORK_INSTANCE,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, network_instance)
+      .offset = offsetof(pfcp_ie_update_traffic_endpoint_t, network_instance)
     },
     [UPDATE_TRAFFIC_ENDPOINT_UE_IP_ADDRESS] = {
       .type = PFCP_IE_UE_IP_ADDRESS,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, ue_ip_address)
+      .offset = offsetof(pfcp_ie_update_traffic_endpoint_t, ue_ip_address)
     },
     [UPDATE_TRAFFIC_ENDPOINT_FRAMED_ROUTE] = {
       .type = PFCP_IE_FRAMED_ROUTE,
       .is_array = true,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, framed_route)
+      .offset = offsetof(pfcp_ie_update_traffic_endpoint_t, framed_route)
     },
     [UPDATE_TRAFFIC_ENDPOINT_FRAMED_ROUTING] = {
       .type = PFCP_IE_FRAMED_ROUTING,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, framed_routing)
+      .offset = offsetof(pfcp_ie_update_traffic_endpoint_t, framed_routing)
     },
     [UPDATE_TRAFFIC_ENDPOINT_FRAMED_IPV6_ROUTE] = {
       .type = PFCP_IE_FRAMED_IPV6_ROUTE,
       .is_array = true,
-      .offset = offsetof(pfcp_update_traffic_endpoint_t, framed_ipv6_route)
+      .offset = offsetof(pfcp_ie_update_traffic_endpoint_t, framed_ipv6_route)
     },
   };
 
@@ -6139,7 +6135,7 @@ static struct pfcp_group_ie_def pfcp_remove_traffic_endpoint_group[] =
   {
     [REMOVE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID] = {
       .type = PFCP_IE_TRAFFIC_ENDPOINT_ID,
-      .offset = offsetof(pfcp_remove_traffic_endpoint_t, traffic_endpoint_id)
+      .offset = offsetof(pfcp_ie_remove_traffic_endpoint_t, traffic_endpoint_id)
     },
   };
 
@@ -6147,32 +6143,32 @@ static struct pfcp_group_ie_def pfcp_ethernet_packet_filter_group[] =
   {
     [ETHERNET_PACKET_FILTER_ETHERNET_FILTER_ID] = {
       .type = PFCP_IE_ETHERNET_FILTER_ID,
-      .offset = offsetof(pfcp_ethernet_packet_filter_t, ethernet_filter_id)
+      .offset = offsetof(pfcp_ie_ethernet_packet_filter_t, ethernet_filter_id)
     },
     [ETHERNET_PACKET_FILTER_ETHERNET_FILTER_PROPERTIES] = {
       .type = PFCP_IE_ETHERNET_FILTER_PROPERTIES,
-      .offset = offsetof(pfcp_ethernet_packet_filter_t, ethernet_filter_properties)
+      .offset = offsetof(pfcp_ie_ethernet_packet_filter_t, ethernet_filter_properties)
     },
     [ETHERNET_PACKET_FILTER_MAC_ADDRESS] = {
       .type = PFCP_IE_MAC_ADDRESS,
-      .offset = offsetof(pfcp_ethernet_packet_filter_t, mac_address)
+      .offset = offsetof(pfcp_ie_ethernet_packet_filter_t, mac_address)
     },
     [ETHERNET_PACKET_FILTER_ETHERTYPE] = {
       .type = PFCP_IE_ETHERTYPE,
-      .offset = offsetof(pfcp_ethernet_packet_filter_t, ethertype)
+      .offset = offsetof(pfcp_ie_ethernet_packet_filter_t, ethertype)
     },
     [ETHERNET_PACKET_FILTER_C_TAG] = {
       .type = PFCP_IE_C_TAG,
-      .offset = offsetof(pfcp_ethernet_packet_filter_t, c_tag)
+      .offset = offsetof(pfcp_ie_ethernet_packet_filter_t, c_tag)
     },
     [ETHERNET_PACKET_FILTER_S_TAG] = {
       .type = PFCP_IE_S_TAG,
-      .offset = offsetof(pfcp_ethernet_packet_filter_t, s_tag)
+      .offset = offsetof(pfcp_ie_ethernet_packet_filter_t, s_tag)
     },
     [ETHERNET_PACKET_FILTER_SDF_FILTER] = {
       .type = PFCP_IE_SDF_FILTER,
       .is_array = true,
-      .offset = offsetof(pfcp_ethernet_packet_filter_t, sdf_filter)
+      .offset = offsetof(pfcp_ie_ethernet_packet_filter_t, sdf_filter)
     },
   };
 
@@ -6180,11 +6176,11 @@ static struct pfcp_group_ie_def pfcp_ethernet_traffic_information_group[] =
   {
     [ETHERNET_TRAFFIC_INFORMATION_MAC_ADDRESSES_DETECTED] = {
       .type = PFCP_IE_MAC_ADDRESSES_DETECTED,
-      .offset = offsetof(pfcp_ethernet_traffic_information_t, mac_addresses_detected)
+      .offset = offsetof(pfcp_ie_ethernet_traffic_information_t, mac_addresses_detected)
     },
     [ETHERNET_TRAFFIC_INFORMATION_MAC_ADDRESSES_REMOVED] = {
       .type = PFCP_IE_MAC_ADDRESSES_REMOVED,
-      .offset = offsetof(pfcp_ethernet_traffic_information_t, mac_addresses_removed)
+      .offset = offsetof(pfcp_ie_ethernet_traffic_information_t, mac_addresses_removed)
     },
   };
 
@@ -6192,23 +6188,23 @@ static struct pfcp_group_ie_def pfcp_additional_monitoring_time_group[] =
   {
     [ADDITIONAL_MONITORING_TIME_MONITORING_TIME] = {
       .type = PFCP_IE_MONITORING_TIME,
-      .offset = offsetof(pfcp_additional_monitoring_time_t, monitoring_time)
+      .offset = offsetof(pfcp_ie_additional_monitoring_time_t, monitoring_time)
     },
     [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_VOLUME_THRESHOLD] = {
       .type = PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD,
-      .offset = offsetof(pfcp_additional_monitoring_time_t, subsequent_volume_threshold)
+      .offset = offsetof(pfcp_ie_additional_monitoring_time_t, subsequent_volume_threshold)
     },
     [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_TIME_THRESHOLD] = {
       .type = PFCP_IE_SUBSEQUENT_TIME_THRESHOLD,
-      .offset = offsetof(pfcp_additional_monitoring_time_t, subsequent_time_threshold)
+      .offset = offsetof(pfcp_ie_additional_monitoring_time_t, subsequent_time_threshold)
     },
     [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_VOLUME_QUOTA] = {
       .type = PFCP_IE_SUBSEQUENT_VOLUME_QUOTA,
-      .offset = offsetof(pfcp_additional_monitoring_time_t, subsequent_volume_quota)
+      .offset = offsetof(pfcp_ie_additional_monitoring_time_t, subsequent_volume_quota)
     },
     [ADDITIONAL_MONITORING_TIME_SUBSEQUENT_TIME_QUOTA] = {
       .type = PFCP_IE_SUBSEQUENT_TIME_QUOTA,
-      .offset = offsetof(pfcp_additional_monitoring_time_t, subsequent_time_quota)
+      .offset = offsetof(pfcp_ie_additional_monitoring_time_t, subsequent_time_quota)
     },
   };
 
@@ -6216,23 +6212,23 @@ static struct pfcp_group_ie_def pfcp_create_mar_group[] =
   {
     [CREATE_MAR_MAR_ID] = {
       .type = PFCP_IE_MAR_ID,
-      .offset = offsetof(pfcp_create_mar_t, mar_id)
+      .offset = offsetof(pfcp_ie_create_mar_t, mar_id)
     },
     [CREATE_MAR_STEERING_FUNCTIONALITY] = {
       .type = PFCP_IE_STEERING_FUNCTIONALITY,
-      .offset = offsetof(pfcp_create_mar_t, steering_functionality)
+      .offset = offsetof(pfcp_ie_create_mar_t, steering_functionality)
     },
     [CREATE_MAR_STEERING_MODE] = {
       .type = PFCP_IE_STEERING_MODE,
-      .offset = offsetof(pfcp_create_mar_t, steering_mode)
+      .offset = offsetof(pfcp_ie_create_mar_t, steering_mode)
     },
     [CREATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_1] = {
       .type = PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_1,
-      .offset = offsetof(pfcp_create_mar_t, access_forwarding_action_information_1)
+      .offset = offsetof(pfcp_ie_create_mar_t, access_forwarding_action_information_1)
     },
     [CREATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_2] = {
       .type = PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_2,
-      .offset = offsetof(pfcp_create_mar_t, access_forwarding_action_information_2)
+      .offset = offsetof(pfcp_ie_create_mar_t, access_forwarding_action_information_2)
     },
   };
 
@@ -6240,19 +6236,19 @@ static struct pfcp_group_ie_def pfcp_access_forwarding_action_information_group[
   {
     [ACCESS_FORWARDING_ACTION_INFORMATION_FAR_ID] = {
       .type = PFCP_IE_FAR_ID,
-      .offset = offsetof(pfcp_access_forwarding_action_information_t, far_id)
+      .offset = offsetof(pfcp_ie_access_forwarding_action_information_t, far_id)
     },
     [ACCESS_FORWARDING_ACTION_INFORMATION_WEIGHT] = {
       .type = PFCP_IE_WEIGHT,
-      .offset = offsetof(pfcp_access_forwarding_action_information_t, weight)
+      .offset = offsetof(pfcp_ie_access_forwarding_action_information_t, weight)
     },
     [ACCESS_FORWARDING_ACTION_INFORMATION_PRIORITY] = {
       .type = PFCP_IE_PRIORITY,
-      .offset = offsetof(pfcp_access_forwarding_action_information_t, priority)
+      .offset = offsetof(pfcp_ie_access_forwarding_action_information_t, priority)
     },
     [ACCESS_FORWARDING_ACTION_INFORMATION_URR_ID] = {
       .type = PFCP_IE_URR_ID,
-      .offset = offsetof(pfcp_access_forwarding_action_information_t, urr_id)
+      .offset = offsetof(pfcp_ie_access_forwarding_action_information_t, urr_id)
     },
   };
 
@@ -6260,7 +6256,7 @@ static struct pfcp_group_ie_def pfcp_remove_mar_group[] =
   {
     [REMOVE_MAR_MAR_ID] = {
       .type = PFCP_IE_MAR_ID,
-      .offset = offsetof(pfcp_remove_mar_t, mar_id)
+      .offset = offsetof(pfcp_ie_remove_mar_t, mar_id)
     },
    };
 
@@ -6268,31 +6264,31 @@ static struct pfcp_group_ie_def pfcp_update_mar_group[] =
   {
     [UPDATE_MAR_MAR_ID] = {
       .type = PFCP_IE_MAR_ID,
-      .offset = offsetof(pfcp_update_mar_t, mar_id)
+      .offset = offsetof(pfcp_ie_update_mar_t, mar_id)
     },
     [UPDATE_MAR_STEERING_FUNCTIONALITY] = {
       .type = PFCP_IE_STEERING_FUNCTIONALITY,
-      .offset = offsetof(pfcp_update_mar_t, steering_functionality)
+      .offset = offsetof(pfcp_ie_update_mar_t, steering_functionality)
     },
     [UPDATE_MAR_STEERING_MODE] = {
       .type = PFCP_IE_STEERING_MODE,
-      .offset = offsetof(pfcp_update_mar_t, steering_mode)
+      .offset = offsetof(pfcp_ie_update_mar_t, steering_mode)
     },
     [UPDATE_MAR_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_1] = {
       .type = PFCP_IE_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_1,
-      .offset = offsetof(pfcp_update_mar_t, update_access_forwarding_action_information_1)
+      .offset = offsetof(pfcp_ie_update_mar_t, update_access_forwarding_action_information_1)
     },
     [UPDATE_MAR_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_2] = {
       .type = PFCP_IE_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_2,
-      .offset = offsetof(pfcp_update_mar_t, update_access_forwarding_action_information_2)
+      .offset = offsetof(pfcp_ie_update_mar_t, update_access_forwarding_action_information_2)
     },
     [UPDATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_1] = {
       .type = PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_1,
-      .offset = offsetof(pfcp_update_mar_t, access_forwarding_action_information_1)
+      .offset = offsetof(pfcp_ie_update_mar_t, access_forwarding_action_information_1)
     },
     [UPDATE_MAR_ACCESS_FORWARDING_ACTION_INFORMATION_2] = {
       .type = PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_2,
-      .offset = offsetof(pfcp_update_mar_t, access_forwarding_action_information_2)
+      .offset = offsetof(pfcp_ie_update_mar_t, access_forwarding_action_information_2)
     },
   };
 
@@ -6300,19 +6296,19 @@ static struct pfcp_group_ie_def pfcp_update_access_forwarding_action_information
   {
     [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_FAR_ID] = {
       .type = PFCP_IE_FAR_ID,
-      .offset = offsetof(pfcp_update_access_forwarding_action_information_t, far_id)
+      .offset = offsetof(pfcp_ie_update_access_forwarding_action_information_t, far_id)
     },
     [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_WEIGHT] = {
       .type = PFCP_IE_WEIGHT,
-      .offset = offsetof(pfcp_update_access_forwarding_action_information_t, weight)
+      .offset = offsetof(pfcp_ie_update_access_forwarding_action_information_t, weight)
     },
     [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_PRIORITY] = {
       .type = PFCP_IE_PRIORITY,
-      .offset = offsetof(pfcp_update_access_forwarding_action_information_t, priority)
+      .offset = offsetof(pfcp_ie_update_access_forwarding_action_information_t, priority)
     },
     [UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_URR_ID] = {
       .type = PFCP_IE_URR_ID,
-      .offset = offsetof(pfcp_update_access_forwarding_action_information_t, urr_id)
+      .offset = offsetof(pfcp_ie_update_access_forwarding_action_information_t, urr_id)
     },
   };
 
@@ -6320,32 +6316,32 @@ static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] =
   {
     [UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY] = {
       .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
-      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+      .offset = offsetof(pfcp_ie_ue_ip_address_pool_information_t,
 			 ue_ip_address_pool_identity)
     },
     [UE_IP_ADDRESS_POOL_INFORMATION_NETWORK_INSTANCE] = {
       .type = PFCP_IE_NETWORK_INSTANCE,
-      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+      .offset = offsetof(pfcp_ie_ue_ip_address_pool_information_t,
 			 network_instance)
     },
     [UE_IP_ADDRESS_POOL_INFORMATION_IP_VERSION] = {
       .type = PFCP_IE_IP_VERSION,
-      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+      .offset = offsetof(pfcp_ie_ue_ip_address_pool_information_t,
 			 ip_version)
     },
     [UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK] = {
       .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
       .vendor = VENDOR_BBF,
       .is_array = true,
-      .offset = offsetof(pfcp_ue_ip_address_pool_information_t,
+      .offset = offsetof(pfcp_ie_ue_ip_address_pool_information_t,
                          port_blocks)
     },
   };
 
 static u8 *
-format_ip_version (u8 * s, va_list * args)
+format_pfcp_ie_ip_version (u8 * s, va_list * args)
 {
-  pfcp_ip_version_t *v = va_arg (*args, pfcp_ip_version_t *);
+  pfcp_ie_ip_version_t *v = va_arg (*args, pfcp_ie_ip_version_t *);
 
   s = format (s, "IPv4:%u IPv6 %u", !!(*v & IP_VERSION_4),
 	      !!(*v & IP_VERSION_6));
@@ -6354,9 +6350,9 @@ format_ip_version (u8 * s, va_list * args)
 }
 
 static int
-decode_ip_version (u8 * data, u16 length, void *p)
+decode_pfcp_ie_ip_version (u8 * data, u16 length, void *p)
 {
-  pfcp_ip_version_t *v = p;
+  pfcp_ie_ip_version_t *v = p;
 
   *v = get_u8 (data);
 
@@ -6371,9 +6367,9 @@ decode_ip_version (u8 * data, u16 length, void *p)
 }
 
 static int
-encode_ip_version (void *p, u8 ** vec)
+encode_pfcp_ie_ip_version (void *p, u8 ** vec)
 {
-  pfcp_ip_version_t *v = p;
+  pfcp_ie_ip_version_t *v = p;
 
   if (!(*v & IP_VERSION_4) && !(*v & IP_VERSION_6))
     {
@@ -6391,17 +6387,17 @@ static struct pfcp_group_ie_def pfcp_tp_error_report_group[] =
     [TP_ERROR_REPORT_TP_ERROR_MESSAGE] = {
       .type = PFCP_IE_TP_ERROR_MESSAGE,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_tp_error_report_t, error_message)
+      .offset = offsetof(pfcp_ie_tp_error_report_t, error_message)
     },
     [TP_ERROR_REPORT_TP_FILE_NAME] = {
       .type = PFCP_IE_TP_FILE_NAME,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_tp_error_report_t, file_name)
+      .offset = offsetof(pfcp_ie_tp_error_report_t, file_name)
     },
     [TP_ERROR_REPORT_TP_LINE_NUMBER] = {
       .type = PFCP_IE_TP_LINE_NUMBER,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_tp_error_report_t, line_number)
+      .offset = offsetof(pfcp_ie_tp_error_report_t, line_number)
     },
   };
 
@@ -6410,17 +6406,17 @@ static struct pfcp_group_ie_def pfcp_tp_created_binding_group[] =
     [TP_CREATED_BINDING_NAT_PORT_BLOCK] = {
       .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
       .vendor = VENDOR_BBF,
-      .offset = offsetof(pfcp_tp_created_binding_t, block)
+      .offset = offsetof(pfcp_ie_tp_created_binding_t, block)
     },
     [TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS] = {
       .type = PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS,
       .vendor = VENDOR_BBF,
-      .offset = offsetof(pfcp_tp_created_binding_t, outside_addr)
+      .offset = offsetof(pfcp_ie_tp_created_binding_t, outside_addr)
     },
     [TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE] = {
       .type = PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE,
       .vendor = VENDOR_BBF,
-      .offset = offsetof(pfcp_tp_created_binding_t, port_range)
+      .offset = offsetof(pfcp_ie_tp_created_binding_t, port_range)
     },
   };
 
@@ -6429,20 +6425,20 @@ static struct pfcp_group_ie_def pfcp_tp_created_binding_group[] =
 #define SIMPLE_IE(IE, TYPE, NAME)			\
   [IE] = {						\
     .name = NAME,					\
-    .length = sizeof(pfcp_ ## TYPE ## _t),		\
-    .format = format_ ## TYPE,				\
-    .decode = decode_ ## TYPE,				\
-    .encode = encode_ ## TYPE,				\
+    .length = sizeof(pfcp_ie_ ## TYPE ## _t),		\
+    .format = format_pfcp_ie_ ## TYPE,				\
+    .decode = decode_pfcp_ie_ ## TYPE,				\
+    .encode = encode_pfcp_ie_ ## TYPE,				\
 }
 
 #define SIMPLE_IE_FREE(IE, TYPE, NAME)			\
   [IE] = {						\
     .name = NAME,					\
-    .length = sizeof(pfcp_ ## TYPE ## _t),		\
-    .format = format_ ## TYPE,				\
-    .decode = decode_ ## TYPE,				\
-    .encode = encode_ ## TYPE,				\
-    .free = free_ ## TYPE,				\
+    .length = sizeof(pfcp_ie_ ## TYPE ## _t),		\
+    .format = format_pfcp_ie_ ## TYPE,				\
+    .decode = decode_pfcp_ie_ ## TYPE,				\
+    .encode = encode_pfcp_ie_ ## TYPE,				\
+    .free = free_pfcp_ie_ ## TYPE,				\
 }
 
 static struct pfcp_ie_def tgpp_specs[] =
@@ -6450,7 +6446,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_CREATE_PDR] =
     {
       .name = "Create PDR",
-      .length = sizeof(pfcp_create_pdr_t),
+      .length = sizeof(pfcp_ie_create_pdr_t),
       .mandatory = (BIT(CREATE_PDR_PDR_ID) |
 		    BIT(CREATE_PDR_PRECEDENCE) |
 		    BIT(CREATE_PDR_PDI)),
@@ -6460,7 +6456,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_PDI] =
     {
       .name = "PDI",
-      .length = sizeof(pfcp_pdi_t),
+      .length = sizeof(pfcp_ie_pdi_t),
       .mandatory = BIT(PDI_SOURCE_INTERFACE),
       .size = ARRAY_LEN(pfcp_pdi_group),
       .group = pfcp_pdi_group,
@@ -6468,7 +6464,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_CREATE_FAR] =
     {
       .name = "Create FAR",
-      .length = sizeof(pfcp_create_far_t),
+      .length = sizeof(pfcp_ie_create_far_t),
       .mandatory = (BIT(CREATE_FAR_FAR_ID) |
 		    BIT(CREATE_FAR_APPLY_ACTION)),
       .size = ARRAY_LEN(pfcp_create_far_group),
@@ -6477,7 +6473,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_FORWARDING_PARAMETERS] =
     {
       .name = "Forwarding Parameters",
-      .length = sizeof(pfcp_forwarding_parameters_t),
+      .length = sizeof(pfcp_ie_forwarding_parameters_t),
       .mandatory = BIT(FORWARDING_PARAMETERS_DESTINATION_INTERFACE),
       .size = ARRAY_LEN(pfcp_forwarding_parameters_group),
       .group = pfcp_forwarding_parameters_group,
@@ -6485,7 +6481,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_DUPLICATING_PARAMETERS] =
     {
       .name = "Duplicating Parameters",
-      .length = sizeof(pfcp_duplicating_parameters_t),
+      .length = sizeof(pfcp_ie_duplicating_parameters_t),
       .mandatory = BIT(DUPLICATING_PARAMETERS_DESTINATION_INTERFACE),
       .size = ARRAY_LEN(pfcp_duplicating_parameters_group),
       .group = pfcp_duplicating_parameters_group,
@@ -6493,7 +6489,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_CREATE_URR] =
     {
       .name = "Create URR",
-      .length = sizeof(pfcp_create_urr_t),
+      .length = sizeof(pfcp_ie_create_urr_t),
       .mandatory = (BIT(CREATE_URR_URR_ID) |
 		    BIT(CREATE_URR_MEASUREMENT_METHOD) |
 		    BIT(CREATE_URR_REPORTING_TRIGGERS)),
@@ -6503,7 +6499,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_CREATE_QER] =
     {
       .name = "Create QER",
-      .length = sizeof(pfcp_create_qer_t),
+      .length = sizeof(pfcp_ie_create_qer_t),
       .mandatory = (BIT(CREATE_QER_QER_ID) |
 		    BIT(CREATE_QER_GATE_STATUS)),
       .size = ARRAY_LEN(pfcp_create_qer_group),
@@ -6512,7 +6508,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_CREATED_PDR] =
     {
       .name = "Created PDR",
-      .length = sizeof(pfcp_created_pdr_t),
+      .length = sizeof(pfcp_ie_created_pdr_t),
       .mandatory = BIT(CREATED_PDR_PDR_ID),
       .size = ARRAY_LEN(pfcp_created_pdr_group),
       .group = pfcp_created_pdr_group,
@@ -6520,7 +6516,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UPDATE_PDR] =
     {
       .name = "Update PDR",
-      .length = sizeof(pfcp_update_pdr_t),
+      .length = sizeof(pfcp_ie_update_pdr_t),
       .mandatory = BIT(UPDATE_PDR_PDR_ID),
       .size = ARRAY_LEN(pfcp_update_pdr_group),
       .group = pfcp_update_pdr_group,
@@ -6528,7 +6524,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UPDATE_FAR] =
     {
       .name = "Update FAR",
-      .length = sizeof(pfcp_update_far_t),
+      .length = sizeof(pfcp_ie_update_far_t),
       .mandatory = BIT(UPDATE_FAR_FAR_ID),
       .size = ARRAY_LEN(pfcp_update_far_group),
       .group = pfcp_update_far_group,
@@ -6536,14 +6532,14 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UPDATE_FORWARDING_PARAMETERS] =
     {
       .name = "Update Forwarding Parameters",
-      .length = sizeof(pfcp_update_forwarding_parameters_t),
+      .length = sizeof(pfcp_ie_update_forwarding_parameters_t),
       .size = ARRAY_LEN(pfcp_update_forwarding_parameters_group),
       .group = pfcp_update_forwarding_parameters_group,
     },
     [PFCP_IE_UPDATE_BAR_RESPONSE] =
     {
       .name = "Update BAR Response",
-      .length = sizeof(pfcp_update_bar_response_t),
+      .length = sizeof(pfcp_ie_update_bar_response_t),
       .mandatory = BIT(UPDATE_BAR_RESPONSE_BAR_ID),
       .size = ARRAY_LEN(pfcp_update_bar_response_group),
       .group = pfcp_update_bar_response_group,
@@ -6551,7 +6547,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UPDATE_URR] =
     {
       .name = "Update URR",
-      .length = sizeof(pfcp_update_urr_t),
+      .length = sizeof(pfcp_ie_update_urr_t),
       .mandatory = BIT(UPDATE_URR_URR_ID),
       .size = ARRAY_LEN(pfcp_update_urr_group),
       .group = pfcp_update_urr_group,
@@ -6559,7 +6555,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UPDATE_QER] =
     {
       .name = "Update QER",
-      .length = sizeof(pfcp_update_qer_t),
+      .length = sizeof(pfcp_ie_update_qer_t),
       .mandatory = BIT(UPDATE_QER_QER_ID),
       .size = ARRAY_LEN(pfcp_update_qer_group),
       .group = pfcp_update_qer_group,
@@ -6567,7 +6563,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_REMOVE_PDR] =
     {
       .name = "Remove PDR",
-      .length = sizeof(pfcp_remove_pdr_t),
+      .length = sizeof(pfcp_ie_remove_pdr_t),
       .mandatory = BIT(REMOVE_PDR_PDR_ID),
       .size = ARRAY_LEN(pfcp_remove_pdr_group),
       .group = pfcp_remove_pdr_group,
@@ -6575,7 +6571,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_REMOVE_FAR] =
     {
       .name = "Remove FAR",
-      .length = sizeof(pfcp_remove_far_t),
+      .length = sizeof(pfcp_ie_remove_far_t),
       .mandatory = BIT(REMOVE_FAR_FAR_ID),
       .size = ARRAY_LEN(pfcp_remove_far_group),
       .group = pfcp_remove_far_group,
@@ -6583,7 +6579,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_REMOVE_URR] =
     {
       .name = "Remove URR",
-      .length = sizeof(pfcp_remove_urr_t),
+      .length = sizeof(pfcp_ie_remove_urr_t),
       .mandatory = BIT(REMOVE_URR_URR_ID),
       .size = ARRAY_LEN(pfcp_remove_urr_group),
       .group = pfcp_remove_urr_group,
@@ -6591,7 +6587,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_REMOVE_QER] =
     {
       .name = "Remove QER",
-      .length = sizeof(pfcp_remove_qer_t),
+      .length = sizeof(pfcp_ie_remove_qer_t),
       .mandatory = BIT(REMOVE_QER_QER_ID),
       .size = ARRAY_LEN(pfcp_remove_qer_group),
       .group = pfcp_remove_qer_group,
@@ -6640,7 +6636,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_LOAD_CONTROL_INFORMATION] =
     {
       .name = "Load Control Information",
-      .length = sizeof(pfcp_load_control_information_t),
+      .length = sizeof(pfcp_ie_load_control_information_t),
       .mandatory = (BIT(LOAD_CONTROL_INFORMATION_SEQUENCE_NUMBER) |
 		    BIT(LOAD_CONTROL_INFORMATION_METRIC)),
       .size = ARRAY_LEN(pfcp_load_control_information_group),
@@ -6651,7 +6647,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_OVERLOAD_CONTROL_INFORMATION] =
     {
       .name = "Overload Control Information",
-      .length = sizeof(pfcp_overload_control_information_t),
+      .length = sizeof(pfcp_ie_overload_control_information_t),
       .mandatory = (BIT(OVERLOAD_CONTROL_INFORMATION_SEQUENCE_NUMBER) |
 		    BIT(OVERLOAD_CONTROL_INFORMATION_METRIC) |
 		    BIT(OVERLOAD_CONTROL_INFORMATION_TIMER)),
@@ -6664,7 +6660,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_APPLICATION_ID_PFDS] =
     {
       .name = "Application ID PFDs",
-      .length = sizeof(pfcp_application_id_pfds_t),
+      .length = sizeof(pfcp_ie_application_id_pfds_t),
       .mandatory = BIT(APPLICATION_ID_PFDS_APPLICATION_ID),
       .size = ARRAY_LEN(pfcp_application_id_pfds_group),
       .group = pfcp_application_id_pfds_group,
@@ -6672,7 +6668,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_PFD] =
     {
       .name = "PFD",
-      .length = sizeof(pfcp_pfd_t),
+      .length = sizeof(pfcp_ie_pfd_t),
       .mandatory = BIT(PFD_PFD_CONTENTS),
       .size = ARRAY_LEN(pfcp_pfd_group),
       .group = pfcp_pfd_group,
@@ -6688,7 +6684,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_APPLICATION_DETECTION_INFORMATION] =
     {
       .name = "Application Detection Information",
-      .length = sizeof(pfcp_application_detection_information_t),
+      .length = sizeof(pfcp_ie_application_detection_information_t),
       .mandatory = BIT(APPLICATION_DETECTION_INFORMATION_APPLICATION_ID),
       .size = ARRAY_LEN(pfcp_application_detection_information_group),
       .group = pfcp_application_detection_information_group,
@@ -6705,7 +6701,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_QUERY_URR] =
     {
       .name = "Query URR",
-      .length = sizeof(pfcp_query_urr_t),
+      .length = sizeof(pfcp_ie_query_urr_t),
       .mandatory = BIT(QUERY_URR_URR_ID),
       .size = ARRAY_LEN(pfcp_query_urr_group),
       .group = pfcp_query_urr_group,
@@ -6713,7 +6709,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_USAGE_REPORT_SMR] =
     {
       .name = "Usage Report SMR",
-      .length = sizeof(pfcp_usage_report_t),
+      .length = sizeof(pfcp_ie_usage_report_t),
       .mandatory = (BIT(USAGE_REPORT_URR_ID) |
 		    BIT(USAGE_REPORT_UR_SEQN) |
 		    BIT(USAGE_REPORT_USAGE_REPORT_TRIGGER)),
@@ -6723,7 +6719,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_USAGE_REPORT_SDR] =
     {
       .name = "Usage Report SDR",
-      .length = sizeof(pfcp_usage_report_t),
+      .length = sizeof(pfcp_ie_usage_report_t),
       .mandatory = (BIT(USAGE_REPORT_URR_ID) |
 		    BIT(USAGE_REPORT_UR_SEQN) |
 		    BIT(USAGE_REPORT_USAGE_REPORT_TRIGGER)),
@@ -6733,7 +6729,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_USAGE_REPORT_SRR] =
     {
       .name = "Usage Report SRR",
-      .length = sizeof(pfcp_usage_report_t),
+      .length = sizeof(pfcp_ie_usage_report_t),
       .mandatory = (BIT(USAGE_REPORT_URR_ID) |
 		    BIT(USAGE_REPORT_UR_SEQN) |
 		    BIT(USAGE_REPORT_USAGE_REPORT_TRIGGER)),
@@ -6745,7 +6741,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_DOWNLINK_DATA_REPORT] =
     {
       .name = "Downlink Data Report",
-      .length = sizeof(pfcp_downlink_data_report_t),
+      .length = sizeof(pfcp_ie_downlink_data_report_t),
       .mandatory = BIT(DOWNLINK_DATA_REPORT_PDR_ID),
       .size = ARRAY_LEN(pfcp_downlink_data_report_group),
       .group = pfcp_downlink_data_report_group,
@@ -6754,7 +6750,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_CREATE_BAR] =
     {
       .name = "Create BAR",
-      .length = sizeof(pfcp_create_bar_t),
+      .length = sizeof(pfcp_ie_create_bar_t),
       .mandatory = BIT(CREATE_BAR_BAR_ID),
       .size = ARRAY_LEN(pfcp_create_bar_group),
       .group = pfcp_create_bar_group,
@@ -6762,7 +6758,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UPDATE_BAR_REQUEST] =
     {
       .name = "Update BAR Request",
-      .length = sizeof(pfcp_update_bar_request_t),
+      .length = sizeof(pfcp_ie_update_bar_request_t),
       .mandatory = BIT(UPDATE_BAR_REQUEST_BAR_ID),
       .size = ARRAY_LEN(pfcp_update_bar_request_group),
       .group = pfcp_update_bar_request_group,
@@ -6770,7 +6766,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_REMOVE_BAR] =
     {
       .name = "Remove BAR",
-      .length = sizeof(pfcp_remove_bar_t),
+      .length = sizeof(pfcp_ie_remove_bar_t),
       .mandatory = BIT(REMOVE_BAR_BAR_ID),
       .size = ARRAY_LEN(pfcp_remove_bar_group),
       .group = pfcp_remove_bar_group,
@@ -6790,7 +6786,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_ERROR_INDICATION_REPORT] =
     {
       .name = "Error Indication Report",
-      .length = sizeof(pfcp_error_indication_report_t),
+      .length = sizeof(pfcp_ie_error_indication_report_t),
       .mandatory = BIT(ERROR_INDICATION_REPORT_F_TEID),
       .size = ARRAY_LEN(pfcp_error_indication_report_group),
       .group = pfcp_error_indication_report_group,
@@ -6801,7 +6797,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_USER_PLANE_PATH_FAILURE_REPORT] =
     {
       .name = "User Plane Path Failure Report",
-      .length = sizeof(pfcp_user_plane_path_failure_report_t),
+      .length = sizeof(pfcp_ie_user_plane_path_failure_report_t),
       .mandatory = BIT(USER_PLANE_PATH_FAILURE_REPORT_REMOTE_GTP_U_PEER),
       .size = ARRAY_LEN(pfcp_user_plane_path_failure_report_group),
       .group = pfcp_user_plane_path_failure_report_group,
@@ -6811,7 +6807,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UPDATE_DUPLICATING_PARAMETERS] =
     {
       .name = "Update Duplicating Parameters",
-      .length = sizeof(pfcp_update_duplicating_parameters_t),
+      .length = sizeof(pfcp_ie_update_duplicating_parameters_t),
       .size = ARRAY_LEN(pfcp_update_duplicating_parameters_group),
       .group = pfcp_update_duplicating_parameters_group,
     },
@@ -6836,7 +6832,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_AGGREGATED_URRS] =
     {
       .name = "Aggregated URRs",
-      .length = sizeof(pfcp_aggregated_urrs_t),
+      .length = sizeof(pfcp_ie_aggregated_urrs_t),
       .mandatory = (BIT(AGGREGATED_URRS_AGGREGATED_URR_ID) |
 		    BIT(AGGREGATED_URRS_MULTIPLIER)),
       .size = ARRAY_LEN(pfcp_aggregated_urrs_group),
@@ -6855,7 +6851,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_CREATE_TRAFFIC_ENDPOINT] =
     {
       .name = "Create Traffic Endpoint",
-      .length = sizeof(pfcp_create_traffic_endpoint_t),
+      .length = sizeof(pfcp_ie_create_traffic_endpoint_t),
       .mandatory = BIT(CREATE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID),
       .size = ARRAY_LEN(pfcp_create_traffic_endpoint_group),
       .group = pfcp_create_traffic_endpoint_group,
@@ -6863,7 +6859,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_CREATED_TRAFFIC_ENDPOINT] =
     {
       .name = "Created Traffic Endpoint",
-      .length = sizeof(pfcp_created_traffic_endpoint_t),
+      .length = sizeof(pfcp_ie_created_traffic_endpoint_t),
       .mandatory = BIT(CREATED_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID),
       .size = ARRAY_LEN(pfcp_created_traffic_endpoint_group),
       .group = pfcp_created_traffic_endpoint_group,
@@ -6871,7 +6867,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UPDATE_TRAFFIC_ENDPOINT] =
     {
       .name = "Update Traffic Endpoint",
-      .length = sizeof(pfcp_update_traffic_endpoint_t),
+      .length = sizeof(pfcp_ie_update_traffic_endpoint_t),
       .mandatory = BIT(UPDATE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID),
       .size = ARRAY_LEN(pfcp_update_traffic_endpoint_group),
       .group = pfcp_update_traffic_endpoint_group,
@@ -6879,7 +6875,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_REMOVE_TRAFFIC_ENDPOINT] =
     {
       .name = "Remove Traffic Endpoint",
-      .length = sizeof(pfcp_remove_traffic_endpoint_t),
+      .length = sizeof(pfcp_ie_remove_traffic_endpoint_t),
       .mandatory = BIT(REMOVE_TRAFFIC_ENDPOINT_TRAFFIC_ENDPOINT_ID),
       .size = ARRAY_LEN(pfcp_remove_traffic_endpoint_group),
       .group = pfcp_remove_traffic_endpoint_group,
@@ -6888,17 +6884,11 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_ETHERNET_PACKET_FILTER] =
     {
       .name = "Ethernet Packet Filter",
-      .length = sizeof(pfcp_ethernet_packet_filter_t),
+      .length = sizeof(pfcp_ie_ethernet_packet_filter_t),
       .size = ARRAY_LEN(pfcp_ethernet_packet_filter_group),
       .group = pfcp_ethernet_packet_filter_group,
     },
-    [PFCP_IE_MAC_ADDRESS] = {
-      .name = "MAC address",
-      .length = sizeof(pfcp_mac_address_t),
-      .format = format_pfcp_mac_address,
-      .decode = decode_pfcp_mac_address,
-      .encode = encode_pfcp_mac_address,
-    },
+    SIMPLE_IE(PFCP_IE_MAC_ADDRESS, mac_address, "MAC address"),
     SIMPLE_IE(PFCP_IE_C_TAG, c_tag, "C-TAG"),
     SIMPLE_IE(PFCP_IE_S_TAG, s_tag, "S-TAG"),
     SIMPLE_IE(PFCP_IE_ETHERTYPE, ethertype, "Ethertype"),
@@ -6914,7 +6904,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_ETHERNET_TRAFFIC_INFORMATION] =
     {
       .name = "Ethernet Traffic Information",
-      .length = sizeof(pfcp_ethernet_traffic_information_t),
+      .length = sizeof(pfcp_ie_ethernet_traffic_information_t),
       .size = ARRAY_LEN(pfcp_ethernet_traffic_information_group),
       .group = pfcp_ethernet_traffic_information_group,
     },
@@ -6927,7 +6917,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_ADDITIONAL_MONITORING_TIME] =
     {
       .name = "Additional Monitoring Time",
-      .length = sizeof(pfcp_additional_monitoring_time_t),
+      .length = sizeof(pfcp_ie_additional_monitoring_time_t),
       .size = ARRAY_LEN(pfcp_additional_monitoring_time_group),
       .group = pfcp_additional_monitoring_time_group,
     },
@@ -6951,35 +6941,35 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_CREATE_MAR] =
     {
       .name = "Create MAR",
-      .length = sizeof(pfcp_create_mar_t),
+      .length = sizeof(pfcp_ie_create_mar_t),
       .size = ARRAY_LEN(pfcp_create_mar_group),
       .group = pfcp_create_mar_group,
     },
     [PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_1] =
     {
       .name = "Access Forwarding Action Information 1",
-      .length = sizeof(pfcp_access_forwarding_action_information_t),
+      .length = sizeof(pfcp_ie_access_forwarding_action_information_t),
       .size = ARRAY_LEN(pfcp_access_forwarding_action_information_group),
       .group = pfcp_access_forwarding_action_information_group,
     },
     [PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_2] =
     {
       .name = "Access Forwarding Action Information 2",
-      .length = sizeof(pfcp_access_forwarding_action_information_t),
+      .length = sizeof(pfcp_ie_access_forwarding_action_information_t),
       .size = ARRAY_LEN(pfcp_access_forwarding_action_information_group),
       .group = pfcp_access_forwarding_action_information_group,
     },
     [PFCP_IE_REMOVE_MAR] =
     {
       .name = "Remove MAR",
-      .length = sizeof(pfcp_remove_mar_t),
+      .length = sizeof(pfcp_ie_remove_mar_t),
       .size = ARRAY_LEN(pfcp_remove_mar_group),
       .group = pfcp_remove_mar_group,
     },
     [PFCP_IE_UPDATE_MAR] =
     {
       .name = "Update MAR",
-      .length = sizeof(pfcp_update_mar_t),
+      .length = sizeof(pfcp_ie_update_mar_t),
       .size = ARRAY_LEN(pfcp_update_mar_group),
       .group = pfcp_update_mar_group,
     },
@@ -6991,14 +6981,14 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_1] =
     {
       .name = "Update Access Forwarding Action Information 1",
-      .length = sizeof(pfcp_update_access_forwarding_action_information_t),
+      .length = sizeof(pfcp_ie_update_access_forwarding_action_information_t),
       .size = ARRAY_LEN(pfcp_update_access_forwarding_action_information_group),
       .group = pfcp_update_access_forwarding_action_information_group,
     },
     [PFCP_IE_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_2] =
     {
       .name = "Update Access Forwarding Action Information 2",
-      .length = sizeof(pfcp_update_access_forwarding_action_information_t),
+      .length = sizeof(pfcp_ie_update_access_forwarding_action_information_t),
       .size = ARRAY_LEN(pfcp_update_access_forwarding_action_information_group),
       .group = pfcp_update_access_forwarding_action_information_group,
     },
@@ -7009,7 +6999,7 @@ static struct pfcp_ie_def tgpp_specs[] =
     [PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION] =
     {
       .name = "UE IP Address Pool Information",
-      .length = sizeof(pfcp_ue_ip_address_pool_information_t),
+      .length = sizeof(pfcp_ie_ue_ip_address_pool_information_t),
       .size = ARRAY_LEN(pfcp_ue_ip_address_pool_group),
       .group = (pfcp_ue_ip_address_pool_group),
     },
@@ -7026,7 +7016,7 @@ static struct pfcp_ie_def vendor_tp_specs[] =
    [PFCP_IE_TP_ERROR_REPORT] =
    {
      .name = "TP: Error Report",
-     .length = sizeof(pfcp_tp_error_report_t),
+     .length = sizeof(pfcp_ie_tp_error_report_t),
      .mandatory = BIT(TP_ERROR_REPORT_TP_ERROR_MESSAGE),
      .size = ARRAY_LEN(pfcp_tp_error_report_group),
      .group = pfcp_tp_error_report_group,
@@ -7034,7 +7024,7 @@ static struct pfcp_ie_def vendor_tp_specs[] =
    [PFCP_IE_TP_CREATED_NAT_BINDING] =
    {
      .name = "TP: Created Binding",
-     .length = sizeof(pfcp_tp_created_binding_t),
+     .length = sizeof(pfcp_ie_tp_created_binding_t),
      .size = ARRAY_LEN(pfcp_tp_created_binding_group),
      .group = pfcp_tp_created_binding_group,
     },
@@ -7978,11 +7968,11 @@ get_ie_def (const struct pfcp_group_ie_def *item)
 }
 
 static int decode_group (u8 *p, int len, const struct pfcp_ie_def *grp_def,
-                         struct pfcp_group *grp, pfcp_offending_ie_t **err);
+                         struct pfcp_group *grp, pfcp_ie_offending_ie_t **err);
 
 static int
 decode_ie (const struct pfcp_ie_def *def, u8 *ie, u16 length, void *p,
-           pfcp_offending_ie_t **err)
+           pfcp_ie_offending_ie_t **err)
 {
   int r;
 
@@ -8001,7 +7991,7 @@ decode_ie (const struct pfcp_ie_def *def, u8 *ie, u16 length, void *p,
 
 static int
 decode_vector_ie (const struct pfcp_ie_def *def, u8 *ie, u16 length, void *p,
-                  pfcp_offending_ie_t **err)
+                  pfcp_ie_offending_ie_t **err)
 {
   u8 **v = (u8 **) p;
   uword vl;
@@ -8026,7 +8016,7 @@ decode_vector_ie (const struct pfcp_ie_def *def, u8 *ie, u16 length, void *p,
 
 static int
 decode_group (u8 *p, int len, const struct pfcp_ie_def *grp_def,
-              struct pfcp_group *grp, pfcp_offending_ie_t **err)
+              struct pfcp_group *grp, pfcp_ie_offending_ie_t **err)
 {
   int r = 0, pos = 0;
 
@@ -8245,7 +8235,7 @@ pfcp_is_session_msg (u16 type)
 
 int
 pfcp_decode_msg (u8 *p, int len, pfcp_decoded_msg_t *dmsg,
-                 pfcp_offending_ie_t **err)
+                 pfcp_ie_offending_ie_t **err)
 {
   u16 type, msg_len;
   int is_session_msg;

@@ -56,13 +56,13 @@ typedef struct __attribute__ ((packed))
   u16 length; /* length in octets of the payload */
   union
   {
-    pfcp_node_msg_header_t msg_hdr;
+    pfcp_node_msg_header_t node_hdr;
     pfcp_session_msg_header_t session_hdr;
   };
-} pfcp_header_t;
+} pfcp_msg_header_t;
 
-#define NODE_MSG_HDR_LEN    (offsetof (pfcp_header_t, msg_hdr.ies))
-#define SESSION_MSG_HDR_LEN (offsetof (pfcp_header_t, session_hdr.ies))
+#define NODE_MSG_HDR_LEN    (offsetof (pfcp_msg_header_t, node_hdr.ies))
+#define SESSION_MSG_HDR_LEN (offsetof (pfcp_msg_header_t, session_hdr.ies))
 
 typedef struct __attribute__ ((packed))
 {
@@ -119,7 +119,7 @@ typedef struct
   u64 total;
   u64 ul;
   u64 dl;
-} pfcp_volume_ie_t;
+} pfcp_ie_volume_t;
 
 #define PFCP_VOLUME_TOVOL BIT (0)
 #define PFCP_VOLUME_ULVOL BIT (1)
@@ -139,7 +139,7 @@ typedef struct
 {
   u8 unit;
   u8 value;
-} pfcp_timer_ie_t;
+} pfcp_ie_timer_t;
 
 /* PFCP Information Elements */
 
@@ -163,7 +163,7 @@ typedef struct
 #define PFCP_IE_REMOVE_QER                   18
 
 #define PFCP_IE_CAUSE 19
-typedef u8 pfcp_cause_t;
+typedef u8 pfcp_ie_cause_t;
 #define PFCP_CAUSE_RESERVED                           0
 #define PFCP_CAUSE_REQUEST_ACCEPTED                   1
 #define PFCP_CAUSE_REQUEST_REJECTED                   64
@@ -182,7 +182,7 @@ typedef u8 pfcp_cause_t;
 #define PFCP_CAUSE_SYSTEM_FAILURE                     77
 
 #define PFCP_IE_SOURCE_INTERFACE 20
-typedef u8 pfcp_source_interface_t;
+typedef u8 pfcp_ie_source_interface_t;
 
 #define SRC_INTF_ACCESS  0
 #define SRC_INTF_CORE    1
@@ -203,10 +203,10 @@ typedef struct
   ip4_address_t ip4;
   ip6_address_t ip6;
   u8 choose_id;
-} pfcp_f_teid_t;
+} pfcp_ie_f_teid_t;
 
 #define PFCP_IE_NETWORK_INSTANCE 22
-typedef u8 *pfcp_network_instance_t;
+typedef u8 *pfcp_ie_network_instance_t;
 
 #define PFCP_IE_SDF_FILTER 23
 typedef struct
@@ -223,59 +223,59 @@ typedef struct
   u32 spi;
   u32 flow_label;
   u32 sdf_filter_id;
-} pfcp_sdf_filter_t;
+} pfcp_ie_sdf_filter_t;
 
 #define PFCP_IE_APPLICATION_ID 24
-typedef u8 *pfcp_application_id_t;
+typedef u8 *pfcp_ie_application_id_t;
 
 #define PFCP_IE_GATE_STATUS 25
 typedef struct
 {
   u8 ul;
   u8 dl;
-} pfcp_gate_status_t;
+} pfcp_ie_gate_status_t;
 
 typedef struct
 {
   u64 ul;
   u64 dl;
-} pfcp_bit_rate_t;
+} pfcp_ie_bit_rate_t;
 
 #define PFCP_IE_MBR 26
-typedef pfcp_bit_rate_t pfcp_mbr_t;
+typedef pfcp_ie_bit_rate_t pfcp_ie_mbr_t;
 
 #define PFCP_IE_GBR 27
-typedef pfcp_bit_rate_t pfcp_gbr_t;
+typedef pfcp_ie_bit_rate_t pfcp_ie_gbr_t;
 
 #define PFCP_IE_QER_CORRELATION_ID 28
-typedef u32 pfcp_qer_correlation_id_t;
+typedef u32 pfcp_ie_qer_correlation_id_t;
 
 #define PFCP_IE_PRECEDENCE 29
-typedef u32 pfcp_precedence_t;
+typedef u32 pfcp_ie_precedence_t;
 
 #define PFCP_IE_TRANSPORT_LEVEL_MARKING 30
-typedef u16 pfcp_transport_level_marking_t;
+typedef u16 pfcp_ie_transport_level_marking_t;
 
 #define PFCP_IE_VOLUME_THRESHOLD 31
-typedef pfcp_volume_ie_t pfcp_volume_threshold_t;
+typedef pfcp_ie_volume_t pfcp_ie_volume_threshold_t;
 
 #define PFCP_IE_TIME_THRESHOLD 32
-typedef u32 pfcp_time_threshold_t;
+typedef u32 pfcp_ie_time_threshold_t;
 
 #define PFCP_IE_MONITORING_TIME 33
-typedef u32 pfcp_monitoring_time_t;
+typedef u32 pfcp_ie_monitoring_time_t;
 
 #define PFCP_IE_SUBSEQUENT_VOLUME_THRESHOLD 34
-typedef pfcp_volume_ie_t pfcp_subsequent_volume_threshold_t;
+typedef pfcp_ie_volume_t pfcp_ie_subsequent_volume_threshold_t;
 
 #define PFCP_IE_SUBSEQUENT_TIME_THRESHOLD 35
-typedef u32 pfcp_subsequent_time_threshold_t;
+typedef u32 pfcp_ie_subsequent_time_threshold_t;
 
 #define PFCP_IE_INACTIVITY_DETECTION_TIME 36
-typedef u32 pfcp_inactivity_detection_time_t;
+typedef u32 pfcp_ie_inactivity_detection_time_t;
 
 #define PFCP_IE_REPORTING_TRIGGERS 37
-typedef u32 pfcp_reporting_triggers_t;
+typedef u32 pfcp_ie_reporting_triggers_t;
 
 #define REPORTING_TRIGGER_PERIODIC_REPORTING           BIT (0)
 #define REPORTING_TRIGGER_VOLUME_THRESHOLD             BIT (1)
@@ -313,10 +313,10 @@ typedef struct
     };
     u8 *uri;
   };
-} pfcp_redirect_information_t;
+} pfcp_ie_redirect_information_t;
 
 #define PFCP_IE_REPORT_TYPE 39
-typedef u8 pfcp_report_type_t;
+typedef u8 pfcp_ie_report_type_t;
 
 #define REPORT_TYPE_DLDR BIT (0)
 #define REPORT_TYPE_USAR BIT (1)
@@ -327,16 +327,16 @@ typedef u8 pfcp_report_type_t;
 #define REPORT_TYPE_UISR BIT (6)
 
 #define PFCP_IE_OFFENDING_IE 40
-typedef u32 pfcp_offending_ie_t;
+typedef u32 pfcp_ie_offending_ie_t;
 
 #define PFCP_IE_FORWARDING_POLICY 41
 typedef struct
 {
   u8 *identifier;
-} pfcp_forwarding_policy_t;
+} pfcp_ie_forwarding_policy_t;
 
 #define PFCP_IE_DESTINATION_INTERFACE 42
-typedef u8 pfcp_destination_interface_t;
+typedef u8 pfcp_ie_destination_interface_t;
 
 #define DST_INTF_ACCESS  0
 #define DST_INTF_CORE    1
@@ -347,7 +347,7 @@ typedef u8 pfcp_destination_interface_t;
 #define DST_INTF_NUM     (DST_INTF_5G_VN + 1)
 
 #define PFCP_IE_UP_FUNCTION_FEATURES 43
-typedef u64 pfcp_up_function_features_t;
+typedef u64 pfcp_ie_up_function_features_t;
 #define F_UPFF_BUCP BIT (0)
 #define F_UPFF_DDND BIT (1)
 #define F_UPFF_DLBD BIT (2)
@@ -389,7 +389,7 @@ typedef u64 pfcp_up_function_features_t;
 #define F_UPFF_GPQM     BIT (34)
 
 #define PFCP_IE_APPLY_ACTION 44
-typedef u8 pfcp_apply_action_t;
+typedef u8 pfcp_ie_apply_action_t;
 #define F_APPLY_DROP BIT (0)
 #define F_APPLY_FORW BIT (1)
 #define F_APPLY_BUFF BIT (2)
@@ -407,42 +407,41 @@ typedef struct
 
   u8 paging_policy_indication;
   u8 qfi;
-} pfcp_downlink_data_service_information_t;
+} pfcp_ie_downlink_data_service_information_t;
 
 #define PFCP_IE_DOWNLINK_DATA_NOTIFICATION_DELAY 46
-typedef u8 pfcp_downlink_data_notification_delay_t;
+typedef u8 pfcp_ie_downlink_data_notification_delay_t;
 
 #define PFCP_IE_DL_BUFFERING_DURATION 47
-typedef pfcp_timer_ie_t pfcp_dl_buffering_duration_t;
+typedef pfcp_ie_timer_t pfcp_ie_dl_buffering_duration_t;
 
 #define PFCP_IE_DL_BUFFERING_SUGGESTED_PACKET_COUNT 48
-typedef u16 pfcp_dl_buffering_suggested_packet_count_t;
+typedef u16 pfcp_ie_dl_buffering_suggested_packet_count_t;
 
 #define PFCP_IE_PFCPSMREQ_FLAGS 49
-typedef u8 pfcp_pfcpsmreq_flags_t;
+typedef u8 pfcp_ie_pfcpsmreq_flags_t;
 #define PFCPSMREQ_DROBU BIT (0)
 #define PFCPSMREQ_SNDEM BIT (1)
 #define PFCPSMREQ_QAURR BIT (2)
 
 #define PFCP_IE_PFCPSRRSP_FLAGS 50
-typedef u8 pfcp_pfcpsrrsp_flags_t;
+typedef u8 pfcp_ie_pfcpsrrsp_flags_t;
 #define PFCPSRRSP_DROBU BIT (0)
 
 #define PFCP_IE_LOAD_CONTROL_INFORMATION 51
 
 #define PFCP_IE_SEQUENCE_NUMBER 52
-typedef u32 pfcp_sequence_number_t;
+typedef u32 pfcp_ie_sequence_number_t;
 
 #define PFCP_IE_METRIC 53
-typedef u32 pfcp_metric_t;
+typedef u32 pfcp_ie_metric_t;
 
 #define PFCP_IE_OVERLOAD_CONTROL_INFORMATION 54
 
 #define PFCP_IE_TIMER 55
-typedef u32 pfcp_timer_t;
 
 #define PFCP_IE_PDR_ID 56
-typedef u16 pfcp_pdr_id_t;
+typedef u16 pfcp_ie_pdr_id_t;
 
 #define PFCP_IE_F_SEID 57
 typedef struct
@@ -454,7 +453,7 @@ typedef struct
   u64 seid;
   ip4_address_t ip4;
   ip6_address_t ip6;
-} pfcp_f_seid_t;
+} pfcp_ie_f_seid_t;
 
 #define PFCP_IE_APPLICATION_ID_PFDS 58
 #define PFCP_IE_PFD                 59
@@ -477,7 +476,7 @@ typedef struct
     ip46_address_t ip;
     u8 *fqdn;
   };
-} pfcp_node_id_t;
+} pfcp_ie_node_id_t;
 
 #define PFCP_IE_PFD_CONTENTS 61
 typedef struct
@@ -500,17 +499,17 @@ typedef struct
   u8 *domain;
   u8 *custom;
   u8 *dnp;
-} pfcp_pfd_contents_t;
+} pfcp_ie_pfd_contents_t;
 
 #define PFCP_IE_MEASUREMENT_METHOD 62
-typedef u8 pfcp_measurement_method_t;
+typedef u8 pfcp_ie_measurement_method_t;
 
 #define MEASUREMENT_METHOD_DURATION BIT (0)
 #define MEASUREMENT_METHOD_VOLUME   BIT (1)
 #define MEASUREMENT_METHOD_EVENT    BIT (2)
 
 #define PFCP_IE_USAGE_REPORT_TRIGGER 63
-typedef u32 pfcp_usage_report_trigger_t;
+typedef u32 pfcp_ie_usage_report_trigger_t;
 
 #define USAGE_REPORT_TRIGGER_PERIODIC_REPORTING           BIT (0)
 #define USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD             BIT (1)
@@ -536,7 +535,7 @@ typedef u32 pfcp_usage_report_trigger_t;
 #define USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME               BIT (19)
 
 #define PFCP_IE_MEASUREMENT_PERIOD 64
-typedef u32 pfcp_measurement_period_t;
+typedef u32 pfcp_ie_measurement_period_t;
 
 #define PFCP_IE_FQ_CSID 65
 typedef struct
@@ -556,7 +555,7 @@ typedef struct
     };
   } node_id;
   u16 *csid;
-} pfcp_fq_csid_t;
+} pfcp_ie_fq_csid_t;
 
 #define PFCP_IE_VOLUME_MEASUREMENT 66
 typedef struct
@@ -574,21 +573,21 @@ typedef struct
     u64 ul;
     u64 dl;
   } packets;
-} pfcp_volume_measurement_t;
+} pfcp_ie_volume_measurement_t;
 
 #define PFCP_IE_DURATION_MEASUREMENT 67
-typedef u32 pfcp_duration_measurement_t;
+typedef u32 pfcp_ie_duration_measurement_t;
 
 #define PFCP_IE_APPLICATION_DETECTION_INFORMATION 68
 
 #define PFCP_IE_TIME_OF_FIRST_PACKET 69
-typedef u32 pfcp_time_of_first_packet_t;
+typedef u32 pfcp_ie_time_of_first_packet_t;
 
 #define PFCP_IE_TIME_OF_LAST_PACKET 70
-typedef u32 pfcp_time_of_last_packet_t;
+typedef u32 pfcp_ie_time_of_last_packet_t;
 
 #define PFCP_IE_QUOTA_HOLDING_TIME 71
-typedef u32 pfcp_quota_holding_time_t;
+typedef u32 pfcp_ie_quota_holding_time_t;
 
 #define PFCP_IE_DROPPED_DL_TRAFFIC_THRESHOLD 72
 typedef struct
@@ -599,19 +598,19 @@ typedef struct
 
   u64 downlink_packets;
   u64 downlink_volume;
-} pfcp_dropped_dl_traffic_threshold_t;
+} pfcp_ie_dropped_dl_traffic_threshold_t;
 
 #define PFCP_IE_VOLUME_QUOTA 73
-typedef pfcp_volume_ie_t pfcp_volume_quota_t;
+typedef pfcp_ie_volume_t pfcp_ie_volume_quota_t;
 
 #define PFCP_IE_TIME_QUOTA 74
-typedef u32 pfcp_time_quota_t;
+typedef u32 pfcp_ie_time_quota_t;
 
 #define PFCP_IE_START_TIME 75
-typedef u32 pfcp_start_time_t;
+typedef u32 pfcp_ie_start_time_t;
 
 #define PFCP_IE_END_TIME 76
-typedef u32 pfcp_end_time_t;
+typedef u32 pfcp_ie_end_time_t;
 
 #define PFCP_IE_QUERY_URR        77
 #define PFCP_IE_USAGE_REPORT_SMR 78
@@ -619,10 +618,10 @@ typedef u32 pfcp_end_time_t;
 #define PFCP_IE_USAGE_REPORT_SRR 80
 
 #define PFCP_IE_URR_ID 81
-typedef u32 pfcp_urr_id_t;
+typedef u32 pfcp_ie_urr_id_t;
 
 #define PFCP_IE_LINKED_URR_ID 82
-typedef u32 pfcp_linked_urr_id_t;
+typedef u32 pfcp_ie_linked_urr_id_t;
 
 #define PFCP_IE_DOWNLINK_DATA_REPORT 83
 
@@ -656,17 +655,17 @@ typedef struct
   u16 port;
   u32 c_tag;
   u32 s_tag;
-} pfcp_outer_header_creation_t;
+} pfcp_ie_outer_header_creation_t;
 
 #define PFCP_IE_CREATE_BAR         85
 #define PFCP_IE_UPDATE_BAR_REQUEST 86
 #define PFCP_IE_REMOVE_BAR         87
 
 #define PFCP_IE_BAR_ID 88
-typedef u8 pfcp_bar_id_t;
+typedef u8 pfcp_ie_bar_id_t;
 
 #define PFCP_IE_CP_FUNCTION_FEATURES 89
-typedef u8 pfcp_cp_function_features_t;
+typedef u8 pfcp_ie_cp_function_features_t;
 #define F_CPFF_LOAD  BIT (0)
 #define F_CPFF_OVRL  BIT (1)
 #define F_CPFF_EPFAR BIT (2)
@@ -676,21 +675,21 @@ typedef u8 pfcp_cp_function_features_t;
 #define F_CPFF_ARDR  BIT (6)
 
 #define PFCP_IE_USAGE_INFORMATION 90
-typedef u8 pfcp_usage_information_t;
+typedef u8 pfcp_ie_usage_information_t;
 #define USAGE_INFORMATION_BEFORE                 BIT (0)
 #define USAGE_INFORMATION_AFTER                  BIT (1)
 #define USAGE_INFORMATION_AFTER_QoS_ENFORCEMENT  BIT (2)
 #define USAGE_INFORMATION_BEFORE_QoS_ENFORCEMENT BIT (3)
 
 #define PFCP_IE_APPLICATION_INSTANCE_ID 91
-typedef u8 *pfcp_application_instance_id_t;
+typedef u8 *pfcp_ie_application_instance_id_t;
 
 #define PFCP_IE_FLOW_INFORMATION 92
 typedef struct
 {
   u8 direction;
   u8 *flow_description;
-} pfcp_flow_information_t;
+} pfcp_ie_flow_information_t;
 
 #define PFCP_IE_UE_IP_ADDRESS 93
 typedef struct
@@ -708,13 +707,13 @@ typedef struct
   ip6_address_t ip6;
   u8 prefix_delegation_length;
   u8 prefix_length;
-} pfcp_ue_ip_address_t;
+} pfcp_ie_ue_ip_address_t;
 
 typedef struct
 {
   u8 unit;
   u16 max;
-} packet_rate_t;
+} pfcp_packet_rate_t;
 
 #define PFCP_IE_PACKET_RATE 94
 typedef struct
@@ -725,14 +724,14 @@ typedef struct
 #define PACKET_RATE_RCSR BIT (2)
 #define PACKET_RATE_APRC BIT (3)
 
-  packet_rate_t ul;
-  packet_rate_t dl;
-  packet_rate_t a_ul;
-  packet_rate_t a_dl;
-} pfcp_packet_rate_t;
+  pfcp_packet_rate_t ul;
+  pfcp_packet_rate_t dl;
+  pfcp_packet_rate_t a_ul;
+  pfcp_packet_rate_t a_dl;
+} pfcp_ie_packet_rate_t;
 
 #define PFCP_IE_OUTER_HEADER_REMOVAL 95
-typedef u8 pfcp_outer_header_removal_t;
+typedef u8 pfcp_ie_outer_header_removal_t;
 
 #define OUTER_HEADER_REMOVAL_GTP_IP4 0
 #define OUTER_HEADER_REMOVAL_GTP_IP6 1
@@ -745,7 +744,7 @@ typedef u8 pfcp_outer_header_removal_t;
 #define OUTER_HEADER_REMOVAL_S_C_TAG 8
 
 #define PFCP_IE_RECOVERY_TIME_STAMP 96
-typedef u32 pfcp_recovery_time_stamp_t;
+typedef u32 pfcp_ie_recovery_time_stamp_t;
 
 #define PFCP_IE_DL_FLOW_LEVEL_MARKING 97
 typedef struct
@@ -756,7 +755,7 @@ typedef struct
 
   u16 tos_traffic_class;
   u16 service_class_indicator;
-} pfcp_dl_flow_level_marking_t;
+} pfcp_ie_dl_flow_level_marking_t;
 
 #define PFCP_IE_HEADER_ENRICHMENT 98
 typedef struct
@@ -764,7 +763,7 @@ typedef struct
   u8 type;
   u8 *name;
   u8 *value;
-} pfcp_header_enrichment_t;
+} pfcp_ie_header_enrichment_t;
 
 #define PFCP_IE_ERROR_INDICATION_REPORT 99
 
@@ -781,7 +780,7 @@ typedef struct
   (MEASUREMENT_INFORMATION_MBQE | MEASUREMENT_INFORMATION_INAM |              \
    MEASUREMENT_INFORMATION_RADI | MEASUREMENT_INFORMATION_ISTM |              \
    MEASUREMENT_INFORMATION_MNOP)
-} pfcp_measurement_information_t;
+} pfcp_ie_measurement_information_t;
 
 #define PFCP_IE_NODE_REPORT_TYPE 101
 typedef struct
@@ -794,7 +793,7 @@ typedef struct
 #define NRT_MASK                                                              \
   (NRT_USER_PLANE_PATH_FAILURE_REPORT | NRT_USER_PLANE_PATH_RECOVERY_REPORT | \
    NRT_CLOCK_DRIFT_REPORT | NRT_GTP_U_PATH_QOS_REPORT)
-} pfcp_node_report_type_t;
+} pfcp_ie_node_report_type_t;
 
 #define PFCP_IE_USER_PLANE_PATH_FAILURE_REPORT 102
 
@@ -807,33 +806,33 @@ typedef struct
 #define REMOTE_GTP_U_PEER_NI  BIT (3)
 
   ip46_address_t ip;
-  pfcp_destination_interface_t destination_interface;
-  pfcp_network_instance_t network_instance;
-} pfcp_remote_gtp_u_peer_t;
+  pfcp_ie_destination_interface_t destination_interface;
+  pfcp_ie_network_instance_t network_instance;
+} pfcp_ie_remote_gtp_u_peer_t;
 
 #define PFCP_IE_UR_SEQN 104
-typedef u32 pfcp_ur_seqn_t;
+typedef u32 pfcp_ie_ur_seqn_t;
 
 #define PFCP_IE_UPDATE_DUPLICATING_PARAMETERS 105
 
 #define PFCP_IE_ACTIVATE_PREDEFINED_RULES 106
-typedef u8 *pfcp_activate_predefined_rules_t;
+typedef u8 *pfcp_ie_activate_predefined_rules_t;
 
 #define PFCP_IE_DEACTIVATE_PREDEFINED_RULES 107
-typedef u8 *pfcp_deactivate_predefined_rules_t;
+typedef u8 *pfcp_ie_deactivate_predefined_rules_t;
 
 #define PFCP_IE_FAR_ID 108
-typedef u32 pfcp_far_id_t;
+typedef u32 pfcp_ie_far_id_t;
 
 #define PFCP_IE_QER_ID 109
-typedef u32 pfcp_qer_id_t;
+typedef u32 pfcp_ie_qer_id_t;
 
 #define PFCP_IE_OCI_FLAGS 110
 typedef struct
 {
   u8 flags;
 #define OCI_ASSOCIATE_OCI_WITH_NODE_ID BIT (0)
-} pfcp_oci_flags_t;
+} pfcp_ie_oci_flags_t;
 
 #define PFCP_IE_PFCP_ASSOCIATION_RELEASE_REQUEST 111
 typedef struct
@@ -844,10 +843,10 @@ typedef struct
 #define F_PFCP_ASSOCIATION_RELEASE_REQUEST_MASK                               \
   (F_PFCP_ASSOCIATION_RELEASE_REQUEST_SARR |                                  \
    F_PFCP_ASSOCIATION_RELEASE_REQUEST_URSS)
-} pfcp_pfcp_association_release_request_t;
+} pfcp_ie_pfcp_association_release_request_t;
 
 #define PFCP_IE_GRACEFUL_RELEASE_PERIOD 112
-typedef u32 pfcp_graceful_release_period_t;
+typedef u32 pfcp_ie_graceful_release_period_t;
 
 #define PFCP_IE_PDN_TYPE 113
 typedef struct
@@ -858,7 +857,7 @@ typedef struct
 #define PDN_TYPE_IPv4v6   3
 #define PDN_TYPE_NON_IP   4
 #define PDN_TYPE_ETHERNET 5
-} pfcp_pdn_type_t;
+} pfcp_ie_pdn_type_t;
 
 #define PFCP_IE_FAILED_RULE_ID 114
 typedef struct
@@ -871,14 +870,14 @@ typedef struct
 #define FAILED_RULE_TYPE_BAR 4
 
   u32 id;
-} pfcp_failed_rule_id_t;
+} pfcp_ie_failed_rule_id_t;
 
 #define PFCP_IE_TIME_QUOTA_MECHANISM 115
 typedef struct
 {
   u8 base_time_interval_type;
   u32 base_time_interval;
-} pfcp_time_quota_mechanism_t;
+} pfcp_ie_time_quota_mechanism_t;
 
 #define PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION 116
 typedef struct
@@ -897,13 +896,13 @@ typedef struct
   u8 teid_range_indication;
   u8 teid_range;
   u8 source_intf;
-  pfcp_network_instance_t network_instance;
+  pfcp_ie_network_instance_t network_instance;
   ip4_address_t ip4;
   ip6_address_t ip6;
-} pfcp_user_plane_ip_resource_information_t;
+} pfcp_ie_user_plane_ip_resource_information_t;
 
 #define PFCP_IE_USER_PLANE_INACTIVITY_TIMER 117
-typedef u32 pfcp_user_plane_inactivity_timer_t;
+typedef u32 pfcp_ie_user_plane_inactivity_timer_t;
 
 #define PFCP_IE_AGGREGATED_URRS 118
 
@@ -912,32 +911,32 @@ typedef struct
 {
   i64 digits;
   i32 exponent;
-} pfcp_multiplier_t;
+} pfcp_ie_multiplier_t;
 
 #define PFCP_IE_AGGREGATED_URR_ID 120
-typedef u32 pfcp_aggregated_urr_id_t;
+typedef u32 pfcp_ie_aggregated_urr_id_t;
 
 #define PFCP_IE_SUBSEQUENT_VOLUME_QUOTA 121
-typedef pfcp_volume_ie_t pfcp_subsequent_volume_quota_t;
+typedef pfcp_ie_volume_t pfcp_ie_subsequent_volume_quota_t;
 
 #define PFCP_IE_SUBSEQUENT_TIME_QUOTA 122
-typedef u32 pfcp_subsequent_time_quota_t;
+typedef u32 pfcp_ie_subsequent_time_quota_t;
 
 #define PFCP_IE_RQI 123
 typedef struct
 {
   u8 flags;
 #define RQI_FLAG BIT (0)
-} pfcp_rqi_t;
+} pfcp_ie_rqi_t;
 
 #define PFCP_IE_QFI 124
-typedef u8 pfcp_qfi_t;
+typedef u8 pfcp_ie_qfi_t;
 
 #define PFCP_IE_QUERY_URR_REFERENCE 125
-typedef u32 pfcp_query_urr_reference_t;
+typedef u32 pfcp_ie_query_urr_reference_t;
 
 #define PFCP_IE_ADDITIONAL_USAGE_REPORTS_INFORMATION 126
-typedef u16 pfcp_additional_usage_reports_information_t;
+typedef u16 pfcp_ie_additional_usage_reports_information_t;
 #define AURI_FLAG BIT (15)
 
 #define PFCP_IE_CREATE_TRAFFIC_ENDPOINT  127
@@ -946,7 +945,7 @@ typedef u16 pfcp_additional_usage_reports_information_t;
 #define PFCP_IE_REMOVE_TRAFFIC_ENDPOINT  130
 
 #define PFCP_IE_TRAFFIC_ENDPOINT_ID 131
-typedef u8 pfcp_traffic_endpoint_id_t;
+typedef u8 pfcp_ie_traffic_endpoint_id_t;
 
 #define PFCP_IE_ETHERNET_PACKET_FILTER 132
 
@@ -963,7 +962,7 @@ typedef struct
   mac_address_t dst_mac;
   mac_address_t upper_src_mac;
   mac_address_t upper_dst_mac;
-} pfcp_mac_address_t;
+} pfcp_ie_mac_address_t;
 
 typedef struct
 {
@@ -972,16 +971,16 @@ typedef struct
 #define VLAN_MASK_DEI 0x1000
 #define VLAN_MASK_VID 0x0fff
   u16 tci;
-} pfcp_vlan_tag_t;
+} pfcp_ie_vlan_tag_t;
 
 #define PFCP_IE_C_TAG 134
-typedef pfcp_vlan_tag_t pfcp_c_tag_t;
+typedef pfcp_ie_vlan_tag_t pfcp_ie_c_tag_t;
 
 #define PFCP_IE_S_TAG 135
-typedef pfcp_vlan_tag_t pfcp_s_tag_t;
+typedef pfcp_ie_vlan_tag_t pfcp_ie_s_tag_t;
 
 #define PFCP_IE_ETHERTYPE 136
-typedef u16 pfcp_ethertype_t;
+typedef u16 pfcp_ie_ethertype_t;
 
 #define PFCP_IE_PROXYING 137
 typedef struct
@@ -989,20 +988,20 @@ typedef struct
   u8 flags;
 #define F_PROXY_ARP    BIT (0)
 #define F_PROXY_IP6_NS BIT (1)
-} pfcp_proxying_t;
+} pfcp_ie_proxying_t;
 
 #define PFCP_IE_ETHERNET_FILTER_ID 138
-typedef u32 pfcp_ethernet_filter_id_t;
+typedef u32 pfcp_ie_ethernet_filter_id_t;
 
 #define PFCP_IE_ETHERNET_FILTER_PROPERTIES 139
 typedef struct
 {
   u8 flags;
 #define F_BIDIRECTIONAL_ETHERNET_FILTER BIT (0)
-} pfcp_ethernet_filter_properties_t;
+} pfcp_ie_ethernet_filter_properties_t;
 
 #define PFCP_IE_SUGGESTED_BUFFERING_PACKETS_COUNT 140
-typedef u8 pfcp_suggested_buffering_packets_count_t;
+typedef u8 pfcp_ie_suggested_buffering_packets_count_t;
 
 #define PFCP_IE_USER_ID 141
 typedef struct
@@ -1019,41 +1018,41 @@ typedef struct
   u8 msisdn_len; /* length in bytes, not in digits */
   u8 msisdn[8];
   u8 *nai;
-} pfcp_user_id_t;
+} pfcp_ie_user_id_t;
 
 #define PFCP_IE_ETHERNET_PDU_SESSION_INFORMATION 142
 typedef struct
 {
   u8 flags;
 #define F_ETHERNET_INDICATION BIT (0)
-} pfcp_ethernet_pdu_session_information_t;
+} pfcp_ie_ethernet_pdu_session_information_t;
 
 #define PFCP_IE_ETHERNET_TRAFFIC_INFORMATION 143
 
 typedef mac_address_t *pfcp_mac_addresses_vec_t;
 
 #define PFCP_IE_MAC_ADDRESSES_DETECTED 144
-typedef pfcp_mac_addresses_vec_t pfcp_mac_addresses_detected_t;
+typedef pfcp_mac_addresses_vec_t pfcp_ie_mac_addresses_detected_t;
 
 #define PFCP_IE_MAC_ADDRESSES_REMOVED 145
-typedef pfcp_mac_addresses_vec_t pfcp_mac_addresses_removed_t;
+typedef pfcp_mac_addresses_vec_t pfcp_ie_mac_addresses_removed_t;
 
 #define PFCP_IE_ETHERNET_INACTIVITY_TIMER 146
-typedef u32 pfcp_ethernet_inactivity_timer_t;
+typedef u32 pfcp_ie_ethernet_inactivity_timer_t;
 
 #define PFCP_IE_ADDITIONAL_MONITORING_TIME 147
 
 #define PFCP_IE_EVENT_QUOTA 148
-typedef u32 pfcp_event_quota_t;
+typedef u32 pfcp_ie_event_quota_t;
 
 #define PFCP_IE_EVENT_THRESHOLD 149
-typedef u32 pfcp_event_threshold_t;
+typedef u32 pfcp_ie_event_threshold_t;
 
 #define PFCP_IE_SUBSEQUENT_EVENT_QUOTA 150
-typedef u32 pfcp_subsequent_event_quota_t;
+typedef u32 pfcp_ie_subsequent_event_quota_t;
 
 #define PFCP_IE_SUBSEQUENT_EVENT_THRESHOLD 151
-typedef u32 pfcp_subsequent_event_threshold_t;
+typedef u32 pfcp_ie_subsequent_event_threshold_t;
 
 #define PFCP_IE_TRACE_INFORMATION 152
 typedef struct
@@ -1064,45 +1063,45 @@ typedef struct
   u8 trace_depth;
   u8 *interfaces;
   ip46_address_t collection_entity;
-} pfcp_trace_information_t;
+} pfcp_ie_trace_information_t;
 
 #define PFCP_IE_FRAMED_ROUTE 153
-typedef u8 *pfcp_framed_route_t;
+typedef u8 *pfcp_ie_framed_route_t;
 
 #define PFCP_IE_FRAMED_ROUTING 154
-typedef u8 pfcp_framed_routing_t;
+typedef u8 pfcp_ie_framed_routing_t;
 
 #define PFCP_IE_FRAMED_IPV6_ROUTE 155
-typedef u8 *pfcp_framed_ipv6_route_t;
+typedef u8 *pfcp_ie_framed_ipv6_route_t;
 
 #define PFCP_IE_EVENT_TIME_STAMP 156
-typedef u32 pfcp_event_time_stamp_t;
+typedef u32 pfcp_ie_event_time_stamp_t;
 
 #define PFCP_IE_AVERAGING_WINDOW 157
-typedef u32 pfcp_averaging_window_t;
+typedef u32 pfcp_ie_averaging_window_t;
 
 #define PFCP_IE_PAGING_POLICY_INDICATOR 158
-typedef u8 pfcp_paging_policy_indicator_t;
+typedef u8 pfcp_ie_paging_policy_indicator_t;
 
 #define PFCP_IE_APN_DNN 159
-typedef u8 *pfcp_apn_dnn_t;
+typedef u8 *pfcp_ie_apn_dnn_t;
 
 #define PFCP_IE_TGPP_INTERFACE_TYPE 160
-typedef u8 pfcp_tgpp_interface_type_t;
+typedef u8 pfcp_ie_tgpp_interface_type_t;
 
 #define PFCP_IE_PFCPSRREQ_FLAGS 161
-typedef u8 pfcp_pfcpsrreq_flags_t;
+typedef u8 pfcp_ie_pfcpsrreq_flags_t;
 #define PFCPSRREQ_PSDBU BIT (0)
 
 #define PFCP_IE_PFCPAUREQ_FLAGS 162
-typedef u8 pfcp_pfcpaureq_flags_t;
+typedef u8 pfcp_ie_pfcpaureq_flags_t;
 #define PFCPAUREQ_PARPS BIT (0)
 
 #define PFCP_IE_ACTIVATION_TIME 163
-typedef u32 pfcp_activation_time_t;
+typedef u32 pfcp_ie_activation_time_t;
 
 #define PFCP_IE_DEACTIVATION_TIME 164
-typedef u32 pfcp_deactivation_time_t;
+typedef u32 pfcp_ie_deactivation_time_t;
 
 #define PFCP_IE_CREATE_MAR                             165
 #define PFCP_IE_ACCESS_FORWARDING_ACTION_INFORMATION_1 166
@@ -1111,25 +1110,25 @@ typedef u32 pfcp_deactivation_time_t;
 #define PFCP_IE_UPDATE_MAR                             169
 
 #define PFCP_IE_MAR_ID 170
-typedef u16 pfcp_mar_id_t;
+typedef u16 pfcp_ie_mar_id_t;
 
 #define PFCP_IE_STEERING_FUNCTIONALITY 171
-typedef u8 pfcp_steering_functionality_t;
+typedef u8 pfcp_ie_steering_functionality_t;
 #define STEERING_FUNCTIONALITY_ATSSS_LL 0
 #define STEERING_FUNCTIONALITY_MPTCP    1
 
 #define PFCP_IE_STEERING_MODE 172
-typedef u8 pfcp_steering_mode_t;
+typedef u8 pfcp_ie_steering_mode_t;
 #define STEERING_MODE_ACTIVE_STANDBY 0
 #define STEERING_MODE_SMALLEST_DELAY 1
 #define STEERING_MODE_LOAD_BALANCING 2
 #define STEERING_MODE_PRIORITY_BASED 3
 
 #define PFCP_IE_WEIGHT 173
-typedef u8 pfcp_weight_t;
+typedef u8 pfcp_ie_weight_t;
 
 #define PFCP_IE_PRIORITY 174
-typedef u8 pfcp_priority_t;
+typedef u8 pfcp_ie_priority_t;
 #define PRIORITY_ACTIVE  0
 #define PRIORITY_STANDBY 1
 #define PRIORITY_HIGH    2
@@ -1139,7 +1138,7 @@ typedef u8 pfcp_priority_t;
 #define PFCP_IE_UPDATE_ACCESS_FORWARDING_ACTION_INFORMATION_2 176
 
 #define PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY 177
-typedef u8 *pfcp_ue_ip_address_pool_identity_t;
+typedef u8 *pfcp_ie_ue_ip_address_pool_identity_t;
 
 #define PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS 178
 typedef struct
@@ -1150,82 +1149,80 @@ typedef struct
 
   ip4_address_t ip4;
   ip6_address_t ip6;
-} pfcp_alternative_smf_ip_address_t;
+} pfcp_ie_alternative_smf_ip_address_t;
 
 #define PFCP_IE_SMF_SET_ID 180
 typedef struct
 {
   u8 *fqdn;
-} pfcp_smf_set_id_t;
+} pfcp_ie_smf_set_id_t;
 
 #define PFCP_IE_QUOTA_VALIDITY_TIME 181
-typedef u32 pfcp_quota_validity_time_t;
+typedef u32 pfcp_ie_quota_validity_time_t;
 
 #define PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION 233
 
 #define PFCP_IE_IP_VERSION 258
-typedef u8 pfcp_ip_version_t;
+typedef u8 pfcp_ie_ip_version_t;
 #define IP_VERSION_4 BIT (0)
 #define IP_VERSION_6 BIT (1)
 
 #define VENDOR_BBF 3561
 
 #define PFCP_IE_BBF_UP_FUNCTION_FEATURES 0
-typedef u32 pfcp_bbf_up_function_features_t;
+typedef u32 pfcp_ie_bbf_up_function_features_t;
 
 #define BBF_UP_NAT BIT (6)
 
 #define PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS 14
-typedef ip4_address_t pfcp_bbf_nat_outside_address_t;
+typedef ip4_address_t pfcp_ie_bbf_nat_outside_address_t;
 
 #define PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE 16
 typedef struct
 {
   u16 start_port;
   u16 end_port;
-} pfcp_bbf_nat_external_port_range_t;
+} pfcp_ie_bbf_nat_external_port_range_t;
 
 #define PFCP_IE_BBF_APPLY_ACTION 15
-
+typedef u8 pfcp_ie_bbf_apply_action_t;
 #define BBF_APPLY_ACTION_NAT BIT (0)
 
-typedef u8 pfcp_bbf_apply_action_t;
-
 #define PFCP_IE_BBF_NAT_PORT_BLOCK 18
-typedef u8 *pfcp_bbf_nat_port_block_t;
+typedef u8 *pfcp_ie_bbf_nat_port_block_t;
 
 #define VENDOR_TRAVELPING 18681
 
 #define PFCP_IE_TP_PACKET_MEASUREMENT 1
-typedef pfcp_volume_threshold_t pfcp_tp_packet_measurement_t;
+typedef pfcp_ie_volume_threshold_t pfcp_ie_tp_packet_measurement_t;
 
 #define PFCP_IE_TP_BUILD_ID 2
-typedef u8 *pfcp_tp_build_id_t;
+typedef u8 *pfcp_ie_tp_build_id_t;
 
 #define PFCP_IE_TP_NOW 3
-typedef f64 pfcp_tp_now_t;
+typedef f64 pfcp_ie_tp_now_t;
 
 #define PFCP_IE_TP_START_TIME 4
-typedef f64 pfcp_tp_start_time_t;
+typedef f64 pfcp_ie_tp_start_time_t;
 
 #define PFCP_IE_TP_END_TIME 5
-typedef f64 pfcp_tp_end_time_t;
+typedef f64 pfcp_ie_tp_end_time_t;
 
 #define PFCP_IE_TP_ERROR_REPORT 6
 
 #define PFCP_IE_TP_ERROR_MESSAGE 7
-typedef u8 *pfcp_tp_error_message_t;
+typedef u8 *pfcp_ie_tp_error_message_t;
 
 #define PFCP_IE_TP_FILE_NAME 8
-typedef u8 *pfcp_tp_file_name_t;
+typedef u8 *pfcp_ie_tp_file_name_t;
 
 #define PFCP_IE_TP_LINE_NUMBER 9
-typedef u32 pfcp_tp_line_number_t;
+typedef u32 pfcp_ie_tp_line_number_t;
 
 #define PFCP_IE_TP_CREATED_NAT_BINDING 10
 
 #define PFCP_IE_TP_IPFIX_POLICY 11
-typedef u8 *pfcp_tp_ipfix_policy_t;
+typedef u8 *pfcp_ie_tp_ipfix_policy_t;
 
 /* Grouped PFCP Information Elements */
 
@@ -1240,8 +1237,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_remote_gtp_u_peer_t *remote_gtp_u_peer;
-} pfcp_user_plane_path_failure_report_t;
+  pfcp_ie_remote_gtp_u_peer_t *remote_gtp_u_peer;
+} pfcp_ie_user_plane_path_failure_report_t;
 
 enum
 {
@@ -1253,8 +1250,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_pfd_contents_t *pfd_contents;
-} pfcp_pfd_t;
+  pfcp_ie_pfd_contents_t *pfd_contents;
+} pfcp_ie_pfd_t;
 
 enum
 {
@@ -1267,9 +1264,9 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_application_id_t application_id;
-  pfcp_pfd_t *pfd;
-} pfcp_application_id_pfds_t;
+  pfcp_ie_application_id_t application_id;
+  pfcp_ie_pfd_t *pfd;
+} pfcp_ie_application_id_pfds_t;
 
 enum
 {
@@ -1281,8 +1278,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_urr_id_t urr_id;
-} pfcp_query_urr_t;
+  pfcp_ie_urr_id_t urr_id;
+} pfcp_ie_query_urr_t;
 
 /* load and overload control IEs */
 enum
@@ -1296,9 +1293,9 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_sequence_number_t sequence_number;
-  pfcp_metric_t metric;
-} pfcp_load_control_information_t;
+  pfcp_ie_sequence_number_t sequence_number;
+  pfcp_ie_metric_t metric;
+} pfcp_ie_load_control_information_t;
 
 enum
 {
@@ -1313,11 +1310,11 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_sequence_number_t sequence_number;
-  pfcp_metric_t metric;
-  pfcp_timer_t timer;
-  pfcp_oci_flags_t oci_flags;
-} pfcp_overload_control_information_t;
+  pfcp_ie_sequence_number_t sequence_number;
+  pfcp_ie_metric_t metric;
+  pfcp_ie_timer_t timer;
+  pfcp_ie_oci_flags_t oci_flags;
+} pfcp_ie_overload_control_information_t;
 
 /* PDR related IEs */
 
@@ -1337,14 +1334,14 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_ethernet_filter_id_t ethernet_filter_id;
-  pfcp_ethernet_filter_properties_t ethernet_filter_properties;
-  pfcp_mac_address_t mac_address;
-  pfcp_ethertype_t ethertype;
-  pfcp_c_tag_t c_tag;
-  pfcp_s_tag_t s_tag;
-  pfcp_sdf_filter_t *sdf_filter;
-} pfcp_ethernet_packet_filter_t;
+  pfcp_ie_ethernet_filter_id_t ethernet_filter_id;
+  pfcp_ie_ethernet_filter_properties_t ethernet_filter_properties;
+  pfcp_ie_mac_address_t mac_address;
+  pfcp_ie_ethertype_t ethertype;
+  pfcp_ie_c_tag_t c_tag;
+  pfcp_ie_s_tag_t s_tag;
+  pfcp_ie_sdf_filter_t *sdf_filter;
+} pfcp_ie_ethernet_packet_filter_t;
 
 enum
 {
@@ -1368,20 +1365,20 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_source_interface_t source_interface;
-  pfcp_f_teid_t f_teid;
-  pfcp_network_instance_t network_instance;
-  pfcp_ue_ip_address_t ue_ip_address;
-  pfcp_sdf_filter_t *sdf_filter;
-  pfcp_application_id_t application_id;
-  pfcp_ethernet_pdu_session_information_t ethernet_pdu_session_information;
-  pfcp_ethernet_packet_filter_t ethernet_packet_filter;
-  pfcp_qfi_t qfi;
-  pfcp_framed_route_t *framed_route;
-  pfcp_framed_routing_t framed_routing;
-  pfcp_framed_ipv6_route_t *framed_ipv6_route;
-  pfcp_tgpp_interface_type_t source_interface_type;
-} pfcp_pdi_t;
+  pfcp_ie_source_interface_t source_interface;
+  pfcp_ie_f_teid_t f_teid;
+  pfcp_ie_network_instance_t network_instance;
+  pfcp_ie_ue_ip_address_t ue_ip_address;
+  pfcp_ie_sdf_filter_t *sdf_filter;
+  pfcp_ie_application_id_t application_id;
+  pfcp_ie_ethernet_pdu_session_information_t ethernet_pdu_session_information;
+  pfcp_ie_ethernet_packet_filter_t ethernet_packet_filter;
+  pfcp_ie_qfi_t qfi;
+  pfcp_ie_framed_route_t *framed_route;
+  pfcp_ie_framed_routing_t framed_routing;
+  pfcp_ie_framed_ipv6_route_t *framed_ipv6_route;
+  pfcp_ie_tgpp_interface_type_t source_interface_type;
+} pfcp_ie_pdi_t;
 
 enum
 {
@@ -1403,18 +1400,18 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_pdr_id_t pdr_id;
-  pfcp_precedence_t precedence;
-  pfcp_pdi_t pdi;
-  pfcp_outer_header_removal_t outer_header_removal;
-  pfcp_far_id_t far_id;
-  pfcp_urr_id_t *urr_id;
-  pfcp_qer_id_t *qer_id;
-  pfcp_activate_predefined_rules_t activate_predefined_rules;
-  pfcp_activation_time_t activation_time;
-  pfcp_deactivation_time_t deactivation_time;
-  pfcp_mar_id_t mar_id;
-} pfcp_create_pdr_t;
+  pfcp_ie_pdr_id_t pdr_id;
+  pfcp_ie_precedence_t precedence;
+  pfcp_ie_pdi_t pdi;
+  pfcp_ie_outer_header_removal_t outer_header_removal;
+  pfcp_ie_far_id_t far_id;
+  pfcp_ie_urr_id_t *urr_id;
+  pfcp_ie_qer_id_t *qer_id;
+  pfcp_ie_activate_predefined_rules_t activate_predefined_rules;
+  pfcp_ie_activation_time_t activation_time;
+  pfcp_ie_deactivation_time_t deactivation_time;
+  pfcp_ie_mar_id_t mar_id;
+} pfcp_ie_create_pdr_t;
 
 enum
 {
@@ -1428,10 +1425,10 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_pdr_id_t pdr_id;
-  pfcp_f_teid_t f_teid;
-  pfcp_ue_ip_address_t ue_ip_address;
-} pfcp_created_pdr_t;
+  pfcp_ie_pdr_id_t pdr_id;
+  pfcp_ie_f_teid_t f_teid;
+  pfcp_ie_ue_ip_address_t ue_ip_address;
+} pfcp_ie_created_pdr_t;
 
 enum
 {
@@ -1453,18 +1450,18 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_pdr_id_t pdr_id;
-  pfcp_outer_header_removal_t outer_header_removal;
-  pfcp_precedence_t precedence;
-  pfcp_pdi_t pdi;
-  pfcp_far_id_t far_id;
-  pfcp_urr_id_t *urr_id;
-  pfcp_qer_id_t *qer_id;
-  pfcp_activate_predefined_rules_t activate_predefined_rules;
-  pfcp_deactivate_predefined_rules_t deactivate_predefined_rules;
-  pfcp_activation_time_t activation_time;
-  pfcp_deactivation_time_t deactivation_time;
-} pfcp_update_pdr_t;
+  pfcp_ie_pdr_id_t pdr_id;
+  pfcp_ie_outer_header_removal_t outer_header_removal;
+  pfcp_ie_precedence_t precedence;
+  pfcp_ie_pdi_t pdi;
+  pfcp_ie_far_id_t far_id;
+  pfcp_ie_urr_id_t *urr_id;
+  pfcp_ie_qer_id_t *qer_id;
+  pfcp_ie_activate_predefined_rules_t activate_predefined_rules;
+  pfcp_ie_deactivate_predefined_rules_t deactivate_predefined_rules;
+  pfcp_ie_activation_time_t activation_time;
+  pfcp_ie_deactivation_time_t deactivation_time;
+} pfcp_ie_update_pdr_t;
 
 enum
 {
@@ -1476,8 +1473,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_pdr_id_t pdr_id;
-} pfcp_remove_pdr_t;
+  pfcp_ie_pdr_id_t pdr_id;
+} pfcp_ie_remove_pdr_t;
 
 /* FAR related IEs */
 
@@ -1502,19 +1499,19 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_destination_interface_t destination_interface;
-  pfcp_network_instance_t network_instance;
-  pfcp_redirect_information_t redirect_information;
-  pfcp_outer_header_creation_t outer_header_creation;
-  pfcp_transport_level_marking_t transport_level_marking;
-  pfcp_forwarding_policy_t forwarding_policy;
-  pfcp_header_enrichment_t header_enrichment;
-  pfcp_traffic_endpoint_id_t linked_traffic_endpoint_id;
-  pfcp_proxying_t proxying;
-  pfcp_tgpp_interface_type_t destination_interface_type;
-  pfcp_bbf_apply_action_t bbf_apply_action;
-  pfcp_bbf_nat_port_block_t nat_port_block;
-} pfcp_forwarding_parameters_t;
+  pfcp_ie_destination_interface_t destination_interface;
+  pfcp_ie_network_instance_t network_instance;
+  pfcp_ie_redirect_information_t redirect_information;
+  pfcp_ie_outer_header_creation_t outer_header_creation;
+  pfcp_ie_transport_level_marking_t transport_level_marking;
+  pfcp_ie_forwarding_policy_t forwarding_policy;
+  pfcp_ie_header_enrichment_t header_enrichment;
+  pfcp_ie_traffic_endpoint_id_t linked_traffic_endpoint_id;
+  pfcp_ie_proxying_t proxying;
+  pfcp_ie_tgpp_interface_type_t destination_interface_type;
+  pfcp_ie_bbf_apply_action_t bbf_apply_action;
+  pfcp_ie_bbf_nat_port_block_t nat_port_block;
+} pfcp_ie_forwarding_parameters_t;
 
 enum
 {
@@ -1536,17 +1533,17 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_destination_interface_t destination_interface;
-  pfcp_network_instance_t network_instance;
-  pfcp_redirect_information_t redirect_information;
-  pfcp_outer_header_creation_t outer_header_creation;
-  pfcp_transport_level_marking_t transport_level_marking;
-  pfcp_forwarding_policy_t forwarding_policy;
-  pfcp_header_enrichment_t header_enrichment;
-  pfcp_pfcpsmreq_flags_t pfcpsmreq_flags;
-  pfcp_traffic_endpoint_id_t linked_traffic_endpoint_id;
-  pfcp_tgpp_interface_type_t destination_interface_type;
-} pfcp_update_forwarding_parameters_t;
+  pfcp_ie_destination_interface_t destination_interface;
+  pfcp_ie_network_instance_t network_instance;
+  pfcp_ie_redirect_information_t redirect_information;
+  pfcp_ie_outer_header_creation_t outer_header_creation;
+  pfcp_ie_transport_level_marking_t transport_level_marking;
+  pfcp_ie_forwarding_policy_t forwarding_policy;
+  pfcp_ie_header_enrichment_t header_enrichment;
+  pfcp_ie_pfcpsmreq_flags_t pfcpsmreq_flags;
+  pfcp_ie_traffic_endpoint_id_t linked_traffic_endpoint_id;
+  pfcp_ie_tgpp_interface_type_t destination_interface_type;
+} pfcp_ie_update_forwarding_parameters_t;
 
 enum
 {
@@ -1561,11 +1558,11 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_destination_interface_t destination_interface;
-  pfcp_outer_header_creation_t outer_header_creation;
-  pfcp_transport_level_marking_t transport_level_marking;
-  pfcp_forwarding_policy_t forwarding_policy;
-} pfcp_duplicating_parameters_t;
+  pfcp_ie_destination_interface_t destination_interface;
+  pfcp_ie_outer_header_creation_t outer_header_creation;
+  pfcp_ie_transport_level_marking_t transport_level_marking;
+  pfcp_ie_forwarding_policy_t forwarding_policy;
+} pfcp_ie_duplicating_parameters_t;
 
 enum
 {
@@ -1581,11 +1578,11 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_destination_interface_t destination_interface;
-  pfcp_outer_header_creation_t outer_header_creation;
-  pfcp_transport_level_marking_t transport_level_marking;
-  pfcp_forwarding_policy_t forwarding_policy;
-} pfcp_update_duplicating_parameters_t;
+  pfcp_ie_destination_interface_t destination_interface;
+  pfcp_ie_outer_header_creation_t outer_header_creation;
+  pfcp_ie_transport_level_marking_t transport_level_marking;
+  pfcp_ie_forwarding_policy_t forwarding_policy;
+} pfcp_ie_update_duplicating_parameters_t;
 
 enum
 {
@@ -1602,13 +1599,13 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_far_id_t far_id;
-  pfcp_apply_action_t apply_action;
-  pfcp_forwarding_parameters_t forwarding_parameters;
-  pfcp_duplicating_parameters_t duplicating_parameters;
-  pfcp_bar_id_t bar_id;
-  pfcp_tp_ipfix_policy_t ipfix_policy;
-} pfcp_create_far_t;
+  pfcp_ie_far_id_t far_id;
+  pfcp_ie_apply_action_t apply_action;
+  pfcp_ie_forwarding_parameters_t forwarding_parameters;
+  pfcp_ie_duplicating_parameters_t duplicating_parameters;
+  pfcp_ie_bar_id_t bar_id;
+  pfcp_ie_tp_ipfix_policy_t ipfix_policy;
+} pfcp_ie_create_far_t;
 
 enum
 {
@@ -1625,13 +1622,13 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_far_id_t far_id;
-  pfcp_apply_action_t apply_action;
-  pfcp_update_forwarding_parameters_t update_forwarding_parameters;
-  pfcp_update_duplicating_parameters_t update_duplicating_parameters;
-  pfcp_bar_id_t bar_id;
-  pfcp_tp_ipfix_policy_t ipfix_policy;
-} pfcp_update_far_t;
+  pfcp_ie_far_id_t far_id;
+  pfcp_ie_apply_action_t apply_action;
+  pfcp_ie_update_forwarding_parameters_t update_forwarding_parameters;
+  pfcp_ie_update_duplicating_parameters_t update_duplicating_parameters;
+  pfcp_ie_bar_id_t bar_id;
+  pfcp_ie_tp_ipfix_policy_t ipfix_policy;
+} pfcp_ie_update_far_t;
 
 enum
 {
@@ -1643,8 +1640,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_far_id_t far_id;
-} pfcp_remove_far_t;
+  pfcp_ie_far_id_t far_id;
+} pfcp_ie_remove_far_t;
 
 /* URR related IEs */
 
@@ -1659,9 +1656,9 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_aggregated_urr_id_t aggregated_urr_id;
-  pfcp_multiplier_t multiplier;
-} pfcp_aggregated_urrs_t;
+  pfcp_ie_aggregated_urr_id_t aggregated_urr_id;
+  pfcp_ie_multiplier_t multiplier;
+} pfcp_ie_aggregated_urrs_t;
 
 enum
 {
@@ -1678,12 +1675,12 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_monitoring_time_t monitoring_time;
-  pfcp_subsequent_volume_threshold_t subsequent_volume_threshold;
-  pfcp_subsequent_time_threshold_t subsequent_time_threshold;
-  pfcp_subsequent_volume_quota_t subsequent_volume_quota;
-  pfcp_subsequent_time_quota_t subsequent_time_quota;
-} pfcp_additional_monitoring_time_t;
+  pfcp_ie_monitoring_time_t monitoring_time;
+  pfcp_ie_subsequent_volume_threshold_t subsequent_volume_threshold;
+  pfcp_ie_subsequent_time_threshold_t subsequent_time_threshold;
+  pfcp_ie_subsequent_volume_quota_t subsequent_volume_quota;
+  pfcp_ie_subsequent_time_quota_t subsequent_time_quota;
+} pfcp_ie_additional_monitoring_time_t;
 
 enum
 {
@@ -1716,29 +1713,29 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_urr_id_t urr_id;
-  pfcp_measurement_method_t measurement_method;
-  pfcp_reporting_triggers_t reporting_triggers;
-  pfcp_measurement_period_t measurement_period;
-  pfcp_volume_threshold_t volume_threshold;
-  pfcp_volume_quota_t volume_quota;
-  pfcp_time_threshold_t time_threshold;
-  pfcp_time_quota_t time_quota;
-  pfcp_quota_holding_time_t quota_holding_time;
-  pfcp_dropped_dl_traffic_threshold_t dropped_dl_traffic_threshold;
-  pfcp_quota_validity_time_t quota_validity_time;
-  pfcp_monitoring_time_t monitoring_time;
-  pfcp_subsequent_volume_threshold_t subsequent_volume_threshold;
-  pfcp_subsequent_time_threshold_t subsequent_time_threshold;
-  pfcp_inactivity_detection_time_t inactivity_detection_time;
-  pfcp_linked_urr_id_t *linked_urr_id;
-  pfcp_measurement_information_t measurement_information;
-  pfcp_time_quota_mechanism_t time_quota_mechanism;
-  pfcp_aggregated_urrs_t aggregated_urrs;
-  pfcp_far_id_t far_id_for_quota_action;
-  pfcp_ethernet_inactivity_timer_t ethernet_inactivity_timer;
-  pfcp_additional_monitoring_time_t *additional_monitoring_time;
-} pfcp_create_urr_t;
+  pfcp_ie_urr_id_t urr_id;
+  pfcp_ie_measurement_method_t measurement_method;
+  pfcp_ie_reporting_triggers_t reporting_triggers;
+  pfcp_ie_measurement_period_t measurement_period;
+  pfcp_ie_volume_threshold_t volume_threshold;
+  pfcp_ie_volume_quota_t volume_quota;
+  pfcp_ie_time_threshold_t time_threshold;
+  pfcp_ie_time_quota_t time_quota;
+  pfcp_ie_quota_holding_time_t quota_holding_time;
+  pfcp_ie_dropped_dl_traffic_threshold_t dropped_dl_traffic_threshold;
+  pfcp_ie_quota_validity_time_t quota_validity_time;
+  pfcp_ie_monitoring_time_t monitoring_time;
+  pfcp_ie_subsequent_volume_threshold_t subsequent_volume_threshold;
+  pfcp_ie_subsequent_time_threshold_t subsequent_time_threshold;
+  pfcp_ie_inactivity_detection_time_t inactivity_detection_time;
+  pfcp_ie_linked_urr_id_t *linked_urr_id;
+  pfcp_ie_measurement_information_t measurement_information;
+  pfcp_ie_time_quota_mechanism_t time_quota_mechanism;
+  pfcp_ie_aggregated_urrs_t aggregated_urrs;
+  pfcp_ie_far_id_t far_id_for_quota_action;
+  pfcp_ie_ethernet_inactivity_timer_t ethernet_inactivity_timer;
+  pfcp_ie_additional_monitoring_time_t *additional_monitoring_time;
+} pfcp_ie_create_urr_t;
 
 enum
 {
@@ -1771,29 +1768,29 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_urr_id_t urr_id;
-  pfcp_measurement_method_t measurement_method;
-  pfcp_reporting_triggers_t reporting_triggers;
-  pfcp_measurement_period_t measurement_period;
-  pfcp_volume_threshold_t volume_threshold;
-  pfcp_volume_quota_t volume_quota;
-  pfcp_time_threshold_t time_threshold;
-  pfcp_time_quota_t time_quota;
-  pfcp_quota_holding_time_t quota_holding_time;
-  pfcp_dropped_dl_traffic_threshold_t dropped_dl_traffic_threshold;
-  pfcp_quota_validity_time_t quota_validity_time;
-  pfcp_monitoring_time_t monitoring_time;
-  pfcp_subsequent_volume_threshold_t subsequent_volume_threshold;
-  pfcp_subsequent_time_threshold_t subsequent_time_threshold;
-  pfcp_inactivity_detection_time_t inactivity_detection_time;
-  pfcp_linked_urr_id_t *linked_urr_id;
-  pfcp_measurement_information_t measurement_information;
-  pfcp_time_quota_mechanism_t time_quota_mechanism;
-  pfcp_aggregated_urrs_t aggregated_urrs;
-  pfcp_far_id_t far_id_for_quota_action;
-  pfcp_ethernet_inactivity_timer_t ethernet_inactivity_timer;
-  pfcp_additional_monitoring_time_t *additional_monitoring_time;
-} pfcp_update_urr_t;
+  pfcp_ie_urr_id_t urr_id;
+  pfcp_ie_measurement_method_t measurement_method;
+  pfcp_ie_reporting_triggers_t reporting_triggers;
+  pfcp_ie_measurement_period_t measurement_period;
+  pfcp_ie_volume_threshold_t volume_threshold;
+  pfcp_ie_volume_quota_t volume_quota;
+  pfcp_ie_time_threshold_t time_threshold;
+  pfcp_ie_time_quota_t time_quota;
+  pfcp_ie_quota_holding_time_t quota_holding_time;
+  pfcp_ie_dropped_dl_traffic_threshold_t dropped_dl_traffic_threshold;
+  pfcp_ie_quota_validity_time_t quota_validity_time;
+  pfcp_ie_monitoring_time_t monitoring_time;
+  pfcp_ie_subsequent_volume_threshold_t subsequent_volume_threshold;
+  pfcp_ie_subsequent_time_threshold_t subsequent_time_threshold;
+  pfcp_ie_inactivity_detection_time_t inactivity_detection_time;
+  pfcp_ie_linked_urr_id_t *linked_urr_id;
+  pfcp_ie_measurement_information_t measurement_information;
+  pfcp_ie_time_quota_mechanism_t time_quota_mechanism;
+  pfcp_ie_aggregated_urrs_t aggregated_urrs;
+  pfcp_ie_far_id_t far_id_for_quota_action;
+  pfcp_ie_ethernet_inactivity_timer_t ethernet_inactivity_timer;
+  pfcp_ie_additional_monitoring_time_t *additional_monitoring_time;
+} pfcp_ie_update_urr_t;
 
 enum
 {
@@ -1805,8 +1802,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_urr_id_t urr_id;
-} pfcp_remove_urr_t;
+  pfcp_ie_urr_id_t urr_id;
+} pfcp_ie_remove_urr_t;
 
 /* QER related IEs */
 
@@ -1830,18 +1827,18 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_qer_id_t qer_id;
-  pfcp_qer_correlation_id_t qer_correlation_id;
-  pfcp_gate_status_t gate_status;
-  pfcp_mbr_t mbr;
-  pfcp_gbr_t gbr;
-  pfcp_packet_rate_t packet_rate;
-  pfcp_dl_flow_level_marking_t dl_flow_level_marking;
-  pfcp_qfi_t qos_flow_identifier;
-  pfcp_rqi_t reflective_qos;
-  pfcp_paging_policy_indicator_t paging_policy_indicator;
-  pfcp_averaging_window_t averaging_window;
-} pfcp_create_qer_t;
+  pfcp_ie_qer_id_t qer_id;
+  pfcp_ie_qer_correlation_id_t qer_correlation_id;
+  pfcp_ie_gate_status_t gate_status;
+  pfcp_ie_mbr_t mbr;
+  pfcp_ie_gbr_t gbr;
+  pfcp_ie_packet_rate_t packet_rate;
+  pfcp_ie_dl_flow_level_marking_t dl_flow_level_marking;
+  pfcp_ie_qfi_t qos_flow_identifier;
+  pfcp_ie_rqi_t reflective_qos;
+  pfcp_ie_paging_policy_indicator_t paging_policy_indicator;
+  pfcp_ie_averaging_window_t averaging_window;
+} pfcp_ie_create_qer_t;
 
 enum
 {
@@ -1863,18 +1860,18 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_qer_id_t qer_id;
-  pfcp_qer_correlation_id_t qer_correlation_id;
-  pfcp_gate_status_t gate_status;
-  pfcp_mbr_t mbr;
-  pfcp_gbr_t gbr;
-  pfcp_packet_rate_t packet_rate;
-  pfcp_dl_flow_level_marking_t dl_flow_level_marking;
-  pfcp_qfi_t qos_flow_identifier;
-  pfcp_rqi_t reflective_qos;
-  pfcp_paging_policy_indicator_t paging_policy_indicator;
-  pfcp_averaging_window_t averaging_window;
-} pfcp_update_qer_t;
+  pfcp_ie_qer_id_t qer_id;
+  pfcp_ie_qer_correlation_id_t qer_correlation_id;
+  pfcp_ie_gate_status_t gate_status;
+  pfcp_ie_mbr_t mbr;
+  pfcp_ie_gbr_t gbr;
+  pfcp_ie_packet_rate_t packet_rate;
+  pfcp_ie_dl_flow_level_marking_t dl_flow_level_marking;
+  pfcp_ie_qfi_t qos_flow_identifier;
+  pfcp_ie_rqi_t reflective_qos;
+  pfcp_ie_paging_policy_indicator_t paging_policy_indicator;
+  pfcp_ie_averaging_window_t averaging_window;
+} pfcp_ie_update_qer_t;
 
 enum
 {
@@ -1886,8 +1883,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_qer_id_t qer_id;
-} pfcp_remove_qer_t;
+  pfcp_ie_qer_id_t qer_id;
+} pfcp_ie_remove_qer_t;
 
 /* BAR related IEs */
 
@@ -1903,10 +1900,10 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_bar_id_t bar_id;
-  pfcp_downlink_data_notification_delay_t downlink_data_notification_delay;
-  pfcp_suggested_buffering_packets_count_t suggested_buffering_packets_count;
-} pfcp_create_bar_t;
+  pfcp_ie_bar_id_t bar_id;
+  pfcp_ie_downlink_data_notification_delay_t downlink_data_notification_delay;
+  pfcp_ie_suggested_buffering_packets_count_t suggested_buffering_packets_count;
+} pfcp_ie_create_bar_t;
 
 enum
 {
@@ -1920,10 +1917,10 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_bar_id_t bar_id;
-  pfcp_downlink_data_notification_delay_t downlink_data_notification_delay;
-  pfcp_suggested_buffering_packets_count_t suggested_buffering_packets_count;
-} pfcp_update_bar_request_t;
+  pfcp_ie_bar_id_t bar_id;
+  pfcp_ie_downlink_data_notification_delay_t downlink_data_notification_delay;
+  pfcp_ie_suggested_buffering_packets_count_t suggested_buffering_packets_count;
+} pfcp_ie_update_bar_request_t;
 
 enum
 {
@@ -1940,13 +1937,13 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_bar_id_t bar_id;
-  pfcp_downlink_data_notification_delay_t downlink_data_notification_delay;
-  pfcp_dl_buffering_duration_t dl_buffering_duration;
-  pfcp_dl_buffering_suggested_packet_count_t
+  pfcp_ie_bar_id_t bar_id;
+  pfcp_ie_downlink_data_notification_delay_t downlink_data_notification_delay;
+  pfcp_ie_dl_buffering_duration_t dl_buffering_duration;
+  pfcp_ie_dl_buffering_suggested_packet_count_t
     dl_buffering_suggested_packet_count;
-  pfcp_suggested_buffering_packets_count_t suggested_buffering_packets_count;
-} pfcp_update_bar_response_t;
+  pfcp_ie_suggested_buffering_packets_count_t suggested_buffering_packets_count;
+} pfcp_ie_update_bar_response_t;
 
 enum
 {
@@ -1958,8 +1955,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_bar_id_t bar_id;
-} pfcp_remove_bar_t;
+  pfcp_ie_bar_id_t bar_id;
+} pfcp_ie_remove_bar_t;
 
 enum
 {
@@ -1978,15 +1975,15 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_traffic_endpoint_id_t traffic_endpoint_id;
-  pfcp_f_teid_t f_teid;
-  pfcp_network_instance_t network_instance;
-  pfcp_ue_ip_address_t ue_ip_address;
-  pfcp_ethernet_pdu_session_information_t ethernet_pdu_session_information;
-  pfcp_framed_route_t *framed_route;
-  pfcp_framed_routing_t framed_routing;
-  pfcp_framed_ipv6_route_t *framed_ipv6_route;
-} pfcp_create_traffic_endpoint_t;
+  pfcp_ie_traffic_endpoint_id_t traffic_endpoint_id;
+  pfcp_ie_f_teid_t f_teid;
+  pfcp_ie_network_instance_t network_instance;
+  pfcp_ie_ue_ip_address_t ue_ip_address;
+  pfcp_ie_ethernet_pdu_session_information_t ethernet_pdu_session_information;
+  pfcp_ie_framed_route_t *framed_route;
+  pfcp_ie_framed_routing_t framed_routing;
+  pfcp_ie_framed_ipv6_route_t *framed_ipv6_route;
+} pfcp_ie_create_traffic_endpoint_t;
 
 enum
 {
@@ -2000,10 +1997,10 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_traffic_endpoint_id_t traffic_endpoint_id;
-  pfcp_f_teid_t f_teid;
-  pfcp_ue_ip_address_t ue_ip_address;
-} pfcp_created_traffic_endpoint_t;
+  pfcp_ie_traffic_endpoint_id_t traffic_endpoint_id;
+  pfcp_ie_f_teid_t f_teid;
+  pfcp_ie_ue_ip_address_t ue_ip_address;
+} pfcp_ie_created_traffic_endpoint_t;
 
 enum
 {
@@ -2021,14 +2018,14 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_traffic_endpoint_id_t traffic_endpoint_id;
-  pfcp_f_teid_t f_teid;
-  pfcp_network_instance_t network_instance;
-  pfcp_ue_ip_address_t ue_ip_address;
-  pfcp_framed_route_t *framed_route;
-  pfcp_framed_routing_t framed_routing;
-  pfcp_framed_ipv6_route_t *framed_ipv6_route;
-} pfcp_update_traffic_endpoint_t;
+  pfcp_ie_traffic_endpoint_id_t traffic_endpoint_id;
+  pfcp_ie_f_teid_t f_teid;
+  pfcp_ie_network_instance_t network_instance;
+  pfcp_ie_ue_ip_address_t ue_ip_address;
+  pfcp_ie_framed_route_t *framed_route;
+  pfcp_ie_framed_routing_t framed_routing;
+  pfcp_ie_framed_ipv6_route_t *framed_ipv6_route;
+} pfcp_ie_update_traffic_endpoint_t;
 
 enum
 {
@@ -2040,8 +2037,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_traffic_endpoint_id_t traffic_endpoint_id;
-} pfcp_remove_traffic_endpoint_t;
+  pfcp_ie_traffic_endpoint_id_t traffic_endpoint_id;
+} pfcp_ie_remove_traffic_endpoint_t;
 
 /* PFCP Session Report IEs */
 
@@ -2058,10 +2055,10 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_application_id_t application_id;
-  pfcp_application_instance_id_t application_instance_id;
-  pfcp_flow_information_t flow_information;
-} pfcp_application_detection_information_t;
+  pfcp_ie_application_id_t application_id;
+  pfcp_ie_application_instance_id_t application_instance_id;
+  pfcp_ie_flow_information_t flow_information;
+} pfcp_ie_application_detection_information_t;
 
 enum
 {
@@ -2075,9 +2072,9 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_pdr_id_t *pdr_id;
-  pfcp_downlink_data_service_information_t *downlink_data_service_information;
-} pfcp_downlink_data_report_t;
+  pfcp_ie_pdr_id_t *pdr_id;
+  pfcp_ie_downlink_data_service_information_t *downlink_data_service_information;
+} pfcp_ie_downlink_data_report_t;
 
 enum
 {
@@ -2089,8 +2086,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_f_teid_t *f_teid;
-} pfcp_error_indication_report_t;
+  pfcp_ie_f_teid_t *f_teid;
+} pfcp_ie_error_indication_report_t;
 
 enum
 {
@@ -2104,9 +2101,9 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_mac_addresses_detected_t mac_addresses_detected;
-  pfcp_mac_addresses_removed_t mac_addresses_removed;
-} pfcp_ethernet_traffic_information_t;
+  pfcp_ie_mac_addresses_detected_t mac_addresses_detected;
+  pfcp_ie_mac_addresses_removed_t mac_addresses_removed;
+} pfcp_ie_ethernet_traffic_information_t;
 
 enum
 {
@@ -2122,11 +2119,11 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_far_id_t far_id;
-  pfcp_weight_t weight;
-  pfcp_priority_t priority;
-  pfcp_urr_id_t urr_id;
-} pfcp_access_forwarding_action_information_t;
+  pfcp_ie_far_id_t far_id;
+  pfcp_ie_weight_t weight;
+  pfcp_ie_priority_t priority;
+  pfcp_ie_urr_id_t urr_id;
+} pfcp_ie_access_forwarding_action_information_t;
 
 enum
 {
@@ -2142,14 +2139,14 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_mar_id_t mar_id;
-  pfcp_steering_functionality_t steering_functionality;
-  pfcp_steering_mode_t steering_mode;
-  pfcp_access_forwarding_action_information_t
+  pfcp_ie_mar_id_t mar_id;
+  pfcp_ie_steering_functionality_t steering_functionality;
+  pfcp_ie_steering_mode_t steering_mode;
+  pfcp_ie_access_forwarding_action_information_t
     access_forwarding_action_information_1;
-  pfcp_access_forwarding_action_information_t
+  pfcp_ie_access_forwarding_action_information_t
     access_forwarding_action_information_2;
-} pfcp_create_mar_t;
+} pfcp_ie_create_mar_t;
 
 enum
 {
@@ -2161,8 +2158,8 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_mar_id_t mar_id;
-} pfcp_remove_mar_t;
+  pfcp_ie_mar_id_t mar_id;
+} pfcp_ie_remove_mar_t;
 
 enum
 {
@@ -2178,11 +2175,11 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_far_id_t far_id;
-  pfcp_weight_t weight;
-  pfcp_priority_t priority;
-  pfcp_urr_id_t urr_id;
-} pfcp_update_access_forwarding_action_information_t;
+  pfcp_ie_far_id_t far_id;
+  pfcp_ie_weight_t weight;
+  pfcp_ie_priority_t priority;
+  pfcp_ie_urr_id_t urr_id;
+} pfcp_ie_update_access_forwarding_action_information_t;
 
 enum
 {
@@ -2200,18 +2197,18 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_mar_id_t mar_id;
-  pfcp_steering_functionality_t steering_functionality;
-  pfcp_steering_mode_t steering_mode;
-  pfcp_update_access_forwarding_action_information_t
+  pfcp_ie_mar_id_t mar_id;
+  pfcp_ie_steering_functionality_t steering_functionality;
+  pfcp_ie_steering_mode_t steering_mode;
+  pfcp_ie_update_access_forwarding_action_information_t
     update_access_forwarding_action_information_1;
-  pfcp_update_access_forwarding_action_information_t
+  pfcp_ie_update_access_forwarding_action_information_t
     update_access_forwarding_action_information_2;
-  pfcp_access_forwarding_action_information_t
+  pfcp_ie_access_forwarding_action_information_t
     access_forwarding_action_information_1;
-  pfcp_access_forwarding_action_information_t
+  pfcp_ie_access_forwarding_action_information_t
     access_forwarding_action_information_2;
-} pfcp_update_mar_t;
+} pfcp_ie_update_mar_t;
 
 /* Usage Report IEs */
 
@@ -2243,26 +2240,26 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_urr_id_t urr_id;
-  pfcp_ur_seqn_t ur_seqn;
-  pfcp_usage_report_trigger_t usage_report_trigger;
-  pfcp_start_time_t start_time;
-  pfcp_end_time_t end_time;
-  pfcp_volume_measurement_t volume_measurement;
-  pfcp_duration_measurement_t duration_measurement;
-  pfcp_application_detection_information_t application_detection_information;
-  pfcp_ue_ip_address_t ue_ip_address;
-  pfcp_network_instance_t network_instance;
-  pfcp_time_of_first_packet_t time_of_first_packet;
-  pfcp_time_of_last_packet_t time_of_last_packet;
-  pfcp_usage_information_t usage_information;
-  pfcp_query_urr_reference_t query_urr_reference;
-  pfcp_event_time_stamp_t *event_time_stamp;
-  pfcp_ethernet_traffic_information_t ethernet_traffic_information;
-  pfcp_tp_now_t tp_now;
-  pfcp_tp_start_time_t tp_start_time;
-  pfcp_tp_end_time_t tp_end_time;
-} pfcp_usage_report_t;
+  pfcp_ie_urr_id_t urr_id;
+  pfcp_ie_ur_seqn_t ur_seqn;
+  pfcp_ie_usage_report_trigger_t usage_report_trigger;
+  pfcp_ie_start_time_t start_time;
+  pfcp_ie_end_time_t end_time;
+  pfcp_ie_volume_measurement_t volume_measurement;
+  pfcp_ie_duration_measurement_t duration_measurement;
+  pfcp_ie_application_detection_information_t application_detection_information;
+  pfcp_ie_ue_ip_address_t ue_ip_address;
+  pfcp_ie_network_instance_t network_instance;
+  pfcp_ie_time_of_first_packet_t time_of_first_packet;
+  pfcp_ie_time_of_last_packet_t time_of_last_packet;
+  pfcp_ie_usage_information_t usage_information;
+  pfcp_ie_query_urr_reference_t query_urr_reference;
+  pfcp_ie_event_time_stamp_t *event_time_stamp;
+  pfcp_ie_ethernet_traffic_information_t ethernet_traffic_information;
+  pfcp_ie_tp_now_t tp_now;
+  pfcp_ie_tp_start_time_t tp_start_time;
+  pfcp_ie_tp_end_time_t tp_end_time;
+} pfcp_ie_usage_report_t;
 
 enum
 {
@@ -2278,11 +2275,11 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
-  pfcp_network_instance_t network_instance;
-  pfcp_ip_version_t ip_version;
-  pfcp_bbf_nat_port_block_t *port_blocks;
-} pfcp_ue_ip_address_pool_information_t;
+  pfcp_ie_ue_ip_address_pool_identity_t ue_ip_address_pool_identity;
+  pfcp_ie_network_instance_t network_instance;
+  pfcp_ie_ip_version_t ip_version;
+  pfcp_ie_bbf_nat_port_block_t *port_blocks;
+} pfcp_ie_ue_ip_address_pool_information_t;
 
 enum
 {
@@ -2296,10 +2293,10 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_tp_error_message_t error_message;
-  pfcp_tp_file_name_t file_name;
-  pfcp_tp_line_number_t line_number;
-} pfcp_tp_error_report_t;
+  pfcp_ie_tp_error_message_t error_message;
+  pfcp_ie_tp_file_name_t file_name;
+  pfcp_ie_tp_line_number_t line_number;
+} pfcp_ie_tp_error_report_t;
 
 enum
 {
@@ -2313,10 +2310,10 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_bbf_nat_port_block_t block;
-  pfcp_bbf_nat_outside_address_t outside_addr;
-  pfcp_bbf_nat_external_port_range_t port_range;
-} pfcp_tp_created_binding_t;
+  pfcp_ie_bbf_nat_port_block_t block;
+  pfcp_ie_bbf_nat_outside_address_t outside_addr;
+  pfcp_ie_bbf_nat_external_port_range_t port_range;
+} pfcp_ie_tp_created_binding_t;
 
 /* PFCP Methods */
 
@@ -2355,11 +2352,11 @@ enum
 
 struct pfcp_response
 {
-  pfcp_node_id_t node_id;
-  pfcp_cause_t cause;
-  pfcp_offending_ie_t offending_ie;
-  pfcp_recovery_time_stamp_t recovery_time_stamp;
-  pfcp_tp_error_report_t tp_error_report;
+  pfcp_ie_node_id_t node_id;
+  pfcp_ie_cause_t cause;
+  pfcp_ie_offending_ie_t offending_ie;
+  pfcp_ie_recovery_time_stamp_t recovery_time_stamp;
+  pfcp_ie_tp_error_report_t tp_error_report;
 };
 
 enum
@@ -2369,7 +2366,7 @@ enum
 
 struct pfcp_request
 {
-  pfcp_node_id_t node_id;
+  pfcp_ie_node_id_t node_id;
 };
 
 typedef struct
@@ -2388,7 +2385,7 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_recovery_time_stamp_t recovery_time_stamp;
+  pfcp_ie_recovery_time_stamp_t recovery_time_stamp;
 } pfcp_msg_heartbeat_request_t;
 
 enum
@@ -2401,7 +2398,7 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_application_id_pfds_t *application_id_pfds;
+  pfcp_ie_application_id_pfds_t *application_id_pfds;
 } pfcp_msg_pfd_management_request_t;
 
 enum
@@ -2423,15 +2420,15 @@ typedef struct
   struct pfcp_group grp;
   struct pfcp_request request;
 
-  pfcp_recovery_time_stamp_t recovery_time_stamp;
-  pfcp_cp_function_features_t cp_function_features;
-  pfcp_up_function_features_t up_function_features;
-  pfcp_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
-  pfcp_user_plane_ip_resource_information_t
+  pfcp_ie_recovery_time_stamp_t recovery_time_stamp;
+  pfcp_ie_cp_function_features_t cp_function_features;
+  pfcp_ie_up_function_features_t up_function_features;
+  pfcp_ie_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
+  pfcp_ie_user_plane_ip_resource_information_t
     *user_plane_ip_resource_information;
-  pfcp_tp_build_id_t tp_build_id;
-  pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
-  pfcp_smf_set_id_t smf_set_id;
+  pfcp_ie_tp_build_id_t tp_build_id;
+  pfcp_ie_alternative_smf_ip_address_t *alternative_smf_ip_address;
+  pfcp_ie_smf_set_id_t smf_set_id;
 } pfcp_msg_association_setup_request_t;
 
 enum
@@ -2455,16 +2452,16 @@ typedef struct
   struct pfcp_group grp;
   struct pfcp_request request;
 
-  pfcp_cp_function_features_t cp_function_features;
-  pfcp_up_function_features_t up_function_features;
-  pfcp_pfcp_association_release_request_t pfcp_association_release_request;
-  pfcp_graceful_release_period_t graceful_release_period;
-  pfcp_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
-  pfcp_user_plane_ip_resource_information_t
+  pfcp_ie_cp_function_features_t cp_function_features;
+  pfcp_ie_up_function_features_t up_function_features;
+  pfcp_ie_pfcp_association_release_request_t pfcp_association_release_request;
+  pfcp_ie_graceful_release_period_t graceful_release_period;
+  pfcp_ie_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
+  pfcp_ie_user_plane_ip_resource_information_t
     *user_plane_ip_resource_information;
-  pfcp_pfcpaureq_flags_t pfcpaureq_flags;
-  pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
-  pfcp_smf_set_id_t smf_set_id;
+  pfcp_ie_pfcpaureq_flags_t pfcpaureq_flags;
+  pfcp_ie_alternative_smf_ip_address_t *alternative_smf_ip_address;
+  pfcp_ie_smf_set_id_t smf_set_id;
 } pfcp_msg_association_update_request_t;
 
 enum
@@ -2501,18 +2498,18 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_node_id_t node_id;
-  pfcp_cause_t cause;
-  pfcp_tp_error_report_t tp_error_report;
-  pfcp_recovery_time_stamp_t recovery_time_stamp;
-  pfcp_cp_function_features_t cp_function_features;
-  pfcp_up_function_features_t up_function_features;
-  pfcp_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
-  pfcp_user_plane_ip_resource_information_t
+  pfcp_ie_node_id_t node_id;
+  pfcp_ie_cause_t cause;
+  pfcp_ie_tp_error_report_t tp_error_report;
+  pfcp_ie_recovery_time_stamp_t recovery_time_stamp;
+  pfcp_ie_cp_function_features_t cp_function_features;
+  pfcp_ie_up_function_features_t up_function_features;
+  pfcp_ie_ue_ip_address_pool_information_t *ue_ip_address_pool_information;
+  pfcp_ie_user_plane_ip_resource_information_t
     *user_plane_ip_resource_information;
-  pfcp_bbf_up_function_features_t bbf_up_function_features;
-  pfcp_tp_build_id_t tp_build_id;
-  pfcp_smf_set_id_t smf_set_id;
+  pfcp_ie_bbf_up_function_features_t bbf_up_function_features;
+  pfcp_ie_tp_build_id_t tp_build_id;
+  pfcp_ie_smf_set_id_t smf_set_id;
 } pfcp_msg_association_procedure_response_t;
 
 enum
@@ -2528,8 +2525,8 @@ typedef struct
   struct pfcp_group grp;
   struct pfcp_request request;
 
-  pfcp_node_report_type_t node_report_type;
-  pfcp_user_plane_path_failure_report_t user_plane_path_failure_report;
+  pfcp_ie_node_report_type_t node_report_type;
+  pfcp_ie_user_plane_path_failure_report_t user_plane_path_failure_report;
 } pfcp_msg_node_report_request_t;
 
 enum
@@ -2544,7 +2541,7 @@ typedef struct
   struct pfcp_group grp;
   struct pfcp_request request;
 
-  pfcp_fq_csid_t *fq_csid;
+  pfcp_ie_fq_csid_t *fq_csid;
 } pfcp_msg_session_set_deletion_request_t;
 
 enum
@@ -2572,20 +2569,20 @@ typedef struct
   struct pfcp_group grp;
   struct pfcp_request request;
 
-  pfcp_f_seid_t f_seid;
-  pfcp_create_pdr_t *create_pdr;
-  pfcp_create_far_t *create_far;
-  pfcp_create_urr_t *create_urr;
-  pfcp_create_qer_t *create_qer;
-  pfcp_create_bar_t *create_bar;
-  pfcp_create_traffic_endpoint_t *create_traffic_endpoint;
-  pfcp_pdn_type_t pdn_type;
-  pfcp_fq_csid_t *fq_csid;
-  pfcp_user_plane_inactivity_timer_t user_plane_inactivity_timer;
-  pfcp_user_id_t user_id;
-  pfcp_trace_information_t trace_information;
-  pfcp_apn_dnn_t apn_dnn;
-  pfcp_create_mar_t create_mar;
+  pfcp_ie_f_seid_t f_seid;
+  pfcp_ie_create_pdr_t *create_pdr;
+  pfcp_ie_create_far_t *create_far;
+  pfcp_ie_create_urr_t *create_urr;
+  pfcp_ie_create_qer_t *create_qer;
+  pfcp_ie_create_bar_t *create_bar;
+  pfcp_ie_create_traffic_endpoint_t *create_traffic_endpoint;
+  pfcp_ie_pdn_type_t pdn_type;
+  pfcp_ie_fq_csid_t *fq_csid;
+  pfcp_ie_user_plane_inactivity_timer_t user_plane_inactivity_timer;
+  pfcp_ie_user_id_t user_id;
+  pfcp_ie_trace_information_t trace_information;
+  pfcp_ie_apn_dnn_t apn_dnn;
+  pfcp_ie_create_mar_t create_mar;
 } pfcp_msg_session_establishment_request_t;
 
 enum
@@ -2625,34 +2622,34 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_f_seid_t f_seid;
-  pfcp_remove_pdr_t *remove_pdr;
-  pfcp_remove_far_t *remove_far;
-  pfcp_remove_urr_t *remove_urr;
-  pfcp_remove_qer_t *remove_qer;
-  pfcp_remove_bar_t *remove_bar;
-  pfcp_remove_traffic_endpoint_t *remove_traffic_endpoint;
-  pfcp_create_pdr_t *create_pdr;
-  pfcp_create_far_t *create_far;
-  pfcp_create_urr_t *create_urr;
-  pfcp_create_qer_t *create_qer;
-  pfcp_create_bar_t *create_bar;
-  pfcp_create_traffic_endpoint_t *create_traffic_endpoint;
-  pfcp_update_pdr_t *update_pdr;
-  pfcp_update_far_t *update_far;
-  pfcp_update_urr_t *update_urr;
-  pfcp_update_qer_t *update_qer;
-  pfcp_update_bar_request_t *update_bar;
-  pfcp_update_traffic_endpoint_t *update_traffic_endpoint;
-  pfcp_pfcpsmreq_flags_t pfcpsmreq_flags;
-  pfcp_query_urr_t *query_urr;
-  pfcp_fq_csid_t *fq_csid;
-  pfcp_user_plane_inactivity_timer_t user_plane_inactivity_timer;
-  pfcp_query_urr_reference_t query_urr_reference;
-  pfcp_trace_information_t trace_information;
-  pfcp_create_mar_t *remove_mar;
-  pfcp_create_mar_t *update_mar;
-  pfcp_create_mar_t *create_mar;
+  pfcp_ie_f_seid_t f_seid;
+  pfcp_ie_remove_pdr_t *remove_pdr;
+  pfcp_ie_remove_far_t *remove_far;
+  pfcp_ie_remove_urr_t *remove_urr;
+  pfcp_ie_remove_qer_t *remove_qer;
+  pfcp_ie_remove_bar_t *remove_bar;
+  pfcp_ie_remove_traffic_endpoint_t *remove_traffic_endpoint;
+  pfcp_ie_create_pdr_t *create_pdr;
+  pfcp_ie_create_far_t *create_far;
+  pfcp_ie_create_urr_t *create_urr;
+  pfcp_ie_create_qer_t *create_qer;
+  pfcp_ie_create_bar_t *create_bar;
+  pfcp_ie_create_traffic_endpoint_t *create_traffic_endpoint;
+  pfcp_ie_update_pdr_t *update_pdr;
+  pfcp_ie_update_far_t *update_far;
+  pfcp_ie_update_urr_t *update_urr;
+  pfcp_ie_update_qer_t *update_qer;
+  pfcp_ie_update_bar_request_t *update_bar;
+  pfcp_ie_update_traffic_endpoint_t *update_traffic_endpoint;
+  pfcp_ie_pfcpsmreq_flags_t pfcpsmreq_flags;
+  pfcp_ie_query_urr_t *query_urr;
+  pfcp_ie_fq_csid_t *fq_csid;
+  pfcp_ie_user_plane_inactivity_timer_t user_plane_inactivity_timer;
+  pfcp_ie_query_urr_reference_t query_urr_reference;
+  pfcp_ie_trace_information_t trace_information;
+  pfcp_ie_create_mar_t *remove_mar;
+  pfcp_ie_create_mar_t *update_mar;
+  pfcp_ie_create_mar_t *create_mar;
 } pfcp_msg_session_modification_request_t;
 
 typedef struct
@@ -2684,21 +2681,21 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_node_id_t node_id;
-  pfcp_cause_t cause;
-  pfcp_offending_ie_t offending_ie;
-  pfcp_tp_error_report_t tp_error_report;
-  pfcp_f_seid_t up_f_seid;
-  pfcp_created_pdr_t *created_pdr;
-  pfcp_load_control_information_t load_control_information;
-  pfcp_overload_control_information_t overload_control_information;
-  pfcp_usage_report_t *usage_report;
-  pfcp_fq_csid_t *fq_csid;
-  pfcp_failed_rule_id_t failed_rule_id;
-  pfcp_additional_usage_reports_information_t
+  pfcp_ie_node_id_t node_id;
+  pfcp_ie_cause_t cause;
+  pfcp_ie_offending_ie_t offending_ie;
+  pfcp_ie_tp_error_report_t tp_error_report;
+  pfcp_ie_f_seid_t up_f_seid;
+  pfcp_ie_created_pdr_t *created_pdr;
+  pfcp_ie_load_control_information_t load_control_information;
+  pfcp_ie_overload_control_information_t overload_control_information;
+  pfcp_ie_usage_report_t *usage_report;
+  pfcp_ie_fq_csid_t *fq_csid;
+  pfcp_ie_failed_rule_id_t failed_rule_id;
+  pfcp_ie_additional_usage_reports_information_t
     additional_usage_reports_information;
-  pfcp_created_traffic_endpoint_t *created_traffic_endpoint;
-  pfcp_tp_created_binding_t created_binding;
+  pfcp_ie_created_traffic_endpoint_t *created_traffic_endpoint;
+  pfcp_ie_tp_created_binding_t created_binding;
 } pfcp_msg_session_procedure_response_t;
 
 enum
@@ -2719,16 +2716,16 @@ typedef struct
 {
   struct pfcp_group grp;
 
-  pfcp_report_type_t report_type;
-  pfcp_downlink_data_report_t downlink_data_report;
-  pfcp_usage_report_t *usage_report;
-  pfcp_error_indication_report_t error_indication_report;
-  pfcp_load_control_information_t load_control_information;
-  pfcp_overload_control_information_t overload_control_information;
-  pfcp_additional_usage_reports_information_t
+  pfcp_ie_report_type_t report_type;
+  pfcp_ie_downlink_data_report_t downlink_data_report;
+  pfcp_ie_usage_report_t *usage_report;
+  pfcp_ie_error_indication_report_t error_indication_report;
+  pfcp_ie_load_control_information_t load_control_information;
+  pfcp_ie_overload_control_information_t overload_control_information;
+  pfcp_ie_additional_usage_reports_information_t
     additional_usage_reports_information;
-  pfcp_pfcpsrreq_flags_t pfcpsrreq_flags;
-  pfcp_f_seid_t old_cp_f_seid;
+  pfcp_ie_pfcpsrreq_flags_t pfcpsrreq_flags;
+  pfcp_ie_f_seid_t old_cp_f_seid;
 } pfcp_msg_session_report_request_t;
 
 enum
@@ -2748,10 +2745,10 @@ typedef struct
   struct pfcp_group grp;
   struct pfcp_response response;
 
-  pfcp_update_bar_response_t *update_bar;
-  pfcp_pfcpsrrsp_flags_t pfcpsrrsp_flags;
-  pfcp_f_seid_t cp_f_seid;
-  pfcp_f_teid_t n4_u_f_teid;
+  pfcp_ie_update_bar_response_t *update_bar;
+  pfcp_ie_pfcpsrrsp_flags_t pfcpsrrsp_flags;
+  pfcp_ie_f_seid_t cp_f_seid;
+  pfcp_ie_f_teid_t n4_u_f_teid;
 } pfcp_msg_session_report_response_t;
 
 typedef struct
@@ -2785,22 +2782,22 @@ typedef struct
 /* Quick message accessors for use without decoding */
 
 #define pfcp_node_msg_seq(V)                                                  \
-  ((((pfcp_header_t *) (V))->msg_hdr.sequence[0] << 16) +                     \
-   (((pfcp_header_t *) (V))->msg_hdr.sequence[1] << 8) +                      \
-   ((pfcp_header_t *) (V))->msg_hdr.sequence[2])
+  ((((pfcp_msg_header_t *) (V))->node_hdr.sequence[0] << 16) +                     \
+   (((pfcp_msg_header_t *) (V))->node_hdr.sequence[1] << 8) +                      \
+   ((pfcp_msg_header_t *) (V))->node_hdr.sequence[2])
 
 #define pfcp_session_msg_seq(V)                                               \
-  ((((pfcp_header_t *) (V))->session_hdr.sequence[0] << 16) +                 \
-   (((pfcp_header_t *) (V))->session_hdr.sequence[1] << 8) +                  \
-   ((pfcp_header_t *) (V))->session_hdr.sequence[2])
+  ((((pfcp_msg_header_t *) (V))->session_hdr.sequence[0] << 16) +                 \
+   (((pfcp_msg_header_t *) (V))->session_hdr.sequence[1] << 8) +                  \
+   ((pfcp_msg_header_t *) (V))->session_hdr.sequence[2])
 
 #define pfcp_session_msg_seid(V)                                              \
-  be64toh (((pfcp_header_t *) (V))->session_hdr.seid)
+  be64toh (((pfcp_msg_header_t *) (V))->session_hdr.seid)
 
-#define pfcp_msg_version(V) ((pfcp_header_t *) (V))->version
-#define pfcp_msg_type(V)    ((pfcp_header_t *) (V))->type
+#define pfcp_msg_version(V) ((pfcp_msg_header_t *) (V))->version
+#define pfcp_msg_type(V)    ((pfcp_msg_header_t *) (V))->type
 #define pfcp_msg_length(V)                                                    \
-  clib_net_to_host_u16 (((pfcp_header_t *) (V))->length)
+  clib_net_to_host_u16 (((pfcp_msg_header_t *) (V))->length)
 
 #define pfcp_msg_version_valid(V) (pfcp_msg_version (V) == 1)
 #define pfcp_msg_enough_len(V, L)                                             \
@@ -2808,10 +2805,10 @@ typedef struct
    (L) >= (pfcp_msg_s_flag (V) ? SESSION_MSG_HDR_LEN : NODE_MSG_HDR_LEN))
 
 #define pfcp_msg_seq(V)                                                       \
-  (((pfcp_header_t *) (V))->s_flag ? pfcp_session_msg_seq (V) :               \
+  (((pfcp_msg_header_t *) (V))->s_flag ? pfcp_session_msg_seq (V) :               \
                                      pfcp_node_msg_seq (V))
 
-#define pfcp_msg_s_flag(V) (!!(((pfcp_header_t *) (V))->s_flag))
+#define pfcp_msg_s_flag(V) (!!(((pfcp_msg_header_t *) (V))->s_flag))
 
 #define pfcp_msg_seid(V) (pfcp_msg_s_flag (V) ? pfcp_session_msg_seid (V) : ~0)
 
@@ -2819,29 +2816,29 @@ u8 *format_pfcp_flags (u8 *s, va_list *args);
 u8 *format_pfcp_enum (u8 *s, va_list *args);
 u8 *format_pfcp_dns_labels (u8 *s, va_list *args);
 u8 *format_pfcp_msg_type (u8 *s, va_list *args);
-u8 *format_pfcp_msg_hdr (u8 *s, va_list *args);
-u8 *format_pfcp_user_plane_ip_resource_information (u8 *s, va_list *args);
-u8 *format_pfcp_redirect_information (u8 *s, va_list *args);
-u8 *format_pfcp_ue_ip_address (u8 *s, va_list *args);
-u8 *format_pfcp_node_id (u8 *s, va_list *args);
-u8 *format_pfcp_f_seid (u8 *s, va_list *args);
-u8 *format_pfcp_smf_set_id (u8 *s, va_list *args);
-u8 *format_pfcp_outer_header_creation (u8 *s, va_list *args);
+u8 *format_pfcp_msg_header (u8 *s, va_list *args);
+u8 *format_pfcp_ie_user_plane_ip_resource_information (u8 *s, va_list *args);
+u8 *format_pfcp_ie_redirect_information (u8 *s, va_list *args);
+u8 *format_pfcp_ie_ue_ip_address (u8 *s, va_list *args);
+u8 *format_pfcp_ie_node_id (u8 *s, va_list *args);
+u8 *format_pfcp_ie_f_seid (u8 *s, va_list *args);
+u8 *format_pfcp_ie_smf_set_id (u8 *s, va_list *args);
+u8 *format_pfcp_ie_outer_header_creation (u8 *s, va_list *args);
 uword pfcp_tbcd_len (u8 *in, uword n_bytes);
 uword decode_pfcp_tbcd (u8 *in, uword n_bytes, u8 *out, uword n_out);
 u8 *format_pfcp_tbcd (u8 *s, va_list *args);
 u8 *format_pfcp_dmsg (u8 *s, va_list *args);
-u8 *format_pfcp_user_id (u8 *s0, va_list *args);
+u8 *format_pfcp_ie_user_id (u8 *s0, va_list *args);
 
-void free_pfcp_node_id (void *p);
-void free_pfcp_user_id (void *p);
+void free_pfcp_ie_node_id (void *p);
+void free_pfcp_ie_user_id (void *p);
 
-void cpy_redirect_information (pfcp_redirect_information_t *dst,
-                               pfcp_redirect_information_t *src);
-void free_pfcp_redirect_information (void *p);
+void copy_pfcp_ie_redirect_information (pfcp_ie_redirect_information_t *dst,
+                               pfcp_ie_redirect_information_t *src);
+void free_pfcp_ie_redirect_information (void *p);
 
 int pfcp_decode_msg (u8 *p, int len, pfcp_decoded_msg_t *dmsg,
-                     pfcp_offending_ie_t **err);
+                     pfcp_ie_offending_ie_t **err);
 int pfcp_encode_msg (pfcp_decoded_msg_t *dmsg, u8 **vec);
 void pfcp_encode_version_not_supported_response (u8 **vec);
 void pfcp_free_dmsg_contents (pfcp_decoded_msg_t *dmsg);

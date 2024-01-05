@@ -383,7 +383,7 @@ pfcp_qer_id_compare (const void *p1, const void *p2)
 }
 
 upf_node_assoc_t *
-pfcp_get_association (pfcp_node_id_t *node_id)
+pfcp_get_association (pfcp_ie_node_id_t *node_id)
 {
   upf_main_t *gtm = &upf_main;
   uword *p = NULL;
@@ -423,7 +423,7 @@ upf_init_association_policer ()
 upf_node_assoc_t *
 pfcp_new_association (session_handle_t session_handle,
                       ip46_address_t *lcl_addr, ip46_address_t *rmt_addr,
-                      pfcp_node_id_t *node_id)
+                      pfcp_ie_node_id_t *node_id)
 {
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;
@@ -701,7 +701,7 @@ pfcp_session_free_cp_fseid (upf_session_t *sx)
 }
 
 void
-pfcp_session_set_cp_fseid (upf_session_t *sx, pfcp_f_seid_t *f_seid)
+pfcp_session_set_cp_fseid (upf_session_t *sx, pfcp_ie_f_seid_t *f_seid)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -743,7 +743,7 @@ pfcp_session_set_cp_fseid (upf_session_t *sx, pfcp_f_seid_t *f_seid)
 }
 
 upf_session_t *
-pfcp_create_session (upf_node_assoc_t *assoc, pfcp_f_seid_t *cp_f_seid,
+pfcp_create_session (upf_node_assoc_t *assoc, pfcp_ie_f_seid_t *cp_f_seid,
                      u64 up_seid)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
@@ -1030,7 +1030,7 @@ pfcp_make_pending_far (upf_session_t *sx)
           if (old->forward.rewrite)
             new->forward.rewrite = vec_dup (old->forward.rewrite);
           if (old->forward.flags & FAR_F_REDIRECT_INFORMATION)
-            cpy_redirect_information (&new->forward.redirect_information,
+            copy_pfcp_ie_redirect_information (&new->forward.redirect_information,
                                       &old->forward.redirect_information);
           if (old->forward.flags & FAR_F_FORWARDING_POLICY)
             new->forward.forwarding_policy.identifier =
@@ -2398,7 +2398,7 @@ pfcp_lookup_cp_cached_f_seid (u32 cached_f_seid_idx, u64 cp_seid)
 }
 
 upf_session_t *
-pfcp_lookup_cp_f_seid (pfcp_f_seid_t *f_seid)
+pfcp_lookup_cp_f_seid (pfcp_ie_f_seid_t *f_seid)
 {
   upf_main_t *gtm = &upf_main;
 
