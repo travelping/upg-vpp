@@ -390,12 +390,12 @@ pfcp_get_association (pfcp_ie_node_id_t *node_id)
 
   switch (node_id->type)
     {
-    case NID_IPv4:
-    case NID_IPv6:
+    case PFCP_NID_IPv4:
+    case PFCP_NID_IPv6:
       p = mhash_get (&gtm->node_index_by_ip, &node_id->ip);
       break;
 
-    case NID_FQDN:
+    case PFCP_NID_FQDN:
       p = hash_get_mem (gtm->node_index_by_fqdn, node_id->fqdn);
       break;
     }
@@ -439,12 +439,12 @@ pfcp_new_association (session_handle_t session_handle,
 
   switch (node_id->type)
     {
-    case NID_IPv4:
-    case NID_IPv6:
+    case PFCP_NID_IPv4:
+    case PFCP_NID_IPv6:
       mhash_set (&gtm->node_index_by_ip, &node_id->ip, n - gtm->nodes, NULL);
       break;
 
-    case NID_FQDN:
+    case PFCP_NID_FQDN:
       n->node_id.fqdn = vec_dup (node_id->fqdn);
       hash_set_mem (gtm->node_index_by_fqdn, n->node_id.fqdn, n - gtm->nodes);
       break;
@@ -478,12 +478,12 @@ pfcp_release_association (upf_node_assoc_t *n)
 
   switch (n->node_id.type)
     {
-    case NID_IPv4:
-    case NID_IPv6:
+    case PFCP_NID_IPv4:
+    case PFCP_NID_IPv6:
       mhash_unset (&gtm->node_index_by_ip, &n->node_id.ip, NULL);
       break;
 
-    case NID_FQDN:
+    case PFCP_NID_FQDN:
       hash_unset_mem (gtm->node_index_by_fqdn, n->node_id.fqdn);
       vec_free (n->node_id.fqdn);
       break;
@@ -872,7 +872,7 @@ static uword
 peer_addr_ref (const upf_far_forward_t *fwd)
 {
   u8 is_ip4 =
-    !!(fwd->outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
+    !!(fwd->outer_header_creation.description & PFCP_OUTER_HEADER_CREATION_ANY_IP4);
   upf_main_t *gtm = &upf_main;
   clib_bihash_kv_24_8_t kv, value;
   u32 fib_index;
@@ -928,7 +928,7 @@ static uword
 peer_addr_unref (const upf_far_forward_t *fwd)
 {
   u8 is_ip4 =
-    !!(fwd->outer_header_creation.description & OUTER_HEADER_CREATION_ANY_IP4);
+    !!(fwd->outer_header_creation.description & PFCP_OUTER_HEADER_CREATION_ANY_IP4);
   upf_main_t *gtm = &upf_main;
   clib_bihash_kv_24_8_t kv, value;
   upf_peer_t *p = NULL;
@@ -1708,16 +1708,16 @@ compile_ue_ip (int is_ip4, const upf_pdr_t *pdr, upf_acl_t *acl)
   if (!(pdr->pdi.fields & F_PDI_UE_IP_ADDR))
     return;
 
-  if (is_ip4 && pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
+  if (is_ip4 && pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
     {
       acl->match_ue_ip =
-        (pdr->pdi.src_intf == SRC_INTF_ACCESS) ? UPF_ACL_UL : UPF_ACL_DL;
+        (pdr->pdi.src_intf == PFCP_SRC_INTF_ACCESS) ? UPF_ACL_UL : UPF_ACL_DL;
       ip46_address_set_ip4 (&acl->ue_ip, &pdr->pdi.ue_addr.ip4);
     }
-  else if (!is_ip4 && pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6)
+  else if (!is_ip4 && pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V6)
     {
       acl->match_ue_ip =
-        (pdr->pdi.src_intf == SRC_INTF_ACCESS) ? UPF_ACL_UL : UPF_ACL_DL;
+        (pdr->pdi.src_intf == PFCP_SRC_INTF_ACCESS) ? UPF_ACL_UL : UPF_ACL_DL;
       ip46_address_set_ip6 (&acl->ue_ip, &pdr->pdi.ue_addr.ip6);
     }
 }
@@ -1729,13 +1729,13 @@ acl_set_ue_ip (ip46_address_t *ip, ip46_address_t *mask, int is_ip4,
   if (!(pdr->pdi.fields & F_PDI_UE_IP_ADDR))
     return;
 
-  if (is_ip4 && pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
+  if (is_ip4 && pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
     {
       ip46_address_set_ip4 (ip, &pdr->pdi.ue_addr.ip4);
       ip46_address_mask_ip4 (mask);
       ip4_address_mask_from_width (&mask->ip4, 32);
     }
-  else if (!is_ip4 && pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6)
+  else if (!is_ip4 && pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V6)
     {
       ip46_address_set_ip6 (ip, &pdr->pdi.ue_addr.ip6);
       ip6_address_mask_from_width (&mask->ip6, 64);
@@ -1793,7 +1793,7 @@ compile_sdf (int is_ip4, const upf_pdr_t *pdr, const acl_rule_t *rule,
 
   switch (pdr->pdi.src_intf)
     {
-    case SRC_INTF_ACCESS:
+    case PFCP_SRC_INTF_ACCESS:
       ip_assign_address (UPF_ACL_FIELD_DST, IPFILTER_RULE_FIELD_SRC, is_ip4,
                          pdr, rule, acl);
       ip_assign_address (UPF_ACL_FIELD_SRC, IPFILTER_RULE_FIELD_DST, is_ip4,
@@ -1938,9 +1938,9 @@ build_pfcp_rules (upf_session_t *sx)
           pdr->pdi.fields & F_PDI_UE_IP_ADDR)
         {
           ue_ip_t ue_ip;
-          u8 is_dst = !!(pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD);
+          u8 is_dst = !!(pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD);
 
-          if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
+          if (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
             {
               ip46_address_set_ip4 (&ue_ip.addr, &pdr->pdi.ue_addr.ip4);
               ue_ip.fib_index =
@@ -1952,7 +1952,7 @@ build_pfcp_rules (upf_session_t *sx)
               rules_add_ue_ip (pending, FIB_PROTOCOL_IP4, &ue_ip, is_dst);
             }
 
-          if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6)
+          if (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V6)
             {
               ue_ip.addr.ip6 = pdr->pdi.ue_addr.ip6;
               ue_ip.fib_index =
@@ -1966,11 +1966,11 @@ build_pfcp_rules (upf_session_t *sx)
       /* register Local F-TEIDs */
       if (pdr->pdi.fields & F_PDI_LOCAL_F_TEID)
         {
-          if (pdr->pdi.teid.flags & F_TEID_V4)
+          if (pdr->pdi.teid.flags & PFCP_F_TEIDV4)
             rules_add_v4_teid (pending, &pdr->pdi.teid.ip4, pdr->pdi.teid.teid,
                                idx);
 
-          if (pdr->pdi.teid.flags & F_TEID_V6)
+          if (pdr->pdi.teid.flags & PFCP_F_TEIDV6)
             rules_add_v6_teid (pending, &pdr->pdi.teid.ip6, pdr->pdi.teid.teid,
                                idx);
         }
@@ -2130,14 +2130,14 @@ pfcp_update_apply (upf_session_t *sx)
               far->forward.peer_idx = peer_addr_ref (&far->forward);
 
               if (far->forward.outer_header_creation.description &
-                  OUTER_HEADER_CREATION_GTP_IP4)
+                  PFCP_OUTER_HEADER_CREATION_GTP_IP4)
                 {
                   rules_add_v4_teid (
                     pending, &far->forward.outer_header_creation.ip.ip4,
                     far->forward.outer_header_creation.teid, far->id);
                 }
               else if (far->forward.outer_header_creation.description &
-                       OUTER_HEADER_CREATION_GTP_IP6)
+                       PFCP_OUTER_HEADER_CREATION_GTP_IP6)
                 {
                   rules_add_v6_teid (
                     pending, &far->forward.outer_header_creation.ip.ip6,
@@ -2236,7 +2236,7 @@ pfcp_update_apply (upf_session_t *sx)
             continue;
 
           is_ip4 = !!(far->forward.outer_header_creation.description &
-                      OUTER_HEADER_CREATION_ANY_IP4);
+                      PFCP_OUTER_HEADER_CREATION_ANY_IP4);
 
           upf_debug ("TODO: send_end_marker for FAR %d", far->id);
           bi = upf_gtpu_end_marker (send_em->fib_index, send_em->dpoi_index,
@@ -2252,7 +2252,7 @@ pfcp_update_apply (upf_session_t *sx)
         {
           upf_pfcp_session_start_stop_urr_time (
             si, &urr->measurement_period,
-            !!(urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING));
+            !!(urr->triggers & PFCP_REPORTING_TRIGGER_PERIODIC_REPORTING));
         }
 
       if ((urr->methods & PFCP_URR_TIME))
@@ -2261,7 +2261,7 @@ pfcp_update_apply (upf_session_t *sx)
             {
               upf_pfcp_session_start_stop_urr_time (
                 si, &urr->time_threshold,
-                !!(urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD));
+                !!(urr->triggers & PFCP_REPORTING_TRIGGER_TIME_THRESHOLD));
             }
           if (urr->update_flags & PFCP_URR_UPDATE_TIME_QUOTA)
             {
@@ -2270,7 +2270,7 @@ pfcp_update_apply (upf_session_t *sx)
                                        now;
               upf_pfcp_session_start_stop_urr_time (
                 si, &urr->time_quota,
-                !!(urr->triggers & REPORTING_TRIGGER_TIME_QUOTA));
+                !!(urr->triggers & PFCP_REPORTING_TRIGGER_TIME_QUOTA));
             }
         }
       if (urr->update_flags & PFCP_URR_UPDATE_QUOTA_VALIDITY_TIME)
@@ -2278,7 +2278,7 @@ pfcp_update_apply (upf_session_t *sx)
           urr->quota_validity_time.base = now;
           upf_pfcp_session_start_stop_urr_time (
             si, &urr->quota_validity_time,
-            !!(urr->triggers & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
+            !!(urr->triggers & PFCP_REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
         }
     }
 
@@ -2666,7 +2666,7 @@ process_urrs (vlib_main_t *vm, upf_session_t *sess, const char *node_name,
         }
 
       if ((urr->methods & PFCP_URR_EVENT) &&
-          (urr->triggers & REPORTING_TRIGGER_START_OF_TRAFFIC))
+          (urr->triggers & PFCP_REPORTING_TRIGGER_START_OF_TRAFFIC))
         {
           ip4_header_t *iph =
             (ip4_header_t *) (b->data + vnet_buffer (b)->l3_hdr_offset);
@@ -2975,7 +2975,7 @@ format_upf_far (u8 *s, va_list *args)
             s = format (s, "%URewrite Header: %U\n", format_white_space,
                         indent + 4,
                         (ff->outer_header_creation.description &
-                         OUTER_HEADER_CREATION_ANY_IP4) ?
+                         PFCP_OUTER_HEADER_CREATION_ANY_IP4) ?
                           format_ip4_header :
                           format_ip6_header,
                         ff->rewrite, vec_len (ff->rewrite));
@@ -3081,23 +3081,23 @@ format_pfcp_session (u8 *s, va_list *args)
         {
           s = format (s, "    Local F-TEID: %u (0x%08x)\n", pdr->pdi.teid.teid,
                       pdr->pdi.teid.teid);
-          if (pdr->pdi.teid.flags & F_TEID_V4)
+          if (pdr->pdi.teid.flags & PFCP_F_TEIDV4)
             s = format (s, "            IPv4: %U\n", format_ip4_address,
                         &pdr->pdi.teid.ip4);
-          if (pdr->pdi.teid.flags & F_TEID_V6)
+          if (pdr->pdi.teid.flags & PFCP_F_TEIDV6)
             s = format (s, "            IPv6: %U\n", format_ip6_address,
                         &pdr->pdi.teid.ip6);
         }
       if (pdr->pdi.fields & F_PDI_UE_IP_ADDR)
         {
           s = format (s, "    UE IP address (%s):\n",
-                      pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_SD ?
+                      pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD ?
                         "destination" :
                         "source");
-          if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
+          if (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
             s = format (s, "      IPv4 address: %U\n", format_ip4_address,
                         &pdr->pdi.ue_addr.ip4);
-          if (pdr->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V6)
+          if (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V6)
             s = format (s, "      IPv6 address: %U\n", format_ip6_address,
                         &pdr->pdi.ue_addr.ip6);
         }
@@ -3158,7 +3158,7 @@ format_pfcp_session (u8 *s, va_list *args)
 		   urr->status, format_flags, (u64)urr->status, urr_status_flags);
       /* clang-format on */
 
-      if (urr->triggers & REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
+      if (urr->triggers & PFCP_REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
         {
           u32 *id;
 

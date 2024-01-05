@@ -658,7 +658,7 @@ upf_pfcp_police_message (upf_session_t *sx, pfcp_decoded_msg_t *dmsg)
       !ISSET_BIT (dmsg->session_report_request.usage_report->grp.fields,
                   USAGE_REPORT_UE_IP_ADDRESS) ||
       !(dmsg->session_report_request.usage_report->usage_report_trigger &
-        USAGE_REPORT_TRIGGER_START_OF_TRAFFIC))
+        PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC))
     return true;
 
   time_in_policer_periods =
@@ -780,10 +780,10 @@ urr_check_counter (u64 bytes, u64 consumed, u64 threshold, u64 quota)
   u32 r = 0;
 
   if (quota != 0 && consumed >= quota)
-    r |= USAGE_REPORT_TRIGGER_VOLUME_QUOTA;
+    r |= PFCP_USAGE_REPORT_TRIGGER_VOLUME_QUOTA;
 
   if (threshold != 0 && bytes > threshold)
-    r |= USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD;
+    r |= PFCP_USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD;
 
   return r;
 }
@@ -810,23 +810,23 @@ upf_pfcp_session_up_deletion_report (upf_session_t *sx)
     {
       upf_usage_report_t report;
 
-      req->report_type = REPORT_TYPE_USAR;
+      req->report_type = PFCP_REPORT_TYPE_USAR;
 
       UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
       upf_usage_report_init (&report, vec_len (active->urr));
       upf_usage_report_set (
-        &report, USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT, now);
+        &report, PFCP_USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT, now);
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
                               &req->usage_report);
       upf_usage_report_free (&report);
     }
   else
-    req->report_type = REPORT_TYPE_UISR;
+    req->report_type = PFCP_REPORT_TYPE_UISR;
 
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS);
   /* PSDBU = PFCP Session Deleted By the UP function */
-  req->pfcpsrreq_flags = PFCPSRREQ_PSDBU;
+  req->pfcpsrreq_flags = PFCP_PFCPSRREQ_PSDBU;
 
   upf_pfcp_server_send_session_request (sx, &dmsg);
   pfcp_free_dmsg_contents (&dmsg);
@@ -856,7 +856,7 @@ upf_pfcp_session_usage_report (upf_session_t *sx, ip46_address_t *ue,
 
   memset (req, 0, sizeof (*req));
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
-  req->report_type = REPORT_TYPE_USAR;
+  req->report_type = PFCP_REPORT_TYPE_USAR;
 
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
@@ -871,7 +871,7 @@ upf_pfcp_session_usage_report (upf_session_t *sx, ip46_address_t *ue,
       if (ev->trigger & URR_START_OF_TRAFFIC)
         {
           upf_usage_report_trigger (&report, urr - active->urr,
-                                    USAGE_REPORT_TRIGGER_START_OF_TRAFFIC,
+                                    PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC,
                                     urr->liusa_bitmap, now);
           send = 1;
 
@@ -1050,7 +1050,7 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
           active->inactivity_timer.period)
         {
           active->inactivity_timer.handle = ~0;
-          req->report_type |= REPORT_TYPE_UPIR;
+          req->report_type |= PFCP_REPORT_TYPE_UPIR;
         }
       else
         {
@@ -1119,9 +1119,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
       if (urr_check (urr->measurement_period, now))
         {
           urr_check_late (urr->measurement_period, now);
-          if (urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING)
+          if (urr->triggers & PFCP_REPORTING_TRIGGER_PERIODIC_REPORTING)
             {
-              trigger |= USAGE_REPORT_TRIGGER_PERIODIC_REPORTING;
+              trigger |= PFCP_USAGE_REPORT_TRIGGER_PERIODIC_REPORTING;
               trigger_now =
                 clib_min (trigger_now, urr->measurement_period.expected);
             }
@@ -1154,9 +1154,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
       if (urr_check (urr->time_threshold, now))
         {
           urr_check_late (urr->time_threshold, now);
-          if (urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD)
+          if (urr->triggers & PFCP_REPORTING_TRIGGER_TIME_THRESHOLD)
             {
-              trigger |= USAGE_REPORT_TRIGGER_TIME_THRESHOLD;
+              trigger |= PFCP_USAGE_REPORT_TRIGGER_TIME_THRESHOLD;
               trigger_now =
                 clib_min (trigger_now, urr->time_threshold.expected);
             }
@@ -1166,9 +1166,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
       if (urr_check (urr->time_quota, now))
         {
           urr_check_late (urr->time_quota, now);
-          if (urr->triggers & REPORTING_TRIGGER_TIME_QUOTA)
+          if (urr->triggers & PFCP_REPORTING_TRIGGER_TIME_QUOTA)
             {
-              trigger |= USAGE_REPORT_TRIGGER_TIME_QUOTA;
+              trigger |= PFCP_USAGE_REPORT_TRIGGER_TIME_QUOTA;
               trigger_now = clib_min (trigger_now, urr->time_quota.expected);
             }
 
@@ -1179,9 +1179,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
       if (urr_check (urr->quota_validity_time, now))
         {
           urr_check_late (urr->quota_validity_time, now);
-          if (urr->triggers & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME)
+          if (urr->triggers & PFCP_REPORTING_TRIGGER_QUOTA_VALIDITY_TIME)
             {
-              trigger |= USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME;
+              trigger |= PFCP_USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME;
               trigger_now =
                 clib_min (trigger_now, urr->quota_validity_time.expected);
             }
@@ -1223,7 +1223,7 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
 
       if (trigger != 0)
         {
-          req->report_type |= REPORT_TYPE_USAR;
+          req->report_type |= PFCP_REPORT_TYPE_USAR;
           UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
           upf_usage_report_trigger (&report, idx, trigger, urr->liusa_bitmap,
@@ -1232,8 +1232,8 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
           // clear reporting on the time based triggers, until rearmed by
           // update
           urr->triggers &=
-            ~(REPORTING_TRIGGER_TIME_THRESHOLD | REPORTING_TRIGGER_TIME_QUOTA |
-              REPORTING_TRIGGER_QUOTA_VALIDITY_TIME);
+            ~(PFCP_REPORTING_TRIGGER_TIME_THRESHOLD | PFCP_REPORTING_TRIGGER_TIME_QUOTA |
+              PFCP_REPORTING_TRIGGER_QUOTA_VALIDITY_TIME);
         }
     }
 

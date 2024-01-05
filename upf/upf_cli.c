@@ -863,19 +863,19 @@ upf_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
     {
       if (unformat (line_input, "fqdn %_%v%_", &fqdn))
         {
-          node_id.type = NID_FQDN;
+          node_id.type = PFCP_NID_FQDN;
           node_id.fqdn = upf_name_to_labels (fqdn);
           vec_free (fqdn);
         }
       else if (unformat (line_input, "ip4 %U", unformat_ip46_address,
                          &node_id.ip, IP46_TYPE_ANY))
         {
-          node_id.type = NID_IPv4;
+          node_id.type = PFCP_NID_IPv4;
         }
       else if (unformat (line_input, "ip6 %U", unformat_ip46_address,
                          &node_id.ip, IP46_TYPE_ANY))
         {
-          node_id.type = NID_IPv6;
+          node_id.type = PFCP_NID_IPv6;
         }
       else
         {
@@ -955,18 +955,18 @@ upf_gtpu_endpoint_add_del_command_fn (vlib_main_t *vm,
           vec_free (s);
         }
       else if (unformat (line_input, "intf access"))
-        intf = SRC_INTF_ACCESS;
+        intf = PFCP_SRC_INTF_ACCESS;
       else if (unformat (line_input, "intf core"))
-        intf = SRC_INTF_CORE;
+        intf = PFCP_SRC_INTF_CORE;
       else if (unformat (line_input, "intf sgi"))
         /*
          * WTF: the specification does permit that,
          *      but what does that mean in terms
          *      of the UPIP IE?
          */
-        intf = SRC_INTF_SGI_LAN;
+        intf = PFCP_SRC_INTF_SGI_LAN;
       else if (unformat (line_input, "intf cp"))
-        intf = SRC_INTF_CP;
+        intf = PFCP_SRC_INTF_CP;
       else if (unformat (line_input, "teid %u/%u", &teid, &teidri))
         {
           if (teidri > 7)
@@ -1286,18 +1286,18 @@ upf_show_assoc_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 
       if (has_ip)
         {
-          node_id.type = ip46_address_is_ip4 (&node_ip) ? NID_IPv4 : NID_IPv6;
+          node_id.type = ip46_address_is_ip4 (&node_ip) ? PFCP_NID_IPv4 : PFCP_NID_IPv6;
           node_id.ip = node_ip;
         }
       if (has_fqdn)
         {
-          node_id.type = NID_FQDN;
+          node_id.type = PFCP_NID_FQDN;
           node_id.fqdn = upf_name_to_labels (fqdn);
         }
 
       node = pfcp_get_association (&node_id);
 
-      if (node_id.type == NID_FQDN)
+      if (node_id.type == PFCP_NID_FQDN)
         vec_free (node_id.fqdn);
 
       if (!node)

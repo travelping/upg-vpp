@@ -369,9 +369,9 @@ vnet_upf_node_id_set (const pfcp_node_id_t *node_id)
 
   switch (node_id->type)
     {
-    case NID_IPv4:
-    case NID_IPv6:
-    case NID_FQDN:
+    case PFCP_NID_IPv4:
+    case PFCP_NID_IPv6:
+    case PFCP_NID_FQDN:
       free_node_id (&gtm->node_id);
       gtm->node_id = *node_id;
       return 0;
@@ -635,7 +635,7 @@ upf_init (vlib_main_t *vm)
   vlib_zero_simple_counter (&sm->upf_simple_counters[UPF_##E], 0);
   foreach_upf_counter_name
 #undef _
-    sm->node_id.type = NID_FQDN;
+    sm->node_id.type = PFCP_NID_FQDN;
   sm->node_id.fqdn = format (0, (char *) "\x03upg");
 
   sm->nat_pool_index_by_name =

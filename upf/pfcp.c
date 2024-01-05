@@ -118,7 +118,8 @@ u8 *
 format_pfcp_ie_network_instance (u8 *s, va_list *args)
 {
   u8 **p = va_arg (*args, u8 **);
-  return p ? format (s, "%U", format_pfcp_dns_labels, *p) : format (s, "invalid");
+  return p ? format (s, "%U", format_pfcp_dns_labels, *p) :
+             format (s, "invalid");
 }
 
 /*************************************************************************/
@@ -178,21 +179,22 @@ format_pfcp_msg_header (u8 *s, va_list *args)
 
 /* message construction helpers */
 
-#define set_msg_hdr_version(V, VER) ((pfcp_msg_header_t *) (V))->version = (VER)
-#define set_msg_hdr_type(V, TYPE)   ((pfcp_msg_header_t *) (V))->type = (TYPE)
+#define set_msg_hdr_version(V, VER)                                           \
+  ((pfcp_msg_header_t *) (V))->version = (VER)
+#define set_msg_hdr_type(V, TYPE) ((pfcp_msg_header_t *) (V))->type = (TYPE)
 #define set_msg_hdr_seq(V, S)                                                 \
   do                                                                          \
     {                                                                         \
-      ((pfcp_msg_header_t *) (V))->node_hdr.sequence[0] = (S >> 16) & 0xff;        \
-      ((pfcp_msg_header_t *) (V))->node_hdr.sequence[1] = (S >> 8) & 0xff;         \
-      ((pfcp_msg_header_t *) (V))->node_hdr.sequence[2] = S & 0xff;                \
+      ((pfcp_msg_header_t *) (V))->node_hdr.sequence[0] = (S >> 16) & 0xff;   \
+      ((pfcp_msg_header_t *) (V))->node_hdr.sequence[1] = (S >> 8) & 0xff;    \
+      ((pfcp_msg_header_t *) (V))->node_hdr.sequence[2] = S & 0xff;           \
     }                                                                         \
   while (0)
 #define set_session_hdr_seid(V, SEID)                                         \
   do                                                                          \
     {                                                                         \
-      ((pfcp_msg_header_t *) (V))->s_flag = 1;                                    \
-      ((pfcp_msg_header_t *) (V))->session_hdr.seid =                             \
+      ((pfcp_msg_header_t *) (V))->s_flag = 1;                                \
+      ((pfcp_msg_header_t *) (V))->session_hdr.seid =                         \
         clib_host_to_net_u64 (SEID);                                          \
     }                                                                         \
   while (0)
@@ -200,9 +202,10 @@ format_pfcp_msg_header (u8 *s, va_list *args)
 #define set_session_hdr_seq(V, S)                                             \
   do                                                                          \
     {                                                                         \
-      ((pfcp_msg_header_t *) (V))->session_hdr.sequence[0] = (S >> 16) & 0xff;    \
-      ((pfcp_msg_header_t *) (V))->session_hdr.sequence[1] = (S >> 8) & 0xff;     \
-      ((pfcp_msg_header_t *) (V))->session_hdr.sequence[2] = S & 0xff;            \
+      ((pfcp_msg_header_t *) (V))->session_hdr.sequence[0] =                  \
+        (S >> 16) & 0xff;                                                     \
+      ((pfcp_msg_header_t *) (V))->session_hdr.sequence[1] = (S >> 8) & 0xff; \
+      ((pfcp_msg_header_t *) (V))->session_hdr.sequence[2] = S & 0xff;        \
     }                                                                         \
   while (0)
 
@@ -886,15 +889,15 @@ format_pfcp_ie_f_teid (u8 *s, va_list *args)
   pfcp_ie_f_teid_t *v = va_arg (*args, pfcp_ie_f_teid_t *);
   u16 flags = (v->flags & 0xf);
 
-  s = format (s, "CH:%d,CHID:%d,V4:%d,V6:%d,", !!(flags & F_TEID_CH),
-              !!(flags & F_TEID_CHID), !!(flags & F_TEID_V4),
-              !!(flags & F_TEID_V6));
+  s = format (s, "CH:%d,CHID:%d,V4:%d,V6:%d,", !!(flags & PFCP_F_TEIDCH),
+              !!(flags & PFCP_F_TEIDCHID), !!(flags & PFCP_F_TEIDV4),
+              !!(flags & PFCP_F_TEIDV6));
 
-  if ((v->flags & 0xf) == F_TEID_V4)
+  if ((v->flags & 0xf) == PFCP_F_TEIDV4)
     s = format (s, "TEID:%d,IPv4:%U", v->teid, format_ip4_address, &v->ip4);
-  else if ((v->flags & 0xf) == F_TEID_V6)
+  else if ((v->flags & 0xf) == PFCP_F_TEIDV6)
     s = format (s, "TEID:%d,IPv6:%U", v->teid, format_ip6_address, &v->ip6);
-  else if ((v->flags & 0xf) == (F_TEID_V4 | F_TEID_V6))
+  else if ((v->flags & 0xf) == (PFCP_F_TEIDV4 | PFCP_F_TEIDV6))
     s = format (s, "TEID:%d,IPv4:%U,IPv6:%U", v->teid, format_ip4_address,
                 &v->ip4, format_ip6_address, &v->ip6);
 
@@ -911,7 +914,7 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
 
   v->flags = get_u8 (data) & 0x0f;
 
-  if (!(v->flags & F_TEID_CH))
+  if (!(v->flags & PFCP_F_TEIDCH))
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -919,7 +922,7 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
       v->teid = get_u32 (data);
       length -= 4;
 
-      if (v->flags & F_TEID_CHID)
+      if (v->flags & PFCP_F_TEIDCHID)
         {
           pfcp_debug (
             "PFCP: F-TEID with invalid flags (CHID without CH): %02x.",
@@ -927,13 +930,13 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
           return -1;
         }
 
-      if (!(v->flags & (F_TEID_V4 | F_TEID_V6)))
+      if (!(v->flags & (PFCP_F_TEIDV4 | PFCP_F_TEIDV6)))
         {
           pfcp_debug ("PFCP: F-TEID without v4/v6 address: %02x.", v->flags);
           return -1;
         }
 
-      if (v->flags & F_TEID_V4)
+      if (v->flags & PFCP_F_TEIDV4)
         {
           if (length < 4)
             return PFCP_CAUSE_INVALID_LENGTH;
@@ -942,7 +945,7 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
           length -= 4;
         }
 
-      if (v->flags & F_TEID_V6)
+      if (v->flags & PFCP_F_TEIDV6)
         {
           if (length < 16)
             return PFCP_CAUSE_INVALID_LENGTH;
@@ -956,7 +959,7 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
 
-      if (!(v->flags & F_TEID_V6) && !(v->flags & F_TEID_V4))
+      if (!(v->flags & PFCP_F_TEIDV6) && !(v->flags & PFCP_F_TEIDV4))
         {
           pfcp_debug (
             "PFCP: F-TEID with CH flag should have at least v4/v6 flag:%02x",
@@ -977,11 +980,11 @@ encode_pfcp_ie_f_teid (void *p, u8 **vec)
 
   put_u8 (*vec, v->flags);
   put_u32 (*vec, v->teid);
-  if (v->flags & F_TEID_V4)
+  if (v->flags & PFCP_F_TEIDV4)
     put_ip4 (*vec, v->ip4);
-  if (v->flags & F_TEID_V6)
+  if (v->flags & PFCP_F_TEIDV6)
     put_ip6 (*vec, v->ip6);
-  if (v->flags & F_TEID_CHID)
+  if (v->flags & PFCP_F_TEIDCHID)
     put_u8 (*vec, v->choose_id);
   return 0;
 }
@@ -995,15 +998,15 @@ format_pfcp_ie_sdf_filter (u8 *s, va_list *args)
 {
   pfcp_ie_sdf_filter_t *v = va_arg (*args, pfcp_ie_sdf_filter_t *);
 
-  if (v->flags & F_SDF_FD)
+  if (v->flags & PFCP_F_SDF_FD)
     s = format (s, "FD:%v,", v->flow);
-  if (v->flags & F_SDF_TTC)
+  if (v->flags & PFCP_F_SDF_TTC)
     s = format (s, "ToS/TC:0x%04x,", v->tos_traffic_class);
-  if (v->flags & F_SDF_SPI)
+  if (v->flags & PFCP_F_SDF_SPI)
     s = format (s, "SPI:%u,", v->spi);
-  if (v->flags & F_SDF_FL)
+  if (v->flags & PFCP_F_SDF_FL)
     s = format (s, "FL: %u,", v->flow_label);
-  if (v->flags & F_SDF_BID)
+  if (v->flags & PFCP_F_SDF_BID)
     s = format (s, "FltId: %u,", v->sdf_filter_id);
 
   if (v->flags)
@@ -1026,7 +1029,7 @@ decode_pfcp_ie_sdf_filter (u8 *data, u16 length, void *p)
   data++; /* spare */
   length -= 2;
 
-  if (v->flags & F_SDF_FD)
+  if (v->flags & PFCP_F_SDF_FD)
     {
       u16 flow_len;
 
@@ -1043,7 +1046,7 @@ decode_pfcp_ie_sdf_filter (u8 *data, u16 length, void *p)
       length -= flow_len;
     }
 
-  if (v->flags & F_SDF_TTC)
+  if (v->flags & PFCP_F_SDF_TTC)
     {
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1052,7 +1055,7 @@ decode_pfcp_ie_sdf_filter (u8 *data, u16 length, void *p)
       length -= 2;
     }
 
-  if (v->flags & F_SDF_SPI)
+  if (v->flags & PFCP_F_SDF_SPI)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1061,7 +1064,7 @@ decode_pfcp_ie_sdf_filter (u8 *data, u16 length, void *p)
       length -= 4;
     }
 
-  if (v->flags & F_SDF_FL)
+  if (v->flags & PFCP_F_SDF_FL)
     {
       if (length < 3)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1070,7 +1073,7 @@ decode_pfcp_ie_sdf_filter (u8 *data, u16 length, void *p)
       length -= 3;
     }
 
-  if (v->flags & F_SDF_BID)
+  if (v->flags & PFCP_F_SDF_BID)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1090,18 +1093,18 @@ encode_pfcp_ie_sdf_filter (void *p, u8 **vec)
   put_u8 (*vec, v->flags & 0x0f);
   put_u8 (*vec, 0); /* spare */
 
-  if (v->flags & F_SDF_FD)
+  if (v->flags & PFCP_F_SDF_FD)
     {
       put_u16 (*vec, _vec_len (v->flow));
       vec_append (*vec, v->flow);
     }
-  if (v->flags & F_SDF_TTC)
+  if (v->flags & PFCP_F_SDF_TTC)
     put_u16 (*vec, v->tos_traffic_class);
-  if (v->flags & F_SDF_SPI)
+  if (v->flags & PFCP_F_SDF_SPI)
     put_u32 (*vec, v->spi);
-  if (v->flags & F_SDF_FL)
+  if (v->flags & PFCP_F_SDF_FL)
     put_u24 (*vec, v->flow_label);
-  if (v->flags & F_SDF_BID)
+  if (v->flags & PFCP_F_SDF_BID)
     put_u32 (*vec, v->sdf_filter_id);
 
   return 0;
@@ -1127,9 +1130,10 @@ format_pfcp_ie_gate_status (u8 *s, va_list *args)
 {
   pfcp_ie_gate_status_t *v = va_arg (*args, pfcp_ie_gate_status_t *);
 
-  return format (s, "UL:%U,DL:%U", format_pfcp_enum, (u64) v->ul, gate_status_flags,
-                 ARRAY_LEN (gate_status_flags), format_pfcp_enum, (u64) v->dl,
-                 gate_status_flags, ARRAY_LEN (gate_status_flags));
+  return format (s, "UL:%U,DL:%U", format_pfcp_enum, (u64) v->ul,
+                 gate_status_flags, ARRAY_LEN (gate_status_flags),
+                 format_pfcp_enum, (u64) v->dl, gate_status_flags,
+                 ARRAY_LEN (gate_status_flags));
 }
 
 static int
@@ -1248,29 +1252,30 @@ format_pfcp_ie_transport_level_marking (u8 *s, va_list *args)
 static u8 *
 format_pfcp_ie_reporting_triggers (u8 *s, va_list *args)
 {
-  pfcp_ie_reporting_triggers_t *v = va_arg (*args, pfcp_ie_reporting_triggers_t *);
+  pfcp_ie_reporting_triggers_t *v =
+    va_arg (*args, pfcp_ie_reporting_triggers_t *);
 
   s = format (s,
               "PERIO:%d,VOLTH:%d,TIMTH:%d,QUHTI:%d,"
               "START:%d,STOPT:%d,DROTH:%d,LIUSA:%d,"
               "VOLQU:%d,TIMQU:%d,ENVCL:%d,MACAR:%d,"
               "EVETH:%d,EVEQU:%d,IPMJL:%d,QUVTI:%d",
-              !!(*v & REPORTING_TRIGGER_PERIODIC_REPORTING),
-              !!(*v & REPORTING_TRIGGER_VOLUME_THRESHOLD),
-              !!(*v & REPORTING_TRIGGER_TIME_THRESHOLD),
-              !!(*v & REPORTING_TRIGGER_QUOTA_HOLDING_TIME),
-              !!(*v & REPORTING_TRIGGER_START_OF_TRAFFIC),
-              !!(*v & REPORTING_TRIGGER_STOP_OF_TRAFFIC),
-              !!(*v & REPORTING_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
-              !!(*v & REPORTING_TRIGGER_LINKED_USAGE_REPORTING),
-              !!(*v & REPORTING_TRIGGER_VOLUME_QUOTA),
-              !!(*v & REPORTING_TRIGGER_TIME_QUOTA),
-              !!(*v & REPORTING_TRIGGER_ENVELOPE_CLOSURE),
-              !!(*v & REPORTING_TRIGGER_MAC_ADDRESSES_REPORTING),
-              !!(*v & REPORTING_TRIGGER_EVENT_THRESHOLD),
-              !!(*v & REPORTING_TRIGGER_EVENT_QUOTA),
-              !!(*v & REPORTING_TRIGGER_IP_MULTICAST_JOIN_LEAVE),
-              !!(*v & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
+              !!(*v & PFCP_REPORTING_TRIGGER_PERIODIC_REPORTING),
+              !!(*v & PFCP_REPORTING_TRIGGER_VOLUME_THRESHOLD),
+              !!(*v & PFCP_REPORTING_TRIGGER_TIME_THRESHOLD),
+              !!(*v & PFCP_REPORTING_TRIGGER_QUOTA_HOLDING_TIME),
+              !!(*v & PFCP_REPORTING_TRIGGER_START_OF_TRAFFIC),
+              !!(*v & PFCP_REPORTING_TRIGGER_STOP_OF_TRAFFIC),
+              !!(*v & PFCP_REPORTING_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
+              !!(*v & PFCP_REPORTING_TRIGGER_LINKED_USAGE_REPORTING),
+              !!(*v & PFCP_REPORTING_TRIGGER_VOLUME_QUOTA),
+              !!(*v & PFCP_REPORTING_TRIGGER_TIME_QUOTA),
+              !!(*v & PFCP_REPORTING_TRIGGER_ENVELOPE_CLOSURE),
+              !!(*v & PFCP_REPORTING_TRIGGER_MAC_ADDRESSES_REPORTING),
+              !!(*v & PFCP_REPORTING_TRIGGER_EVENT_THRESHOLD),
+              !!(*v & PFCP_REPORTING_TRIGGER_EVENT_QUOTA),
+              !!(*v & PFCP_REPORTING_TRIGGER_IP_MULTICAST_JOIN_LEAVE),
+              !!(*v & PFCP_REPORTING_TRIGGER_QUOTA_VALIDITY_TIME));
   return s;
 }
 
@@ -1278,10 +1283,10 @@ format_pfcp_ie_reporting_triggers (u8 *s, va_list *args)
 #define encode_pfcp_ie_reporting_triggers encode_u16_little_ie
 
 static char *redir_info_type[] = {
-  [REDIRECT_INFORMATION_IPv4] = "IPv4",
-  [REDIRECT_INFORMATION_IPv6] = "IPv6",
-  [REDIRECT_INFORMATION_HTTP] = "HTTP",
-  [REDIRECT_INFORMATION_SIP] = "SIP",
+  [PFCP_REDIRECT_INFORMATION_IPv4] = "IPv4",
+  [PFCP_REDIRECT_INFORMATION_IPv6] = "IPv6",
+  [PFCP_REDIRECT_INFORMATION_HTTP] = "HTTP",
+  [PFCP_REDIRECT_INFORMATION_SIP] = "SIP",
 };
 
 u8 *
@@ -1292,20 +1297,20 @@ format_pfcp_ie_redirect_information (u8 *s, va_list *args)
 
   switch (n->type)
     {
-    case REDIRECT_INFORMATION_IPv4:
-    case REDIRECT_INFORMATION_IPv6:
+    case PFCP_REDIRECT_INFORMATION_IPv4:
+    case PFCP_REDIRECT_INFORMATION_IPv6:
       s = format (s, "%s to %U", redir_info_type[n->type], format_ip46_address,
                   &n->ip, IP46_TYPE_ANY);
       break;
 
-    case REDIRECT_INFORMATION_IPv4v6:
+    case PFCP_REDIRECT_INFORMATION_IPv4v6:
       s = format (s, "%s to %U/%U", redir_info_type[n->type],
                   format_ip46_address, &n->ip, IP46_TYPE_ANY,
                   format_ip46_address, &n->other_ip, IP46_TYPE_ANY);
       break;
 
-    case REDIRECT_INFORMATION_HTTP:
-    case REDIRECT_INFORMATION_SIP:
+    case PFCP_REDIRECT_INFORMATION_HTTP:
+    case PFCP_REDIRECT_INFORMATION_SIP:
       s = format (s, "%s to %v", redir_info_type[n->type], n->uri);
       break;
     }
@@ -1332,11 +1337,11 @@ decode_pfcp_ie_redirect_information (u8 *data, u16 length, void *p)
 
   switch (v->type)
     {
-    case REDIRECT_INFORMATION_IPv4:
-    case REDIRECT_INFORMATION_IPv6:
+    case PFCP_REDIRECT_INFORMATION_IPv4:
+    case PFCP_REDIRECT_INFORMATION_IPv6:
       unformat_init_string (&input, (char *) data, addr_len);
       rv = unformat (&input, "%U", unformat_ip46_address, &v->ip,
-                     v->type == REDIRECT_INFORMATION_IPv4 ? IP46_TYPE_IP4 :
+                     v->type == PFCP_REDIRECT_INFORMATION_IPv4 ? IP46_TYPE_IP4 :
                                                             IP46_TYPE_IP6);
       unformat_free (&input);
 
@@ -1345,7 +1350,7 @@ decode_pfcp_ie_redirect_information (u8 *data, u16 length, void *p)
 
       break;
 
-    case REDIRECT_INFORMATION_IPv4v6:
+    case PFCP_REDIRECT_INFORMATION_IPv4v6:
       unformat_init_string (&input, (char *) data, addr_len);
       rv =
         unformat (&input, "%U", unformat_ip46_address, &v->ip, IP46_TYPE_ANY);
@@ -1375,8 +1380,8 @@ decode_pfcp_ie_redirect_information (u8 *data, u16 length, void *p)
 
       break;
 
-    case REDIRECT_INFORMATION_HTTP:
-    case REDIRECT_INFORMATION_SIP:
+    case PFCP_REDIRECT_INFORMATION_HTTP:
+    case PFCP_REDIRECT_INFORMATION_SIP:
       get_vec (v->uri, addr_len, data);
       length -= addr_len;
       break;
@@ -1398,16 +1403,16 @@ encode_pfcp_ie_redirect_information (void *p, u8 **vec)
 
   switch (v->type)
     {
-    case REDIRECT_INFORMATION_IPv4:
-    case REDIRECT_INFORMATION_IPv6:
+    case PFCP_REDIRECT_INFORMATION_IPv4:
+    case PFCP_REDIRECT_INFORMATION_IPv6:
       s = format (0, "%U", format_ip46_address, &v->ip, IP46_TYPE_ANY);
       put_u16 (*vec, vec_len (s));
       vec_append (*vec, s);
       vec_free (s);
       break;
 
-    case REDIRECT_INFORMATION_HTTP:
-    case REDIRECT_INFORMATION_SIP:
+    case PFCP_REDIRECT_INFORMATION_HTTP:
+    case PFCP_REDIRECT_INFORMATION_SIP:
       put_u16 (*vec, vec_len (v->uri));
       vec_append (*vec, v->uri);
       break;
@@ -1418,19 +1423,19 @@ encode_pfcp_ie_redirect_information (void *p, u8 **vec)
 
 void
 copy_pfcp_ie_redirect_information (pfcp_ie_redirect_information_t *dst,
-                          pfcp_ie_redirect_information_t *src)
+                                   pfcp_ie_redirect_information_t *src)
 {
   dst->type = src->type;
 
   switch (src->type)
     {
-    case REDIRECT_INFORMATION_IPv4:
-    case REDIRECT_INFORMATION_IPv6:
+    case PFCP_REDIRECT_INFORMATION_IPv4:
+    case PFCP_REDIRECT_INFORMATION_IPv6:
       dst->ip = src->ip;
       break;
 
-    case REDIRECT_INFORMATION_HTTP:
-    case REDIRECT_INFORMATION_SIP:
+    case PFCP_REDIRECT_INFORMATION_HTTP:
+    case PFCP_REDIRECT_INFORMATION_SIP:
       dst->uri = vec_dup (src->uri);
       break;
     }
@@ -1441,8 +1446,8 @@ free_pfcp_ie_redirect_information (void *p)
 {
   pfcp_ie_redirect_information_t *v = p;
 
-  if (v->type == REDIRECT_INFORMATION_HTTP ||
-      v->type == REDIRECT_INFORMATION_SIP)
+  if (v->type == PFCP_REDIRECT_INFORMATION_HTTP ||
+      v->type == PFCP_REDIRECT_INFORMATION_SIP)
     vec_free (v->uri);
 }
 
@@ -1452,10 +1457,10 @@ format_pfcp_ie_report_type (u8 *s, va_list *args)
   pfcp_ie_report_type_t *v = va_arg (*args, pfcp_ie_report_type_t *);
 
   return format (s, "DLDR:%d,USAR:%d,ERIR:%d,UPIR:%d,PMIR:%d,SESR:%d,UISR:%d",
-                 !!(*v & REPORT_TYPE_DLDR), !!(*v & REPORT_TYPE_USAR),
-                 !!(*v & REPORT_TYPE_ERIR), !!(*v & REPORT_TYPE_UPIR),
-                 !!(*v & REPORT_TYPE_PMIR), !!(*v & REPORT_TYPE_SESR),
-                 !!(*v & REPORT_TYPE_UISR));
+                 !!(*v & PFCP_REPORT_TYPE_DLDR), !!(*v & PFCP_REPORT_TYPE_USAR),
+                 !!(*v & PFCP_REPORT_TYPE_ERIR), !!(*v & PFCP_REPORT_TYPE_UPIR),
+                 !!(*v & PFCP_REPORT_TYPE_PMIR), !!(*v & PFCP_REPORT_TYPE_SESR),
+                 !!(*v & PFCP_REPORT_TYPE_UISR));
 }
 
 #define decode_pfcp_ie_report_type decode_u8_ie
@@ -1468,7 +1473,8 @@ format_pfcp_ie_report_type (u8 *s, va_list *args)
 static u8 *
 format_pfcp_ie_forwarding_policy (u8 *s, va_list *args)
 {
-  pfcp_ie_forwarding_policy_t *v = va_arg (*args, pfcp_ie_forwarding_policy_t *);
+  pfcp_ie_forwarding_policy_t *v =
+    va_arg (*args, pfcp_ie_forwarding_policy_t *);
 
   return format (s, "%v", v->identifier);
 }
@@ -1540,7 +1546,7 @@ decode_pfcp_ie_destination_interface (u8 *data, u16 length, void *p)
     return PFCP_CAUSE_INVALID_LENGTH;
 
   *v = get_u8 (data) & 0x0f;
-  if (*v >= DST_INTF_NUM)
+  if (*v >= PFCP_DST_INTF_NUM)
     return PFCP_CAUSE_REQUEST_REJECTED;
 
   return 0;
@@ -1572,18 +1578,18 @@ format_pfcp_ie_up_function_features (u8 *s, va_list *args)
     "MPAS:%d,RTTL:%d,VTIME:%d,NORP:%d,"
     "IPTV:%d,IP6PL:%d,TSCU:%d,MPTCP:%d,"
     "ATSSS-LL:%d,QFQM:%d,GPQM:%d",
-    !!(*v & F_UPFF_BUCP), !!(*v & F_UPFF_DDND), !!(*v & F_UPFF_DLBD),
-    !!(*v & F_UPFF_TRST), !!(*v & F_UPFF_FTUP), !!(*v & F_UPFF_PFDM),
-    !!(*v & F_UPFF_HEEU), !!(*v & F_UPFF_TREU), !!(*v & F_UPFF_EMPU),
-    !!(*v & F_UPFF_PDIU), !!(*v & F_UPFF_UDBC), !!(*v & F_UPFF_QUOAC),
-    !!(*v & F_UPFF_TRACE), !!(*v & F_UPFF_FRRT), !!(*v & F_UPFF_PFDE),
-    !!(*v & F_UPFF_EPFAR), !!(*v & F_UPFF_DPDRA), !!(*v & F_UPFF_ADPDP),
-    !!(*v & F_UPFF_UEIP), !!(*v & F_UPFF_SSET), !!(*v & F_UPFF_MNOP),
-    !!(*v & F_UPFF_MTE), !!(*v & F_UPFF_BUNDL), !!(*v & F_UPFF_GCOM),
-    !!(*v & F_UPFF_MPAS), !!(*v & F_UPFF_RTTL), !!(*v & F_UPFF_VTIME),
-    !!(*v & F_UPFF_NORP), !!(*v & F_UPFF_IPTV), !!(*v & F_UPFF_IP6PL),
-    !!(*v & F_UPFF_TSCU), !!(*v & F_UPFF_MPTCP), !!(*v & F_UPFF_ATSSS_LL),
-    !!(*v & F_UPFF_QFQM), !!(*v & F_UPFF_GPQM));
+    !!(*v & PFCP_F_UPFF_BUCP), !!(*v & PFCP_F_UPFF_DDND), !!(*v & PFCP_F_UPFF_DLBD),
+    !!(*v & PFCP_F_UPFF_TRST), !!(*v & PFCP_F_UPFF_FTUP), !!(*v & PFCP_F_UPFF_PFDM),
+    !!(*v & PFCP_F_UPFF_HEEU), !!(*v & PFCP_F_UPFF_TREU), !!(*v & PFCP_F_UPFF_EMPU),
+    !!(*v & PFCP_F_UPFF_PDIU), !!(*v & PFCP_F_UPFF_UDBC), !!(*v & PFCP_F_UPFF_QUOAC),
+    !!(*v & PFCP_F_UPFF_TRACE), !!(*v & PFCP_F_UPFF_FRRT), !!(*v & PFCP_F_UPFF_PFDE),
+    !!(*v & PFCP_F_UPFF_EPFAR), !!(*v & PFCP_F_UPFF_DPDRA), !!(*v & PFCP_F_UPFF_ADPDP),
+    !!(*v & PFCP_F_UPFF_UEIP), !!(*v & PFCP_F_UPFF_SSET), !!(*v & PFCP_F_UPFF_MNOP),
+    !!(*v & PFCP_F_UPFF_MTE), !!(*v & PFCP_F_UPFF_BUNDL), !!(*v & PFCP_F_UPFF_GCOM),
+    !!(*v & PFCP_F_UPFF_MPAS), !!(*v & PFCP_F_UPFF_RTTL), !!(*v & PFCP_F_UPFF_VTIME),
+    !!(*v & PFCP_F_UPFF_NORP), !!(*v & PFCP_F_UPFF_IPTV), !!(*v & PFCP_F_UPFF_IP6PL),
+    !!(*v & PFCP_F_UPFF_TSCU), !!(*v & PFCP_F_UPFF_MPTCP), !!(*v & PFCP_F_UPFF_ATSSS_LL),
+    !!(*v & PFCP_F_UPFF_QFQM), !!(*v & PFCP_F_UPFF_GPQM));
 }
 
 static int
@@ -1632,10 +1638,10 @@ format_pfcp_ie_apply_action (u8 *s, va_list *args)
   pfcp_ie_apply_action_t *v = va_arg (*args, pfcp_ie_apply_action_t *);
 
   return format (s, "DROP:%d,FORW:%d,BUFF:%d,NOCP:%d,DUPL:%d,IPMA:%d,IPMD:%d",
-                 !!(*v & F_APPLY_DROP), !!(*v & F_APPLY_FORW),
-                 !!(*v & F_APPLY_BUFF), !!(*v & F_APPLY_NOCP),
-                 !!(*v & F_APPLY_DUPL), !!(*v & F_APPLY_IPMA),
-                 !!(*v & F_APPLY_IPMD));
+                 !!(*v & PFCP_F_APPLY_DROP), !!(*v & PFCP_F_APPLY_FORW),
+                 !!(*v & PFCP_F_APPLY_BUFF), !!(*v & PFCP_F_APPLY_NOCP),
+                 !!(*v & PFCP_F_APPLY_DUPL), !!(*v & PFCP_F_APPLY_IPMA),
+                 !!(*v & PFCP_F_APPLY_IPMD));
 }
 
 #define decode_pfcp_ie_apply_action decode_u8_ie
@@ -1647,12 +1653,12 @@ format_pfcp_ie_downlink_data_service_information (u8 *s, va_list *args)
   pfcp_ie_downlink_data_service_information_t *v =
     va_arg (*args, pfcp_ie_downlink_data_service_information_t *);
 
-  if (v->flags & F_DDSI_PPI)
+  if (v->flags & PFCP_F_DDSI_PPI)
     s = format (s, "PPI:0x%02x", v->paging_policy_indication);
 
-  if (v->flags & F_DDSI_QFII)
+  if (v->flags & PFCP_F_DDSI_QFII)
     {
-      if (v->flags & F_DDSI_PPI)
+      if (v->flags & PFCP_F_DDSI_PPI)
         vec_add1 (s, ',');
       s = format (s, "QFI:0x%02x", v->qfi);
     }
@@ -1661,7 +1667,8 @@ format_pfcp_ie_downlink_data_service_information (u8 *s, va_list *args)
 }
 
 static int
-decode_pfcp_ie_downlink_data_service_information (u8 *data, u16 length, void *p)
+decode_pfcp_ie_downlink_data_service_information (u8 *data, u16 length,
+                                                  void *p)
 {
   pfcp_ie_downlink_data_service_information_t *v = p;
 
@@ -1671,7 +1678,7 @@ decode_pfcp_ie_downlink_data_service_information (u8 *data, u16 length, void *p)
   v->flags = get_u8 (data) & 0x03;
   length--;
 
-  if (v->flags & F_DDSI_PPI)
+  if (v->flags & PFCP_F_DDSI_PPI)
     {
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1680,7 +1687,7 @@ decode_pfcp_ie_downlink_data_service_information (u8 *data, u16 length, void *p)
       length--;
     }
 
-  if (v->flags & F_DDSI_QFII)
+  if (v->flags & PFCP_F_DDSI_QFII)
     {
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1698,9 +1705,9 @@ encode_pfcp_ie_downlink_data_service_information (void *p, u8 **vec)
   pfcp_ie_downlink_data_service_information_t *v = p;
 
   put_u8 (*vec, v->flags);
-  if (v->flags & F_DDSI_PPI)
+  if (v->flags & PFCP_F_DDSI_PPI)
     put_u8 (*vec, v->paging_policy_indication);
-  if (v->flags & F_DDSI_QFII)
+  if (v->flags & PFCP_F_DDSI_QFII)
     put_u8 (*vec, v->qfi);
 
   return 0;
@@ -1724,7 +1731,8 @@ format_pfcp_ie_dl_buffering_suggested_packet_count (u8 *s, va_list *args)
 }
 
 static int
-decode_pfcp_ie_dl_buffering_suggested_packet_count (u8 *data, u16 length, void *p)
+decode_pfcp_ie_dl_buffering_suggested_packet_count (u8 *data, u16 length,
+                                                    void *p)
 {
   pfcp_ie_dl_buffering_suggested_packet_count_t *v = p;
 
@@ -1761,8 +1769,8 @@ format_pfcp_ie_pfcpsmreq_flags (u8 *s, va_list *args)
 {
   pfcp_ie_pfcpsmreq_flags_t *v = va_arg (*args, pfcp_ie_pfcpsmreq_flags_t *);
 
-  return format (s, "DROBU:%d,SNDEM:%d,QUARR:%d", !!(*v & PFCPSMREQ_DROBU),
-                 !!(*v & PFCPSMREQ_SNDEM), !!(*v & PFCPSMREQ_QAURR));
+  return format (s, "DROBU:%d,SNDEM:%d,QUARR:%d", !!(*v & PFCP_PFCPSMREQ_DROBU),
+                 !!(*v & PFCP_PFCPSMREQ_SNDEM), !!(*v & PFCP_PFCPSMREQ_QAURR));
 }
 
 #define decode_pfcp_ie_pfcpsmreq_flags decode_u8_ie
@@ -1773,7 +1781,7 @@ format_pfcp_ie_pfcpsrrsp_flags (u8 *s, va_list *args)
 {
   pfcp_ie_pfcpsrrsp_flags_t *v = va_arg (*args, pfcp_ie_pfcpsrrsp_flags_t *);
 
-  return format (s, "DROBU:%d", !!(*v & PFCPSRRSP_DROBU));
+  return format (s, "DROBU:%d", !!(*v & PFCP_PFCPSRRSP_DROBU));
 }
 
 #define decode_pfcp_ie_pfcpsrrsp_flags decode_u8_ie
@@ -1798,17 +1806,17 @@ format_pfcp_ie_f_seid (u8 *s, va_list *args)
 
   s = format (s, "0x%016" PRIx64 "@", n->seid);
 
-  switch (n->flags & (IE_F_SEID_IP_ADDRESS_V4 | IE_F_SEID_IP_ADDRESS_V6))
+  switch (n->flags & (PFCP_F_SEID_IP_ADDRESS_V44 | PFCP_F_SEID_IP_ADDRESS_V46))
     {
-    case IE_F_SEID_IP_ADDRESS_V4:
+    case PFCP_F_SEID_IP_ADDRESS_V44:
       s = format (s, "%U", format_ip4_address, &n->ip4);
       break;
 
-    case IE_F_SEID_IP_ADDRESS_V6:
+    case PFCP_F_SEID_IP_ADDRESS_V46:
       s = format (s, "%U", format_ip6_address, &n->ip6);
       break;
 
-    case (IE_F_SEID_IP_ADDRESS_V4 | IE_F_SEID_IP_ADDRESS_V6):
+    case (PFCP_F_SEID_IP_ADDRESS_V44 | PFCP_F_SEID_IP_ADDRESS_V46):
       s = format (s, "%U,%U", format_ip4_address, &n->ip4, format_ip6_address,
                   &n->ip6);
       break;
@@ -1834,7 +1842,7 @@ decode_pfcp_ie_f_seid (u8 *data, u16 length, void *p)
 
   v->seid = get_u64 (data);
 
-  if (v->flags & IE_F_SEID_IP_ADDRESS_V4)
+  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V44)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1843,7 +1851,7 @@ decode_pfcp_ie_f_seid (u8 *data, u16 length, void *p)
       length -= 4;
     }
 
-  if (v->flags & IE_F_SEID_IP_ADDRESS_V6)
+  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V46)
     {
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1862,10 +1870,10 @@ encode_pfcp_ie_f_seid (void *p, u8 **vec)
   put_u8 (*vec, v->flags);
   put_u64 (*vec, v->seid);
 
-  if (v->flags & IE_F_SEID_IP_ADDRESS_V4)
+  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V44)
     put_ip4 (*vec, v->ip4);
 
-  if (v->flags & IE_F_SEID_IP_ADDRESS_V6)
+  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V46)
     put_ip6 (*vec, v->ip6);
 
   return 0;
@@ -1878,12 +1886,12 @@ format_pfcp_ie_node_id (u8 *s, va_list *args)
 
   switch (n->type)
     {
-    case NID_IPv4:
-    case NID_IPv6:
+    case PFCP_NID_IPv4:
+    case PFCP_NID_IPv6:
       s = format (s, "%U", format_ip46_address, &n->ip, IP46_TYPE_ANY);
       break;
 
-    case NID_FQDN:
+    case PFCP_NID_FQDN:
       s = format (s, "%U", format_pfcp_dns_labels, n->fqdn);
       break;
     }
@@ -1903,19 +1911,19 @@ decode_pfcp_ie_node_id (u8 *data, u16 length, void *p)
 
   switch (v->type)
     {
-    case NID_IPv4:
+    case PFCP_NID_IPv4:
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
       get_ip46_ip4 (v->ip, data);
       break;
 
-    case NID_IPv6:
+    case PFCP_NID_IPv6:
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
       get_ip46_ip6 (v->ip, data);
       break;
 
-    case NID_FQDN:
+    case PFCP_NID_FQDN:
       get_vec (v->fqdn, length, data);
       break;
 
@@ -1935,15 +1943,15 @@ encode_pfcp_ie_node_id (void *p, u8 **vec)
 
   switch (v->type)
     {
-    case NID_IPv4:
+    case PFCP_NID_IPv4:
       put_ip46_ip4 (*vec, v->ip);
       break;
 
-    case NID_IPv6:
+    case PFCP_NID_IPv6:
       put_ip46_ip6 (*vec, v->ip);
       break;
 
-    case NID_FQDN:
+    case PFCP_NID_FQDN:
       vec_append (*vec, v->fqdn);
       break;
     }
@@ -1956,7 +1964,7 @@ free_pfcp_ie_node_id (void *p)
 {
   pfcp_ie_node_id_t *v = p;
 
-  if (v->type == NID_FQDN)
+  if (v->type == PFCP_NID_FQDN)
     vec_free (v->fqdn);
 }
 
@@ -1995,11 +2003,11 @@ decode_pfcp_ie_pfd_contents (u8 *data, u16 length, void *p)
   if (length < 2)
     return PFCP_CAUSE_INVALID_LENGTH;
 
-  flags = get_u8 (data) & F_PFD_C_MASK;
+  flags = get_u8 (data) & PFCP_F_PFD_C_MASK;
   data++; /* spare */
   length -= 2;
 
-  if (flags & F_PFD_C_FD)
+  if (flags & PFCP_F_PFD_C_FD)
     {
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2014,7 +2022,7 @@ decode_pfcp_ie_pfd_contents (u8 *data, u16 length, void *p)
       length -= len;
     }
 
-  if (flags & F_PFD_C_URL)
+  if (flags & PFCP_F_PFD_C_URL)
     {
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2029,7 +2037,7 @@ decode_pfcp_ie_pfd_contents (u8 *data, u16 length, void *p)
       length -= len;
     }
 
-  if (flags & F_PFD_C_DN)
+  if (flags & PFCP_F_PFD_C_DN)
     {
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2044,7 +2052,7 @@ decode_pfcp_ie_pfd_contents (u8 *data, u16 length, void *p)
       length -= len;
     }
 
-  if (flags & F_PFD_C_CP)
+  if (flags & PFCP_F_PFD_C_CP)
     {
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2059,7 +2067,7 @@ decode_pfcp_ie_pfd_contents (u8 *data, u16 length, void *p)
       length -= len;
     }
 
-  if (flags & F_PFD_C_DNP)
+  if (flags & PFCP_F_PFD_C_DNP)
     {
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2083,11 +2091,11 @@ encode_pfcp_ie_pfd_contents (void *p, u8 **vec)
   pfcp_ie_pfd_contents_t *v = p;
   u8 flags;
 
-  flags = ((vec_len (v->flow_description) > 0) ? F_PFD_C_FD : 0) |
-          ((vec_len (v->url) > 0) ? F_PFD_C_URL : 0) |
-          ((vec_len (v->domain) > 0) ? F_PFD_C_DN : 0) |
-          ((vec_len (v->custom) > 0) ? F_PFD_C_CP : 0) |
-          ((vec_len (v->dnp) > 0) ? F_PFD_C_DNP : 0);
+  flags = ((vec_len (v->flow_description) > 0) ? PFCP_F_PFD_C_FD : 0) |
+          ((vec_len (v->url) > 0) ? PFCP_F_PFD_C_URL : 0) |
+          ((vec_len (v->domain) > 0) ? PFCP_F_PFD_C_DN : 0) |
+          ((vec_len (v->custom) > 0) ? PFCP_F_PFD_C_CP : 0) |
+          ((vec_len (v->dnp) > 0) ? PFCP_F_PFD_C_DNP : 0);
 
   put_u8 (*vec, flags);
   if (vec_len (v->flow_description) > 0)
@@ -2134,11 +2142,12 @@ free_pfcp_ie_pfd_contents (void *p)
 static u8 *
 format_pfcp_ie_measurement_method (u8 *s, va_list *args)
 {
-  pfcp_ie_measurement_method_t *v = va_arg (*args, pfcp_ie_measurement_method_t *);
+  pfcp_ie_measurement_method_t *v =
+    va_arg (*args, pfcp_ie_measurement_method_t *);
 
   s = format (
-    s, "DURAT:%d,VOLUM:%d,EVENT:%d", !!(*v & MEASUREMENT_METHOD_DURATION),
-    !!(*v & MEASUREMENT_METHOD_VOLUME), !!(*v & MEASUREMENT_METHOD_EVENT));
+    s, "DURAT:%d,VOLUM:%d,EVENT:%d", !!(*v & PFCP_MEASUREMENT_METHOD_DURATION),
+    !!(*v & PFCP_MEASUREMENT_METHOD_VOLUME), !!(*v & PFCP_MEASUREMENT_METHOD_EVENT));
   return s;
 }
 
@@ -2157,26 +2166,26 @@ format_pfcp_ie_usage_report_trigger (u8 *s, va_list *args)
               "VOLQU:%d,TIMQU:%d,LIUSA:%d,TERMR:%d,"
               "MONIT:%d,ENVCL:%d,MACAR:%d,EVETH:%d,"
               "EVEQU:%d,TEBUR:%d,IPMJL:%d,QUVTI:%d",
-              !!(*v & USAGE_REPORT_TRIGGER_PERIODIC_REPORTING),
-              !!(*v & USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD),
-              !!(*v & USAGE_REPORT_TRIGGER_TIME_THRESHOLD),
-              !!(*v & USAGE_REPORT_TRIGGER_QUOTA_HOLDING_TIME),
-              !!(*v & USAGE_REPORT_TRIGGER_START_OF_TRAFFIC),
-              !!(*v & USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC),
-              !!(*v & USAGE_REPORT_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
-              !!(*v & USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT),
-              !!(*v & USAGE_REPORT_TRIGGER_VOLUME_QUOTA),
-              !!(*v & USAGE_REPORT_TRIGGER_TIME_QUOTA),
-              !!(*v & USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING),
-              !!(*v & USAGE_REPORT_TRIGGER_TERMINATION_REPORT),
-              !!(*v & USAGE_REPORT_TRIGGER_MONITORING_TIME),
-              !!(*v & USAGE_REPORT_TRIGGER_ENVELOPE_CLOSURE),
-              !!(*v & USAGE_REPORT_TRIGGER_MAC_ADDRESSES_REPORTING),
-              !!(*v & USAGE_REPORT_TRIGGER_EVENT_THRESHOLD),
-              !!(*v & USAGE_REPORT_TRIGGER_EVENT_QUOTA),
-              !!(*v & USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT),
-              !!(*v & USAGE_REPORT_TRIGGER_IP_MULTICAST_JOIN_LEAVE),
-              !!(*v & USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME));
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_PERIODIC_REPORTING),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_TIME_THRESHOLD),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_QUOTA_HOLDING_TIME),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_VOLUME_QUOTA),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_TIME_QUOTA),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_TERMINATION_REPORT),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_MONITORING_TIME),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_ENVELOPE_CLOSURE),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_MAC_ADDRESSES_REPORTING),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_EVENT_THRESHOLD),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_EVENT_QUOTA),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_IP_MULTICAST_JOIN_LEAVE),
+              !!(*v & PFCP_USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME));
   return s;
 }
 
@@ -2220,12 +2229,12 @@ format_pfcp_ie_fq_csid (u8 *s, va_list *args)
 
   switch (v->node_id_type)
     {
-    case FQ_CSID_NID_IP4:
-    case FQ_CSID_NID_IP6:
+    case PFCP_FQ_CSID_PFCP_NID_IP4:
+    case PFCP_FQ_CSID_PFCP_NID_IP6:
       s = format (s, "NID:%U,", format_ip46_address, &v->node_id.ip,
                   IP46_TYPE_ANY);
       break;
-    case FQ_CSID_NID_NID:
+    case PFCP_FQ_CSID_PFCP_NID_NID:
       s = format (s, "NID:MCC:%u,MNC:%u,NID:%u,", v->node_id.mcc,
                   v->node_id.mnc, v->node_id.nid);
       break;
@@ -2264,21 +2273,21 @@ decode_pfcp_ie_fq_csid (u8 *data, u16 length, void *p)
 
   switch (v->node_id_type)
     {
-    case FQ_CSID_NID_IP4:
+    case PFCP_FQ_CSID_PFCP_NID_IP4:
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
       get_ip46_ip4 (v->node_id.ip, data);
       length -= 4;
       break;
 
-    case FQ_CSID_NID_IP6:
+    case PFCP_FQ_CSID_PFCP_NID_IP6:
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
       get_ip46_ip6 (v->node_id.ip, data);
       length -= 16;
       break;
 
-    case FQ_CSID_NID_NID:
+    case PFCP_FQ_CSID_PFCP_NID_NID:
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
 
@@ -2312,15 +2321,15 @@ encode_pfcp_ie_fq_csid (void *p, u8 **vec)
 
   switch (v->node_id_type)
     {
-    case FQ_CSID_NID_IP4:
+    case PFCP_FQ_CSID_PFCP_NID_IP4:
       put_ip46_ip4 (*vec, v->node_id.ip);
       break;
 
-    case FQ_CSID_NID_IP6:
+    case PFCP_FQ_CSID_PFCP_NID_IP6:
       put_ip46_ip6 (*vec, v->node_id.ip);
       break;
 
-    case FQ_CSID_NID_NID:
+    case PFCP_FQ_CSID_PFCP_NID_NID:
       put_u32 (*vec, (v->node_id.mcc * 1000 + v->node_id.mnc) << 12 |
                        (v->node_id.nid & 0x0fff));
       break;
@@ -2337,7 +2346,8 @@ encode_pfcp_ie_fq_csid (void *p, u8 **vec)
 static u8 *
 format_pfcp_ie_volume_measurement (u8 *s, va_list *args)
 {
-  pfcp_ie_volume_measurement_t *v = va_arg (*args, pfcp_ie_volume_measurement_t *);
+  pfcp_ie_volume_measurement_t *v =
+    va_arg (*args, pfcp_ie_volume_measurement_t *);
 
   return format (s, "V:[T:%d,U:%d,D:%d],P:[T:%d,U:%d,D:%d]", v->volume.total,
                  v->volume.ul, v->volume.dl, v->packets.total, v->packets.ul,
@@ -2418,11 +2428,11 @@ format_pfcp_ie_dropped_dl_traffic_threshold (u8 *s, va_list *args)
   pfcp_ie_dropped_dl_traffic_threshold_t *v =
     va_arg (*args, pfcp_ie_dropped_dl_traffic_threshold_t *);
 
-  if (v->flags & DDTT_DLPA)
+  if (v->flags & PFCP_DDTT_DLPA)
     s = format (s, "DLPA:%lu", v->downlink_packets);
-  if (v->flags & DDTT_DLBY)
+  if (v->flags & PFCP_DDTT_DLBY)
     {
-      if (v->flags & DDTT_DLPA)
+      if (v->flags & PFCP_DDTT_DLPA)
         vec_add1 (s, ';');
       s = format (s, "DLBY:%lu", v->downlink_volume);
     }
@@ -2443,7 +2453,7 @@ decode_pfcp_ie_dropped_dl_traffic_threshold (u8 *data, u16 length, void *p)
   v->flags = get_u8 (data);
   length -= 1;
 
-  if (v->flags & DDTT_DLPA)
+  if (v->flags & PFCP_DDTT_DLPA)
     {
       if (length < 8)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2452,7 +2462,7 @@ decode_pfcp_ie_dropped_dl_traffic_threshold (u8 *data, u16 length, void *p)
       length -= 8;
     }
 
-  if (v->flags & DDTT_DLBY)
+  if (v->flags & PFCP_DDTT_DLBY)
     {
       if (length < 8)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2470,9 +2480,9 @@ encode_pfcp_ie_dropped_dl_traffic_threshold (void *p, u8 **vec)
   pfcp_ie_dropped_dl_traffic_threshold_t *v = p;
 
   put_u8 (*vec, v->flags);
-  if (v->flags & DDTT_DLBY)
+  if (v->flags & PFCP_DDTT_DLBY)
     put_u64 (*vec, v->downlink_packets);
-  if (v->flags & DDTT_DLPA)
+  if (v->flags & PFCP_DDTT_DLPA)
     put_u64 (*vec, v->downlink_packets);
 
   return 0;
@@ -2517,18 +2527,18 @@ format_pfcp_ie_outer_header_creation (u8 *s, va_list *args)
   s = format (s, "%U", format_pfcp_flags, (u64) v->description,
               outer_header_creation_description_flags);
 
-  if (v->description & OUTER_HEADER_CREATION_GTP_ANY)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_GTP_ANY)
     s = format (s, ",TEID:%08x", v->teid);
 
   if (v->description &
-      (OUTER_HEADER_CREATION_ANY_IP4 | OUTER_HEADER_CREATION_ANY_IP6))
+      (PFCP_OUTER_HEADER_CREATION_ANY_IP4 | PFCP_OUTER_HEADER_CREATION_ANY_IP6))
     s = format (s, ",IP:%U", format_ip46_address, &v->ip, IP46_TYPE_ANY);
 
-  if (v->description & OUTER_HEADER_CREATION_UDP_ANY)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_UDP_ANY)
     s = format (s, ",Port:%d", v->port);
-  if (v->description & OUTER_HEADER_CREATION_C_TAG)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_C_TAG)
     s = format (s, ",C-Tag:%d", v->c_tag);
-  if (v->description & OUTER_HEADER_CREATION_S_TAG)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_S_TAG)
     s = format (s, ",S-Tag:%d", v->s_tag);
 
   return s;
@@ -2591,10 +2601,10 @@ decode_pfcp_ie_outer_header_creation (u8 *data, u16 length, void *p)
   length -= 2;
 
   if (v->description == 0 ||
-      (!!(v->description & OUTER_HEADER_CREATION_GTP_ANY)) ==
-        (!!(v->description & OUTER_HEADER_CREATION_UDP_ANY)) ||
-      (v->description & OUTER_HEADER_CREATION_UDP_ANY) ==
-        OUTER_HEADER_CREATION_UDP_ANY)
+      (!!(v->description & PFCP_OUTER_HEADER_CREATION_GTP_ANY)) ==
+        (!!(v->description & PFCP_OUTER_HEADER_CREATION_UDP_ANY)) ||
+      (v->description & PFCP_OUTER_HEADER_CREATION_UDP_ANY) ==
+        PFCP_OUTER_HEADER_CREATION_UDP_ANY)
     {
       pfcp_debug (
         "PFCP: invalid bit combination in Outer Header Creation: %04x.",
@@ -2602,7 +2612,7 @@ decode_pfcp_ie_outer_header_creation (u8 *data, u16 length, void *p)
       return PFCP_CAUSE_REQUEST_REJECTED;
     }
 
-  if (v->description & OUTER_HEADER_CREATION_GTP_ANY)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_GTP_ANY)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2610,7 +2620,7 @@ decode_pfcp_ie_outer_header_creation (u8 *data, u16 length, void *p)
       length -= 4;
     }
 
-  if (v->description & OUTER_HEADER_CREATION_ANY_IP4)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_ANY_IP4)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2618,7 +2628,7 @@ decode_pfcp_ie_outer_header_creation (u8 *data, u16 length, void *p)
       length -= 4;
     }
 
-  if (v->description & OUTER_HEADER_CREATION_ANY_IP6)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_ANY_IP6)
     {
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2626,21 +2636,21 @@ decode_pfcp_ie_outer_header_creation (u8 *data, u16 length, void *p)
       length -= 16;
     }
 
-  if (v->description & OUTER_HEADER_CREATION_UDP_ANY)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_UDP_ANY)
     {
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
       v->port = get_u16 (data);
     }
 
-  if (v->description & OUTER_HEADER_CREATION_C_TAG)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_C_TAG)
     {
       if (length < 3)
         return PFCP_CAUSE_INVALID_LENGTH;
       v->c_tag = get_u24 (data);
     }
 
-  if (v->description & OUTER_HEADER_CREATION_S_TAG)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_S_TAG)
     {
       if (length < 3)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2657,22 +2667,22 @@ encode_pfcp_ie_outer_header_creation (void *p, u8 **vec)
 
   put_u16_little (*vec, v->description);
 
-  if (v->description & OUTER_HEADER_CREATION_GTP_ANY)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_GTP_ANY)
     put_u32 (*vec, v->teid);
 
-  if (v->description & OUTER_HEADER_CREATION_ANY_IP4)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_ANY_IP4)
     put_ip46_ip4 (*vec, v->ip);
 
-  if (v->description & OUTER_HEADER_CREATION_ANY_IP6)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_ANY_IP6)
     put_ip46_ip6 (*vec, v->ip);
 
-  if (v->description & OUTER_HEADER_CREATION_UDP_ANY)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_UDP_ANY)
     put_u16 (*vec, v->port);
 
-  if (v->description & OUTER_HEADER_CREATION_C_TAG)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_C_TAG)
     put_u24 (*vec, v->c_tag);
 
-  if (v->description & OUTER_HEADER_CREATION_S_TAG)
+  if (v->description & PFCP_OUTER_HEADER_CREATION_S_TAG)
     put_u24 (*vec, v->s_tag);
 
   return 0;
@@ -2691,10 +2701,10 @@ format_pfcp_ie_cp_function_features (u8 *s, va_list *args)
   return format (s,
                  "LOAD:%d,OVRL:%d,EPFAR:%d,SSET:%d,"
                  "BUNDL:%d,MPAS:%d,ARDR:%d",
-                 !!(*v & F_CPFF_LOAD), !!(*v & F_CPFF_OVRL),
-                 !!(*v & F_CPFF_EPFAR), !!(*v & F_CPFF_SSET),
-                 !!(*v & F_CPFF_BUNDL), !!(*v & F_CPFF_MPAS),
-                 !!(*v & F_CPFF_ARDR));
+                 !!(*v & PFCP_F_CPFF_LOAD), !!(*v & PFCP_F_CPFF_OVRL),
+                 !!(*v & PFCP_F_CPFF_EPFAR), !!(*v & PFCP_F_CPFF_SSET),
+                 !!(*v & PFCP_F_CPFF_BUNDL), !!(*v & PFCP_F_CPFF_MPAS),
+                 !!(*v & PFCP_F_CPFF_ARDR));
 }
 
 #define decode_pfcp_ie_cp_function_features decode_u8_ie
@@ -2703,13 +2713,14 @@ format_pfcp_ie_cp_function_features (u8 *s, va_list *args)
 static u8 *
 format_pfcp_ie_usage_information (u8 *s, va_list *args)
 {
-  pfcp_ie_usage_information_t *v = va_arg (*args, pfcp_ie_usage_information_t *);
+  pfcp_ie_usage_information_t *v =
+    va_arg (*args, pfcp_ie_usage_information_t *);
 
   s = format (s, "UBE:%d,UAE:%d,AFT:%d,BEF:%d",
-              !!(*v & USAGE_INFORMATION_BEFORE_QoS_ENFORCEMENT),
-              !!(*v & USAGE_INFORMATION_AFTER_QoS_ENFORCEMENT),
-              !!(*v & USAGE_INFORMATION_AFTER),
-              !!(*v & USAGE_INFORMATION_BEFORE));
+              !!(*v & PFCP_USAGE_INFORMATION_BEFORE_QoS_ENFORCEMENT),
+              !!(*v & PFCP_USAGE_INFORMATION_AFTER_QoS_ENFORCEMENT),
+              !!(*v & PFCP_USAGE_INFORMATION_AFTER),
+              !!(*v & PFCP_USAGE_INFORMATION_BEFORE));
 
   return s;
 }
@@ -2782,18 +2793,18 @@ format_pfcp_ie_ue_ip_address (u8 *s, va_list *args)
 {
   pfcp_ie_ue_ip_address_t *v = va_arg (*args, pfcp_ie_ue_ip_address_t *);
 
-  s = format (s, "S/D:%d,CHv4:%d,CHv6:%d", !!(v->flags & IE_UE_IP_ADDRESS_SD),
-              !!(v->flags & IE_UE_IP_ADDRESS_CHV4),
-              !!(v->flags & IE_UE_IP_ADDRESS_CHV6));
+  s = format (s, "S/D:%d,CHv4:%d,CHv6:%d", !!(v->flags & PFCP_UE_IP_ADDRESS_SD),
+              !!(v->flags & PFCP_UE_IP_ADDRESS_CHV4),
+              !!(v->flags & PFCP_UE_IP_ADDRESS_CHV6));
 
-  if (v->flags & IE_UE_IP_ADDRESS_V4)
+  if (v->flags & PFCP_UE_IP_ADDRESS_V4)
     s = format (s, ",IPv4:%U", format_ip4_address, &v->ip4);
-  if (v->flags & IE_UE_IP_ADDRESS_V6)
+  if (v->flags & PFCP_UE_IP_ADDRESS_V6)
     s = format (s, ",IPv6:%U", format_ip6_address, &v->ip6);
 
-  if (v->flags & IE_UE_IP_ADDRESS_IPv6D)
+  if (v->flags & PFCP_UE_IP_ADDRESS_IPv6D)
     s = format (s, ",v6-PD:/%d", v->prefix_delegation_length);
-  if (v->flags & IE_UE_IP_ADDRESS_IP6PL)
+  if (v->flags & PFCP_UE_IP_ADDRESS_IP6PL)
     s = format (s, ",v6-Prefix:/%d", v->prefix_length);
 
   return s;
@@ -2810,7 +2821,7 @@ decode_pfcp_ie_ue_ip_address (u8 *data, u16 length, void *p)
   v->flags = get_u8 (data);
   length--;
 
-  if (v->flags & IE_UE_IP_ADDRESS_V4)
+  if (v->flags & PFCP_UE_IP_ADDRESS_V4)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2819,7 +2830,7 @@ decode_pfcp_ie_ue_ip_address (u8 *data, u16 length, void *p)
       length -= 4;
     }
 
-  if (v->flags & IE_UE_IP_ADDRESS_V6)
+  if (v->flags & PFCP_UE_IP_ADDRESS_V6)
     {
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2828,7 +2839,7 @@ decode_pfcp_ie_ue_ip_address (u8 *data, u16 length, void *p)
       length -= 16;
     }
 
-  if (v->flags & IE_UE_IP_ADDRESS_IPv6D)
+  if (v->flags & PFCP_UE_IP_ADDRESS_IPv6D)
     {
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2837,7 +2848,7 @@ decode_pfcp_ie_ue_ip_address (u8 *data, u16 length, void *p)
       length--;
     }
 
-  if (v->flags & IE_UE_IP_ADDRESS_IP6PL)
+  if (v->flags & PFCP_UE_IP_ADDRESS_IP6PL)
     {
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2854,14 +2865,14 @@ encode_pfcp_ie_ue_ip_address (void *p, u8 **vec)
   pfcp_ie_ue_ip_address_t *v = p;
 
   put_u8 (*vec, v->flags);
-  if (v->flags & IE_UE_IP_ADDRESS_V4)
+  if (v->flags & PFCP_UE_IP_ADDRESS_V4)
     put_ip4 (*vec, v->ip4);
-  if (v->flags & IE_UE_IP_ADDRESS_V6)
+  if (v->flags & PFCP_UE_IP_ADDRESS_V6)
     put_ip6 (*vec, v->ip6);
 
-  if (v->flags & IE_UE_IP_ADDRESS_IPv6D)
+  if (v->flags & PFCP_UE_IP_ADDRESS_IPv6D)
     put_u8 (*vec, v->prefix_delegation_length);
-  if (v->flags & IE_UE_IP_ADDRESS_IP6PL)
+  if (v->flags & PFCP_UE_IP_ADDRESS_IP6PL)
     put_u8 (*vec, v->prefix_length);
 
   return 0;
@@ -2899,17 +2910,17 @@ format_pfcp_ie_packet_rate (u8 *s, va_list *args)
 {
   pfcp_ie_packet_rate_t *v = va_arg (*args, pfcp_ie_packet_rate_t *);
 
-  s = format (s, "RCSR:%d", !!(v->flags & PACKET_RATE_RCSR));
+  s = format (s, "RCSR:%d", !!(v->flags & PFCP_PACKET_RATE_RCSR));
 
-  if (v->flags & PACKET_RATE_ULPR)
+  if (v->flags & PFCP_PACKET_RATE_ULPR)
     s = format (s, ",UL:%U", format_pfcp_ie_packet_rate_t, &v->ul);
-  if (v->flags & PACKET_RATE_DLPR)
+  if (v->flags & PFCP_PACKET_RATE_DLPR)
     s = format (s, ",DL:%U", format_pfcp_ie_packet_rate_t, &v->dl);
-  if (v->flags & PACKET_RATE_APRC)
+  if (v->flags & PFCP_PACKET_RATE_APRC)
     {
-      if (v->flags & PACKET_RATE_ULPR)
+      if (v->flags & PFCP_PACKET_RATE_ULPR)
         s = format (s, ",A-UL:%U", format_pfcp_ie_packet_rate_t, &v->a_ul);
-      if (v->flags & PACKET_RATE_DLPR)
+      if (v->flags & PFCP_PACKET_RATE_DLPR)
         s = format (s, ",A-DL:%U", format_pfcp_ie_packet_rate_t, &v->a_dl);
     }
   return s;
@@ -2926,7 +2937,7 @@ decode_pfcp_ie_packet_rate (u8 *data, u16 length, void *p)
   v->flags = get_u8 (data) & 0x03;
   length--;
 
-  if (v->flags & PACKET_RATE_ULPR)
+  if (v->flags & PFCP_PACKET_RATE_ULPR)
     {
       if (length < 3)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2936,7 +2947,7 @@ decode_pfcp_ie_packet_rate (u8 *data, u16 length, void *p)
       length -= 3;
     }
 
-  if (v->flags & PACKET_RATE_DLPR)
+  if (v->flags & PFCP_PACKET_RATE_DLPR)
     {
       if (length < 3)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -2946,9 +2957,9 @@ decode_pfcp_ie_packet_rate (u8 *data, u16 length, void *p)
       length -= 3;
     }
 
-  if (v->flags & PACKET_RATE_APRC)
+  if (v->flags & PFCP_PACKET_RATE_APRC)
     {
-      if (v->flags & PACKET_RATE_ULPR)
+      if (v->flags & PFCP_PACKET_RATE_ULPR)
         {
           if (length < 3)
             return PFCP_CAUSE_INVALID_LENGTH;
@@ -2958,7 +2969,7 @@ decode_pfcp_ie_packet_rate (u8 *data, u16 length, void *p)
           length -= 3;
         }
 
-      if (v->flags & PACKET_RATE_DLPR)
+      if (v->flags & PFCP_PACKET_RATE_DLPR)
         {
           if (length < 3)
             return PFCP_CAUSE_INVALID_LENGTH;
@@ -2978,24 +2989,24 @@ encode_pfcp_ie_packet_rate (void *p, u8 **vec)
   pfcp_ie_packet_rate_t *v = p;
 
   put_u8 (*vec, v->flags);
-  if (v->flags & PACKET_RATE_ULPR)
+  if (v->flags & PFCP_PACKET_RATE_ULPR)
     {
       put_u8 (*vec, v->ul.unit);
       put_u16 (*vec, v->ul.max);
     }
-  if (v->flags & PACKET_RATE_DLPR)
+  if (v->flags & PFCP_PACKET_RATE_DLPR)
     {
       put_u8 (*vec, v->dl.unit);
       put_u16 (*vec, v->dl.max);
     }
-  if (v->flags & PACKET_RATE_APRC)
+  if (v->flags & PFCP_PACKET_RATE_APRC)
     {
-      if (v->flags & PACKET_RATE_ULPR)
+      if (v->flags & PFCP_PACKET_RATE_ULPR)
         {
           put_u8 (*vec, v->a_ul.unit);
           put_u16 (*vec, v->a_ul.max);
         }
-      if (v->flags & PACKET_RATE_DLPR)
+      if (v->flags & PFCP_PACKET_RATE_DLPR)
         {
           put_u8 (*vec, v->a_dl.unit);
           put_u16 (*vec, v->a_dl.max);
@@ -3026,12 +3037,12 @@ format_pfcp_ie_dl_flow_level_marking (u8 *s, va_list *args)
   pfcp_ie_dl_flow_level_marking_t *v =
     va_arg (*args, pfcp_ie_dl_flow_level_marking_t *);
 
-  if (v->flags & DL_FLM_TTC)
+  if (v->flags & PFCP_DL_FLM_TTC)
     {
       s = format (s, "ToS/TC:0x%04x,", v->tos_traffic_class);
     }
 
-  if (v->flags & DL_FLM_SCI)
+  if (v->flags & PFCP_DL_FLM_SCI)
     {
       s = format (s, "SCI:0x%04x,", v->service_class_indicator);
     }
@@ -3053,7 +3064,7 @@ decode_pfcp_ie_dl_flow_level_marking (u8 *data, u16 length, void *p)
   v->flags = get_u8 (data) & 0x03;
   length--;
 
-  if (v->flags & DL_FLM_TTC)
+  if (v->flags & PFCP_DL_FLM_TTC)
     {
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -3062,7 +3073,7 @@ decode_pfcp_ie_dl_flow_level_marking (u8 *data, u16 length, void *p)
       length -= 2;
     }
 
-  if (v->flags & DL_FLM_SCI)
+  if (v->flags & PFCP_DL_FLM_SCI)
     {
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -3080,10 +3091,10 @@ encode_pfcp_ie_dl_flow_level_marking (void *p, u8 **vec)
 
   put_u8 (*vec, v->flags);
 
-  if (v->flags & DL_FLM_TTC)
+  if (v->flags & PFCP_DL_FLM_TTC)
     put_u16 (*vec, v->tos_traffic_class);
 
-  if (v->flags & DL_FLM_SCI)
+  if (v->flags & PFCP_DL_FLM_SCI)
     put_u16 (*vec, v->service_class_indicator);
 
   return 0;
@@ -3094,7 +3105,8 @@ static const char *header_type_enum[] = { "HTTP", NULL };
 static u8 *
 format_pfcp_ie_header_enrichment (u8 *s, va_list *args)
 {
-  pfcp_ie_header_enrichment_t *v = va_arg (*args, pfcp_ie_header_enrichment_t *);
+  pfcp_ie_header_enrichment_t *v =
+    va_arg (*args, pfcp_ie_header_enrichment_t *);
 
   return format (s, "%U,Name:%v,Value:%v", format_pfcp_enum, (u64) v->type,
                  header_type_enum, ARRAY_LEN (header_type_enum), v->name,
@@ -3161,11 +3173,11 @@ format_pfcp_ie_measurement_information (u8 *s, va_list *args)
     va_arg (*args, pfcp_ie_measurement_information_t *);
 
   return format (s, "MBQE:%d,INAM:%d,RADI:%d,ISTM:%d,MNOP:%d",
-                 !!(v->flags & MEASUREMENT_INFORMATION_MBQE),
-                 !!(v->flags & MEASUREMENT_INFORMATION_INAM),
-                 !!(v->flags & MEASUREMENT_INFORMATION_RADI),
-                 !!(v->flags & MEASUREMENT_INFORMATION_ISTM),
-                 !!(v->flags & MEASUREMENT_INFORMATION_MNOP));
+                 !!(v->flags & PFCP_MEASUREMENT_INFORMATION_MBQE),
+                 !!(v->flags & PFCP_MEASUREMENT_INFORMATION_INAM),
+                 !!(v->flags & PFCP_MEASUREMENT_INFORMATION_RADI),
+                 !!(v->flags & PFCP_MEASUREMENT_INFORMATION_ISTM),
+                 !!(v->flags & PFCP_MEASUREMENT_INFORMATION_MNOP));
 }
 
 static int
@@ -3176,7 +3188,7 @@ decode_pfcp_ie_measurement_information (u8 *data, u16 length, void *p)
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
 
-  v->flags = get_u8 (data) & MEASUREMENT_INFORMATION_MASK;
+  v->flags = get_u8 (data) & PFCP_MEASUREMENT_INFORMATION_MASK;
 
   return 0;
 }
@@ -3197,10 +3209,10 @@ format_pfcp_ie_node_report_type (u8 *s, va_list *args)
   pfcp_ie_node_report_type_t *v = va_arg (*args, pfcp_ie_node_report_type_t *);
 
   return format (s, "UPFR:%d,UPRR:%d,GKDR:%d,GPQR",
-                 !!(v->flags & NRT_USER_PLANE_PATH_FAILURE_REPORT),
-                 !!(v->flags & NRT_USER_PLANE_PATH_RECOVERY_REPORT),
-                 !!(v->flags & NRT_CLOCK_DRIFT_REPORT),
-                 !!(v->flags & NRT_GTP_U_PATH_QOS_REPORT));
+                 !!(v->flags & PFCP_NRT_USER_PLANE_PATH_FAILURE_REPORT),
+                 !!(v->flags & PFCP_NRT_USER_PLANE_PATH_RECOVERY_REPORT),
+                 !!(v->flags & PFCP_NRT_CLOCK_DRIFT_REPORT),
+                 !!(v->flags & PFCP_NRT_GTP_U_PATH_QOS_REPORT));
 }
 
 static int
@@ -3211,7 +3223,7 @@ decode_pfcp_ie_node_report_type (u8 *data, u16 length, void *p)
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
 
-  v->flags = get_u8 (data) & NRT_MASK;
+  v->flags = get_u8 (data) & PFCP_NRT_MASK;
 
   return 0;
 }
@@ -3229,10 +3241,11 @@ encode_pfcp_ie_node_report_type (void *p, u8 **vec)
 static u8 *
 format_pfcp_ie_remote_gtp_u_peer (u8 *s, va_list *args)
 {
-  pfcp_ie_remote_gtp_u_peer_t *v = va_arg (*args, pfcp_ie_remote_gtp_u_peer_t *);
+  pfcp_ie_remote_gtp_u_peer_t *v =
+    va_arg (*args, pfcp_ie_remote_gtp_u_peer_t *);
 
   s = format (s, "%U", format_ip46_address, &v->ip, IP46_TYPE_ANY);
-  if (v->destination_interface < DST_INTF_NUM)
+  if (v->destination_interface < PFCP_DST_INTF_NUM)
     s = format (s, ",DI:%U", format_pfcp_ie_destination_interface,
                 v->destination_interface);
   if (vec_len (v->network_instance) > 0)
@@ -3253,14 +3266,14 @@ decode_pfcp_ie_remote_gtp_u_peer (u8 *data, u16 length, void *p)
   flags = get_u8 (data);
   length--;
 
-  if (flags & REMOTE_GTP_U_PEER_IP6)
+  if (flags & PFCP_REMOTE_GTP_U_PEER_IP6)
     {
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
       get_ip46_ip6 (v->ip, data);
       length -= 16;
     }
-  else if (flags & REMOTE_GTP_U_PEER_IP4)
+  else if (flags & PFCP_REMOTE_GTP_U_PEER_IP4)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -3269,7 +3282,7 @@ decode_pfcp_ie_remote_gtp_u_peer (u8 *data, u16 length, void *p)
     }
 
   v->destination_interface = ~0;
-  if (flags & REMOTE_GTP_U_PEER_DI)
+  if (flags & PFCP_REMOTE_GTP_U_PEER_DI)
     {
       u16 di_len;
 
@@ -3285,11 +3298,11 @@ decode_pfcp_ie_remote_gtp_u_peer (u8 *data, u16 length, void *p)
       v->destination_interface = get_u8 (data) & 0x0f;
       length -= di_len;
 
-      if (v->destination_interface >= DST_INTF_NUM)
+      if (v->destination_interface >= PFCP_DST_INTF_NUM)
         return PFCP_CAUSE_REQUEST_REJECTED;
     }
 
-  if (flags & REMOTE_GTP_U_PEER_NI)
+  if (flags & PFCP_REMOTE_GTP_U_PEER_NI)
     {
       u16 ni_len;
 
@@ -3315,17 +3328,17 @@ encode_pfcp_ie_remote_gtp_u_peer (void *p, u8 **vec)
   pfcp_ie_remote_gtp_u_peer_t *v = p;
   u8 flags;
 
-  flags = (v->destination_interface != (u8) ~0 ? REMOTE_GTP_U_PEER_DI : 0) |
-          (vec_len (v->network_instance) > 0 ? REMOTE_GTP_U_PEER_NI : 0);
+  flags = (v->destination_interface != (u8) ~0 ? PFCP_REMOTE_GTP_U_PEER_DI : 0) |
+          (vec_len (v->network_instance) > 0 ? PFCP_REMOTE_GTP_U_PEER_NI : 0);
 
   if (ip46_address_is_ip4 (&v->ip))
     {
-      put_u8 (*vec, flags | REMOTE_GTP_U_PEER_IP4);
+      put_u8 (*vec, flags | PFCP_REMOTE_GTP_U_PEER_IP4);
       put_ip46_ip4 (*vec, v->ip);
     }
   else
     {
-      put_u8 (*vec, flags | REMOTE_GTP_U_PEER_IP6);
+      put_u8 (*vec, flags | PFCP_REMOTE_GTP_U_PEER_IP6);
       put_ip46_ip6 (*vec, v->ip);
     }
 
@@ -3371,7 +3384,7 @@ format_pfcp_ie_oci_flags (u8 *s, va_list *args)
 {
   pfcp_ie_oci_flags_t *v = va_arg (*args, pfcp_ie_oci_flags_t *);
 
-  return format (s, "AOCI:%d", !!(v->flags & OCI_ASSOCIATE_OCI_WITH_NODE_ID));
+  return format (s, "AOCI:%d", !!(v->flags & PFCP_OCI_ASSOCIATE_OCI_WITH_NODE_ID));
 }
 
 static int
@@ -3404,8 +3417,8 @@ format_pfcp_ie_pfcp_association_release_request (u8 *s, va_list *args)
     va_arg (*args, pfcp_ie_pfcp_association_release_request_t *);
 
   return format (s, "SARR:%d,URSS:%d",
-                 !!(v->flags & F_PFCP_ASSOCIATION_RELEASE_REQUEST_SARR),
-                 !!(v->flags & F_PFCP_ASSOCIATION_RELEASE_REQUEST_URSS));
+                 !!(v->flags & PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_SARR),
+                 !!(v->flags & PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_URSS));
 }
 
 static int
@@ -3416,7 +3429,7 @@ decode_pfcp_ie_pfcp_association_release_request (u8 *data, u16 length, void *p)
   if (length < 1)
     return PFCP_CAUSE_INVALID_LENGTH;
 
-  v->flags = get_u8 (data) & F_PFCP_ASSOCIATION_RELEASE_REQUEST_MASK;
+  v->flags = get_u8 (data) & PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_MASK;
 
   return 0;
 }
@@ -3436,9 +3449,9 @@ encode_pfcp_ie_pfcp_association_release_request (void *p, u8 **vec)
 #define encode_pfcp_ie_graceful_release_period encode_pfcp_ie_timer
 
 static char *pdn_type[] = {
-  [PDN_TYPE_IPv4] = "IPv4",         [PDN_TYPE_IPv6] = "IPv6",
-  [PDN_TYPE_IPv4v6] = "IPv4v6",     [PDN_TYPE_NON_IP] = "Non-IP",
-  [PDN_TYPE_ETHERNET] = "Ethernet",
+  [PFCP_PDN_TYPE_IPv4] = "IPv4",         [PFCP_PDN_TYPE_IPv6] = "IPv6",
+  [PFCP_PDN_TYPE_IPv4v6] = "IPv4v6",     [PFCP_PDN_TYPE_NON_IP] = "Non-IP",
+  [PFCP_PDN_TYPE_ETHERNET] = "Ethernet",
 };
 
 static u8 *
@@ -3474,9 +3487,9 @@ encode_pfcp_ie_pdn_type (void *p, u8 **vec)
 }
 
 static char *failed_rule_type[] = {
-  [FAILED_RULE_TYPE_PDR] = "PDR", [FAILED_RULE_TYPE_FAR] = "FAR",
-  [FAILED_RULE_TYPE_QER] = "QER", [FAILED_RULE_TYPE_URR] = "URR",
-  [FAILED_RULE_TYPE_BAR] = "BAR",
+  [PFCP_FAILED_RULE_TYPE_PDR] = "PDR", [PFCP_FAILED_RULE_TYPE_FAR] = "FAR",
+  [PFCP_FAILED_RULE_TYPE_QER] = "QER", [PFCP_FAILED_RULE_TYPE_URR] = "URR",
+  [PFCP_FAILED_RULE_TYPE_BAR] = "BAR",
 };
 
 static u8 *
@@ -3484,8 +3497,8 @@ format_pfcp_ie_failed_rule_id (u8 *s, va_list *args)
 {
   pfcp_ie_failed_rule_id_t *n = va_arg (*args, pfcp_ie_failed_rule_id_t *);
 
-  return format (s, "%U: %u", format_pfcp_enum, (u64) n->type, failed_rule_type,
-                 ARRAY_LEN (failed_rule_type), n->id);
+  return format (s, "%U: %u", format_pfcp_enum, (u64) n->type,
+                 failed_rule_type, ARRAY_LEN (failed_rule_type), n->id);
 }
 
 static int
@@ -3501,31 +3514,31 @@ decode_pfcp_ie_failed_rule_id (u8 *data, u16 length, void *p)
 
   switch (v->type)
     {
-    case FAILED_RULE_TYPE_PDR:
+    case PFCP_FAILED_RULE_TYPE_PDR:
       if (length < 2)
         return PFCP_CAUSE_INVALID_LENGTH;
       v->id = get_u16 (data);
       break;
 
-    case FAILED_RULE_TYPE_FAR:
+    case PFCP_FAILED_RULE_TYPE_FAR:
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
       v->id = get_u32 (data);
       break;
 
-    case FAILED_RULE_TYPE_QER:
+    case PFCP_FAILED_RULE_TYPE_QER:
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
       v->id = get_u32 (data);
       break;
 
-    case FAILED_RULE_TYPE_URR:
+    case PFCP_FAILED_RULE_TYPE_URR:
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
       v->id = get_u32 (data);
       break;
 
-    case FAILED_RULE_TYPE_BAR:
+    case PFCP_FAILED_RULE_TYPE_BAR:
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
       v->id = get_u8 (data);
@@ -3548,23 +3561,23 @@ encode_pfcp_ie_failed_rule_id (void *p, u8 **vec)
   put_u8 (*vec, v->type);
   switch (v->type)
     {
-    case FAILED_RULE_TYPE_PDR:
+    case PFCP_FAILED_RULE_TYPE_PDR:
       put_u16 (*vec, v->id);
       break;
 
-    case FAILED_RULE_TYPE_FAR:
+    case PFCP_FAILED_RULE_TYPE_FAR:
       put_u32 (*vec, v->id);
       break;
 
-    case FAILED_RULE_TYPE_QER:
+    case PFCP_FAILED_RULE_TYPE_QER:
       put_u32 (*vec, v->id);
       break;
 
-    case FAILED_RULE_TYPE_URR:
+    case PFCP_FAILED_RULE_TYPE_URR:
       put_u32 (*vec, v->id);
       break;
 
-    case FAILED_RULE_TYPE_BAR:
+    case PFCP_FAILED_RULE_TYPE_BAR:
       put_u8 (*vec, v->id);
       break;
 
@@ -3583,9 +3596,9 @@ format_pfcp_ie_time_quota_mechanism (u8 *s, va_list *args)
   pfcp_ie_time_quota_mechanism_t *v =
     va_arg (*args, pfcp_ie_time_quota_mechanism_t *);
 
-  return format (s, "%U,%u", format_pfcp_enum, (u64) v->base_time_interval_type,
-                 base_time_interval_type, ARRAY_LEN (base_time_interval_type),
-                 v->base_time_interval);
+  return format (s, "%U,%u", format_pfcp_enum,
+                 (u64) v->base_time_interval_type, base_time_interval_type,
+                 ARRAY_LEN (base_time_interval_type), v->base_time_interval);
 }
 
 static int
@@ -3623,9 +3636,9 @@ format_pfcp_ie_user_plane_ip_resource_information (u8 *s, va_list *args)
     s = format (s, "Network Instance: %U, ", format_pfcp_dns_labels,
                 v->network_instance);
 
-  if (v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_V4)
+  if (v->flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V4)
     s = format (s, "%U, ", format_ip4_address, &v->ip4);
-  if (v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_V6)
+  if (v->flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V6)
     s = format (s, "%U, ", format_ip6_address, &v->ip6);
 
   if (v->teid_range_indication != 0)
@@ -3638,7 +3651,8 @@ format_pfcp_ie_user_plane_ip_resource_information (u8 *s, va_list *args)
 }
 
 static int
-decode_pfcp_ie_user_plane_ip_resource_information (u8 *data, u16 length, void *p)
+decode_pfcp_ie_user_plane_ip_resource_information (u8 *data, u16 length,
+                                                   void *p)
 {
   pfcp_ie_user_plane_ip_resource_information_t *v = p;
   u8 flags;
@@ -3647,7 +3661,7 @@ decode_pfcp_ie_user_plane_ip_resource_information (u8 *data, u16 length, void *p
     return PFCP_CAUSE_INVALID_LENGTH;
 
   flags = get_u8 (data);
-  v->flags = flags & USER_PLANE_IP_RESOURCE_INFORMATION_MASK;
+  v->flags = flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_MASK;
   length--;
 
   v->teid_range_indication = (flags >> 2) & 0x07;
@@ -3660,7 +3674,7 @@ decode_pfcp_ie_user_plane_ip_resource_information (u8 *data, u16 length, void *p
       length--;
     }
 
-  if (flags & USER_PLANE_IP_RESOURCE_INFORMATION_V4)
+  if (flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V4)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -3668,7 +3682,7 @@ decode_pfcp_ie_user_plane_ip_resource_information (u8 *data, u16 length, void *p
       length -= 4;
     }
 
-  if (flags & USER_PLANE_IP_RESOURCE_INFORMATION_V6)
+  if (flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V6)
     {
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -3676,10 +3690,10 @@ decode_pfcp_ie_user_plane_ip_resource_information (u8 *data, u16 length, void *p
       length -= 16;
     }
 
-  if (flags & USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI)
+  if (flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI)
     get_vec (v->network_instance, length, data);
 
-  if (flags & USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI)
+  if (flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI)
     v->source_intf = get_u8 (data) & 0x0f;
 
   return 0;
@@ -3691,25 +3705,25 @@ encode_pfcp_ie_user_plane_ip_resource_information (void *p, u8 **vec)
   pfcp_ie_user_plane_ip_resource_information_t *v = p;
   u8 flags;
 
-  flags = v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_MASK;
+  flags = v->flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_MASK;
   flags |= (v->teid_range_indication & 0x07) << 2;
-  flags |= v->network_instance ? USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI : 0;
+  flags |= v->network_instance ? PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI : 0;
 
   put_u8 (*vec, flags);
 
   if (v->teid_range_indication != 0)
     put_u8 (*vec, v->teid_range);
 
-  if (v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_V4)
+  if (v->flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V4)
     put_ip4 (*vec, v->ip4);
 
-  if (v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_V6)
+  if (v->flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V6)
     put_ip6 (*vec, v->ip6);
 
   if (v->network_instance)
     vec_append (*vec, v->network_instance);
 
-  if (v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI)
+  if (v->flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI)
     put_u8 (*vec, v->source_intf & 0x0f);
 
   return 0;
@@ -3778,7 +3792,7 @@ format_pfcp_ie_rqi (u8 *s, va_list *args)
 {
   pfcp_ie_rqi_t *v = va_arg (*args, pfcp_ie_rqi_t *);
 
-  return format (s, "RQI:%d", !!(v->flags & RQI_FLAG));
+  return format (s, "RQI:%d", !!(v->flags & PFCP_RQI_FLAG));
 }
 
 static int
@@ -3818,7 +3832,7 @@ format_pfcp_ie_additional_usage_reports_information (u8 *s, va_list *args)
   pfcp_ie_additional_usage_reports_information_t *v =
     va_arg (*args, pfcp_ie_additional_usage_reports_information_t *);
 
-  if (*v & AURI_FLAG)
+  if (*v & PFCP_AURI_FLAG)
     s = format (s, "AURI:true");
   else
     s = format (s, "%u", *v);
@@ -3838,13 +3852,13 @@ format_pfcp_ie_mac_address (u8 *s, va_list *args)
 {
   pfcp_ie_mac_address_t *v = va_arg (*args, pfcp_ie_mac_address_t *);
 
-  if (v->flags & F_SOURCE_MAC)
+  if (v->flags & PFCP_MAC_F_SOURCE_MAC)
     s = format (s, "SRC:%U,", format_mac_address_t, v->src_mac);
-  if (v->flags & F_DESTINATION_MAC)
+  if (v->flags & PFCP_MAC_F_DESTINATION_MAC)
     s = format (s, "DST:%U,", format_mac_address_t, v->dst_mac);
-  if (v->flags & F_UPPER_SOURCE_MAC)
+  if (v->flags & PFCP_MAC_F_UPPER_SOURCE_MAC)
     s = format (s, "USRC:%U,", format_mac_address_t, v->upper_src_mac);
-  if (v->flags & F_UPPER_DESTINATION_MAC)
+  if (v->flags & PFCP_MAC_F_UPPER_DESTINATION_MAC)
     s = format (s, "UDST:%U,", format_mac_address_t, v->upper_dst_mac);
 
   if (v->flags)
@@ -3864,7 +3878,7 @@ decode_pfcp_ie_mac_address (u8 *data, u16 length, void *p)
   v->flags = get_u8 (data);
   length--;
 
-  if (v->flags & F_SOURCE_MAC)
+  if (v->flags & PFCP_MAC_F_SOURCE_MAC)
     {
       if (length < 6)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -3874,7 +3888,7 @@ decode_pfcp_ie_mac_address (u8 *data, u16 length, void *p)
       length -= 6;
     }
 
-  if (v->flags & F_DESTINATION_MAC)
+  if (v->flags & PFCP_MAC_F_DESTINATION_MAC)
     {
       if (length < 6)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -3884,7 +3898,7 @@ decode_pfcp_ie_mac_address (u8 *data, u16 length, void *p)
       length -= 6;
     }
 
-  if (v->flags & F_UPPER_SOURCE_MAC)
+  if (v->flags & PFCP_MAC_F_UPPER_SOURCE_MAC)
     {
       if (length < 6)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -3894,7 +3908,7 @@ decode_pfcp_ie_mac_address (u8 *data, u16 length, void *p)
       length -= 6;
     }
 
-  if (v->flags & F_UPPER_DESTINATION_MAC)
+  if (v->flags & PFCP_MAC_F_UPPER_DESTINATION_MAC)
     {
       if (length < 6)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -3913,13 +3927,13 @@ encode_pfcp_ie_mac_address (void *p, u8 **vec)
   pfcp_ie_mac_address_t *v = p;
 
   put_u8 (*vec, v->flags);
-  if (v->flags & F_SOURCE_MAC)
+  if (v->flags & PFCP_MAC_F_SOURCE_MAC)
     vec_add (*vec, &v->src_mac, 6);
-  if (v->flags & F_DESTINATION_MAC)
+  if (v->flags & PFCP_MAC_F_DESTINATION_MAC)
     vec_add (*vec, &v->dst_mac, 6);
-  if (v->flags & F_UPPER_SOURCE_MAC)
+  if (v->flags & PFCP_MAC_F_UPPER_SOURCE_MAC)
     vec_add (*vec, &v->upper_src_mac, 6);
-  if (v->flags & F_UPPER_DESTINATION_MAC)
+  if (v->flags & PFCP_MAC_F_UPPER_DESTINATION_MAC)
     vec_add (*vec, &v->upper_dst_mac, 6);
 
   return 0;
@@ -3941,9 +3955,9 @@ decode_pfcp_ie_vlan_tag (u8 *data, u16 length, void *p)
   if (length < 3)
     return PFCP_CAUSE_INVALID_LENGTH;
 
-  v->mask = clib_host_to_net_u16 (((data[0] & BIT (0)) ? VLAN_MASK_PCP : 0) |
-                                  ((data[0] & BIT (1)) ? VLAN_MASK_DEI : 0) |
-                                  ((data[0] & BIT (2)) ? VLAN_MASK_VID : 0));
+  v->mask = clib_host_to_net_u16 (((data[0] & BIT (0)) ? PFCP_VLAN_MASK_PCP : 0) |
+                                  ((data[0] & BIT (1)) ? PFCP_VLAN_MASK_DEI : 0) |
+                                  ((data[0] & BIT (2)) ? PFCP_VLAN_MASK_VID : 0));
   v->tci =
     clib_host_to_net_u16 (((data[1] & 0x07) << 5) | ((data[1] & 0x08) << 1) |
                           ((data[1] & 0xf0) << 4) | data[2]);
@@ -3961,10 +3975,10 @@ encode_pfcp_ie_vlan_tag (void *p, u8 **vec)
   u16 mask = clib_net_to_host_u16 (v->mask);
   u16 tci = clib_net_to_host_u16 (v->tci);
 
-  put_u8 (*vec, (((mask & VLAN_MASK_PCP) ? BIT (0) : 0) |
-                 ((mask & VLAN_MASK_DEI) ? BIT (1) : 0) |
-                 ((mask & VLAN_MASK_VID) ? BIT (2) : 0)));
-  put_u16 (*vec, (((tci & VLAN_MASK_PCP) >> 5) | ((tci & VLAN_MASK_DEI) >> 1) |
+  put_u8 (*vec, (((mask & PFCP_VLAN_MASK_PCP) ? BIT (0) : 0) |
+                 ((mask & PFCP_VLAN_MASK_DEI) ? BIT (1) : 0) |
+                 ((mask & PFCP_VLAN_MASK_VID) ? BIT (2) : 0)));
+  put_u16 (*vec, (((tci & PFCP_VLAN_MASK_PCP) >> 5) | ((tci & PFCP_VLAN_MASK_DEI) >> 1) |
                   ((tci & 0x0f00) << 4) | (tci & 0x00ff)));
   return 0;
 }
@@ -3986,8 +4000,8 @@ format_pfcp_ie_proxying (u8 *s, va_list *args)
 {
   pfcp_ie_proxying_t *v = va_arg (*args, pfcp_ie_proxying_t *);
 
-  return format (s, "ARP:%d,INS:%d", !!(v->flags & F_PROXY_ARP),
-                 !!(v->flags & F_PROXY_IP6_NS));
+  return format (s, "ARP:%d,INS:%d", !!(v->flags & PFCP_F_PROXY_ARP),
+                 !!(v->flags & PFCP_F_PROXY_IP6_NS));
 }
 
 static int
@@ -4088,7 +4102,7 @@ decode_pfcp_ie_user_id (u8 *data, u16 length, void *p)
   flags = get_u8 (data);
   length--;
 
-  if (flags & USER_ID_IMSI)
+  if (flags & PFCP_USER_ID_IMSI)
     {
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -4104,7 +4118,7 @@ decode_pfcp_ie_user_id (u8 *data, u16 length, void *p)
       length -= v->imsi_len;
     }
 
-  if (flags & USER_ID_IMEI)
+  if (flags & PFCP_USER_ID_IMEI)
     {
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -4120,7 +4134,7 @@ decode_pfcp_ie_user_id (u8 *data, u16 length, void *p)
       length -= v->imei_len;
     }
 
-  if (flags & USER_ID_MSISDN)
+  if (flags & PFCP_USER_ID_MSISDN)
     {
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -4136,7 +4150,7 @@ decode_pfcp_ie_user_id (u8 *data, u16 length, void *p)
       length -= v->msisdn_len;
     }
 
-  if (flags & USER_ID_NAI)
+  if (flags & PFCP_USER_ID_NAI)
     {
       u8 len;
 
@@ -4162,10 +4176,10 @@ encode_pfcp_ie_user_id (void *p, u8 **vec)
   pfcp_ie_user_id_t *v = p;
   u8 flags;
 
-  flags = ((v->imei_len > 0) ? USER_ID_IMEI : 0) |
-          ((v->imsi_len > 0) ? USER_ID_IMSI : 0) |
-          ((v->msisdn_len > 0) ? USER_ID_MSISDN : 0) |
-          ((vec_len (v->nai) > 0) ? USER_ID_NAI : 0);
+  flags = ((v->imei_len > 0) ? PFCP_USER_ID_IMEI : 0) |
+          ((v->imsi_len > 0) ? PFCP_USER_ID_IMSI : 0) |
+          ((v->msisdn_len > 0) ? PFCP_USER_ID_MSISDN : 0) |
+          ((vec_len (v->nai) > 0) ? PFCP_USER_ID_NAI : 0);
 
   put_u8 (*vec, flags);
 
@@ -4210,7 +4224,7 @@ format_pfcp_ie_ethernet_pdu_session_information (u8 *s, va_list *args)
   pfcp_ie_ethernet_pdu_session_information_t *v =
     va_arg (*args, pfcp_ie_ethernet_pdu_session_information_t *);
 
-  return format (s, "ETHI:%d", !!(v->flags & F_ETHERNET_INDICATION));
+  return format (s, "ETHI:%d", !!(v->flags & PFCP_F_ETHERNET_INDICATION));
 }
 
 static int
@@ -4361,7 +4375,8 @@ format_mccmcn (u8 *s, va_list *args)
 static u8 *
 format_pfcp_ie_trace_information (u8 *s, va_list *args)
 {
-  pfcp_ie_trace_information_t *v = va_arg (*args, pfcp_ie_trace_information_t *);
+  pfcp_ie_trace_information_t *v =
+    va_arg (*args, pfcp_ie_trace_information_t *);
   u8 *i;
 
   s = format (s, "MCC/MNC:%U,Id:0x%08x,Evs:", format_mccmcn, &v->mccmnc[0],
@@ -4534,7 +4549,8 @@ static char *tgpp_interface_type[] = {
 static u8 *
 format_pfcp_ie_tgpp_interface_type (u8 *s, va_list *args)
 {
-  pfcp_ie_tgpp_interface_type_t *v = va_arg (*args, pfcp_ie_tgpp_interface_type_t *);
+  pfcp_ie_tgpp_interface_type_t *v =
+    va_arg (*args, pfcp_ie_tgpp_interface_type_t *);
 
   return format (s, "%U", format_pfcp_enum, (u64) *v, tgpp_interface_type,
                  ARRAY_LEN (tgpp_interface_type));
@@ -4548,7 +4564,7 @@ format_pfcp_ie_pfcpsrreq_flags (u8 *s, va_list *args)
 {
   pfcp_ie_pfcpsrreq_flags_t *v = va_arg (*args, pfcp_ie_pfcpsrreq_flags_t *);
 
-  return format (s, "PSDBU:%d", !!(*v & PFCPSRREQ_PSDBU));
+  return format (s, "PSDBU:%d", !!(*v & PFCP_PFCPSRREQ_PSDBU));
 }
 
 #define decode_pfcp_ie_pfcpsrreq_flags decode_u8_ie
@@ -4559,7 +4575,7 @@ format_pfcp_ie_pfcpaureq_flags (u8 *s, va_list *args)
 {
   pfcp_ie_pfcpaureq_flags_t *v = va_arg (*args, pfcp_ie_pfcpaureq_flags_t *);
 
-  return format (s, "PARPS:%d", !!(*v & PFCPAUREQ_PARPS));
+  return format (s, "PARPS:%d", !!(*v & PFCP_PFCPAUREQ_PARPS));
 }
 
 #define decode_pfcp_ie_pfcpaureq_flags decode_u8_ie
@@ -4578,8 +4594,8 @@ format_pfcp_ie_pfcpaureq_flags (u8 *s, va_list *args)
 #define encode_pfcp_ie_mar_id encode_u16_ie
 
 static char *steering_functionality[] = {
-  [STEERING_FUNCTIONALITY_ATSSS_LL] = "ATSSS-LL",
-  [STEERING_FUNCTIONALITY_MPTCP] = "MPTCP",
+  [PFCP_STEERING_FUNCTIONALITY_ATSSS_LL] = "ATSSS-LL",
+  [PFCP_STEERING_FUNCTIONALITY_MPTCP] = "MPTCP",
 };
 
 static u8 *
@@ -4596,10 +4612,10 @@ format_pfcp_ie_steering_functionality (u8 *s, va_list *args)
 #define encode_pfcp_ie_steering_functionality encode_u8_ie
 
 static char *steering_mode[] = {
-  [STEERING_MODE_ACTIVE_STANDBY] = "Active-Standby",
-  [STEERING_MODE_SMALLEST_DELAY] = "Smallest Delay",
-  [STEERING_MODE_LOAD_BALANCING] = "Load Balancing",
-  [STEERING_MODE_PRIORITY_BASED] = "Priority-based",
+  [PFCP_STEERING_MODE_ACTIVE_STANDBY] = "Active-Standby",
+  [PFCP_STEERING_MODE_SMALLEST_DELAY] = "Smallest Delay",
+  [PFCP_STEERING_MODE_LOAD_BALANCING] = "Load Balancing",
+  [PFCP_STEERING_MODE_PFCP_PRIORITY_BASED] = "Priority-based",
 };
 
 static u8 *
@@ -4619,10 +4635,10 @@ format_pfcp_ie_steering_mode (u8 *s, va_list *args)
 #define encode_pfcp_ie_weight encode_u8_ie
 
 static char *priority[] = {
-  [PRIORITY_ACTIVE] = "Active",
-  [PRIORITY_STANDBY] = "Standby",
-  [PRIORITY_HIGH] = "High",
-  [PRIORITY_LOW] = "Low",
+  [PFCP_PRIORITY_ACTIVE] = "Active",
+  [PFCP_PRIORITY_STANDBY] = "Standby",
+  [PFCP_PRIORITY_HIGH] = "High",
+  [PFCP_PRIORITY_LOW] = "Low",
 };
 
 static u8 *
@@ -4678,17 +4694,17 @@ format_pfcp_ie_alternative_smf_ip_address (u8 *s, va_list *args)
     va_arg (*args, pfcp_ie_alternative_smf_ip_address_t *);
 
   switch (n->flags &
-          (ALTERNATIVE_SMF_IP_ADDRESS_V4 | ALTERNATIVE_SMF_IP_ADDRESS_V6))
+          (PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4 | PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V6))
     {
-    case ALTERNATIVE_SMF_IP_ADDRESS_V4:
+    case PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4:
       s = format (s, "%U", format_ip4_address, &n->ip4);
       break;
 
-    case ALTERNATIVE_SMF_IP_ADDRESS_V6:
+    case PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V6:
       s = format (s, "%U", format_ip6_address, &n->ip6);
       break;
 
-    case (ALTERNATIVE_SMF_IP_ADDRESS_V4 | ALTERNATIVE_SMF_IP_ADDRESS_V6):
+    case (PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4 | PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V6):
       s = format (s, "%U,%U", format_ip4_address, &n->ip4, format_ip6_address,
                   &n->ip6);
       break;
@@ -4714,7 +4730,7 @@ decode_pfcp_ie_alternative_smf_ip_address (u8 *data, u16 length, void *p)
       return -1;
     }
 
-  if (v->flags & ALTERNATIVE_SMF_IP_ADDRESS_V4)
+  if (v->flags & PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -4723,7 +4739,7 @@ decode_pfcp_ie_alternative_smf_ip_address (u8 *data, u16 length, void *p)
       length -= 4;
     }
 
-  if (v->flags & ALTERNATIVE_SMF_IP_ADDRESS_V6)
+  if (v->flags & PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V6)
     {
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -4741,10 +4757,10 @@ encode_pfcp_ie_alternative_smf_ip_address (void *p, u8 **vec)
 
   put_u8 (*vec, v->flags);
 
-  if (v->flags & ALTERNATIVE_SMF_IP_ADDRESS_V4)
+  if (v->flags & PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4)
     put_ip4 (*vec, v->ip4);
 
-  if (v->flags & ALTERNATIVE_SMF_IP_ADDRESS_V6)
+  if (v->flags & PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V6)
     put_ip6 (*vec, v->ip6);
 
   return 0;
@@ -4921,7 +4937,7 @@ format_pfcp_ie_bbf_up_function_features (u8 *s, va_list *args)
   pfcp_ie_bbf_up_function_features_t *n =
     va_arg (*args, pfcp_ie_bbf_up_function_features_t *);
 
-  s = format (s, "NAT:%u", !!(*n & BBF_UP_NAT));
+  s = format (s, "NAT:%u", !!(*n & PFCP_BBF_UP_NAT));
   return s;
 }
 
@@ -5094,7 +5110,7 @@ static struct pfcp_group_ie_def pfcp_create_far_group[] =
     },
     [CREATE_FAR_TP_IPFIX_POLICY] = {
       .type = PFCP_IE_TP_IPFIX_POLICY,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_create_far_t, ipfix_policy)
     },
   };
@@ -5141,14 +5157,14 @@ static struct pfcp_group_ie_def pfcp_forwarding_parameters_group[] =
       .type = PFCP_IE_TGPP_INTERFACE_TYPE,
       .offset = offsetof(pfcp_ie_forwarding_parameters_t, destination_interface_type)
     },
-    [FORWARDING_PARAMETERS_BBF_APPLY_ACTION] = {
-      .type = PFCP_IE_BBF_APPLY_ACTION,
-      .vendor = VENDOR_BBF,
+    [FORWARDING_PARAMETERS_BBPFCP_F_APPLY_ACTION] = {
+      .type = PFCP_IE_BBPFCP_F_APPLY_ACTION,
+      .vendor = PFCP_VENDOR_BBF,
       .offset = offsetof(pfcp_ie_forwarding_parameters_t, bbf_apply_action)
     },
     [FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK] = {
       .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
-      .vendor = VENDOR_BBF,
+      .vendor = PFCP_VENDOR_BBF,
       .offset = offsetof(pfcp_ie_forwarding_parameters_t, nat_port_block)
     },
   };
@@ -5405,7 +5421,7 @@ static struct pfcp_group_ie_def pfcp_update_far_group[] =
     },
     [UPDATE_FAR_TP_IPFIX_POLICY] = {
       .type = PFCP_IE_TP_IPFIX_POLICY,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_update_far_t, ipfix_policy)
     },
   };
@@ -5440,7 +5456,7 @@ static struct pfcp_group_ie_def pfcp_update_forwarding_parameters_group[] =
       .type = PFCP_IE_HEADER_ENRICHMENT,
       .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, header_enrichment)
     },
-    [UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS] = {
+    [UPDATE_FORWARDING_PARAMETERS_PFCP_PFCPSMREQ_FLAGS] = {
       .type = PFCP_IE_PFCPSMREQ_FLAGS,
       .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, pfcpsmreq_flags)
     },
@@ -5782,17 +5798,17 @@ static struct pfcp_group_ie_def pfcp_usage_report_smr_group[] =
     },
     [USAGE_REPORT_TP_NOW] = {
       .type = PFCP_IE_TP_NOW,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_usage_report_t, tp_now)
     },
     [USAGE_REPORT_TP_START_TIME] = {
       .type = PFCP_IE_TP_START_TIME,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_usage_report_t, tp_start_time)
     },
     [USAGE_REPORT_TP_END_TIME] = {
       .type = PFCP_IE_TP_END_TIME,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_usage_report_t, tp_end_time)
     },
   };
@@ -5845,17 +5861,17 @@ static struct pfcp_group_ie_def pfcp_usage_report_sdr_group[] =
     },
     [USAGE_REPORT_TP_NOW] = {
       .type = PFCP_IE_TP_NOW,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_usage_report_t, tp_now)
     },
     [USAGE_REPORT_TP_START_TIME] = {
       .type = PFCP_IE_TP_START_TIME,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_usage_report_t, tp_start_time)
     },
     [USAGE_REPORT_TP_END_TIME] = {
       .type = PFCP_IE_TP_END_TIME,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_usage_report_t, tp_end_time)
     },
   };
@@ -5924,17 +5940,17 @@ static struct pfcp_group_ie_def pfcp_usage_report_srr_group[] =
     },
     [USAGE_REPORT_TP_NOW] = {
       .type = PFCP_IE_TP_NOW,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_usage_report_t, tp_now)
     },
     [USAGE_REPORT_TP_START_TIME] = {
       .type = PFCP_IE_TP_START_TIME,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_usage_report_t, tp_start_time)
     },
     [USAGE_REPORT_TP_END_TIME] = {
       .type = PFCP_IE_TP_END_TIME,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_usage_report_t, tp_end_time)
     },
   };
@@ -6315,7 +6331,7 @@ static struct pfcp_group_ie_def pfcp_update_access_forwarding_action_information
 static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] =
   {
     [UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY] = {
-      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
+      .type = PFCP_PFCP_UE_IP_ADDRESS_POOL_IDENTITY,
       .offset = offsetof(pfcp_ie_ue_ip_address_pool_information_t,
 			 ue_ip_address_pool_identity)
     },
@@ -6331,7 +6347,7 @@ static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] =
     },
     [UE_IP_ADDRESS_POOL_INFORMATION_BBF_NAT_PORT_BLOCK] = {
       .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
-      .vendor = VENDOR_BBF,
+      .vendor = PFCP_VENDOR_BBF,
       .is_array = true,
       .offset = offsetof(pfcp_ie_ue_ip_address_pool_information_t,
                          port_blocks)
@@ -6343,8 +6359,8 @@ format_pfcp_ie_ip_version (u8 * s, va_list * args)
 {
   pfcp_ie_ip_version_t *v = va_arg (*args, pfcp_ie_ip_version_t *);
 
-  s = format (s, "IPv4:%u IPv6 %u", !!(*v & IP_VERSION_4),
-	      !!(*v & IP_VERSION_6));
+  s = format (s, "IPv4:%u IPv6 %u", !!(*v & PFCP_IP_VERSION_4),
+	      !!(*v & PFCP_IP_VERSION_6));
 
   return s;
 }
@@ -6356,7 +6372,7 @@ decode_pfcp_ie_ip_version (u8 * data, u16 length, void *p)
 
   *v = get_u8 (data);
 
-  if (!(*v & IP_VERSION_4) && !(*v & IP_VERSION_6))
+  if (!(*v & PFCP_IP_VERSION_4) && !(*v & PFCP_IP_VERSION_6))
     {
       pfcp_debug
 	("PFCP: IP Version should have at least IPv4 or IPv6 bits set");
@@ -6371,7 +6387,7 @@ encode_pfcp_ie_ip_version (void *p, u8 ** vec)
 {
   pfcp_ie_ip_version_t *v = p;
 
-  if (!(*v & IP_VERSION_4) && !(*v & IP_VERSION_6))
+  if (!(*v & PFCP_IP_VERSION_4) && !(*v & PFCP_IP_VERSION_6))
     {
       pfcp_debug
         ("PFCP: IP Version should have at least IPv4 or IPv6 bits set");
@@ -6386,17 +6402,17 @@ static struct pfcp_group_ie_def pfcp_tp_error_report_group[] =
   {
     [TP_ERROR_REPORT_TP_ERROR_MESSAGE] = {
       .type = PFCP_IE_TP_ERROR_MESSAGE,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_tp_error_report_t, error_message)
     },
     [TP_ERROR_REPORT_TP_FILE_NAME] = {
       .type = PFCP_IE_TP_FILE_NAME,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_tp_error_report_t, file_name)
     },
     [TP_ERROR_REPORT_TP_LINE_NUMBER] = {
       .type = PFCP_IE_TP_LINE_NUMBER,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_ie_tp_error_report_t, line_number)
     },
   };
@@ -6405,17 +6421,17 @@ static struct pfcp_group_ie_def pfcp_tp_created_binding_group[] =
   {
     [TP_CREATED_BINDING_NAT_PORT_BLOCK] = {
       .type = PFCP_IE_BBF_NAT_PORT_BLOCK,
-      .vendor = VENDOR_BBF,
+      .vendor = PFCP_VENDOR_BBF,
       .offset = offsetof(pfcp_ie_tp_created_binding_t, block)
     },
     [TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS] = {
       .type = PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS,
-      .vendor = VENDOR_BBF,
+      .vendor = PFCP_VENDOR_BBF,
       .offset = offsetof(pfcp_ie_tp_created_binding_t, outside_addr)
     },
     [TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE] = {
       .type = PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE,
-      .vendor = VENDOR_BBF,
+      .vendor = PFCP_VENDOR_BBF,
       .offset = offsetof(pfcp_ie_tp_created_binding_t, port_range)
     },
   };
@@ -6992,7 +7008,7 @@ static struct pfcp_ie_def tgpp_specs[] =
       .size = ARRAY_LEN(pfcp_update_access_forwarding_action_information_group),
       .group = pfcp_update_access_forwarding_action_information_group,
     },
-    SIMPLE_IE(PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY, ue_ip_address_pool_identity, "UE IP address Pool Identity"),
+    SIMPLE_IE(PFCP_PFCP_UE_IP_ADDRESS_POOL_IDENTITY, ue_ip_address_pool_identity, "UE IP address Pool Identity"),
     SIMPLE_IE(PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS, alternative_smf_ip_address, "Alternative SMF IP Address"),
     SIMPLE_IE_FREE(PFCP_IE_SMF_SET_ID, smf_set_id, "SMF Set ID"),
     SIMPLE_IE(PFCP_IE_QUOTA_VALIDITY_TIME, quota_validity_time, "Quota Validity Time"),
@@ -7038,7 +7054,7 @@ static struct pfcp_ie_def vendor_bbf_specs[] =
   {
    SIMPLE_IE(PFCP_IE_BBF_UP_FUNCTION_FEATURES, bbf_up_function_features, "BBF UP Function Features"),
    SIMPLE_IE(PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS, bbf_nat_outside_address, "BBF NAT Outside Address"),
-   SIMPLE_IE(PFCP_IE_BBF_APPLY_ACTION, bbf_apply_action, "BBF Apply Action"),
+   SIMPLE_IE(PFCP_IE_BBPFCP_F_APPLY_ACTION, bbf_apply_action, "BBF Apply Action"),
    SIMPLE_IE_FREE(PFCP_IE_BBF_NAT_PORT_BLOCK, bbf_nat_port_block, "BBF NAT Port Block"),
    SIMPLE_IE(PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE, bbf_nat_external_port_range, "BBF NAT External Port Range"),
   };
@@ -7058,14 +7074,14 @@ format_pfcp_ie (u8 * s, va_list * args)
 
       type &= ~0x8000;
 
-      if (vendor == VENDOR_BBF &&
+      if (vendor == PFCP_VENDOR_BBF &&
           type < ARRAY_LEN (vendor_bbf_specs) && vendor_bbf_specs[type].name)
         {
           return format (s, "IE: %s (%d:%d), Length: %d.",
                          vendor_bbf_specs[type].name, vendor, type,
                          clib_net_to_host_u16 (ie->length));
         }
-      else if (vendor == VENDOR_TRAVELPING &&
+      else if (vendor == PFCP_VENDOR_TRAVELPING &&
 	  type < ARRAY_LEN (vendor_tp_specs) && vendor_tp_specs[type].name)
 	{
 	  return format (s, "IE: %s (%d:%d), Length: %d.",
@@ -7106,7 +7122,7 @@ static struct pfcp_group_ie_def pfcp_simple_response_group[] =
     },
     [PFCP_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_simple_response_t, response.tp_error_report)
     },
   };
@@ -7153,7 +7169,7 @@ static struct pfcp_group_ie_def pfcp_association_setup_request_group[] =
     },
     [ASSOCIATION_SETUP_REQUEST_TP_BUILD_ID] = {
       .type = PFCP_IE_TP_BUILD_ID,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_msg_association_setup_request_t, tp_build_id)
     },
     [ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = {
@@ -7184,7 +7200,7 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_msg_association_procedure_response_t, tp_error_report)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP] = {
@@ -7201,7 +7217,7 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_BBF_UP_FUNCTION_FEATURES,
-      .vendor = VENDOR_BBF,
+      .vendor = PFCP_VENDOR_BBF,
       .offset = offsetof(pfcp_msg_association_procedure_response_t, bbf_up_function_features)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION] = {
@@ -7211,7 +7227,7 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID] = {
       .type = PFCP_IE_TP_BUILD_ID,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_msg_association_procedure_response_t, tp_build_id)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION] = {
@@ -7284,7 +7300,7 @@ static struct pfcp_group_ie_def pfcp_association_update_response_group[] =
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_msg_association_procedure_response_t, tp_error_report)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = {
@@ -7422,7 +7438,7 @@ static struct pfcp_group_ie_def pfcp_session_establishment_response_group[] =
     },
     [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_msg_session_procedure_response_t, tp_error_report)
     },
     [SESSION_PROCEDURE_RESPONSE_UP_F_SEID] = {
@@ -7458,7 +7474,7 @@ static struct pfcp_group_ie_def pfcp_session_establishment_response_group[] =
     },
     [SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING] = {
       .type = PFCP_IE_TP_CREATED_NAT_BINDING,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_msg_session_procedure_response_t, created_binding)
     },
   };
@@ -7559,7 +7575,7 @@ static struct pfcp_group_ie_def pfcp_session_modification_request_group[] =
       .is_array = true,
       .offset = offsetof(pfcp_msg_session_modification_request_t, update_traffic_endpoint)
     },
-    [SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS] = {
+    [SESSION_MODIFICATION_REQUEST_PFCP_PFCPSMREQ_FLAGS] = {
       .type = PFCP_IE_PFCPSMREQ_FLAGS,
       .offset = offsetof(pfcp_msg_session_modification_request_t, pfcpsmreq_flags)
     },
@@ -7614,7 +7630,7 @@ static struct pfcp_group_ie_def pfcp_session_modification_response_group[] =
     },
     [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_msg_session_procedure_response_t, tp_error_report)
     },
     [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = {
@@ -7662,7 +7678,7 @@ static struct pfcp_group_ie_def pfcp_session_deletion_response_group[] =
     },
     [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_msg_session_procedure_response_t, tp_error_report)
     },
     [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
@@ -7733,7 +7749,7 @@ static struct pfcp_group_ie_def pfcp_session_report_response_group[] =
     },
     [SESSION_REPORT_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
-      .vendor = VENDOR_TRAVELPING,
+      .vendor = PFCP_VENDOR_TRAVELPING,
       .offset = offsetof(pfcp_msg_session_report_response_t, response.tp_error_report)
     },
     [SESSION_REPORT_RESPONSE_UPDATE_BAR] = {
@@ -7741,7 +7757,7 @@ static struct pfcp_group_ie_def pfcp_session_report_response_group[] =
       .is_array = true,
       .offset = offsetof(pfcp_msg_session_report_response_t, update_bar)
     },
-    [SESSION_REPORT_RESPONSE_PFCPSRRSP_FLAGS] = {
+    [SESSION_REPORT_RESPONSE_PFCP_PFCPSRRSP_FLAGS] = {
       .type = PFCP_IE_PFCPSRRSP_FLAGS,
       .offset = offsetof(pfcp_msg_session_report_response_t, pfcpsrrsp_flags)
     },
@@ -7957,10 +7973,10 @@ get_ie_def (const struct pfcp_group_ie_def *item)
     case 0:
       return &tgpp_specs[item->type];
 
-    case VENDOR_BBF:
+    case PFCP_VENDOR_BBF:
       return &vendor_bbf_specs[item->type];
 
-    case VENDOR_TRAVELPING:
+    case PFCP_VENDOR_TRAVELPING:
       return &vendor_tp_specs[item->type];
     }
 
@@ -8046,10 +8062,10 @@ decode_group (u8 *p, int len, const struct pfcp_ie_def *grp_def,
 
           switch (vendor)
             {
-            case VENDOR_BBF:
+            case PFCP_VENDOR_BBF:
               ie_def = &vendor_bbf_specs[type];
               break;
-            case VENDOR_TRAVELPING:
+            case PFCP_VENDOR_TRAVELPING:
               ie_def = &vendor_tp_specs[type];
               break;
             default:

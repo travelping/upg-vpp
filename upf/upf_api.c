@@ -899,12 +899,12 @@ vl_api_upf_set_node_id_t_handler (vl_api_upf_set_node_id_t *mp)
 
   switch (mp->type)
     {
-    case NID_IPv4:
-    case NID_IPv6:
+    case PFCP_NID_IPv4:
+    case PFCP_NID_IPv6:
       ip_address_decode (&mp->ip, &node_id.ip);
       break;
 
-    case NID_FQDN:
+    case PFCP_NID_FQDN:
       vec_validate (node_id.fqdn, mp->fqdn_len);
       memcpy (node_id.fqdn, mp->fqdn, mp->fqdn_len);
       break;
@@ -936,8 +936,8 @@ vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t *mp)
 
   switch (node->type)
     {
-    case NID_IPv4:
-    case NID_IPv6:
+    case PFCP_NID_IPv4:
+    case PFCP_NID_IPv6:
       {
         rmp = vl_msg_api_alloc (sizeof (*rmp));
         clib_memset (rmp, 0, sizeof (*rmp));
@@ -945,7 +945,7 @@ vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t *mp)
         ip_address_encode (&ip_addr_46 (node), IP46_TYPE_ANY, &rmp->ip);
         break;
       }
-    case NID_FQDN:
+    case PFCP_NID_FQDN:
       {
         u8 len;
         len = strlen (node->fqdn);

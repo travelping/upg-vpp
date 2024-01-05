@@ -102,7 +102,7 @@ init_response_node_id (pfcp_ie_node_id_t *node_id)
 {
   upf_main_t *gtm = &upf_main;
   *node_id = gtm->node_id;
-  if (gtm->node_id.type == NID_FQDN)
+  if (gtm->node_id.type == PFCP_NID_FQDN)
     {
       node_id->fqdn = vec_dup (gtm->node_id.fqdn);
     }
@@ -114,12 +114,12 @@ init_response_up_f_seid (pfcp_ie_f_seid_t *up_f_seid, ip46_address_t *address,
 {
   if (is_ip4)
     {
-      up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V4;
+      up_f_seid->flags |= PFCP_F_SEID_IP_ADDRESS_V44;
       up_f_seid->ip4 = address->ip4;
     }
   else
     {
-      up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V6;
+      up_f_seid->flags |= PFCP_F_SEID_IP_ADDRESS_V46;
       up_f_seid->ip6 = address->ip6;
     }
 }
@@ -228,14 +228,14 @@ build_user_plane_ip_resource_information (
         {
           upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, res->nwi_index);
 
-          r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI;
+          r->flags |= PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI;
           r->network_instance = vec_dup (nwi->name);
         }
 
       if (INTF_INVALID != res->intf)
         {
 
-          r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI;
+          r->flags |= PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI;
           r->source_intf = res->intf;
         }
 
@@ -247,13 +247,13 @@ build_user_plane_ip_resource_information (
 
       if (!is_zero_ip4_address (&res->ip4))
         {
-          r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V4;
+          r->flags |= PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V4;
           r->ip4 = res->ip4;
         }
 
       if (!is_zero_ip6_address (&res->ip6))
         {
-          r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V6;
+          r->flags |= PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V6;
           r->ip6 = res->ip6;
         }
     }
@@ -387,12 +387,12 @@ handle_association_setup_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 
   UPF_SET_BIT (resp->grp.fields,
                ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES);
-  resp->up_function_features |= F_UPFF_EMPU;
-  resp->up_function_features |= F_UPFF_MPAS;
+  resp->up_function_features |= PFCP_F_UPFF_EMPU;
+  resp->up_function_features |= PFCP_F_UPFF_MPAS;
   if (gtm->pfcp_spec_version >= 16)
     {
-      resp->up_function_features |= F_UPFF_VTIME;
-      resp->up_function_features |= F_UPFF_FTUP;
+      resp->up_function_features |= PFCP_F_UPFF_VTIME;
+      resp->up_function_features |= PFCP_F_UPFF_FTUP;
       build_ue_ip_address_information (&resp->ue_ip_address_pool_information);
       if (vec_len (resp->ue_ip_address_pool_information) != 0)
         UPF_SET_BIT (
@@ -400,7 +400,7 @@ handle_association_setup_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
           ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION);
       UPF_SET_BIT (resp->grp.fields,
                    ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES);
-      resp->bbf_up_function_features |= BBF_UP_NAT;
+      resp->bbf_up_function_features |= PFCP_BBF_UP_NAT;
     }
   else
     {
@@ -611,9 +611,9 @@ process_teid_generation (upf_main_t *gtm, u8 chid, u32 flags,
          present in a UPIP res. It will always return
          UPF_GTPU_ERROR_NO_SUCH_TUNNEL for such cases
        */
-      ok = (!(flags & F_TEID_V4) ||
+      ok = (!(flags & PFCP_F_TEIDV4) ||
             teid_v4_lookup_session_index (gtm, teid, &res->ip4) == ~0) &&
-           (!(flags & F_TEID_V6) ||
+           (!(flags & PFCP_F_TEIDV6) ||
             teid_v6_lookup_session_index (gtm, teid, &res->ip6) == ~0);
 
       if (ok)
@@ -625,7 +625,7 @@ process_teid_generation (upf_main_t *gtm, u8 chid, u32 flags,
     /* can't generate unique for given UPIP resource */
     return 0;
 
-  if ((flags & F_TEID_CHID))
+  if ((flags & PFCP_F_TEIDCHID))
     {
       u32 *n = sparse_vec_validate (sx->teid_by_chid, chid);
       n[0] = teid;
@@ -646,12 +646,12 @@ handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_ie_pdi_t *pdi,
   process_pdr->pdi.fields |= F_PDI_LOCAL_F_TEID;
 
   // We only generate F_TEID if NWI is defined
-  if ((pdi->f_teid.flags & F_TEID_CH))
+  if ((pdi->f_teid.flags & PFCP_F_TEIDCH))
     {
       if (!res)
         return -1;
 
-      if ((pdi->f_teid.flags & F_TEID_CHID))
+      if ((pdi->f_teid.flags & PFCP_F_TEIDCHID))
         {
           uword i = sparse_vec_index (sx->teid_by_chid, pdi->f_teid.choose_id);
           if (i)
@@ -672,16 +672,16 @@ handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_ie_pdi_t *pdi,
       process_pdr->pdi.teid.teid = teid;
 
       if ((!is_zero_ip4_address (&res->ip4)) &&
-          (pdi->f_teid.flags & F_TEID_V4))
+          (pdi->f_teid.flags & PFCP_F_TEIDV4))
         {
           process_pdr->pdi.teid.ip4 = res->ip4;
-          process_pdr->pdi.teid.flags |= F_TEID_V4;
+          process_pdr->pdi.teid.flags |= PFCP_F_TEIDV4;
         }
 
       if ((!is_zero_ip6_address (&res->ip6)) &&
-          (pdi->f_teid.flags & F_TEID_V6))
+          (pdi->f_teid.flags & PFCP_F_TEIDV6))
         {
-          process_pdr->pdi.teid.flags |= F_TEID_V6;
+          process_pdr->pdi.teid.flags |= PFCP_F_TEIDV6;
           process_pdr->pdi.teid.ip6 = res->ip6;
         }
 
@@ -699,10 +699,10 @@ handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_ie_pdi_t *pdi,
     {
       /* CH == 0, check for conflicts with other sessions */
 
-      if (pdi->f_teid.flags & F_TEID_V4)
+      if (pdi->f_teid.flags & PFCP_F_TEIDV4)
         sidx = teid_v4_lookup_session_index (gtm, pdi->f_teid.teid,
                                              &pdi->f_teid.ip4);
-      else if (pdi->f_teid.flags & F_TEID_V6)
+      else if (pdi->f_teid.flags & PFCP_F_TEIDV6)
         sidx = teid_v6_lookup_session_index (gtm, pdi->f_teid.teid,
                                              &pdi->f_teid.ip6);
       if (sidx != ~0 && sidx != sx - gtm->sessions)
@@ -744,7 +744,7 @@ resolve_ue_ip_conflicts (upf_session_t *sx, upf_nwi_t *nwi,
   const dpo_id_t *dpo;
   int r = 0;
 
-  if (ue_addr->flags & IE_UE_IP_ADDRESS_V4)
+  if (ue_addr->flags & PFCP_UE_IP_ADDRESS_V4)
     {
       dpo = upf_get_session_dpo_ip4 (nwi, &ue_addr->ip4);
       if (dpo && dpo->dpoi_index != sx - gtm->sessions)
@@ -755,7 +755,7 @@ resolve_ue_ip_conflicts (upf_session_t *sx, upf_nwi_t *nwi,
         }
     }
 
-  if (ue_addr->flags & IE_UE_IP_ADDRESS_V6)
+  if (ue_addr->flags & PFCP_UE_IP_ADDRESS_V6)
     {
       dpo = upf_get_session_dpo_ip6 (nwi, &ue_addr->ip6);
       if (dpo && dpo->dpoi_index != sx - gtm->sessions)
@@ -911,7 +911,7 @@ handle_create_pdr (upf_session_t *sx, pfcp_ie_create_pdr_t *create_pdr,
         {
           create->pdi.fields |= F_PDI_UE_IP_ADDR;
           create->pdi.ue_addr = pdr->pdi.ue_ip_address;
-          if (create->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
+          if (create->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
             sx->user_addr.as_u32 = create->pdi.ue_addr.ip4.as_u32;
 
           if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
@@ -1026,7 +1026,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_PDR;
 
   return -1;
 }
@@ -1219,7 +1219,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_PDR;
 
   return -1;
 }
@@ -1253,7 +1253,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_PDR;
 
   return -1;
 }
@@ -1481,9 +1481,9 @@ handle_create_far (upf_session_t *sx, pfcp_ie_create_far_t *create_far,
             }
 
           if ((ISSET_BIT (far->forwarding_parameters.grp.fields,
-                          FORWARDING_PARAMETERS_BBF_APPLY_ACTION)) &&
+                          FORWARDING_PARAMETERS_BBPFCP_F_APPLY_ACTION)) &&
               (far->forwarding_parameters.bbf_apply_action &
-               BBF_APPLY_ACTION_NAT) &&
+               PFCP_BBPFCP_F_APPLY_ACTION_NAT) &&
               (ISSET_BIT (far->forwarding_parameters.grp.fields,
                           FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK)))
             {
@@ -1508,7 +1508,7 @@ handle_create_far (upf_session_t *sx, pfcp_ie_create_far_t *create_far,
                 &far->forwarding_parameters.outer_header_creation;
               u32 fib_index;
               int is_ip4 =
-                !!(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
+                !!(ohc->description & PFCP_OUTER_HEADER_CREATION_ANY_IP4);
               fib_protocol_t fproto =
                 is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
 
@@ -1583,7 +1583,7 @@ out_error:
 out_cause_set:
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_FAR;
 
   return -1;
 }
@@ -1665,14 +1665,14 @@ handle_update_far (upf_session_t *sx, pfcp_ie_update_far_t *update_far,
                 &far->update_forwarding_parameters.outer_header_creation;
               u32 fib_index;
               int is_ip4 =
-                !!(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
+                !!(ohc->description & PFCP_OUTER_HEADER_CREATION_ANY_IP4);
               fib_protocol_t fproto =
                 is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
 
               if (ISSET_BIT (far->update_forwarding_parameters.grp.fields,
-                             UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS) &&
+                             UPDATE_FORWARDING_PARAMETERS_PFCP_PFCPSMREQ_FLAGS) &&
                   far->update_forwarding_parameters.pfcpsmreq_flags &
-                    PFCPSMREQ_SNDEM)
+                    PFCP_PFCPSMREQ_SNDEM)
                 pfcp_send_end_marker (sx, far->far_id);
 
               update->forward.flags |= FAR_F_OUTER_HEADER_CREATION;
@@ -1747,7 +1747,7 @@ out_error:
 out_cause_set:
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_FAR;
 
   return -1;
 }
@@ -1781,7 +1781,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_FAR;
 
   return -1;
 }
@@ -1897,7 +1897,7 @@ handle_create_urr (upf_session_t *sx, pfcp_ie_create_urr_t *create_urr, f64 now,
       // TODO: inactivity_detection_time;
 
       if (ISSET_BIT (urr->grp.fields, CREATE_URR_LINKED_URR_ID) &&
-          create->triggers & REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
+          create->triggers & PFCP_REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
         create->linked_urr_ids = vec_dup (urr->linked_urr_id);
 
       // TODO: linked_urr_id;
@@ -2011,7 +2011,7 @@ handle_update_urr (upf_session_t *sx, pfcp_ie_update_urr_t *update_urr, f64 now,
       // TODO: inactivity_detection_time;
 
       if (ISSET_BIT (urr->grp.fields, UPDATE_URR_LINKED_URR_ID) &&
-          update->triggers & REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
+          update->triggers & PFCP_REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
         update->linked_urr_ids = vec_dup (urr->linked_urr_id);
       else
         vec_free (update->linked_urr_ids);
@@ -2027,7 +2027,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_URR;
 
   return -1;
 }
@@ -2061,7 +2061,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_URR;
 
   return -1;
 }
@@ -2185,7 +2185,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_QER;
 
   return -1;
 }
@@ -2219,7 +2219,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_QER;
 
   return -1;
 }
@@ -2295,16 +2295,16 @@ report_usage_ev (upf_session_t *sess, ip46_address_t *ue, upf_urr_t *urr,
   if (urr->status & URR_AFTER_MONITORING_TIME)
     {
       r =
-        init_usage_report (urr, USAGE_REPORT_TRIGGER_MONITORING_TIME, report);
+        init_usage_report (urr, PFCP_USAGE_REPORT_TRIGGER_MONITORING_TIME, report);
 
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_INFORMATION);
-      r->usage_information = USAGE_INFORMATION_BEFORE;
+      r->usage_information = PFCP_USAGE_INFORMATION_BEFORE;
 
       start_time = trunc (urr->usage_before_monitoring_time.start_time);
       duration = trunc (urr->start_time) - start_time;
 
-      if ((trigger & (USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
-                      USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
+      if ((trigger & (PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
+                      PFCP_USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
         {
           UPF_SET_BIT (r->grp.fields, USAGE_REPORT_START_TIME);
           UPF_SET_BIT (r->grp.fields, USAGE_REPORT_END_TIME);
@@ -2367,14 +2367,14 @@ report_usage_ev (upf_session_t *sess, ip46_address_t *ue, upf_urr_t *urr,
   if (urr->status & URR_AFTER_MONITORING_TIME)
     {
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_INFORMATION);
-      r->usage_information = USAGE_INFORMATION_AFTER;
+      r->usage_information = PFCP_USAGE_INFORMATION_AFTER;
     }
 
   start_time = trunc (urr->start_time);
   duration = trunc (now) - start_time;
 
-  if ((trigger & (USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
-                  USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
+  if ((trigger & (PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
+                  PFCP_USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
     {
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_START_TIME);
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_END_TIME);
@@ -2405,25 +2405,25 @@ report_usage_ev (upf_session_t *sess, ip46_address_t *ue, upf_urr_t *urr,
       r->tp_end_time = urr->start_time + duration;
     }
 
-  if (((trigger & (USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
-                   USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) != 0) &&
+  if (((trigger & (PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
+                   PFCP_USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) != 0) &&
       (ue != NULL))
     {
 
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_UE_IP_ADDRESS);
       if (ip46_address_is_ip4 (ue))
         {
-          r->ue_ip_address.flags = IE_UE_IP_ADDRESS_V4;
+          r->ue_ip_address.flags = PFCP_UE_IP_ADDRESS_V4;
           r->ue_ip_address.ip4 = ue->ip4;
         }
       else
         {
-          r->ue_ip_address.flags = IE_UE_IP_ADDRESS_V6;
+          r->ue_ip_address.flags = PFCP_UE_IP_ADDRESS_V6;
           r->ue_ip_address.ip6 = ue->ip6;
         }
     }
 
-  if ((trigger & USAGE_REPORT_TRIGGER_START_OF_TRAFFIC) == 0)
+  if ((trigger & PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC) == 0)
     {
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_VOLUME_MEASUREMENT);
       r->volume_measurement.fields = PFCP_VOLUME_ALL;
@@ -2475,7 +2475,7 @@ upf_usage_report_build (upf_session_t *sx, ip46_address_t *ue, upf_urr_t *urr,
 
           if (clib_bitmap_get (report->liusa_bitmap, idx))
             report_usage_ev (sx, ue, vec_elt_at_index (urr, idx),
-                             USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING, now,
+                             PFCP_USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING, now,
                              usage_report);
         }
     }
@@ -2713,7 +2713,7 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
             continue;
 
           upf_usage_report_trigger (&report, urr - active->urr,
-                                    USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
+                                    PFCP_USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
                                     urr->liusa_bitmap, now);
         }
     }
@@ -2812,13 +2812,13 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
             continue;
 
           upf_usage_report_trigger (&report, urr - active->urr,
-                                    USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
+                                    PFCP_USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
                                     urr->liusa_bitmap, now);
         }
     }
   else if (ISSET_BIT (req->grp.fields,
-                      SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS) &&
-           req->pfcpsmreq_flags & PFCPSMREQ_QAURR)
+                      SESSION_MODIFICATION_REQUEST_PFCP_PFCPSMREQ_FLAGS) &&
+           req->pfcpsmreq_flags & PFCP_PFCPSMREQ_QAURR)
     {
       if (!have_report)
         {
@@ -2829,7 +2829,7 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
         {
           UPF_SET_BIT (resp->grp.fields,
                        SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
-          upf_usage_report_set (&report, USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
+          upf_usage_report_set (&report, PFCP_USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
                                 now);
         }
     }
@@ -2900,7 +2900,7 @@ handle_session_deletion_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
       UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 
       upf_usage_report_init (&report, vec_len (active->urr));
-      upf_usage_report_set (&report, USAGE_REPORT_TRIGGER_TERMINATION_REPORT,
+      upf_usage_report_set (&report, PFCP_USAGE_REPORT_TRIGGER_TERMINATION_REPORT,
                             now);
       upf_usage_report_build (sess, NULL, active->urr, now, &report,
                               &resp->usage_report);
@@ -3006,7 +3006,7 @@ upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error)
 
   memset (req, 0, sizeof (*req));
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
-  req->report_type = REPORT_TYPE_ERIR;
+  req->report_type = PFCP_REPORT_TYPE_ERIR;
 
   UPF_SET_BIT (req->grp.fields,
                SESSION_REPORT_REQUEST_ERROR_INDICATION_REPORT);
@@ -3016,12 +3016,12 @@ upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error)
   f_teid.teid = error->teid;
   if (ip46_address_is_ip4 (&error->addr))
     {
-      f_teid.flags = F_TEID_V4;
+      f_teid.flags = PFCP_F_TEIDV4;
       f_teid.ip4 = error->addr.ip4;
     }
   else
     {
-      f_teid.flags = F_TEID_V6;
+      f_teid.flags = PFCP_F_TEIDV6;
       f_teid.ip6 = error->addr.ip6;
     }
 
