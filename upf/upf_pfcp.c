@@ -871,8 +871,8 @@ const fib_node_vft_t upf_vft = {
 static uword
 peer_addr_ref (const upf_far_forward_t *fwd)
 {
-  u8 is_ip4 =
-    !!(fwd->outer_header_creation.description & PFCP_OUTER_HEADER_CREATION_ANY_IP4);
+  u8 is_ip4 = !!(fwd->outer_header_creation.description &
+                 PFCP_OUTER_HEADER_CREATION_ANY_IP4);
   upf_main_t *gtm = &upf_main;
   clib_bihash_kv_24_8_t kv, value;
   u32 fib_index;
@@ -927,8 +927,8 @@ peer_addr_ref (const upf_far_forward_t *fwd)
 static uword
 peer_addr_unref (const upf_far_forward_t *fwd)
 {
-  u8 is_ip4 =
-    !!(fwd->outer_header_creation.description & PFCP_OUTER_HEADER_CREATION_ANY_IP4);
+  u8 is_ip4 = !!(fwd->outer_header_creation.description &
+                 PFCP_OUTER_HEADER_CREATION_ANY_IP4);
   upf_main_t *gtm = &upf_main;
   clib_bihash_kv_24_8_t kv, value;
   upf_peer_t *p = NULL;
@@ -1030,8 +1030,9 @@ pfcp_make_pending_far (upf_session_t *sx)
           if (old->forward.rewrite)
             new->forward.rewrite = vec_dup (old->forward.rewrite);
           if (old->forward.flags & FAR_F_REDIRECT_INFORMATION)
-            copy_pfcp_ie_redirect_information (&new->forward.redirect_information,
-                                      &old->forward.redirect_information);
+            copy_pfcp_ie_redirect_information (
+              &new->forward.redirect_information,
+              &old->forward.redirect_information);
           if (old->forward.flags & FAR_F_FORWARDING_POLICY)
             new->forward.forwarding_policy.identifier =
               vec_dup (old->forward.forwarding_policy.identifier);

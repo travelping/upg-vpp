@@ -315,7 +315,8 @@ app_scan_for_uri (u8 *uri, flow_entry_t *flow, struct rules *active,
                 {
                   adf_debug (
                     "skip PDR %u for UE IPv4 mismatch, S/D: %u, %U != %U\n",
-                    pdr->id, !!(pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD),
+                    pdr->id,
+                    !!(pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD),
                     format_ip4_address, &pdr->pdi.ue_addr.ip4,
                     format_ip46_address, addr, IP46_TYPE_ANY);
                   continue;
@@ -334,7 +335,8 @@ app_scan_for_uri (u8 *uri, flow_entry_t *flow, struct rules *active,
                 {
                   adf_debug (
                     "skip PDR %u for UE IPv6 mismatch, S/D: %u, %U != %U\n",
-                    pdr->id, !!(pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD),
+                    pdr->id,
+                    !!(pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD),
                     format_ip6_address, &pdr->pdi.ue_addr.ip6,
                     format_ip46_address, addr, IP46_TYPE_ANY);
                   continue;

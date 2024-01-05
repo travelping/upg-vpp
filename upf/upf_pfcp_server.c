@@ -816,7 +816,8 @@ upf_pfcp_session_up_deletion_report (upf_session_t *sx)
 
       upf_usage_report_init (&report, vec_len (active->urr));
       upf_usage_report_set (
-        &report, PFCP_USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT, now);
+        &report, PFCP_USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT,
+        now);
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
                               &req->usage_report);
       upf_usage_report_free (&report);
@@ -1231,9 +1232,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
 
           // clear reporting on the time based triggers, until rearmed by
           // update
-          urr->triggers &=
-            ~(PFCP_REPORTING_TRIGGER_TIME_THRESHOLD | PFCP_REPORTING_TRIGGER_TIME_QUOTA |
-              PFCP_REPORTING_TRIGGER_QUOTA_VALIDITY_TIME);
+          urr->triggers &= ~(PFCP_REPORTING_TRIGGER_TIME_THRESHOLD |
+                             PFCP_REPORTING_TRIGGER_TIME_QUOTA |
+                             PFCP_REPORTING_TRIGGER_QUOTA_VALIDITY_TIME);
         }
     }
 

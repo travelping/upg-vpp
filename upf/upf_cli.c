@@ -1286,7 +1286,8 @@ upf_show_assoc_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 
       if (has_ip)
         {
-          node_id.type = ip46_address_is_ip4 (&node_ip) ? PFCP_NID_IPv4 : PFCP_NID_IPv6;
+          node_id.type =
+            ip46_address_is_ip4 (&node_ip) ? PFCP_NID_IPv4 : PFCP_NID_IPv6;
           node_id.ip = node_ip;
         }
       if (has_fqdn)

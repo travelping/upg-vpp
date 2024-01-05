@@ -1340,9 +1340,10 @@ decode_pfcp_ie_redirect_information (u8 *data, u16 length, void *p)
     case PFCP_REDIRECT_INFORMATION_IPv4:
     case PFCP_REDIRECT_INFORMATION_IPv6:
       unformat_init_string (&input, (char *) data, addr_len);
-      rv = unformat (&input, "%U", unformat_ip46_address, &v->ip,
-                     v->type == PFCP_REDIRECT_INFORMATION_IPv4 ? IP46_TYPE_IP4 :
-                                                            IP46_TYPE_IP6);
+      rv =
+        unformat (&input, "%U", unformat_ip46_address, &v->ip,
+                  v->type == PFCP_REDIRECT_INFORMATION_IPv4 ? IP46_TYPE_IP4 :
+                                                              IP46_TYPE_IP6);
       unformat_free (&input);
 
       if (!rv)
@@ -1456,11 +1457,12 @@ format_pfcp_ie_report_type (u8 *s, va_list *args)
 {
   pfcp_ie_report_type_t *v = va_arg (*args, pfcp_ie_report_type_t *);
 
-  return format (s, "DLDR:%d,USAR:%d,ERIR:%d,UPIR:%d,PMIR:%d,SESR:%d,UISR:%d",
-                 !!(*v & PFCP_REPORT_TYPE_DLDR), !!(*v & PFCP_REPORT_TYPE_USAR),
-                 !!(*v & PFCP_REPORT_TYPE_ERIR), !!(*v & PFCP_REPORT_TYPE_UPIR),
-                 !!(*v & PFCP_REPORT_TYPE_PMIR), !!(*v & PFCP_REPORT_TYPE_SESR),
-                 !!(*v & PFCP_REPORT_TYPE_UISR));
+  return format (
+    s, "DLDR:%d,USAR:%d,ERIR:%d,UPIR:%d,PMIR:%d,SESR:%d,UISR:%d",
+    !!(*v & PFCP_REPORT_TYPE_DLDR), !!(*v & PFCP_REPORT_TYPE_USAR),
+    !!(*v & PFCP_REPORT_TYPE_ERIR), !!(*v & PFCP_REPORT_TYPE_UPIR),
+    !!(*v & PFCP_REPORT_TYPE_PMIR), !!(*v & PFCP_REPORT_TYPE_SESR),
+    !!(*v & PFCP_REPORT_TYPE_UISR));
 }
 
 #define decode_pfcp_ie_report_type decode_u8_ie
@@ -1567,29 +1569,34 @@ format_pfcp_ie_up_function_features (u8 *s, va_list *args)
   pfcp_ie_up_function_features_t *v =
     va_arg (*args, pfcp_ie_up_function_features_t *);
 
-  return format (
-    s,
-    "BUCP:%d,DDND:%d,DLBD:%d,TRST:%d,"
-    "FTUP:%d,PFDM:%d,HEEU:%d,TREU:%d,"
-    "EMPU:%d,PDIU:%d,UDBC:%d,QUOAC:%d,"
-    "TRACE:%d,FRRT:%d,PFDE:%d,EPFAR:%d,"
-    "DPDRA:%d,ADPDP:%d,UEIP:%d,SSET:%d,"
-    "MNOP:%d,MTE:%d,BUNDL:%d,GCOM:%d,"
-    "MPAS:%d,RTTL:%d,VTIME:%d,NORP:%d,"
-    "IPTV:%d,IP6PL:%d,TSCU:%d,MPTCP:%d,"
-    "ATSSS-LL:%d,QFQM:%d,GPQM:%d",
-    !!(*v & PFCP_F_UPFF_BUCP), !!(*v & PFCP_F_UPFF_DDND), !!(*v & PFCP_F_UPFF_DLBD),
-    !!(*v & PFCP_F_UPFF_TRST), !!(*v & PFCP_F_UPFF_FTUP), !!(*v & PFCP_F_UPFF_PFDM),
-    !!(*v & PFCP_F_UPFF_HEEU), !!(*v & PFCP_F_UPFF_TREU), !!(*v & PFCP_F_UPFF_EMPU),
-    !!(*v & PFCP_F_UPFF_PDIU), !!(*v & PFCP_F_UPFF_UDBC), !!(*v & PFCP_F_UPFF_QUOAC),
-    !!(*v & PFCP_F_UPFF_TRACE), !!(*v & PFCP_F_UPFF_FRRT), !!(*v & PFCP_F_UPFF_PFDE),
-    !!(*v & PFCP_F_UPFF_EPFAR), !!(*v & PFCP_F_UPFF_DPDRA), !!(*v & PFCP_F_UPFF_ADPDP),
-    !!(*v & PFCP_F_UPFF_UEIP), !!(*v & PFCP_F_UPFF_SSET), !!(*v & PFCP_F_UPFF_MNOP),
-    !!(*v & PFCP_F_UPFF_MTE), !!(*v & PFCP_F_UPFF_BUNDL), !!(*v & PFCP_F_UPFF_GCOM),
-    !!(*v & PFCP_F_UPFF_MPAS), !!(*v & PFCP_F_UPFF_RTTL), !!(*v & PFCP_F_UPFF_VTIME),
-    !!(*v & PFCP_F_UPFF_NORP), !!(*v & PFCP_F_UPFF_IPTV), !!(*v & PFCP_F_UPFF_IP6PL),
-    !!(*v & PFCP_F_UPFF_TSCU), !!(*v & PFCP_F_UPFF_MPTCP), !!(*v & PFCP_F_UPFF_ATSSS_LL),
-    !!(*v & PFCP_F_UPFF_QFQM), !!(*v & PFCP_F_UPFF_GPQM));
+  return format (s,
+                 "BUCP:%d,DDND:%d,DLBD:%d,TRST:%d,"
+                 "FTUP:%d,PFDM:%d,HEEU:%d,TREU:%d,"
+                 "EMPU:%d,PDIU:%d,UDBC:%d,QUOAC:%d,"
+                 "TRACE:%d,FRRT:%d,PFDE:%d,EPFAR:%d,"
+                 "DPDRA:%d,ADPDP:%d,UEIP:%d,SSET:%d,"
+                 "MNOP:%d,MTE:%d,BUNDL:%d,GCOM:%d,"
+                 "MPAS:%d,RTTL:%d,VTIME:%d,NORP:%d,"
+                 "IPTV:%d,IP6PL:%d,TSCU:%d,MPTCP:%d,"
+                 "ATSSS-LL:%d,QFQM:%d,GPQM:%d",
+                 !!(*v & PFCP_F_UPFF_BUCP), !!(*v & PFCP_F_UPFF_DDND),
+                 !!(*v & PFCP_F_UPFF_DLBD), !!(*v & PFCP_F_UPFF_TRST),
+                 !!(*v & PFCP_F_UPFF_FTUP), !!(*v & PFCP_F_UPFF_PFDM),
+                 !!(*v & PFCP_F_UPFF_HEEU), !!(*v & PFCP_F_UPFF_TREU),
+                 !!(*v & PFCP_F_UPFF_EMPU), !!(*v & PFCP_F_UPFF_PDIU),
+                 !!(*v & PFCP_F_UPFF_UDBC), !!(*v & PFCP_F_UPFF_QUOAC),
+                 !!(*v & PFCP_F_UPFF_TRACE), !!(*v & PFCP_F_UPFF_FRRT),
+                 !!(*v & PFCP_F_UPFF_PFDE), !!(*v & PFCP_F_UPFF_EPFAR),
+                 !!(*v & PFCP_F_UPFF_DPDRA), !!(*v & PFCP_F_UPFF_ADPDP),
+                 !!(*v & PFCP_F_UPFF_UEIP), !!(*v & PFCP_F_UPFF_SSET),
+                 !!(*v & PFCP_F_UPFF_MNOP), !!(*v & PFCP_F_UPFF_MTE),
+                 !!(*v & PFCP_F_UPFF_BUNDL), !!(*v & PFCP_F_UPFF_GCOM),
+                 !!(*v & PFCP_F_UPFF_MPAS), !!(*v & PFCP_F_UPFF_RTTL),
+                 !!(*v & PFCP_F_UPFF_VTIME), !!(*v & PFCP_F_UPFF_NORP),
+                 !!(*v & PFCP_F_UPFF_IPTV), !!(*v & PFCP_F_UPFF_IP6PL),
+                 !!(*v & PFCP_F_UPFF_TSCU), !!(*v & PFCP_F_UPFF_MPTCP),
+                 !!(*v & PFCP_F_UPFF_ATSSS_LL), !!(*v & PFCP_F_UPFF_QFQM),
+                 !!(*v & PFCP_F_UPFF_GPQM));
 }
 
 static int
@@ -1769,8 +1776,9 @@ format_pfcp_ie_pfcpsmreq_flags (u8 *s, va_list *args)
 {
   pfcp_ie_pfcpsmreq_flags_t *v = va_arg (*args, pfcp_ie_pfcpsmreq_flags_t *);
 
-  return format (s, "DROBU:%d,SNDEM:%d,QUARR:%d", !!(*v & PFCP_PFCPSMREQ_DROBU),
-                 !!(*v & PFCP_PFCPSMREQ_SNDEM), !!(*v & PFCP_PFCPSMREQ_QAURR));
+  return format (s, "DROBU:%d,SNDEM:%d,QUARR:%d",
+                 !!(*v & PFCP_PFCPSMREQ_DROBU), !!(*v & PFCP_PFCPSMREQ_SNDEM),
+                 !!(*v & PFCP_PFCPSMREQ_QAURR));
 }
 
 #define decode_pfcp_ie_pfcpsmreq_flags decode_u8_ie
@@ -2145,9 +2153,10 @@ format_pfcp_ie_measurement_method (u8 *s, va_list *args)
   pfcp_ie_measurement_method_t *v =
     va_arg (*args, pfcp_ie_measurement_method_t *);
 
-  s = format (
-    s, "DURAT:%d,VOLUM:%d,EVENT:%d", !!(*v & PFCP_MEASUREMENT_METHOD_DURATION),
-    !!(*v & PFCP_MEASUREMENT_METHOD_VOLUME), !!(*v & PFCP_MEASUREMENT_METHOD_EVENT));
+  s = format (s, "DURAT:%d,VOLUM:%d,EVENT:%d",
+              !!(*v & PFCP_MEASUREMENT_METHOD_DURATION),
+              !!(*v & PFCP_MEASUREMENT_METHOD_VOLUME),
+              !!(*v & PFCP_MEASUREMENT_METHOD_EVENT));
   return s;
 }
 
@@ -2160,32 +2169,33 @@ format_pfcp_ie_usage_report_trigger (u8 *s, va_list *args)
   pfcp_ie_usage_report_trigger_t *v =
     va_arg (*args, pfcp_ie_usage_report_trigger_t *);
 
-  s = format (s,
-              "PERIO:%d,VOLTH:%d,TIMTH:%d,QUHTI:%d,"
-              "START:%d,STOPT:%d,DROTH:%d,IMMER:%d,"
-              "VOLQU:%d,TIMQU:%d,LIUSA:%d,TERMR:%d,"
-              "MONIT:%d,ENVCL:%d,MACAR:%d,EVETH:%d,"
-              "EVEQU:%d,TEBUR:%d,IPMJL:%d,QUVTI:%d",
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_PERIODIC_REPORTING),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_TIME_THRESHOLD),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_QUOTA_HOLDING_TIME),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_VOLUME_QUOTA),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_TIME_QUOTA),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_TERMINATION_REPORT),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_MONITORING_TIME),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_ENVELOPE_CLOSURE),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_MAC_ADDRESSES_REPORTING),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_EVENT_THRESHOLD),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_EVENT_QUOTA),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_IP_MULTICAST_JOIN_LEAVE),
-              !!(*v & PFCP_USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME));
+  s = format (
+    s,
+    "PERIO:%d,VOLTH:%d,TIMTH:%d,QUHTI:%d,"
+    "START:%d,STOPT:%d,DROTH:%d,IMMER:%d,"
+    "VOLQU:%d,TIMQU:%d,LIUSA:%d,TERMR:%d,"
+    "MONIT:%d,ENVCL:%d,MACAR:%d,EVETH:%d,"
+    "EVEQU:%d,TEBUR:%d,IPMJL:%d,QUVTI:%d",
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_PERIODIC_REPORTING),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_TIME_THRESHOLD),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_QUOTA_HOLDING_TIME),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_DROPPED_DL_TRAFFIC_THRESHOLD),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_VOLUME_QUOTA),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_TIME_QUOTA),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_TERMINATION_REPORT),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_MONITORING_TIME),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_ENVELOPE_CLOSURE),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_MAC_ADDRESSES_REPORTING),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_EVENT_THRESHOLD),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_EVENT_QUOTA),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_IP_MULTICAST_JOIN_LEAVE),
+    !!(*v & PFCP_USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME));
   return s;
 }
 
@@ -2530,8 +2540,8 @@ format_pfcp_ie_outer_header_creation (u8 *s, va_list *args)
   if (v->description & PFCP_OUTER_HEADER_CREATION_GTP_ANY)
     s = format (s, ",TEID:%08x", v->teid);
 
-  if (v->description &
-      (PFCP_OUTER_HEADER_CREATION_ANY_IP4 | PFCP_OUTER_HEADER_CREATION_ANY_IP6))
+  if (v->description & (PFCP_OUTER_HEADER_CREATION_ANY_IP4 |
+                        PFCP_OUTER_HEADER_CREATION_ANY_IP6))
     s = format (s, ",IP:%U", format_ip46_address, &v->ip, IP46_TYPE_ANY);
 
   if (v->description & PFCP_OUTER_HEADER_CREATION_UDP_ANY)
@@ -2793,9 +2803,10 @@ format_pfcp_ie_ue_ip_address (u8 *s, va_list *args)
 {
   pfcp_ie_ue_ip_address_t *v = va_arg (*args, pfcp_ie_ue_ip_address_t *);
 
-  s = format (s, "S/D:%d,CHv4:%d,CHv6:%d", !!(v->flags & PFCP_UE_IP_ADDRESS_SD),
-              !!(v->flags & PFCP_UE_IP_ADDRESS_CHV4),
-              !!(v->flags & PFCP_UE_IP_ADDRESS_CHV6));
+  s =
+    format (s, "S/D:%d,CHv4:%d,CHv6:%d", !!(v->flags & PFCP_UE_IP_ADDRESS_SD),
+            !!(v->flags & PFCP_UE_IP_ADDRESS_CHV4),
+            !!(v->flags & PFCP_UE_IP_ADDRESS_CHV6));
 
   if (v->flags & PFCP_UE_IP_ADDRESS_V4)
     s = format (s, ",IPv4:%U", format_ip4_address, &v->ip4);
@@ -3328,8 +3339,9 @@ encode_pfcp_ie_remote_gtp_u_peer (void *p, u8 **vec)
   pfcp_ie_remote_gtp_u_peer_t *v = p;
   u8 flags;
 
-  flags = (v->destination_interface != (u8) ~0 ? PFCP_REMOTE_GTP_U_PEER_DI : 0) |
-          (vec_len (v->network_instance) > 0 ? PFCP_REMOTE_GTP_U_PEER_NI : 0);
+  flags =
+    (v->destination_interface != (u8) ~0 ? PFCP_REMOTE_GTP_U_PEER_DI : 0) |
+    (vec_len (v->network_instance) > 0 ? PFCP_REMOTE_GTP_U_PEER_NI : 0);
 
   if (ip46_address_is_ip4 (&v->ip))
     {
@@ -3384,7 +3396,8 @@ format_pfcp_ie_oci_flags (u8 *s, va_list *args)
 {
   pfcp_ie_oci_flags_t *v = va_arg (*args, pfcp_ie_oci_flags_t *);
 
-  return format (s, "AOCI:%d", !!(v->flags & PFCP_OCI_ASSOCIATE_OCI_WITH_NODE_ID));
+  return format (s, "AOCI:%d",
+                 !!(v->flags & PFCP_OCI_ASSOCIATE_OCI_WITH_NODE_ID));
 }
 
 static int
@@ -3707,7 +3720,8 @@ encode_pfcp_ie_user_plane_ip_resource_information (void *p, u8 **vec)
 
   flags = v->flags & PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_MASK;
   flags |= (v->teid_range_indication & 0x07) << 2;
-  flags |= v->network_instance ? PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI : 0;
+  flags |=
+    v->network_instance ? PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI : 0;
 
   put_u8 (*vec, flags);
 
@@ -3955,9 +3969,10 @@ decode_pfcp_ie_vlan_tag (u8 *data, u16 length, void *p)
   if (length < 3)
     return PFCP_CAUSE_INVALID_LENGTH;
 
-  v->mask = clib_host_to_net_u16 (((data[0] & BIT (0)) ? PFCP_VLAN_MASK_PCP : 0) |
-                                  ((data[0] & BIT (1)) ? PFCP_VLAN_MASK_DEI : 0) |
-                                  ((data[0] & BIT (2)) ? PFCP_VLAN_MASK_VID : 0));
+  v->mask =
+    clib_host_to_net_u16 (((data[0] & BIT (0)) ? PFCP_VLAN_MASK_PCP : 0) |
+                          ((data[0] & BIT (1)) ? PFCP_VLAN_MASK_DEI : 0) |
+                          ((data[0] & BIT (2)) ? PFCP_VLAN_MASK_VID : 0));
   v->tci =
     clib_host_to_net_u16 (((data[1] & 0x07) << 5) | ((data[1] & 0x08) << 1) |
                           ((data[1] & 0xf0) << 4) | data[2]);
@@ -3978,8 +3993,9 @@ encode_pfcp_ie_vlan_tag (void *p, u8 **vec)
   put_u8 (*vec, (((mask & PFCP_VLAN_MASK_PCP) ? BIT (0) : 0) |
                  ((mask & PFCP_VLAN_MASK_DEI) ? BIT (1) : 0) |
                  ((mask & PFCP_VLAN_MASK_VID) ? BIT (2) : 0)));
-  put_u16 (*vec, (((tci & PFCP_VLAN_MASK_PCP) >> 5) | ((tci & PFCP_VLAN_MASK_DEI) >> 1) |
-                  ((tci & 0x0f00) << 4) | (tci & 0x00ff)));
+  put_u16 (*vec, (((tci & PFCP_VLAN_MASK_PCP) >> 5) |
+                  ((tci & PFCP_VLAN_MASK_DEI) >> 1) | ((tci & 0x0f00) << 4) |
+                  (tci & 0x00ff)));
   return 0;
 }
 
@@ -4693,8 +4709,8 @@ format_pfcp_ie_alternative_smf_ip_address (u8 *s, va_list *args)
   pfcp_ie_alternative_smf_ip_address_t *n =
     va_arg (*args, pfcp_ie_alternative_smf_ip_address_t *);
 
-  switch (n->flags &
-          (PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4 | PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V6))
+  switch (n->flags & (PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4 |
+                      PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V6))
     {
     case PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4:
       s = format (s, "%U", format_ip4_address, &n->ip4);
@@ -4704,7 +4720,8 @@ format_pfcp_ie_alternative_smf_ip_address (u8 *s, va_list *args)
       s = format (s, "%U", format_ip6_address, &n->ip6);
       break;
 
-    case (PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4 | PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V6):
+    case (PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V4 |
+          PFCP_ALTERNATIVE_SMF_IP_ADDRESS_V6):
       s = format (s, "%U,%U", format_ip4_address, &n->ip4, format_ip6_address,
                   &n->ip6);
       break;

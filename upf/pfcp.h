@@ -164,22 +164,22 @@ typedef struct
 
 #define PFCP_IE_CAUSE 19
 typedef u8 pfcp_ie_cause_t;
-#define PFCP_CAUSE_RESERVED                           0
-#define PFCP_CAUSE_REQUEST_ACCEPTED                   1
-#define PFCP_CAUSE_REQUEST_REJECTED                   64
-#define PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND          65
-#define PFCP_CAUSE_MANDATORY_IE_MISSING               66
-#define PFCP_CAUSE_CONDITIONAL_IE_MISSING             67
-#define PFCP_CAUSE_INVALID_LENGTH                     68
-#define PFCP_CAUSE_MANDATORY_IE_INCORRECT             69
-#define PFCP_CAUSE_INVALID_FORWARDING_POLICY          70
-#define PFCP_CAUSE_INVALID_PFCP_F_TEIDALLOCATION_OPTION   71
-#define PFCP_CAUSE_NO_ESTABLISHED_PFCP_ASSOCIATION    72
-#define PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE 73
-#define PFCP_CAUSE_PFCP_ENTITY_IN_CONGESTION          74
-#define PFCP_CAUSE_NO_RESOURCES_AVAILABLE             75
-#define PFCP_CAUSE_SERVICE_NOT_SUPPORTED              76
-#define PFCP_CAUSE_SYSTEM_FAILURE                     77
+#define PFCP_CAUSE_RESERVED                             0
+#define PFCP_CAUSE_REQUEST_ACCEPTED                     1
+#define PFCP_CAUSE_REQUEST_REJECTED                     64
+#define PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND            65
+#define PFCP_CAUSE_MANDATORY_IE_MISSING                 66
+#define PFCP_CAUSE_CONDITIONAL_IE_MISSING               67
+#define PFCP_CAUSE_INVALID_LENGTH                       68
+#define PFCP_CAUSE_MANDATORY_IE_INCORRECT               69
+#define PFCP_CAUSE_INVALID_FORWARDING_POLICY            70
+#define PFCP_CAUSE_INVALID_PFCP_F_TEIDALLOCATION_OPTION 71
+#define PFCP_CAUSE_NO_ESTABLISHED_PFCP_ASSOCIATION      72
+#define PFCP_CAUSE_RULE_CREATION_MODIFICATION_FAILURE   73
+#define PFCP_CAUSE_PFCP_ENTITY_IN_CONGESTION            74
+#define PFCP_CAUSE_NO_RESOURCES_AVAILABLE               75
+#define PFCP_CAUSE_SERVICE_NOT_SUPPORTED                76
+#define PFCP_CAUSE_SYSTEM_FAILURE                       77
 
 #define PFCP_IE_SOURCE_INTERFACE 20
 typedef u8 pfcp_ie_source_interface_t;
@@ -491,8 +491,9 @@ typedef struct
      #define PFCP_F_PFD_C_AURL                                       BIT(6)
      #define PFCP_F_PFD_C_ADNP                                       BIT(7)
    */
-#define PFCP_F_PFD_C_MASK                                                          \
-  (PFCP_F_PFD_C_FD | PFCP_F_PFD_C_URL | PFCP_F_PFD_C_DN | PFCP_F_PFD_C_CP | PFCP_F_PFD_C_DNP)
+#define PFCP_F_PFD_C_MASK                                                     \
+  (PFCP_F_PFD_C_FD | PFCP_F_PFD_C_URL | PFCP_F_PFD_C_DN | PFCP_F_PFD_C_CP |   \
+   PFCP_F_PFD_C_DNP)
 
   u8 *flow_description;
   u8 *url;
@@ -639,15 +640,15 @@ typedef struct
 #define PFCP_OUTER_HEADER_CREATION_S_TAG   BIT (7)
 #define PFCP_OUTER_HEADER_CREATION_N19_IND BIT (8)
 #define PFCP_OUTER_HEADER_CREATION_N6_IND  BIT (9)
-#define PFCP_OUTER_HEADER_CREATION_GTP_ANY                                         \
+#define PFCP_OUTER_HEADER_CREATION_GTP_ANY                                    \
   (PFCP_OUTER_HEADER_CREATION_GTP_IP4 | PFCP_OUTER_HEADER_CREATION_GTP_IP6)
-#define PFCP_OUTER_HEADER_CREATION_UDP_ANY                                         \
+#define PFCP_OUTER_HEADER_CREATION_UDP_ANY                                    \
   (PFCP_OUTER_HEADER_CREATION_UDP_IP4 | PFCP_OUTER_HEADER_CREATION_UDP_IP6)
-#define PFCP_OUTER_HEADER_CREATION_ANY_IP4                                         \
-  (PFCP_OUTER_HEADER_CREATION_GTP_IP4 | PFCP_OUTER_HEADER_CREATION_UDP_IP4 |            \
+#define PFCP_OUTER_HEADER_CREATION_ANY_IP4                                    \
+  (PFCP_OUTER_HEADER_CREATION_GTP_IP4 | PFCP_OUTER_HEADER_CREATION_UDP_IP4 |  \
    PFCP_OUTER_HEADER_CREATION_IP4)
-#define PFCP_OUTER_HEADER_CREATION_ANY_IP6                                         \
-  (PFCP_OUTER_HEADER_CREATION_GTP_IP6 | PFCP_OUTER_HEADER_CREATION_UDP_IP6 |            \
+#define PFCP_OUTER_HEADER_CREATION_ANY_IP6                                    \
+  (PFCP_OUTER_HEADER_CREATION_GTP_IP6 | PFCP_OUTER_HEADER_CREATION_UDP_IP6 |  \
    PFCP_OUTER_HEADER_CREATION_IP4)
 
   u32 teid;
@@ -776,9 +777,9 @@ typedef struct
 #define PFCP_MEASUREMENT_INFORMATION_RADI BIT (2)
 #define PFCP_MEASUREMENT_INFORMATION_ISTM BIT (3)
 #define PFCP_MEASUREMENT_INFORMATION_MNOP BIT (4)
-#define PFCP_MEASUREMENT_INFORMATION_MASK                                          \
-  (PFCP_MEASUREMENT_INFORMATION_MBQE | PFCP_MEASUREMENT_INFORMATION_INAM |              \
-   PFCP_MEASUREMENT_INFORMATION_RADI | PFCP_MEASUREMENT_INFORMATION_ISTM |              \
+#define PFCP_MEASUREMENT_INFORMATION_MASK                                     \
+  (PFCP_MEASUREMENT_INFORMATION_MBQE | PFCP_MEASUREMENT_INFORMATION_INAM |    \
+   PFCP_MEASUREMENT_INFORMATION_RADI | PFCP_MEASUREMENT_INFORMATION_ISTM |    \
    PFCP_MEASUREMENT_INFORMATION_MNOP)
 } pfcp_ie_measurement_information_t;
 
@@ -790,9 +791,10 @@ typedef struct
 #define PFCP_NRT_USER_PLANE_PATH_RECOVERY_REPORT BIT (1)
 #define PFCP_NRT_CLOCK_DRIFT_REPORT              BIT (2)
 #define PFCP_NRT_GTP_U_PATH_QOS_REPORT           BIT (3)
-#define PFCP_NRT_MASK                                                              \
-  (PFCP_NRT_USER_PLANE_PATH_FAILURE_REPORT | PFCP_NRT_USER_PLANE_PATH_RECOVERY_REPORT | \
-   PFCP_NRT_CLOCK_DRIFT_REPORT | PFCP_NRT_GTP_U_PATH_QOS_REPORT)
+#define PFCP_NRT_MASK                                                         \
+  (PFCP_NRT_USER_PLANE_PATH_FAILURE_REPORT |                                  \
+   PFCP_NRT_USER_PLANE_PATH_RECOVERY_REPORT | PFCP_NRT_CLOCK_DRIFT_REPORT |   \
+   PFCP_NRT_GTP_U_PATH_QOS_REPORT)
 } pfcp_ie_node_report_type_t;
 
 #define PFCP_IE_USER_PLANE_PATH_FAILURE_REPORT 102
@@ -840,8 +842,8 @@ typedef struct
   u8 flags;
 #define PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_SARR BIT (0)
 #define PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_URSS BIT (1)
-#define PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_MASK                               \
-  (PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_SARR |                                  \
+#define PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_MASK                          \
+  (PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_SARR |                             \
    PFCP_F_PFCP_ASSOCIATION_RELEASE_REQUEST_URSS)
 } pfcp_ie_pfcp_association_release_request_t;
 
@@ -887,10 +889,10 @@ typedef struct
 #define PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V6     BIT (1)
 #define PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI BIT (5)
 #define PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI BIT (6)
-#define PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_MASK                               \
-  (PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V4 |                                    \
-   PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V6 |                                    \
-   PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI |                                \
+#define PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_MASK                          \
+  (PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V4 |                               \
+   PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V6 |                               \
+   PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI |                           \
    PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI)
 
   u8 teid_range_indication;
@@ -1119,9 +1121,9 @@ typedef u8 pfcp_ie_steering_functionality_t;
 
 #define PFCP_IE_STEERING_MODE 172
 typedef u8 pfcp_ie_steering_mode_t;
-#define PFCP_STEERING_MODE_ACTIVE_STANDBY 0
-#define PFCP_STEERING_MODE_SMALLEST_DELAY 1
-#define PFCP_STEERING_MODE_LOAD_BALANCING 2
+#define PFCP_STEERING_MODE_ACTIVE_STANDBY      0
+#define PFCP_STEERING_MODE_SMALLEST_DELAY      1
+#define PFCP_STEERING_MODE_LOAD_BALANCING      2
 #define PFCP_STEERING_MODE_PFCP_PRIORITY_BASED 3
 
 #define PFCP_IE_WEIGHT 173

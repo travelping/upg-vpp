@@ -454,10 +454,10 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
                 }
 
 #define IS_DL(_pdr, _far)                                                     \
-  ((_pdr)->pdi.src_intf == PFCP_SRC_INTF_CORE ||                                   \
+  ((_pdr)->pdi.src_intf == PFCP_SRC_INTF_CORE ||                              \
    (_far)->forward.dst_intf == PFCP_DST_INTF_ACCESS)
 #define IS_UL(_pdr, _far)                                                     \
-  ((_pdr)->pdi.src_intf == PFCP_SRC_INTF_ACCESS ||                                 \
+  ((_pdr)->pdi.src_intf == PFCP_SRC_INTF_ACCESS ||                            \
    (_far)->forward.dst_intf == PFCP_DST_INTF_CORE)
 
               upf_debug ("pdr: %d, far: %d\n", pdr->id, far->id);
