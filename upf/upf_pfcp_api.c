@@ -265,7 +265,7 @@ static int
 handle_heartbeat_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_decoded_msg_t resp_dmsg = { .type = PFCP_HEARTBEAT_RESPONSE };
+  pfcp_decoded_msg_t resp_dmsg = { .type = PFCP_MSG_HEARTBEAT_RESPONSE };
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
 
   memset (resp, 0, sizeof (*resp));
@@ -336,10 +336,10 @@ handle_association_setup_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_main_t *gtm = &upf_main;
-  pfcp_association_setup_request_t *req = &dmsg->association_setup_request;
-  pfcp_decoded_msg_t resp_dmsg = { .type = PFCP_ASSOCIATION_SETUP_RESPONSE };
-  pfcp_association_procedure_response_t *resp =
-    &resp_dmsg.association_procedure_response;
+  pfcp_msg_association_setup_request_t *req = &dmsg->association_setup_request;
+  pfcp_decoded_msg_t resp_dmsg = { .type = PFCP_MSG_ASSOCIATION_SETUP_RESPONSE };
+  pfcp_msg_association_procedure_response_t *resp =
+    &resp_dmsg.association_setup_response;
   upf_node_assoc_t *n;
   int r = 0;
 
@@ -492,11 +492,11 @@ send_simple_response (pfcp_msg_t *req, u8 type, pfcp_cause_t cause,
 
   switch (type)
     {
-    case PFCP_HEARTBEAT_RESPONSE:
-    case PFCP_PFD_MANAGEMENT_RESPONSE:
-    case PFCP_SESSION_MODIFICATION_RESPONSE:
-    case PFCP_SESSION_DELETION_RESPONSE:
-    case PFCP_SESSION_REPORT_RESPONSE:
+    case PFCP_MSG_HEARTBEAT_RESPONSE:
+    case PFCP_MSG_PFD_MANAGEMENT_RESPONSE:
+    case PFCP_MSG_SESSION_MODIFICATION_RESPONSE:
+    case PFCP_MSG_SESSION_DELETION_RESPONSE:
+    case PFCP_MSG_SESSION_REPORT_RESPONSE:
       break;
 
     default:
@@ -507,8 +507,8 @@ send_simple_response (pfcp_msg_t *req, u8 type, pfcp_cause_t cause,
 
   switch (type)
     {
-    case PFCP_HEARTBEAT_RESPONSE:
-    case PFCP_ASSOCIATION_SETUP_RESPONSE:
+    case PFCP_MSG_HEARTBEAT_RESPONSE:
+    case PFCP_MSG_ASSOCIATION_SETUP_RESPONSE:
       UPF_SET_BIT (resp->grp.fields, PFCP_RESPONSE_RECOVERY_TIME_STAMP);
       resp->response.recovery_time_stamp = psm->start_time;
       break;
@@ -727,7 +727,7 @@ purge_conflicting_session (upf_session_t *sx_old, upf_session_t *sx_new,
 
   clib_warning ("UE IP conflict: deleting session CP SEID=0x%016" PRIx64 " %U "
                 "due to attempt to create CP SEID=0x%0x16" PRIx64,
-                sx_old->cp_seid, format_ue_ip_address, ue_addr,
+                sx_old->cp_seid, format_pfcp_ue_ip_address, ue_addr,
                 sx_new->cp_seid);
 
   upf_pfcp_session_up_deletion_report (sx_old);
@@ -834,7 +834,7 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t *np, upf_nat_addr_t *addr,
 
 static int
 handle_create_pdr (upf_session_t *sx, pfcp_create_pdr_t *create_pdr,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
   pfcp_create_pdr_t *pdr;
@@ -1033,7 +1033,7 @@ out_error:
 
 static int
 handle_update_pdr (upf_session_t *sx, pfcp_update_pdr_t *update_pdr,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
   pfcp_update_pdr_t *pdr;
@@ -1226,7 +1226,7 @@ out_error:
 
 static int
 handle_remove_pdr (upf_session_t *sx, pfcp_remove_pdr_t *remove_pdr,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   pfcp_remove_pdr_t *pdr;
 
@@ -1387,7 +1387,7 @@ ip_udp_gtpu_rewrite (upf_far_forward_t *ff, u32 fib_index, int is_ip4)
 
 static int
 handle_nat_binding_creation (upf_session_t *sx, u8 *nat_pool_name,
-                             pfcp_session_procedure_response_t *response)
+                             pfcp_msg_session_procedure_response_t *response)
 {
   upf_nat_pool_t *np;
   upf_nat_addr_t *ap;
@@ -1419,7 +1419,7 @@ handle_nat_binding_creation (upf_session_t *sx, u8 *nat_pool_name,
 
 static int
 handle_create_far (upf_session_t *sx, pfcp_create_far_t *create_far,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
   pfcp_create_far_t *far;
@@ -1590,7 +1590,7 @@ out_cause_set:
 
 static int
 handle_update_far (upf_session_t *sx, pfcp_update_far_t *update_far,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
   pfcp_update_far_t *far;
@@ -1651,7 +1651,7 @@ handle_update_far (upf_session_t *sx, pfcp_update_far_t *update_far,
                          UPDATE_FORWARDING_PARAMETERS_REDIRECT_INFORMATION))
             {
               update->forward.flags |= FAR_F_REDIRECT_INFORMATION;
-              free_redirect_information (
+              free_pfcp_redirect_information (
                 &update->forward.redirect_information);
               cpy_redirect_information (
                 &update->forward.redirect_information,
@@ -1754,7 +1754,7 @@ out_cause_set:
 
 static int
 handle_remove_far (upf_session_t *sx, pfcp_remove_far_t *remove_far,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   pfcp_remove_far_t *far;
 
@@ -1799,7 +1799,7 @@ out_error:
 
 static int
 handle_create_urr (upf_session_t *sx, pfcp_create_urr_t *create_urr, f64 now,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_create_urr_t *urr;
@@ -1911,7 +1911,7 @@ handle_create_urr (upf_session_t *sx, pfcp_create_urr_t *create_urr, f64 now,
 
 static int
 handle_update_urr (upf_session_t *sx, pfcp_update_urr_t *update_urr, f64 now,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_update_urr_t *urr;
@@ -2034,7 +2034,7 @@ out_error:
 
 static int
 handle_remove_urr (upf_session_t *sx, pfcp_remove_urr_t *remove_urr, f64 now,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   pfcp_remove_urr_t *urr;
 
@@ -2079,7 +2079,7 @@ out_error:
 
 static int
 handle_create_qer (upf_session_t *sx, pfcp_create_qer_t *create_qer, f64 now,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
   pfcp_create_qer_t *qer;
@@ -2130,7 +2130,7 @@ handle_create_qer (upf_session_t *sx, pfcp_create_qer_t *create_qer, f64 now,
 
 static int
 handle_update_qer (upf_session_t *sx, pfcp_update_qer_t *update_qer, f64 now,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
   pfcp_update_qer_t *qer;
@@ -2192,7 +2192,7 @@ out_error:
 
 static int
 handle_remove_qer (upf_session_t *sx, pfcp_remove_qer_t *remove_qer, f64 now,
-                   pfcp_session_procedure_response_t *response)
+                   pfcp_msg_session_procedure_response_t *response)
 {
   pfcp_remove_qer_t *qer;
 
@@ -2500,11 +2500,11 @@ handle_session_establishment_request (pfcp_msg_t *msg,
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_main_t *gtm = &upf_main;
-  pfcp_session_establishment_request_t *req =
+  pfcp_msg_session_establishment_request_t *req =
     &dmsg->session_establishment_request;
   pfcp_decoded_msg_t resp_dmsg = { .type =
-                                     PFCP_SESSION_ESTABLISHMENT_RESPONSE };
-  pfcp_session_procedure_response_t *resp =
+                                     PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE };
+  pfcp_msg_session_procedure_response_t *resp =
     &resp_dmsg.session_procedure_response;
   upf_session_t *sess = NULL;
   upf_node_assoc_t *assoc;
@@ -2666,12 +2666,12 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
   upf_session_t *sess;
   f64 now = psm->now;
   int r = 0;
-  pfcp_session_modification_request_t *req =
+  pfcp_msg_session_modification_request_t *req =
     &dmsg->session_modification_request;
   pfcp_decoded_msg_t resp_dmsg = {
-    .type = PFCP_SESSION_MODIFICATION_RESPONSE,
+    .type = PFCP_MSG_SESSION_MODIFICATION_RESPONSE,
   };
-  pfcp_session_procedure_response_t *resp =
+  pfcp_msg_session_procedure_response_t *resp =
     &resp_dmsg.session_procedure_response;
 
   memset (resp, 0, sizeof (*resp));
@@ -2866,9 +2866,9 @@ handle_session_deletion_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t resp_dmsg = {
-    .type = PFCP_SESSION_DELETION_RESPONSE,
+    .type = PFCP_MSG_SESSION_DELETION_RESPONSE,
   };
-  pfcp_session_procedure_response_t *resp =
+  pfcp_msg_session_procedure_response_t *resp =
     &resp_dmsg.session_procedure_response;
   struct rules *active;
   f64 now = psm->now;
@@ -2940,7 +2940,7 @@ static int
 handle_session_report_response (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 {
   upf_main_t *gtm = &upf_main;
-  pfcp_session_report_response_t *resp = &dmsg->session_report_response;
+  pfcp_msg_session_report_response_t *resp = &dmsg->session_report_response;
 
   if (msg->session.idx == ~0)
     {
@@ -3001,8 +3001,8 @@ void
 upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error)
 {
   pfcp_f_teid_t f_teid;
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
-  pfcp_session_report_request_t *req = &dmsg.session_report_request;
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
+  pfcp_msg_session_report_request_t *req = &dmsg.session_report_request;
 
   memset (req, 0, sizeof (*req));
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
@@ -3033,31 +3033,31 @@ upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error)
 typedef int (*msg_handler_t) (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg);
 
 static msg_handler_t msg_handlers[] = {
-  [PFCP_HEARTBEAT_REQUEST] = handle_heartbeat_request,
-  [PFCP_HEARTBEAT_RESPONSE] = handle_heartbeat_response,
-  [PFCP_PFD_MANAGEMENT_REQUEST] = handle_pfd_management_request,
-  [PFCP_PFD_MANAGEMENT_RESPONSE] = handle_pfd_management_response,
-  [PFCP_ASSOCIATION_SETUP_REQUEST] = handle_association_setup_request,
-  [PFCP_ASSOCIATION_SETUP_RESPONSE] = handle_association_setup_response,
-  [PFCP_ASSOCIATION_UPDATE_REQUEST] = handle_association_update_request,
-  [PFCP_ASSOCIATION_UPDATE_RESPONSE] = handle_association_update_response,
-  [PFCP_ASSOCIATION_RELEASE_REQUEST] = handle_association_release_request,
-  [PFCP_ASSOCIATION_RELEASE_RESPONSE] = handle_association_release_response,
-  [PFCP_VERSION_NOT_SUPPORTED_RESPONSE] =
+  [PFCP_MSG_HEARTBEAT_REQUEST] = handle_heartbeat_request,
+  [PFCP_MSG_HEARTBEAT_RESPONSE] = handle_heartbeat_response,
+  [PFCP_MSG_PFD_MANAGEMENT_REQUEST] = handle_pfd_management_request,
+  [PFCP_MSG_PFD_MANAGEMENT_RESPONSE] = handle_pfd_management_response,
+  [PFCP_MSG_ASSOCIATION_SETUP_REQUEST] = handle_association_setup_request,
+  [PFCP_MSG_ASSOCIATION_SETUP_RESPONSE] = handle_association_setup_response,
+  [PFCP_MSG_ASSOCIATION_UPDATE_REQUEST] = handle_association_update_request,
+  [PFCP_MSG_ASSOCIATION_UPDATE_RESPONSE] = handle_association_update_response,
+  [PFCP_MSG_ASSOCIATION_RELEASE_REQUEST] = handle_association_release_request,
+  [PFCP_MSG_ASSOCIATION_RELEASE_RESPONSE] = handle_association_release_response,
+  [PFCP_MSG_VERSION_NOT_SUPPORTED_RESPONSE] =
     0, /* handle_version_not_supported_response, */
-  [PFCP_NODE_REPORT_REQUEST] = handle_node_report_request,
-  [PFCP_NODE_REPORT_RESPONSE] = handle_node_report_response,
-  [PFCP_SESSION_SET_DELETION_REQUEST] = handle_session_set_deletion_request,
-  [PFCP_SESSION_SET_DELETION_RESPONSE] = handle_session_set_deletion_response,
-  [PFCP_SESSION_ESTABLISHMENT_REQUEST] = handle_session_establishment_request,
-  [PFCP_SESSION_ESTABLISHMENT_RESPONSE] =
+  [PFCP_MSG_NODE_REPORT_REQUEST] = handle_node_report_request,
+  [PFCP_MSG_NODE_REPORT_RESPONSE] = handle_node_report_response,
+  [PFCP_MSG_SESSION_SET_DELETION_REQUEST] = handle_session_set_deletion_request,
+  [PFCP_MSG_SESSION_SET_DELETION_RESPONSE] = handle_session_set_deletion_response,
+  [PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST] = handle_session_establishment_request,
+  [PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE] =
     handle_session_establishment_response,
-  [PFCP_SESSION_MODIFICATION_REQUEST] = handle_session_modification_request,
-  [PFCP_SESSION_MODIFICATION_RESPONSE] = handle_session_modification_response,
-  [PFCP_SESSION_DELETION_REQUEST] = handle_session_deletion_request,
-  [PFCP_SESSION_DELETION_RESPONSE] = handle_session_deletion_response,
-  [PFCP_SESSION_REPORT_REQUEST] = handle_session_report_request,
-  [PFCP_SESSION_REPORT_RESPONSE] = handle_session_report_response,
+  [PFCP_MSG_SESSION_MODIFICATION_REQUEST] = handle_session_modification_request,
+  [PFCP_MSG_SESSION_MODIFICATION_RESPONSE] = handle_session_modification_response,
+  [PFCP_MSG_SESSION_DELETION_REQUEST] = handle_session_deletion_request,
+  [PFCP_MSG_SESSION_DELETION_RESPONSE] = handle_session_deletion_response,
+  [PFCP_MSG_SESSION_REPORT_REQUEST] = handle_session_report_request,
+  [PFCP_MSG_SESSION_REPORT_RESPONSE] = handle_session_report_response,
 };
 
 /**
@@ -3099,16 +3099,16 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
       upf_debug ("PFCP: error response %d", r);
       switch (dmsg.type)
         {
-        case PFCP_HEARTBEAT_REQUEST:
-        case PFCP_PFD_MANAGEMENT_REQUEST:
-        case PFCP_ASSOCIATION_SETUP_REQUEST:
-        case PFCP_ASSOCIATION_UPDATE_REQUEST:
-        case PFCP_ASSOCIATION_RELEASE_REQUEST:
-        case PFCP_SESSION_SET_DELETION_REQUEST:
-        case PFCP_SESSION_ESTABLISHMENT_REQUEST:
-        case PFCP_SESSION_MODIFICATION_REQUEST:
-        case PFCP_SESSION_DELETION_REQUEST:
-        case PFCP_SESSION_REPORT_REQUEST:
+        case PFCP_MSG_HEARTBEAT_REQUEST:
+        case PFCP_MSG_PFD_MANAGEMENT_REQUEST:
+        case PFCP_MSG_ASSOCIATION_SETUP_REQUEST:
+        case PFCP_MSG_ASSOCIATION_UPDATE_REQUEST:
+        case PFCP_MSG_ASSOCIATION_RELEASE_REQUEST:
+        case PFCP_MSG_SESSION_SET_DELETION_REQUEST:
+        case PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST:
+        case PFCP_MSG_SESSION_MODIFICATION_REQUEST:
+        case PFCP_MSG_SESSION_DELETION_REQUEST:
+        case PFCP_MSG_SESSION_REPORT_REQUEST:
           send_simple_response (msg, dmsg.type + 1, r, err);
           break;
 

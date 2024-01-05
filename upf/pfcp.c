@@ -52,7 +52,7 @@
 /*************************************************************************/
 
 u8 *
-format_flags (u8 *s, va_list *args)
+format_pfcp_flags (u8 *s, va_list *args)
 {
   uint64_t flags = va_arg (*args, uint64_t);
   const char **atoms = va_arg (*args, const char **);
@@ -76,7 +76,7 @@ format_flags (u8 *s, va_list *args)
 }
 
 u8 *
-format_enum (u8 *s, va_list *args)
+format_pfcp_enum (u8 *s, va_list *args)
 {
   uint64_t e = va_arg (*args, uint64_t);
   const char **atoms = va_arg (*args, const char **);
@@ -89,7 +89,7 @@ format_enum (u8 *s, va_list *args)
 }
 
 u8 *
-format_dns_labels (u8 *s, va_list *args)
+format_pfcp_dns_labels (u8 *s, va_list *args)
 {
   u8 *p = va_arg (*args, u8 *);
   u8 i = 0;
@@ -118,35 +118,35 @@ u8 *
 format_network_instance (u8 *s, va_list *args)
 {
   u8 **p = va_arg (*args, u8 **);
-  return p ? format (s, "%U", format_dns_labels, *p) : format (s, "invalid");
+  return p ? format (s, "%U", format_pfcp_dns_labels, *p) : format (s, "invalid");
 }
 
 /*************************************************************************/
 
 static const char *msg_desc[] = {
-  [PFCP_HEARTBEAT_REQUEST] = "Heartbeat Request",
-  [PFCP_HEARTBEAT_RESPONSE] = "Heartbeat Response",
-  [PFCP_PFD_MANAGEMENT_REQUEST] = "PFD Management Request",
-  [PFCP_PFD_MANAGEMENT_RESPONSE] = "PFD Management Response",
-  [PFCP_ASSOCIATION_SETUP_REQUEST] = "Association Setup Request",
-  [PFCP_ASSOCIATION_SETUP_RESPONSE] = "Association Setup Response",
-  [PFCP_ASSOCIATION_UPDATE_REQUEST] = "Association Update Request",
-  [PFCP_ASSOCIATION_UPDATE_RESPONSE] = "Association Update Response",
-  [PFCP_ASSOCIATION_RELEASE_REQUEST] = "Association Release Request",
-  [PFCP_ASSOCIATION_RELEASE_RESPONSE] = "Association Release Response",
-  [PFCP_VERSION_NOT_SUPPORTED_RESPONSE] = "Version Not Supported Response",
-  [PFCP_NODE_REPORT_REQUEST] = "Node Report Request",
-  [PFCP_NODE_REPORT_RESPONSE] = "Node Report Response",
-  [PFCP_SESSION_SET_DELETION_REQUEST] = "Session Set Deletion Request",
-  [PFCP_SESSION_SET_DELETION_RESPONSE] = "Session Set Deletion Response",
-  [PFCP_SESSION_ESTABLISHMENT_REQUEST] = "Session Establishment Request",
-  [PFCP_SESSION_ESTABLISHMENT_RESPONSE] = "Session Establishment Response",
-  [PFCP_SESSION_MODIFICATION_REQUEST] = "Session Modification Request",
-  [PFCP_SESSION_MODIFICATION_RESPONSE] = "Session Modification Response",
-  [PFCP_SESSION_DELETION_REQUEST] = "Session Deletion Request",
-  [PFCP_SESSION_DELETION_RESPONSE] = "Session Deletion Response",
-  [PFCP_SESSION_REPORT_REQUEST] = "Session Report Request",
-  [PFCP_SESSION_REPORT_RESPONSE] = "Session Report Response",
+  [PFCP_MSG_HEARTBEAT_REQUEST] = "Heartbeat Request",
+  [PFCP_MSG_HEARTBEAT_RESPONSE] = "Heartbeat Response",
+  [PFCP_MSG_PFD_MANAGEMENT_REQUEST] = "PFD Management Request",
+  [PFCP_MSG_PFD_MANAGEMENT_RESPONSE] = "PFD Management Response",
+  [PFCP_MSG_ASSOCIATION_SETUP_REQUEST] = "Association Setup Request",
+  [PFCP_MSG_ASSOCIATION_SETUP_RESPONSE] = "Association Setup Response",
+  [PFCP_MSG_ASSOCIATION_UPDATE_REQUEST] = "Association Update Request",
+  [PFCP_MSG_ASSOCIATION_UPDATE_RESPONSE] = "Association Update Response",
+  [PFCP_MSG_ASSOCIATION_RELEASE_REQUEST] = "Association Release Request",
+  [PFCP_MSG_ASSOCIATION_RELEASE_RESPONSE] = "Association Release Response",
+  [PFCP_MSG_VERSION_NOT_SUPPORTED_RESPONSE] = "Version Not Supported Response",
+  [PFCP_MSG_NODE_REPORT_REQUEST] = "Node Report Request",
+  [PFCP_MSG_NODE_REPORT_RESPONSE] = "Node Report Response",
+  [PFCP_MSG_SESSION_SET_DELETION_REQUEST] = "Session Set Deletion Request",
+  [PFCP_MSG_SESSION_SET_DELETION_RESPONSE] = "Session Set Deletion Response",
+  [PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST] = "Session Establishment Request",
+  [PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE] = "Session Establishment Response",
+  [PFCP_MSG_SESSION_MODIFICATION_REQUEST] = "Session Modification Request",
+  [PFCP_MSG_SESSION_MODIFICATION_RESPONSE] = "Session Modification Response",
+  [PFCP_MSG_SESSION_DELETION_REQUEST] = "Session Deletion Request",
+  [PFCP_MSG_SESSION_DELETION_RESPONSE] = "Session Deletion Response",
+  [PFCP_MSG_SESSION_REPORT_REQUEST] = "Session Report Request",
+  [PFCP_MSG_SESSION_REPORT_RESPONSE] = "Session Report Response",
 };
 
 u8 *
@@ -1127,8 +1127,8 @@ format_gate_status (u8 *s, va_list *args)
 {
   pfcp_gate_status_t *v = va_arg (*args, pfcp_gate_status_t *);
 
-  return format (s, "UL:%U,DL:%U", format_enum, (u64) v->ul, gate_status_flags,
-                 ARRAY_LEN (gate_status_flags), format_enum, (u64) v->dl,
+  return format (s, "UL:%U,DL:%U", format_pfcp_enum, (u64) v->ul, gate_status_flags,
+                 ARRAY_LEN (gate_status_flags), format_pfcp_enum, (u64) v->dl,
                  gate_status_flags, ARRAY_LEN (gate_status_flags));
 }
 
@@ -1285,7 +1285,7 @@ static char *redir_info_type[] = {
 };
 
 u8 *
-format_redirect_information (u8 *s, va_list *args)
+format_pfcp_redirect_information (u8 *s, va_list *args)
 {
   pfcp_redirect_information_t *n =
     va_arg (*args, pfcp_redirect_information_t *);
@@ -1437,7 +1437,7 @@ cpy_redirect_information (pfcp_redirect_information_t *dst,
 }
 
 void
-free_redirect_information (void *p)
+free_pfcp_redirect_information (void *p)
 {
   pfcp_redirect_information_t *v = p;
 
@@ -1796,7 +1796,7 @@ format_pfcpsrrsp_flags (u8 *s, va_list *args)
 #define encode_pdr_id encode_u16_ie
 
 u8 *
-format_f_seid (u8 *s, va_list *args)
+format_pfcp_f_seid (u8 *s, va_list *args)
 {
   pfcp_f_seid_t *n = va_arg (*args, pfcp_f_seid_t *);
 
@@ -1876,7 +1876,7 @@ encode_f_seid (void *p, u8 **vec)
 }
 
 u8 *
-format_node_id (u8 *s, va_list *args)
+format_pfcp_node_id (u8 *s, va_list *args)
 {
   pfcp_node_id_t *n = va_arg (*args, pfcp_node_id_t *);
 
@@ -1888,7 +1888,7 @@ format_node_id (u8 *s, va_list *args)
       break;
 
     case NID_FQDN:
-      s = format (s, "%U", format_dns_labels, n->fqdn);
+      s = format (s, "%U", format_pfcp_dns_labels, n->fqdn);
       break;
     }
   return s;
@@ -1956,7 +1956,7 @@ encode_node_id (void *p, u8 **vec)
 }
 
 void
-free_node_id (void *p)
+free_pfcp_node_id (void *p)
 {
   pfcp_node_id_t *v = p;
 
@@ -2513,12 +2513,12 @@ static const char *outer_header_creation_description_flags[] = {
 };
 
 u8 *
-format_outer_header_creation (u8 *s, va_list *args)
+format_pfcp_outer_header_creation (u8 *s, va_list *args)
 {
   pfcp_outer_header_creation_t *v =
     va_arg (*args, pfcp_outer_header_creation_t *);
 
-  s = format (s, "%U", format_flags, (u64) v->description,
+  s = format (s, "%U", format_pfcp_flags, (u64) v->description,
               outer_header_creation_description_flags);
 
   if (v->description & OUTER_HEADER_CREATION_GTP_ANY)
@@ -2539,7 +2539,7 @@ format_outer_header_creation (u8 *s, va_list *args)
 }
 
 uword
-tbcd_len (u8 *in, uword n_bytes)
+pfcp_tbcd_len (u8 *in, uword n_bytes)
 {
   uword l = n_bytes << 1;
   if (n_bytes && (in[n_bytes - 1] & 0xf0) == 0xf0)
@@ -2548,7 +2548,7 @@ tbcd_len (u8 *in, uword n_bytes)
 }
 
 uword
-decode_tbcd (u8 *in, uword n_bytes, u8 *out, uword n_out)
+decode_pfcp_tbcd (u8 *in, uword n_bytes, u8 *out, uword n_out)
 {
   /* value 15 is an error, thus '?' */
   static char *tbcd_chars = "0123456789*#abc?";
@@ -2566,7 +2566,7 @@ decode_tbcd (u8 *in, uword n_bytes, u8 *out, uword n_out)
 }
 
 u8 *
-format_tbcd (u8 *s, va_list *args)
+format_pfcp_tbcd (u8 *s, va_list *args)
 {
   u8 *bytes = va_arg (*args, u8 *);
   int n_bytes = va_arg (*args, int);
@@ -2576,9 +2576,9 @@ format_tbcd (u8 *s, va_list *args)
     return s;
 
   l = vec_len (s);
-  n = tbcd_len (bytes, n_bytes);
+  n = pfcp_tbcd_len (bytes, n_bytes);
   vec_validate (s, l + n - 1);
-  decode_tbcd (bytes, n_bytes, s + l, n);
+  decode_pfcp_tbcd (bytes, n_bytes, s + l, n);
 
   return s;
 }
@@ -2734,7 +2734,7 @@ format_flow_information (u8 *s, va_list *args)
 {
   pfcp_flow_information_t *v = va_arg (*args, pfcp_flow_information_t *);
 
-  return format (s, "Direction:%U,FD:%v", format_enum, (u64) v->direction,
+  return format (s, "Direction:%U,FD:%v", format_pfcp_enum, (u64) v->direction,
                  flow_direction, ARRAY_LEN (flow_direction),
                  v->flow_description);
 }
@@ -2782,7 +2782,7 @@ free_flow_information (void *p)
 }
 
 u8 *
-format_ue_ip_address (u8 *s, va_list *args)
+format_pfcp_ue_ip_address (u8 *s, va_list *args)
 {
   pfcp_ue_ip_address_t *v = va_arg (*args, pfcp_ue_ip_address_t *);
 
@@ -3100,7 +3100,7 @@ format_header_enrichment (u8 *s, va_list *args)
 {
   pfcp_header_enrichment_t *v = va_arg (*args, pfcp_header_enrichment_t *);
 
-  return format (s, "%U,Name:%v,Value:%v", format_enum, (u64) v->type,
+  return format (s, "%U,Name:%v,Value:%v", format_pfcp_enum, (u64) v->type,
                  header_type_enum, ARRAY_LEN (header_type_enum), v->name,
                  v->value);
 }
@@ -3240,7 +3240,7 @@ format_remote_gtp_u_peer (u8 *s, va_list *args)
     s = format (s, ",DI:%U", format_destination_interface,
                 v->destination_interface);
   if (vec_len (v->network_instance) > 0)
-    s = format (s, ",NI: %U", format_dns_labels, v->network_instance);
+    s = format (s, ",NI: %U", format_pfcp_dns_labels, v->network_instance);
 
   return s;
 }
@@ -3450,7 +3450,7 @@ format_pdn_type (u8 *s, va_list *args)
 {
   pfcp_pdn_type_t *v = va_arg (*args, pfcp_pdn_type_t *);
 
-  return format (s, "%U", format_enum, (u64) v->type, pdn_type,
+  return format (s, "%U", format_pfcp_enum, (u64) v->type, pdn_type,
                  ARRAY_LEN (pdn_type));
 }
 
@@ -3488,7 +3488,7 @@ format_failed_rule_id (u8 *s, va_list *args)
 {
   pfcp_failed_rule_id_t *n = va_arg (*args, pfcp_failed_rule_id_t *);
 
-  return format (s, "%U: %u", format_enum, (u64) n->type, failed_rule_type,
+  return format (s, "%U: %u", format_pfcp_enum, (u64) n->type, failed_rule_type,
                  ARRAY_LEN (failed_rule_type), n->id);
 }
 
@@ -3587,7 +3587,7 @@ format_time_quota_mechanism (u8 *s, va_list *args)
   pfcp_time_quota_mechanism_t *v =
     va_arg (*args, pfcp_time_quota_mechanism_t *);
 
-  return format (s, "%U,%u", format_enum, (u64) v->base_time_interval_type,
+  return format (s, "%U,%u", format_pfcp_enum, (u64) v->base_time_interval_type,
                  base_time_interval_type, ARRAY_LEN (base_time_interval_type),
                  v->base_time_interval);
 }
@@ -3618,13 +3618,13 @@ encode_time_quota_mechanism (void *p, u8 **vec)
 }
 
 u8 *
-format_user_plane_ip_resource_information (u8 *s, va_list *args)
+format_pfcp_user_plane_ip_resource_information (u8 *s, va_list *args)
 {
   pfcp_user_plane_ip_resource_information_t *v =
     va_arg (*args, pfcp_user_plane_ip_resource_information_t *);
 
   if (v->network_instance)
-    s = format (s, "Network Instance: %U, ", format_dns_labels,
+    s = format (s, "Network Instance: %U, ", format_pfcp_dns_labels,
                 v->network_instance);
 
   if (v->flags & USER_PLANE_IP_RESOURCE_INFORMATION_V4)
@@ -4058,17 +4058,17 @@ encode_ethernet_filter_properties (void *p, u8 **vec)
 #define encode_suggested_buffering_packets_count encode_u8_ie
 
 u8 *
-format_user_id (u8 *s0, va_list *args)
+format_pfcp_user_id (u8 *s0, va_list *args)
 {
   pfcp_user_id_t *v = va_arg (*args, pfcp_user_id_t *);
   u8 *s = s0;
 
   if (v->imsi_len > 0)
-    s = format (s, "IMSI:%U,", format_tbcd, v->imsi, v->imsi_len);
+    s = format (s, "IMSI:%U,", format_pfcp_tbcd, v->imsi, v->imsi_len);
   if (v->imei_len > 0)
-    s = format (s0, "IMEI:%U,", format_tbcd, v->imei, v->imei_len);
+    s = format (s0, "IMEI:%U,", format_pfcp_tbcd, v->imei, v->imei_len);
   if (v->msisdn_len > 0)
-    s = format (s, "MSISDN:%U,", format_tbcd, v->msisdn, v->msisdn_len);
+    s = format (s, "MSISDN:%U,", format_pfcp_tbcd, v->msisdn, v->msisdn_len);
   if (vec_len (v->nai) > 0)
     s = format (s, "NAI:%v,", v->nai);
 
@@ -4201,7 +4201,7 @@ encode_user_id (void *p, u8 **vec)
 }
 
 void
-free_user_id (void *p)
+free_pfcp_user_id (void *p)
 {
   pfcp_user_id_t *v = p;
 
@@ -4540,7 +4540,7 @@ format_tgpp_interface_type (u8 *s, va_list *args)
 {
   pfcp_tgpp_interface_type_t *v = va_arg (*args, pfcp_tgpp_interface_type_t *);
 
-  return format (s, "%U", format_enum, (u64) *v, tgpp_interface_type,
+  return format (s, "%U", format_pfcp_enum, (u64) *v, tgpp_interface_type,
                  ARRAY_LEN (tgpp_interface_type));
 }
 
@@ -4592,7 +4592,7 @@ format_steering_functionality (u8 *s, va_list *args)
   pfcp_steering_functionality_t *v =
     va_arg (*args, pfcp_steering_functionality_t *);
 
-  return format (s, "%U", format_enum, (u64) *v, steering_functionality,
+  return format (s, "%U", format_pfcp_enum, (u64) *v, steering_functionality,
                  ARRAY_LEN (steering_functionality));
 }
 
@@ -4611,7 +4611,7 @@ format_steering_mode (u8 *s, va_list *args)
 {
   pfcp_steering_mode_t *v = va_arg (*args, pfcp_steering_mode_t *);
 
-  return format (s, "%U", format_enum, (u64) *v, steering_mode,
+  return format (s, "%U", format_pfcp_enum, (u64) *v, steering_mode,
                  ARRAY_LEN (steering_mode));
 }
 
@@ -4634,7 +4634,7 @@ format_priority (u8 *s, va_list *args)
 {
   pfcp_priority_t *v = va_arg (*args, pfcp_priority_t *);
 
-  return format (s, "%U", format_enum, (u64) *v, priority,
+  return format (s, "%U", format_pfcp_enum, (u64) *v, priority,
                  ARRAY_LEN (priority));
 }
 
@@ -4755,11 +4755,11 @@ encode_alternative_smf_ip_address (void *p, u8 **vec)
 }
 
 u8 *
-format_smf_set_id (u8 *s, va_list *args)
+format_pfcp_smf_set_id (u8 *s, va_list *args)
 {
   pfcp_smf_set_id_t *n = va_arg (*args, pfcp_smf_set_id_t *);
 
-  return format (s, "%U", format_dns_labels, n->fqdn);
+  return format (s, "%U", format_pfcp_dns_labels, n->fqdn);
 }
 
 static int
@@ -7125,7 +7125,7 @@ static struct pfcp_group_ie_def pfcp_heartbeat_request_group[] =
   {
     [HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP] = {
       .type = PFCP_IE_RECOVERY_TIME_STAMP,
-      .offset = offsetof(pfcp_heartbeat_request_t, recovery_time_stamp)
+      .offset = offsetof(pfcp_msg_heartbeat_request_t, recovery_time_stamp)
     },
   };
 
@@ -7134,7 +7134,7 @@ static struct pfcp_group_ie_def pfcp_pfd_management_request_group[] =
     [PFD_MANAGEMENT_REQUEST_APPLICATION_ID_PFDS] = {
       .type = PFCP_IE_APPLICATION_ID_PFDS,
       .is_array = true,
-      .offset = offsetof(pfcp_pfd_management_request_t, application_id_pfds)
+      .offset = offsetof(pfcp_msg_pfd_management_request_t, application_id_pfds)
     },
   };
 
@@ -7142,43 +7142,43 @@ static struct pfcp_group_ie_def pfcp_association_setup_request_group[] =
   {
     [ASSOCIATION_SETUP_REQUEST_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_association_setup_request_t, request.node_id)
+      .offset = offsetof(pfcp_msg_association_setup_request_t, request.node_id)
     },
     [ASSOCIATION_SETUP_REQUEST_RECOVERY_TIME_STAMP] = {
       .type = PFCP_IE_RECOVERY_TIME_STAMP,
-      .offset = offsetof(pfcp_association_setup_request_t, recovery_time_stamp)
+      .offset = offsetof(pfcp_msg_association_setup_request_t, recovery_time_stamp)
     },
     [ASSOCIATION_SETUP_REQUEST_CP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_CP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_setup_request_t, cp_function_features)
+      .offset = offsetof(pfcp_msg_association_setup_request_t, cp_function_features)
     },
     [ASSOCIATION_SETUP_REQUEST_UP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_UP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_setup_request_t, up_function_features)
+      .offset = offsetof(pfcp_msg_association_setup_request_t, up_function_features)
     },
     [ASSOCIATION_SETUP_REQUEST_USER_PLANE_IP_RESOURCE_INFORMATION] = {
       .type = PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_setup_request_t, user_plane_ip_resource_information)
+      .offset = offsetof(pfcp_msg_association_setup_request_t, user_plane_ip_resource_information)
     },
     [ASSOCIATION_SETUP_REQUEST_TP_BUILD_ID] = {
       .type = PFCP_IE_TP_BUILD_ID,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_association_setup_request_t, tp_build_id)
+      .offset = offsetof(pfcp_msg_association_setup_request_t, tp_build_id)
     },
     [ASSOCIATION_SETUP_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = {
       .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_setup_request_t, ue_ip_address_pool_information)
+      .offset = offsetof(pfcp_msg_association_setup_request_t, ue_ip_address_pool_information)
     },
     [ASSOCIATION_SETUP_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = {
       .type = PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
       .is_array = true,
-      .offset = offsetof(pfcp_association_setup_request_t, alternative_smf_ip_address)
+      .offset = offsetof(pfcp_msg_association_setup_request_t, alternative_smf_ip_address)
     },
     [ASSOCIATION_SETUP_REQUEST_SMF_SET_ID] = {
       .type = PFCP_IE_SMF_SET_ID,
-      .offset = offsetof(pfcp_association_setup_request_t, smf_set_id)
+      .offset = offsetof(pfcp_msg_association_setup_request_t, smf_set_id)
     },
   };
 
@@ -7186,52 +7186,52 @@ static struct pfcp_group_ie_def pfcp_association_setup_response_group[] =
   {
     [ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_association_procedure_response_t, node_id)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, node_id)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_association_procedure_response_t, cause)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, cause)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_association_procedure_response_t, tp_error_report)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, tp_error_report)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP] = {
       .type = PFCP_IE_RECOVERY_TIME_STAMP,
-      .offset = offsetof(pfcp_association_procedure_response_t, recovery_time_stamp)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, recovery_time_stamp)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_CP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_procedure_response_t, cp_function_features)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, cp_function_features)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_UP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_procedure_response_t, up_function_features)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, up_function_features)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_BBF_UP_FUNCTION_FEATURES,
       .vendor = VENDOR_BBF,
-      .offset = offsetof(pfcp_association_procedure_response_t, bbf_up_function_features)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, bbf_up_function_features)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_USER_PLANE_IP_RESOURCE_INFORMATION] = {
       .type = PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_procedure_response_t, user_plane_ip_resource_information)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, user_plane_ip_resource_information)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_TP_BUILD_ID] = {
       .type = PFCP_IE_TP_BUILD_ID,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_association_procedure_response_t, tp_build_id)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, tp_build_id)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION] = {
       .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_procedure_response_t, ue_ip_address_pool_information)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, ue_ip_address_pool_information)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_SMF_SET_ID] = {
       .type = PFCP_IE_SMF_SET_ID,
-      .offset = offsetof(pfcp_association_procedure_response_t, smf_set_id)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, smf_set_id)
     },
   };
 
@@ -7239,46 +7239,46 @@ static struct pfcp_group_ie_def pfcp_association_update_request_group[] =
   {
     [ASSOCIATION_UPDATE_REQUEST_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_association_update_request_t, request.node_id)
+      .offset = offsetof(pfcp_msg_association_update_request_t, request.node_id)
     },
     [ASSOCIATION_UPDATE_REQUEST_CP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_CP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_update_request_t, cp_function_features)
+      .offset = offsetof(pfcp_msg_association_update_request_t, cp_function_features)
     },
     [ASSOCIATION_UPDATE_REQUEST_UP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_UP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_update_request_t, up_function_features)
+      .offset = offsetof(pfcp_msg_association_update_request_t, up_function_features)
     },
     [ASSOCIATION_UPDATE_REQUEST_PFCP_ASSOCIATION_RELEASE_REQUEST] = {
       .type = PFCP_IE_PFCP_ASSOCIATION_RELEASE_REQUEST,
-      .offset = offsetof(pfcp_association_update_request_t, pfcp_association_release_request)
+      .offset = offsetof(pfcp_msg_association_update_request_t, pfcp_association_release_request)
     },
     [ASSOCIATION_UPDATE_REQUEST_GRACEFUL_RELEASE_PERIOD] = {
       .type = PFCP_IE_GRACEFUL_RELEASE_PERIOD,
-      .offset = offsetof(pfcp_association_update_request_t, graceful_release_period)
+      .offset = offsetof(pfcp_msg_association_update_request_t, graceful_release_period)
     },
     [ASSOCIATION_UPDATE_REQUEST_USER_PLANE_IP_RESOURCE_INFORMATION] = {
       .type = PFCP_IE_USER_PLANE_IP_RESOURCE_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_update_request_t, user_plane_ip_resource_information)
+      .offset = offsetof(pfcp_msg_association_update_request_t, user_plane_ip_resource_information)
     },
     [ASSOCIATION_UPDATE_REQUEST_PFCPAUREQ_FLAGS] = {
       .type = PFCP_IE_PFCPAUREQ_FLAGS,
-      .offset = offsetof(pfcp_association_update_request_t, pfcpaureq_flags)
+      .offset = offsetof(pfcp_msg_association_update_request_t, pfcpaureq_flags)
     },
     [ASSOCIATION_UPDATE_REQUEST_UE_IP_ADDRESS_POOL_INFORMATION] = {
       .type = PFCP_IE_UE_IP_ADDRESS_POOL_INFORMATION,
       .is_array = true,
-      .offset = offsetof(pfcp_association_update_request_t, ue_ip_address_pool_information)
+      .offset = offsetof(pfcp_msg_association_update_request_t, ue_ip_address_pool_information)
     },
     [ASSOCIATION_UPDATE_REQUEST_ALTERNATIVE_SMF_IP_ADDRESS] = {
       .type = PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS,
       .is_array = true,
-      .offset = offsetof(pfcp_association_update_request_t, alternative_smf_ip_address)
+      .offset = offsetof(pfcp_msg_association_update_request_t, alternative_smf_ip_address)
     },
     [ASSOCIATION_UPDATE_REQUEST_SMF_SET_ID] = {
       .type = PFCP_IE_SMF_SET_ID,
-      .offset = offsetof(pfcp_association_update_request_t, smf_set_id)
+      .offset = offsetof(pfcp_msg_association_update_request_t, smf_set_id)
     },
   };
 
@@ -7286,24 +7286,24 @@ static struct pfcp_group_ie_def pfcp_association_update_response_group[] =
   {
     [ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_association_procedure_response_t, node_id)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, node_id)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_association_procedure_response_t, cause)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, cause)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_association_procedure_response_t, tp_error_report)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, tp_error_report)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_CP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_CP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_procedure_response_t, cp_function_features)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, cp_function_features)
     },
     [ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES] = {
       .type = PFCP_IE_UP_FUNCTION_FEATURES,
-      .offset = offsetof(pfcp_association_procedure_response_t, up_function_features)
+      .offset = offsetof(pfcp_msg_association_procedure_response_t, up_function_features)
     },
   };
 
@@ -7311,7 +7311,7 @@ static struct pfcp_group_ie_def pfcp_association_release_request_group[] =
   {
     [ASSOCIATION_RELEASE_REQUEST_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_association_release_request_t, request.node_id)
+      .offset = offsetof(pfcp_msg_association_release_request_t, request.node_id)
     },
   };
 
@@ -7319,15 +7319,15 @@ static struct pfcp_group_ie_def pfcp_node_report_request_group[] =
   {
     [NODE_REPORT_REQUEST_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_node_report_request_t, request.node_id)
+      .offset = offsetof(pfcp_msg_node_report_request_t, request.node_id)
     },
     [NODE_REPORT_REQUEST_NODE_REPORT_TYPE] = {
       .type = PFCP_IE_NODE_REPORT_TYPE,
-      .offset = offsetof(pfcp_node_report_request_t, node_report_type)
+      .offset = offsetof(pfcp_msg_node_report_request_t, node_report_type)
     },
     [NODE_REPORT_REQUEST_USER_PLANE_PATH_FAILURE_REPORT] = {
       .type = PFCP_IE_USER_PLANE_PATH_FAILURE_REPORT,
-      .offset = offsetof(pfcp_node_report_request_t, user_plane_path_failure_report)
+      .offset = offsetof(pfcp_msg_node_report_request_t, user_plane_path_failure_report)
     },
   };
 
@@ -7335,12 +7335,12 @@ static struct pfcp_group_ie_def pfcp_session_set_deletion_request_group[] =
   {
     [SESSION_SET_DELETION_REQUEST_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_session_set_deletion_request_t, request.node_id)
+      .offset = offsetof(pfcp_msg_session_set_deletion_request_t, request.node_id)
     },
     [SESSION_SET_DELETION_REQUEST_FQ_CSID] = {
       .type = PFCP_IE_FQ_CSID,
       .is_array = true,
-      .offset = offsetof(pfcp_session_set_deletion_request_t, fq_csid)
+      .offset = offsetof(pfcp_msg_session_set_deletion_request_t, fq_csid)
     },
   };
 
@@ -7348,71 +7348,71 @@ static struct pfcp_group_ie_def pfcp_session_establishment_request_group[] =
   {
     [SESSION_ESTABLISHMENT_REQUEST_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_session_establishment_request_t, request.node_id)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, request.node_id)
     },
     [SESSION_ESTABLISHMENT_REQUEST_F_SEID] = {
       .type = PFCP_IE_F_SEID,
-      .offset = offsetof(pfcp_session_establishment_request_t, f_seid)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, f_seid)
     },
     [SESSION_ESTABLISHMENT_REQUEST_CREATE_PDR] = {
       .type = PFCP_IE_CREATE_PDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_request_t, create_pdr)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, create_pdr)
     },
     [SESSION_ESTABLISHMENT_REQUEST_CREATE_FAR] = {
       .type = PFCP_IE_CREATE_FAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_request_t, create_far)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, create_far)
     },
     [SESSION_ESTABLISHMENT_REQUEST_CREATE_URR] = {
       .type = PFCP_IE_CREATE_URR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_request_t, create_urr)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, create_urr)
     },
     [SESSION_ESTABLISHMENT_REQUEST_CREATE_QER] = {
       .type = PFCP_IE_CREATE_QER,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_request_t, create_qer)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, create_qer)
     },
     [SESSION_ESTABLISHMENT_REQUEST_CREATE_BAR] = {
       .type = PFCP_IE_CREATE_BAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_request_t, create_bar)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, create_bar)
     },
      [SESSION_ESTABLISHMENT_REQUEST_CREATE_TRAFFIC_ENDPOINT] = {
       .type = PFCP_IE_CREATE_TRAFFIC_ENDPOINT,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_request_t, create_traffic_endpoint)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, create_traffic_endpoint)
     },
     [SESSION_ESTABLISHMENT_REQUEST_PDN_TYPE] = {
       .type = PFCP_IE_PDN_TYPE,
-      .offset = offsetof(pfcp_session_establishment_request_t, pdn_type)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, pdn_type)
     },
     [SESSION_ESTABLISHMENT_REQUEST_FQ_CSID] = {
       .type = PFCP_IE_FQ_CSID,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_request_t, fq_csid)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, fq_csid)
     },
     [SESSION_ESTABLISHMENT_REQUEST_USER_PLANE_INACTIVITY_TIMER] = {
       .type = PFCP_IE_USER_PLANE_INACTIVITY_TIMER,
-      .offset = offsetof(pfcp_session_establishment_request_t, user_plane_inactivity_timer)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, user_plane_inactivity_timer)
     },
     [SESSION_ESTABLISHMENT_REQUEST_USER_ID] = {
       .type = PFCP_IE_USER_ID,
-      .offset = offsetof(pfcp_session_establishment_request_t, user_id)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, user_id)
     },
     [SESSION_ESTABLISHMENT_REQUEST_TRACE_INFORMATION] = {
       .type = PFCP_IE_TRACE_INFORMATION,
-      .offset = offsetof(pfcp_session_establishment_request_t, trace_information)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, trace_information)
     },
     [SESSION_ESTABLISHMENT_REQUEST_APN_DNN] = {
       .type = PFCP_IE_APN_DNN,
-      .offset = offsetof(pfcp_session_establishment_request_t, apn_dnn)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, apn_dnn)
     },
     [SESSION_ESTABLISHMENT_REQUEST_CREATE_MAR] = {
       .type = PFCP_IE_CREATE_MAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_establishment_request_t, create_mar)
+      .offset = offsetof(pfcp_msg_session_establishment_request_t, create_mar)
     },
   };
 
@@ -7420,56 +7420,56 @@ static struct pfcp_group_ie_def pfcp_session_establishment_response_group[] =
   {
     [SESSION_PROCEDURE_RESPONSE_NODE_ID] = {
       .type = PFCP_IE_NODE_ID,
-      .offset = offsetof(pfcp_session_procedure_response_t, node_id)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, node_id)
     },
     [SESSION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_session_procedure_response_t, cause)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, cause)
     },
     [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
-      .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, offending_ie)
     },
     [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_session_procedure_response_t, tp_error_report)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, tp_error_report)
     },
     [SESSION_PROCEDURE_RESPONSE_UP_F_SEID] = {
       .type = PFCP_IE_F_SEID,
-      .offset = offsetof(pfcp_session_procedure_response_t, up_f_seid)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, up_f_seid)
     },
     [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = {
       .type = PFCP_IE_CREATED_PDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_procedure_response_t, created_pdr)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, created_pdr)
     },
     [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_procedure_response_t, load_control_information)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, load_control_information)
     },
     [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_procedure_response_t, overload_control_information)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, overload_control_information)
     },
     [SESSION_PROCEDURE_RESPONSE_FQ_CSID] = {
       .type = PFCP_IE_FQ_CSID,
       .is_array = true,
-      .offset = offsetof(pfcp_session_procedure_response_t, fq_csid)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, fq_csid)
     },
     [SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID] = {
       .type = PFCP_IE_FAILED_RULE_ID,
-      .offset = offsetof(pfcp_session_procedure_response_t, failed_rule_id)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, failed_rule_id)
     },
     [SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = {
       .type = PFCP_IE_CREATED_TRAFFIC_ENDPOINT,
       .is_array = true,
-      .offset = offsetof(pfcp_session_procedure_response_t, created_traffic_endpoint)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, created_traffic_endpoint)
     },
     [SESSION_PROCEDURE_RESPONSE_TP_CREATED_BINDING] = {
       .type = PFCP_IE_TP_CREATED_NAT_BINDING,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_session_procedure_response_t, created_binding)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, created_binding)
     },
   };
 
@@ -7477,138 +7477,138 @@ static struct pfcp_group_ie_def pfcp_session_modification_request_group[] =
   {
     [SESSION_MODIFICATION_REQUEST_F_SEID] = {
       .type = PFCP_IE_F_SEID,
-      .offset = offsetof(pfcp_session_modification_request_t, f_seid)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, f_seid)
     },
     [SESSION_MODIFICATION_REQUEST_REMOVE_PDR] = {
       .type = PFCP_IE_REMOVE_PDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, remove_pdr)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, remove_pdr)
     },
     [SESSION_MODIFICATION_REQUEST_REMOVE_FAR] = {
       .type = PFCP_IE_REMOVE_FAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, remove_far)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, remove_far)
     },
     [SESSION_MODIFICATION_REQUEST_REMOVE_URR] = {
       .type = PFCP_IE_REMOVE_URR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, remove_urr)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, remove_urr)
     },
     [SESSION_MODIFICATION_REQUEST_REMOVE_QER] = {
       .type = PFCP_IE_REMOVE_QER,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, remove_qer)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, remove_qer)
     },
     [SESSION_MODIFICATION_REQUEST_REMOVE_BAR] = {
       .type = PFCP_IE_REMOVE_BAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, remove_bar)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, remove_bar)
     },
     [SESSION_MODIFICATION_REQUEST_REMOVE_TRAFFIC_ENDPOINT] = {
       .type = PFCP_IE_REMOVE_TRAFFIC_ENDPOINT,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, remove_traffic_endpoint)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, remove_traffic_endpoint)
     },
     [SESSION_MODIFICATION_REQUEST_CREATE_PDR] = {
       .type = PFCP_IE_CREATE_PDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, create_pdr)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, create_pdr)
     },
     [SESSION_MODIFICATION_REQUEST_CREATE_FAR] = {
       .type = PFCP_IE_CREATE_FAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, create_far)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, create_far)
     },
     [SESSION_MODIFICATION_REQUEST_CREATE_URR] = {
       .type = PFCP_IE_CREATE_URR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, create_urr)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, create_urr)
     },
     [SESSION_MODIFICATION_REQUEST_CREATE_QER] = {
       .type = PFCP_IE_CREATE_QER,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, create_qer)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, create_qer)
     },
     [SESSION_MODIFICATION_REQUEST_CREATE_BAR] = {
       .type = PFCP_IE_CREATE_BAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, create_bar)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, create_bar)
     },
     [SESSION_MODIFICATION_REQUEST_CREATE_TRAFFIC_ENDPOINT] = {
       .type = PFCP_IE_CREATE_TRAFFIC_ENDPOINT,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, create_traffic_endpoint)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, create_traffic_endpoint)
     },
     [SESSION_MODIFICATION_REQUEST_UPDATE_PDR] = {
       .type = PFCP_IE_UPDATE_PDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, update_pdr)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, update_pdr)
     },
     [SESSION_MODIFICATION_REQUEST_UPDATE_FAR] = {
       .type = PFCP_IE_UPDATE_FAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, update_far)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, update_far)
     },
     [SESSION_MODIFICATION_REQUEST_UPDATE_URR] = {
       .type = PFCP_IE_UPDATE_URR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, update_urr)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, update_urr)
     },
     [SESSION_MODIFICATION_REQUEST_UPDATE_QER] = {
       .type = PFCP_IE_UPDATE_QER,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, update_qer)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, update_qer)
     },
     [SESSION_MODIFICATION_REQUEST_UPDATE_BAR] = {
       .type = PFCP_IE_UPDATE_BAR_REQUEST,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, update_bar)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, update_bar)
     },
     [SESSION_MODIFICATION_REQUEST_UPDATE_TRAFFIC_ENDPOINT] = {
       .type = PFCP_IE_UPDATE_TRAFFIC_ENDPOINT,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, update_traffic_endpoint)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, update_traffic_endpoint)
     },
     [SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS] = {
       .type = PFCP_IE_PFCPSMREQ_FLAGS,
-      .offset = offsetof(pfcp_session_modification_request_t, pfcpsmreq_flags)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, pfcpsmreq_flags)
     },
     [SESSION_MODIFICATION_REQUEST_QUERY_URR] = {
       .type = PFCP_IE_QUERY_URR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, query_urr)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, query_urr)
     },
     [SESSION_MODIFICATION_REQUEST_FQ_CSID] = {
       .type = PFCP_IE_FQ_CSID,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, fq_csid)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, fq_csid)
     },
     [SESSION_MODIFICATION_REQUEST_USER_PLANE_INACTIVITY_TIMER] = {
       .type = PFCP_IE_USER_PLANE_INACTIVITY_TIMER,
-      .offset = offsetof(pfcp_session_modification_request_t, user_plane_inactivity_timer)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, user_plane_inactivity_timer)
     },
     [SESSION_MODIFICATION_REQUEST_QUERY_URR_REFERENCE] = {
       .type = PFCP_IE_QUERY_URR_REFERENCE,
-      .offset = offsetof(pfcp_session_modification_request_t, query_urr_reference)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, query_urr_reference)
     },
     [SESSION_MODIFICATION_REQUEST_TRACE_INFORMATION] = {
       .type = PFCP_IE_TRACE_INFORMATION,
-      .offset = offsetof(pfcp_session_modification_request_t, trace_information)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, trace_information)
     },
     [SESSION_MODIFICATION_REQUEST_REMOVE_MAR] = {
       .type = PFCP_IE_REMOVE_MAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, remove_mar)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, remove_mar)
     },
     [SESSION_MODIFICATION_REQUEST_UPDATE_MAR] = {
       .type = PFCP_IE_UPDATE_MAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, update_mar)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, update_mar)
     },
     [SESSION_MODIFICATION_REQUEST_CREATE_MAR] = {
       .type = PFCP_IE_CREATE_MAR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_modification_request_t, create_mar)
+      .offset = offsetof(pfcp_msg_session_modification_request_t, create_mar)
     },
   };
 
@@ -7616,47 +7616,47 @@ static struct pfcp_group_ie_def pfcp_session_modification_response_group[] =
   {
     [SESSION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_session_procedure_response_t, cause)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, cause)
     },
     [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
-      .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, offending_ie)
     },
     [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_session_procedure_response_t, tp_error_report)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, tp_error_report)
     },
     [SESSION_PROCEDURE_RESPONSE_CREATED_PDR] = {
       .type = PFCP_IE_CREATED_PDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_procedure_response_t, created_pdr)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, created_pdr)
     },
     [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_procedure_response_t, load_control_information)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, load_control_information)
     },
     [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_procedure_response_t, overload_control_information)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, overload_control_information)
     },
     [SESSION_PROCEDURE_RESPONSE_USAGE_REPORT] = {
       .type = PFCP_IE_USAGE_REPORT_SMR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_procedure_response_t, usage_report)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, usage_report)
     },
     [SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID] = {
       .type = PFCP_IE_FAILED_RULE_ID,
-      .offset = offsetof(pfcp_session_procedure_response_t, failed_rule_id)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, failed_rule_id)
     },
     [SESSION_PROCEDURE_RESPONSE_ADDITIONAL_USAGE_REPORTS_INFORMATION] = {
       .type = PFCP_IE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
-      .offset = offsetof(pfcp_session_procedure_response_t, additional_usage_reports_information)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, additional_usage_reports_information)
     },
     [SESSION_PROCEDURE_RESPONSE_CREATED_TRAFFIC_ENDPOINT] = {
       .type = PFCP_IE_CREATED_TRAFFIC_ENDPOINT,
       .is_array = true,
-      .offset = offsetof(pfcp_session_procedure_response_t, created_traffic_endpoint)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, created_traffic_endpoint)
     },
   };
 
@@ -7664,29 +7664,29 @@ static struct pfcp_group_ie_def pfcp_session_deletion_response_group[] =
   {
     [SESSION_PROCEDURE_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_session_procedure_response_t, cause)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, cause)
     },
     [SESSION_PROCEDURE_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
-      .offset = offsetof(pfcp_session_procedure_response_t, offending_ie)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, offending_ie)
     },
     [SESSION_PROCEDURE_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_session_procedure_response_t, tp_error_report)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, tp_error_report)
     },
     [SESSION_PROCEDURE_RESPONSE_LOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_procedure_response_t, load_control_information)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, load_control_information)
     },
     [SESSION_PROCEDURE_RESPONSE_OVERLOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_procedure_response_t, overload_control_information)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, overload_control_information)
     },
     [SESSION_PROCEDURE_RESPONSE_USAGE_REPORT] = {
       .type = PFCP_IE_USAGE_REPORT_SDR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_procedure_response_t, usage_report)
+      .offset = offsetof(pfcp_msg_session_procedure_response_t, usage_report)
     },
   };
 
@@ -7694,40 +7694,40 @@ static struct pfcp_group_ie_def pfcp_session_report_request_group[] =
   {
     [SESSION_REPORT_REQUEST_REPORT_TYPE] = {
       .type = PFCP_IE_REPORT_TYPE,
-      .offset = offsetof(pfcp_session_report_request_t, report_type)
+      .offset = offsetof(pfcp_msg_session_report_request_t, report_type)
     },
     [SESSION_REPORT_REQUEST_DOWNLINK_DATA_REPORT] = {
       .type = PFCP_IE_DOWNLINK_DATA_REPORT,
-      .offset = offsetof(pfcp_session_report_request_t, downlink_data_report)
+      .offset = offsetof(pfcp_msg_session_report_request_t, downlink_data_report)
     },
     [SESSION_REPORT_REQUEST_USAGE_REPORT] = {
       .type = PFCP_IE_USAGE_REPORT_SRR,
       .is_array = true,
-      .offset = offsetof(pfcp_session_report_request_t, usage_report)
+      .offset = offsetof(pfcp_msg_session_report_request_t, usage_report)
     },
     [SESSION_REPORT_REQUEST_ERROR_INDICATION_REPORT] = {
       .type = PFCP_IE_ERROR_INDICATION_REPORT,
-      .offset = offsetof(pfcp_session_report_request_t, error_indication_report)
+      .offset = offsetof(pfcp_msg_session_report_request_t, error_indication_report)
     },
     [SESSION_REPORT_REQUEST_LOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_LOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_report_request_t, load_control_information)
+      .offset = offsetof(pfcp_msg_session_report_request_t, load_control_information)
     },
     [SESSION_REPORT_REQUEST_OVERLOAD_CONTROL_INFORMATION] = {
       .type = PFCP_IE_OVERLOAD_CONTROL_INFORMATION,
-      .offset = offsetof(pfcp_session_report_request_t, overload_control_information)
+      .offset = offsetof(pfcp_msg_session_report_request_t, overload_control_information)
     },
     [SESSION_REPORT_REQUEST_ADDITIONAL_USAGE_REPORTS_INFORMATION] = {
       .type = PFCP_IE_ADDITIONAL_USAGE_REPORTS_INFORMATION,
-      .offset = offsetof(pfcp_session_report_request_t, additional_usage_reports_information)
+      .offset = offsetof(pfcp_msg_session_report_request_t, additional_usage_reports_information)
     },
     [SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS] = {
       .type = PFCP_IE_PFCPSRREQ_FLAGS,
-      .offset = offsetof(pfcp_session_report_request_t, pfcpsrreq_flags)
+      .offset = offsetof(pfcp_msg_session_report_request_t, pfcpsrreq_flags)
     },
     [SESSION_REPORT_REQUEST_OLD_CP_F_SEID] = {
       .type = PFCP_IE_F_SEID,
-      .offset = offsetof(pfcp_session_report_request_t, old_cp_f_seid)
+      .offset = offsetof(pfcp_msg_session_report_request_t, old_cp_f_seid)
     },
   };
 
@@ -7735,48 +7735,48 @@ static struct pfcp_group_ie_def pfcp_session_report_response_group[] =
   {
     [SESSION_REPORT_RESPONSE_CAUSE] = {
       .type = PFCP_IE_CAUSE,
-      .offset = offsetof(pfcp_session_report_response_t, response.cause)
+      .offset = offsetof(pfcp_msg_session_report_response_t, response.cause)
     },
     [SESSION_REPORT_RESPONSE_OFFENDING_IE] = {
       .type = PFCP_IE_OFFENDING_IE,
-      .offset = offsetof(pfcp_session_report_response_t, response.offending_ie)
+      .offset = offsetof(pfcp_msg_session_report_response_t, response.offending_ie)
     },
     [SESSION_REPORT_RESPONSE_TP_ERROR_REPORT] = {
       .type = PFCP_IE_TP_ERROR_REPORT,
       .vendor = VENDOR_TRAVELPING,
-      .offset = offsetof(pfcp_session_report_response_t, response.tp_error_report)
+      .offset = offsetof(pfcp_msg_session_report_response_t, response.tp_error_report)
     },
     [SESSION_REPORT_RESPONSE_UPDATE_BAR] = {
       .type = PFCP_IE_UPDATE_BAR_RESPONSE,
       .is_array = true,
-      .offset = offsetof(pfcp_session_report_response_t, update_bar)
+      .offset = offsetof(pfcp_msg_session_report_response_t, update_bar)
     },
     [SESSION_REPORT_RESPONSE_PFCPSRRSP_FLAGS] = {
       .type = PFCP_IE_PFCPSRRSP_FLAGS,
-      .offset = offsetof(pfcp_session_report_response_t, pfcpsrrsp_flags)
+      .offset = offsetof(pfcp_msg_session_report_response_t, pfcpsrrsp_flags)
     },
     [SESSION_REPORT_RESPONSE_CP_F_SEID] = {
       .type = PFCP_IE_F_SEID,
-      .offset = offsetof(pfcp_session_report_response_t, cp_f_seid)
+      .offset = offsetof(pfcp_msg_session_report_response_t, cp_f_seid)
     },
     [SESSION_REPORT_RESPONSE_N4_u_F_TEID] = {
       .type = PFCP_IE_F_TEID,
-      .offset = offsetof(pfcp_session_report_response_t, n4_u_f_teid)
+      .offset = offsetof(pfcp_msg_session_report_response_t, n4_u_f_teid)
     },
   };
 
 
 static struct pfcp_ie_def msg_specs[] =
   {
-    [PFCP_HEARTBEAT_REQUEST] =
+    [PFCP_MSG_HEARTBEAT_REQUEST] =
     {
-      .length = sizeof(pfcp_heartbeat_request_t),
+      .length = sizeof(pfcp_msg_heartbeat_request_t),
       .mandatory = BIT(HEARTBEAT_REQUEST_RECOVERY_TIME_STAMP),
       .size = ARRAY_LEN(pfcp_heartbeat_request_group),
       .group = pfcp_heartbeat_request_group,
     },
 
-    [PFCP_HEARTBEAT_RESPONSE] =
+    [PFCP_MSG_HEARTBEAT_RESPONSE] =
     {
       .length = sizeof(pfcp_simple_response_t),
       .mandatory = BIT(PFCP_RESPONSE_RECOVERY_TIME_STAMP),
@@ -7784,25 +7784,25 @@ static struct pfcp_ie_def msg_specs[] =
       .group = pfcp_simple_response_group,
     },
 
-    [PFCP_PFD_MANAGEMENT_REQUEST] =
+    [PFCP_MSG_PFD_MANAGEMENT_REQUEST] =
     {
-      .length = sizeof(pfcp_pfd_management_request_t),
+      .length = sizeof(pfcp_msg_pfd_management_request_t),
       .size = ARRAY_LEN(pfcp_pfd_management_request_group),
       .group = pfcp_pfd_management_request_group,
     },
 
-    [PFCP_ASSOCIATION_SETUP_REQUEST] =
+    [PFCP_MSG_ASSOCIATION_SETUP_REQUEST] =
     {
-      .length = sizeof(pfcp_association_setup_request_t),
+      .length = sizeof(pfcp_msg_association_setup_request_t),
       .mandatory = (BIT(ASSOCIATION_SETUP_REQUEST_NODE_ID) |
 		    BIT(ASSOCIATION_SETUP_REQUEST_RECOVERY_TIME_STAMP)),
       .size = ARRAY_LEN(pfcp_association_setup_request_group),
       .group = pfcp_association_setup_request_group,
     },
 
-    [PFCP_ASSOCIATION_SETUP_RESPONSE] =
+    [PFCP_MSG_ASSOCIATION_SETUP_RESPONSE] =
     {
-      .length = sizeof(pfcp_association_procedure_response_t),
+      .length = sizeof(pfcp_msg_association_procedure_response_t),
       .mandatory = (BIT(ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID) |
 		    BIT(ASSOCIATION_PROCEDURE_RESPONSE_CAUSE) |
 		    BIT(ASSOCIATION_PROCEDURE_RESPONSE_RECOVERY_TIME_STAMP)),
@@ -7810,32 +7810,32 @@ static struct pfcp_ie_def msg_specs[] =
       .group = pfcp_association_setup_response_group,
     },
 
-    [PFCP_ASSOCIATION_UPDATE_REQUEST] =
+    [PFCP_MSG_ASSOCIATION_UPDATE_REQUEST] =
     {
-      .length = sizeof(pfcp_association_update_request_t),
+      .length = sizeof(pfcp_msg_association_update_request_t),
       .mandatory = BIT(ASSOCIATION_UPDATE_REQUEST_NODE_ID),
       .size = ARRAY_LEN(pfcp_association_update_request_group),
       .group = pfcp_association_update_request_group,
     },
 
-    [PFCP_ASSOCIATION_UPDATE_RESPONSE] =
+    [PFCP_MSG_ASSOCIATION_UPDATE_RESPONSE] =
     {
-      .length = sizeof(pfcp_association_procedure_response_t),
+      .length = sizeof(pfcp_msg_association_procedure_response_t),
       .mandatory = (BIT(ASSOCIATION_PROCEDURE_RESPONSE_NODE_ID) |
 		    BIT(ASSOCIATION_PROCEDURE_RESPONSE_CAUSE)),
       .size = ARRAY_LEN(pfcp_association_update_response_group),
       .group = pfcp_association_update_response_group,
     },
 
-    [PFCP_ASSOCIATION_RELEASE_REQUEST] =
+    [PFCP_MSG_ASSOCIATION_RELEASE_REQUEST] =
     {
-      .length = sizeof(pfcp_association_release_request_t),
+      .length = sizeof(pfcp_msg_association_release_request_t),
       .mandatory = BIT(ASSOCIATION_RELEASE_REQUEST_NODE_ID),
       .size = ARRAY_LEN(pfcp_association_release_request_group),
       .group = pfcp_association_release_request_group,
     },
 
-    [PFCP_ASSOCIATION_RELEASE_RESPONSE] =
+    [PFCP_MSG_ASSOCIATION_RELEASE_RESPONSE] =
     {
       .length = sizeof(pfcp_simple_response_t),
       .mandatory = (BIT(PFCP_RESPONSE_NODE_ID) |
@@ -7844,16 +7844,16 @@ static struct pfcp_ie_def msg_specs[] =
       .group = pfcp_simple_response_group,
     },
 
-    [PFCP_NODE_REPORT_REQUEST] =
+    [PFCP_MSG_NODE_REPORT_REQUEST] =
     {
-      .length = sizeof(pfcp_node_report_request_t),
+      .length = sizeof(pfcp_msg_node_report_request_t),
       .mandatory = (BIT(NODE_REPORT_REQUEST_NODE_ID) |
 		    BIT(NODE_REPORT_REQUEST_NODE_REPORT_TYPE)),
       .size = ARRAY_LEN(pfcp_node_report_request_group),
       .group = pfcp_node_report_request_group,
     },
 
-    [PFCP_NODE_REPORT_RESPONSE] =
+    [PFCP_MSG_NODE_REPORT_RESPONSE] =
     {
       .length = sizeof(pfcp_simple_response_t),
       .mandatory = (BIT(PFCP_RESPONSE_NODE_ID) |
@@ -7862,15 +7862,15 @@ static struct pfcp_ie_def msg_specs[] =
       .group = pfcp_simple_response_group,
     },
 
-    [PFCP_SESSION_SET_DELETION_REQUEST] =
+    [PFCP_MSG_SESSION_SET_DELETION_REQUEST] =
     {
-      .length = sizeof(pfcp_session_set_deletion_request_t),
+      .length = sizeof(pfcp_msg_session_set_deletion_request_t),
       .mandatory = BIT(SESSION_SET_DELETION_REQUEST_NODE_ID),
       .size = ARRAY_LEN(pfcp_session_set_deletion_request_group),
       .group = pfcp_session_set_deletion_request_group,
     },
 
-    [PFCP_SESSION_SET_DELETION_RESPONSE] =
+    [PFCP_MSG_SESSION_SET_DELETION_RESPONSE] =
     {
       .length = sizeof(pfcp_simple_response_t),
       .mandatory = (BIT(PFCP_RESPONSE_NODE_ID) |
@@ -7879,9 +7879,9 @@ static struct pfcp_ie_def msg_specs[] =
       .group = pfcp_simple_response_group,
     },
 
-    [PFCP_SESSION_ESTABLISHMENT_REQUEST] =
+    [PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST] =
     {
-      .length = sizeof(pfcp_session_establishment_request_t),
+      .length = sizeof(pfcp_msg_session_establishment_request_t),
       .mandatory = (BIT(SESSION_ESTABLISHMENT_REQUEST_NODE_ID) |
 		    BIT(SESSION_ESTABLISHMENT_REQUEST_F_SEID) |
 		    BIT(SESSION_ESTABLISHMENT_REQUEST_CREATE_PDR) |
@@ -7890,9 +7890,9 @@ static struct pfcp_ie_def msg_specs[] =
       .group = pfcp_session_establishment_request_group,
     },
 
-    [PFCP_SESSION_ESTABLISHMENT_RESPONSE] =
+    [PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE] =
     {
-      .length = sizeof(pfcp_session_procedure_response_t),
+      .length = sizeof(pfcp_msg_session_procedure_response_t),
       .mandatory = (BIT(SESSION_PROCEDURE_RESPONSE_NODE_ID) |
 		    BIT(SESSION_PROCEDURE_RESPONSE_CAUSE) |
 		    BIT(SESSION_PROCEDURE_RESPONSE_UP_F_SEID)),
@@ -7900,47 +7900,47 @@ static struct pfcp_ie_def msg_specs[] =
       .group = pfcp_session_establishment_response_group,
     },
 
-    [PFCP_SESSION_MODIFICATION_REQUEST] =
+    [PFCP_MSG_SESSION_MODIFICATION_REQUEST] =
 
     {
-    .length = sizeof(pfcp_session_modification_request_t),
+    .length = sizeof(pfcp_msg_session_modification_request_t),
     .size = ARRAY_LEN(pfcp_session_modification_request_group),
     .group = pfcp_session_modification_request_group,
 
     },
 
-    [PFCP_SESSION_MODIFICATION_RESPONSE] =
+    [PFCP_MSG_SESSION_MODIFICATION_RESPONSE] =
     {
-      .length = sizeof(pfcp_session_procedure_response_t),
+      .length = sizeof(pfcp_msg_session_procedure_response_t),
       .mandatory = BIT(SESSION_PROCEDURE_RESPONSE_CAUSE),
       .size = ARRAY_LEN(pfcp_session_modification_response_group),
       .group = pfcp_session_modification_response_group,
     },
 
-    [PFCP_SESSION_DELETION_REQUEST] =
+    [PFCP_MSG_SESSION_DELETION_REQUEST] =
     {
-      .length = sizeof(pfcp_session_deletion_request_t),
+      .length = sizeof(pfcp_msg_session_deletion_request_t),
     },
 
-    [PFCP_SESSION_DELETION_RESPONSE] =
+    [PFCP_MSG_SESSION_DELETION_RESPONSE] =
     {
-      .length = sizeof(pfcp_session_procedure_response_t),
+      .length = sizeof(pfcp_msg_session_procedure_response_t),
       .mandatory = BIT(SESSION_PROCEDURE_RESPONSE_CAUSE),
       .size = ARRAY_LEN(pfcp_session_deletion_response_group),
       .group = pfcp_session_deletion_response_group,
     },
 
-    [PFCP_SESSION_REPORT_REQUEST] =
+    [PFCP_MSG_SESSION_REPORT_REQUEST] =
     {
-      .length = sizeof(pfcp_session_report_request_t),
+      .length = sizeof(pfcp_msg_session_report_request_t),
       .mandatory = BIT(SESSION_REPORT_REQUEST_REPORT_TYPE),
       .size = ARRAY_LEN(pfcp_session_report_request_group),
       .group = pfcp_session_report_request_group,
     },
 
-    [PFCP_SESSION_REPORT_RESPONSE] =
+    [PFCP_MSG_SESSION_REPORT_RESPONSE] =
     {
-      .length = sizeof(pfcp_session_report_response_t),
+      .length = sizeof(pfcp_msg_session_report_response_t),
       .mandatory = BIT(SESSION_REPORT_RESPONSE_CAUSE),
       .size = ARRAY_LEN(pfcp_session_report_response_group),
       .group = pfcp_session_report_response_group,
@@ -8327,7 +8327,7 @@ pfcp_encode_version_not_supported_response (u8 **vec)
   *vec = vec_new (u8, NODE_MSG_HDR_LEN);
   clib_memset (*vec, 0, NODE_MSG_HDR_LEN);
   set_msg_hdr_version (*vec, 1);
-  set_msg_hdr_type (*vec, PFCP_VERSION_NOT_SUPPORTED_RESPONSE);
+  set_msg_hdr_type (*vec, PFCP_MSG_VERSION_NOT_SUPPORTED_RESPONSE);
   set_msg_hdr_length (*vec, NODE_MSG_HDR_LEN - 4);
 }
 
@@ -8458,7 +8458,7 @@ format_group (u8 *s, va_list *args)
 }
 
 u8 *
-format_dmsg (u8 *s, va_list *args)
+format_pfcp_dmsg (u8 *s, va_list *args)
 {
   pfcp_decoded_msg_t *dmsg = va_arg (*args, pfcp_decoded_msg_t *);
 

@@ -227,7 +227,7 @@ encode_pfcp_session_msg (upf_session_t *sx, pfcp_decoded_msg_t *dmsg,
   msg->session.idx = sx - gtm->sessions;
   msg->up_seid = sx->up_seid;
 
-  if (dmsg->type == PFCP_SESSION_REPORT_REQUEST &&
+  if (dmsg->type == PFCP_MSG_SESSION_REPORT_REQUEST &&
       sx->flags & UPF_SESSION_LOST_CP)
     {
       upf_cached_f_seid_t *cached_f_seid =
@@ -338,17 +338,17 @@ upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
 
   switch (pfcp_msg_type (msg->data))
     {
-    case PFCP_HEARTBEAT_REQUEST:
-    case PFCP_PFD_MANAGEMENT_REQUEST:
-    case PFCP_ASSOCIATION_SETUP_REQUEST:
-    case PFCP_ASSOCIATION_UPDATE_REQUEST:
-    case PFCP_ASSOCIATION_RELEASE_REQUEST:
-    case PFCP_NODE_REPORT_REQUEST:
-    case PFCP_SESSION_SET_DELETION_REQUEST:
-    case PFCP_SESSION_ESTABLISHMENT_REQUEST:
-    case PFCP_SESSION_MODIFICATION_REQUEST:
-    case PFCP_SESSION_DELETION_REQUEST:
-    case PFCP_SESSION_REPORT_REQUEST:
+    case PFCP_MSG_HEARTBEAT_REQUEST:
+    case PFCP_MSG_PFD_MANAGEMENT_REQUEST:
+    case PFCP_MSG_ASSOCIATION_SETUP_REQUEST:
+    case PFCP_MSG_ASSOCIATION_UPDATE_REQUEST:
+    case PFCP_MSG_ASSOCIATION_RELEASE_REQUEST:
+    case PFCP_MSG_NODE_REPORT_REQUEST:
+    case PFCP_MSG_SESSION_SET_DELETION_REQUEST:
+    case PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST:
+    case PFCP_MSG_SESSION_MODIFICATION_REQUEST:
+    case PFCP_MSG_SESSION_DELETION_REQUEST:
+    case PFCP_MSG_SESSION_REPORT_REQUEST:
       {
         uword *p = NULL;
 
@@ -368,18 +368,18 @@ upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
         break;
       }
 
-    case PFCP_HEARTBEAT_RESPONSE:
-    case PFCP_PFD_MANAGEMENT_RESPONSE:
-    case PFCP_ASSOCIATION_SETUP_RESPONSE:
-    case PFCP_ASSOCIATION_UPDATE_RESPONSE:
-    case PFCP_ASSOCIATION_RELEASE_RESPONSE:
-    case PFCP_VERSION_NOT_SUPPORTED_RESPONSE:
-    case PFCP_NODE_REPORT_RESPONSE:
-    case PFCP_SESSION_SET_DELETION_RESPONSE:
-    case PFCP_SESSION_ESTABLISHMENT_RESPONSE:
-    case PFCP_SESSION_MODIFICATION_RESPONSE:
-    case PFCP_SESSION_DELETION_RESPONSE:
-    case PFCP_SESSION_REPORT_RESPONSE:
+    case PFCP_MSG_HEARTBEAT_RESPONSE:
+    case PFCP_MSG_PFD_MANAGEMENT_RESPONSE:
+    case PFCP_MSG_ASSOCIATION_SETUP_RESPONSE:
+    case PFCP_MSG_ASSOCIATION_UPDATE_RESPONSE:
+    case PFCP_MSG_ASSOCIATION_RELEASE_RESPONSE:
+    case PFCP_MSG_VERSION_NOT_SUPPORTED_RESPONSE:
+    case PFCP_MSG_NODE_REPORT_RESPONSE:
+    case PFCP_MSG_SESSION_SET_DELETION_RESPONSE:
+    case PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE:
+    case PFCP_MSG_SESSION_MODIFICATION_RESPONSE:
+    case PFCP_MSG_SESSION_DELETION_RESPONSE:
+    case PFCP_MSG_SESSION_REPORT_RESPONSE:
       {
         pfcp_msg_t *req;
         uword *p;
@@ -520,7 +520,7 @@ request_t1_expired (u32 seq_no)
 
   /* make sure to resent reports to new peer if smfset peer is changed */
   if (req->flags.is_migrated_in_smfset && req->session.idx != ~0 &&
-      pfcp_msg_type (req->data) == PFCP_SESSION_REPORT_REQUEST)
+      pfcp_msg_type (req->data) == PFCP_MSG_SESSION_REPORT_REQUEST)
     {
       upf_session_t *sx = pool_elt_at_index (gtm->sessions, req->session.idx);
 
@@ -547,7 +547,7 @@ request_t1_expired (u32 seq_no)
          as soon as node is stopped. It should be easier to track since we can
          have only one heartbeat request at time
        */
-      if (type == PFCP_HEARTBEAT_REQUEST &&
+      if (type == PFCP_MSG_HEARTBEAT_REQUEST &&
           !pool_is_free_index (gtm->nodes, req->node))
         {
           upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, req->node);
@@ -581,7 +581,7 @@ request_t1_expired (u32 seq_no)
          could track or requests of node and forget them as soon as association
          is lost
        */
-      if (type == PFCP_HEARTBEAT_REQUEST &&
+      if (type == PFCP_MSG_HEARTBEAT_REQUEST &&
           !pool_is_free_index (gtm->nodes, node))
         {
           upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, node);
@@ -625,7 +625,7 @@ upf_pfcp_server_send_request (pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
-  if (pfcp_msg_type (msg->data) == PFCP_HEARTBEAT_REQUEST)
+  if (pfcp_msg_type (msg->data) == PFCP_MSG_HEARTBEAT_REQUEST)
     enqueue_request (msg, psm->hb_cfg.retries, psm->hb_cfg.timeout);
   else
     enqueue_request (msg, PFCP_DEFAULT_REQUEST_RETRIES,
@@ -649,7 +649,7 @@ upf_pfcp_police_message (upf_session_t *sx, pfcp_decoded_msg_t *dmsg)
   upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, sx->assoc.node);
   policer_t *p = pool_elt_at_index (gtm->pfcp_policers, n->policer_idx);
 
-  if (dmsg->type != PFCP_SESSION_REPORT_REQUEST ||
+  if (dmsg->type != PFCP_MSG_SESSION_REPORT_REQUEST ||
       !dmsg->session_report_request.usage_report)
     return true;
 
@@ -797,7 +797,7 @@ upf_pfcp_session_up_deletion_report (upf_session_t *sx)
    * the reason for session termination
    */
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
   pfcp_session_report_request_t *req = &dmsg.session_report_request;
   struct rules *active;
   f64 now = psm->now;
@@ -836,7 +836,7 @@ static void
 upf_pfcp_session_usage_report (upf_session_t *sx, ip46_address_t *ue,
                                upf_event_urr_data_t *uev, f64 now)
 {
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
   pfcp_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
@@ -1019,7 +1019,7 @@ upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t *t, u8 start_it)
 static void
 upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
 {
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
   pfcp_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
@@ -1393,7 +1393,7 @@ void
 upf_server_handle_hb_timer (u32 node_idx)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_HEARTBEAT_REQUEST };
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_HEARTBEAT_REQUEST };
   pfcp_heartbeat_request_t *req = &dmsg.heartbeat_request;
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;

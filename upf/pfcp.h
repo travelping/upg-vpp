@@ -2320,29 +2320,29 @@ typedef struct
 
 /* PFCP Methods */
 
-#define PFCP_HEARTBEAT_REQUEST              1
-#define PFCP_HEARTBEAT_RESPONSE             2
-#define PFCP_PFD_MANAGEMENT_REQUEST         3
-#define PFCP_PFD_MANAGEMENT_RESPONSE        4
-#define PFCP_ASSOCIATION_SETUP_REQUEST      5
-#define PFCP_ASSOCIATION_SETUP_RESPONSE     6
-#define PFCP_ASSOCIATION_UPDATE_REQUEST     7
-#define PFCP_ASSOCIATION_UPDATE_RESPONSE    8
-#define PFCP_ASSOCIATION_RELEASE_REQUEST    9
-#define PFCP_ASSOCIATION_RELEASE_RESPONSE   10
-#define PFCP_VERSION_NOT_SUPPORTED_RESPONSE 11
-#define PFCP_NODE_REPORT_REQUEST            12
-#define PFCP_NODE_REPORT_RESPONSE           13
-#define PFCP_SESSION_SET_DELETION_REQUEST   14
-#define PFCP_SESSION_SET_DELETION_RESPONSE  15
-#define PFCP_SESSION_ESTABLISHMENT_REQUEST  50
-#define PFCP_SESSION_ESTABLISHMENT_RESPONSE 51
-#define PFCP_SESSION_MODIFICATION_REQUEST   52
-#define PFCP_SESSION_MODIFICATION_RESPONSE  53
-#define PFCP_SESSION_DELETION_REQUEST       54
-#define PFCP_SESSION_DELETION_RESPONSE      55
-#define PFCP_SESSION_REPORT_REQUEST         56
-#define PFCP_SESSION_REPORT_RESPONSE        57
+#define PFCP_MSG_HEARTBEAT_REQUEST              1
+#define PFCP_MSG_HEARTBEAT_RESPONSE             2
+#define PFCP_MSG_PFD_MANAGEMENT_REQUEST         3
+#define PFCP_MSG_PFD_MANAGEMENT_RESPONSE        4
+#define PFCP_MSG_ASSOCIATION_SETUP_REQUEST      5
+#define PFCP_MSG_ASSOCIATION_SETUP_RESPONSE     6
+#define PFCP_MSG_ASSOCIATION_UPDATE_REQUEST     7
+#define PFCP_MSG_ASSOCIATION_UPDATE_RESPONSE    8
+#define PFCP_MSG_ASSOCIATION_RELEASE_REQUEST    9
+#define PFCP_MSG_ASSOCIATION_RELEASE_RESPONSE   10
+#define PFCP_MSG_VERSION_NOT_SUPPORTED_RESPONSE 11
+#define PFCP_MSG_NODE_REPORT_REQUEST            12
+#define PFCP_MSG_NODE_REPORT_RESPONSE           13
+#define PFCP_MSG_SESSION_SET_DELETION_REQUEST   14
+#define PFCP_MSG_SESSION_SET_DELETION_RESPONSE  15
+#define PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST  50
+#define PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE 51
+#define PFCP_MSG_SESSION_MODIFICATION_REQUEST   52
+#define PFCP_MSG_SESSION_MODIFICATION_RESPONSE  53
+#define PFCP_MSG_SESSION_DELETION_REQUEST       54
+#define PFCP_MSG_SESSION_DELETION_RESPONSE      55
+#define PFCP_MSG_SESSION_REPORT_REQUEST         56
+#define PFCP_MSG_SESSION_REPORT_RESPONSE        57
 
 enum
 {
@@ -2389,7 +2389,7 @@ typedef struct
   struct pfcp_group grp;
 
   pfcp_recovery_time_stamp_t recovery_time_stamp;
-} pfcp_heartbeat_request_t;
+} pfcp_msg_heartbeat_request_t;
 
 enum
 {
@@ -2402,7 +2402,7 @@ typedef struct
   struct pfcp_group grp;
 
   pfcp_application_id_pfds_t *application_id_pfds;
-} pfcp_pfd_management_request_t;
+} pfcp_msg_pfd_management_request_t;
 
 enum
 {
@@ -2432,7 +2432,7 @@ typedef struct
   pfcp_tp_build_id_t tp_build_id;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
   pfcp_smf_set_id_t smf_set_id;
-} pfcp_association_setup_request_t;
+} pfcp_msg_association_setup_request_t;
 
 enum
 {
@@ -2465,7 +2465,7 @@ typedef struct
   pfcp_pfcpaureq_flags_t pfcpaureq_flags;
   pfcp_alternative_smf_ip_address_t *alternative_smf_ip_address;
   pfcp_smf_set_id_t smf_set_id;
-} pfcp_association_update_request_t;
+} pfcp_msg_association_update_request_t;
 
 enum
 {
@@ -2478,7 +2478,7 @@ typedef struct
   struct pfcp_group grp;
   struct pfcp_request request;
 
-} pfcp_association_release_request_t;
+} pfcp_msg_association_release_request_t;
 
 enum
 {
@@ -2513,7 +2513,7 @@ typedef struct
   pfcp_bbf_up_function_features_t bbf_up_function_features;
   pfcp_tp_build_id_t tp_build_id;
   pfcp_smf_set_id_t smf_set_id;
-} pfcp_association_procedure_response_t;
+} pfcp_msg_association_procedure_response_t;
 
 enum
 {
@@ -2530,7 +2530,7 @@ typedef struct
 
   pfcp_node_report_type_t node_report_type;
   pfcp_user_plane_path_failure_report_t user_plane_path_failure_report;
-} pfcp_node_report_request_t;
+} pfcp_msg_node_report_request_t;
 
 enum
 {
@@ -2545,7 +2545,7 @@ typedef struct
   struct pfcp_request request;
 
   pfcp_fq_csid_t *fq_csid;
-} pfcp_session_set_deletion_request_t;
+} pfcp_msg_session_set_deletion_request_t;
 
 enum
 {
@@ -2586,7 +2586,7 @@ typedef struct
   pfcp_trace_information_t trace_information;
   pfcp_apn_dnn_t apn_dnn;
   pfcp_create_mar_t create_mar;
-} pfcp_session_establishment_request_t;
+} pfcp_msg_session_establishment_request_t;
 
 enum
 {
@@ -2653,12 +2653,12 @@ typedef struct
   pfcp_create_mar_t *remove_mar;
   pfcp_create_mar_t *update_mar;
   pfcp_create_mar_t *create_mar;
-} pfcp_session_modification_request_t;
+} pfcp_msg_session_modification_request_t;
 
 typedef struct
 {
   struct pfcp_group grp;
-} pfcp_session_deletion_request_t;
+} pfcp_msg_session_deletion_request_t;
 
 enum
 {
@@ -2699,7 +2699,7 @@ typedef struct
     additional_usage_reports_information;
   pfcp_created_traffic_endpoint_t *created_traffic_endpoint;
   pfcp_tp_created_binding_t created_binding;
-} pfcp_session_procedure_response_t;
+} pfcp_msg_session_procedure_response_t;
 
 enum
 {
@@ -2729,7 +2729,7 @@ typedef struct
     additional_usage_reports_information;
   pfcp_pfcpsrreq_flags_t pfcpsrreq_flags;
   pfcp_f_seid_t old_cp_f_seid;
-} pfcp_session_report_request_t;
+} pfcp_msg_session_report_request_t;
 
 enum
 {
@@ -2752,7 +2752,7 @@ typedef struct
   pfcp_pfcpsrrsp_flags_t pfcpsrrsp_flags;
   pfcp_f_seid_t cp_f_seid;
   pfcp_f_teid_t n4_u_f_teid;
-} pfcp_session_report_response_t;
+} pfcp_msg_session_report_response_t;
 
 typedef struct
 {
@@ -2763,22 +2763,22 @@ typedef struct
   {
     struct pfcp_group grp;
     pfcp_simple_response_t simple_response;
-    pfcp_heartbeat_request_t heartbeat_request;
-    pfcp_pfd_management_request_t pfd_management_request;
-    pfcp_association_setup_request_t association_setup_request;
-    pfcp_association_update_request_t association_update_request;
-    pfcp_association_release_request_t association_release_request;
-    pfcp_association_procedure_response_t association_procedure_response;
-    /* pfcp_version_not_supported_response_t version_not_supported_response; */
-    pfcp_node_report_request_t node_report_request;
+    pfcp_msg_heartbeat_request_t heartbeat_request;
+    pfcp_msg_pfd_management_request_t pfd_management_request;
+    pfcp_msg_association_setup_request_t association_setup_request;
+    pfcp_msg_association_update_request_t association_update_request;
+    pfcp_msg_association_release_request_t association_release_request;
+    pfcp_msg_association_procedure_response_t association_setup_response;
+    /* pfcp_msg_version_not_supported_response_t version_not_supported_response; */
+    pfcp_msg_node_report_request_t node_report_request;
 
-    pfcp_session_set_deletion_request_t session_set_deletion_request;
-    pfcp_session_establishment_request_t session_establishment_request;
-    pfcp_session_modification_request_t session_modification_request;
-    pfcp_session_deletion_request_t session_deletion_request;
-    pfcp_session_procedure_response_t session_procedure_response;
-    pfcp_session_report_request_t session_report_request;
-    pfcp_session_report_response_t session_report_response;
+    pfcp_msg_session_set_deletion_request_t session_set_deletion_request;
+    pfcp_msg_session_establishment_request_t session_establishment_request;
+    pfcp_msg_session_modification_request_t session_modification_request;
+    pfcp_msg_session_deletion_request_t session_deletion_request;
+    pfcp_msg_session_procedure_response_t session_procedure_response;
+    pfcp_msg_session_report_request_t session_report_request;
+    pfcp_msg_session_report_response_t session_report_response;
   };
 } pfcp_decoded_msg_t;
 
@@ -2815,30 +2815,30 @@ typedef struct
 
 #define pfcp_msg_seid(V) (pfcp_msg_s_flag (V) ? pfcp_session_msg_seid (V) : ~0)
 
-u8 *format_flags (u8 *s, va_list *args);
-u8 *format_enum (u8 *s, va_list *args);
-u8 *format_dns_labels (u8 *s, va_list *args);
+u8 *format_pfcp_flags (u8 *s, va_list *args);
+u8 *format_pfcp_enum (u8 *s, va_list *args);
+u8 *format_pfcp_dns_labels (u8 *s, va_list *args);
 u8 *format_pfcp_msg_type (u8 *s, va_list *args);
 u8 *format_pfcp_msg_hdr (u8 *s, va_list *args);
-u8 *format_user_plane_ip_resource_information (u8 *s, va_list *args);
-u8 *format_redirect_information (u8 *s, va_list *args);
-u8 *format_ue_ip_address (u8 *s, va_list *args);
-u8 *format_node_id (u8 *s, va_list *args);
-u8 *format_f_seid (u8 *s, va_list *args);
-u8 *format_smf_set_id (u8 *s, va_list *args);
-u8 *format_outer_header_creation (u8 *s, va_list *args);
-uword tbcd_len (u8 *in, uword n_bytes);
-uword decode_tbcd (u8 *in, uword n_bytes, u8 *out, uword n_out);
-u8 *format_tbcd (u8 *s, va_list *args);
-u8 *format_dmsg (u8 *s, va_list *args);
-u8 *format_user_id (u8 *s0, va_list *args);
+u8 *format_pfcp_user_plane_ip_resource_information (u8 *s, va_list *args);
+u8 *format_pfcp_redirect_information (u8 *s, va_list *args);
+u8 *format_pfcp_ue_ip_address (u8 *s, va_list *args);
+u8 *format_pfcp_node_id (u8 *s, va_list *args);
+u8 *format_pfcp_f_seid (u8 *s, va_list *args);
+u8 *format_pfcp_smf_set_id (u8 *s, va_list *args);
+u8 *format_pfcp_outer_header_creation (u8 *s, va_list *args);
+uword pfcp_tbcd_len (u8 *in, uword n_bytes);
+uword decode_pfcp_tbcd (u8 *in, uword n_bytes, u8 *out, uword n_out);
+u8 *format_pfcp_tbcd (u8 *s, va_list *args);
+u8 *format_pfcp_dmsg (u8 *s, va_list *args);
+u8 *format_pfcp_user_id (u8 *s0, va_list *args);
 
-void free_node_id (void *p);
-void free_user_id (void *p);
+void free_pfcp_node_id (void *p);
+void free_pfcp_user_id (void *p);
 
 void cpy_redirect_information (pfcp_redirect_information_t *dst,
                                pfcp_redirect_information_t *src);
-void free_redirect_information (void *p);
+void free_pfcp_redirect_information (void *p);
 
 int pfcp_decode_msg (u8 *p, int len, pfcp_decoded_msg_t *dmsg,
                      pfcp_offending_ie_t **err);
