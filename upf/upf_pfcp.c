@@ -80,7 +80,7 @@ format_upf_device_name (u8 *s, va_list *args)
   upf_nwi_t *nwi;
 
   nwi = pool_elt_at_index (gtm->nwis, i);
-  s = format (s, "upf-nwi-%U", format_dns_labels, nwi->name);
+  s = format (s, "upf-nwi-%U", format_pfcp_dns_labels, nwi->name);
 
   return s;
 }
@@ -456,7 +456,7 @@ pfcp_new_association (session_handle_t session_handle,
 
   upf_pfcp_associnfo (
     gtm, "PFCP Association established: node %U, local IP %U, remote IP %U\n",
-    format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
+    format_pfcp_ie_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
   return n;
 }
@@ -471,7 +471,7 @@ pfcp_release_association (upf_node_assoc_t *n)
 
   upf_pfcp_associnfo (
     gtm, "PFCP Association released: node %U, local IP %U, remote IP %U\n",
-    format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
+    format_pfcp_ie_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
     IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
 
   upf_pfcp_server_stop_heartbeat_timer (n);
@@ -996,7 +996,7 @@ pfcp_free_far (upf_far_t *far)
 {
   vec_free (far->forward.rewrite);
   if (far->forward.flags & FAR_F_REDIRECT_INFORMATION)
-    free_redirect_information (&far->forward.redirect_information);
+    free_pfcp_ie_redirect_information (&far->forward.redirect_information);
   if (far->forward.flags & FAR_F_FORWARDING_POLICY)
     vec_free (far->forward.forwarding_policy.identifier);
 }
@@ -1359,7 +1359,7 @@ pfcp_free_session (upf_session_t *sx)
   if (sx->nat_addr)
     upf_delete_nat_binding (sx);
 
-  free_user_id (&sx->user_id);
+  free_pfcp_ie_user_id (&sx->user_id);
   if (sx->cached_fseid_idx != ~0)
     pfcp_session_free_cp_fseid (sx);
 
@@ -2949,8 +2949,8 @@ format_upf_far (u8 *s, va_list *args)
     s = format (s, "FAR: %u @ %p\n", far->id, far);
 
   s = format (s, "%UApply Action: %08x == %U\n", format_white_space,
-              indent + 2, far->apply_action, format_flags, far->apply_action,
-              apply_action_flags);
+              indent + 2, far->apply_action, format_pfcp_flags,
+              far->apply_action, apply_action_flags);
 
   if (far->apply_action & FAR_FORWARD)
     {
@@ -2961,16 +2961,16 @@ format_upf_far (u8 *s, va_list *args)
                   "%UNetwork Instance: %U\n"
                   "%UDestination Interface: %u\n",
                   format_white_space, indent + 2, format_white_space,
-                  indent + 4, format_dns_labels, nwi ? nwi->name : NULL,
+                  indent + 4, format_pfcp_dns_labels, nwi ? nwi->name : NULL,
                   format_white_space, indent + 4, ff->dst_intf);
       if (ff->flags & FAR_F_REDIRECT_INFORMATION)
         s = format (s, "%URedirect Information: %U\n", format_white_space,
-                    indent + 4, format_redirect_information,
+                    indent + 4, format_pfcp_ie_redirect_information,
                     &ff->redirect_information);
       if (ff->flags & FAR_F_OUTER_HEADER_CREATION)
         {
           s = format (s, "%UOuter Header Creation: %U\n", format_white_space,
-                      indent + 4, format_outer_header_creation,
+                      indent + 4, format_pfcp_ie_outer_header_creation,
                       &ff->outer_header_creation);
           if (debug && ff->rewrite)
             s = format (s, "%URewrite Header: %U\n", format_white_space,
@@ -3021,7 +3021,7 @@ format_pfcp_session (u8 *s, va_list *args)
               &assoc->lcl_addr, IP46_TYPE_ANY, format_ip4_address, &f_seid.ip4,
               format_ip6_address, &f_seid.ip6);
 
-  user_id_str = format (0, "%U", format_user_id, &sx->user_id);
+  user_id_str = format (0, "%U", format_pfcp_ie_user_id, &sx->user_id);
   if (user_id_str)
     s = format (s, "User ID: %v\n", user_id_str);
 
@@ -3075,7 +3075,7 @@ format_pfcp_session (u8 *s, va_list *args)
       else
         s = format (s, "    Source Interface: %d\n", pdr->pdi.src_intf);
 
-      s = format (s, "    Network Instance: %U\n", format_dns_labels,
+      s = format (s, "    Network Instance: %U\n", format_pfcp_dns_labels,
                   nwi ? nwi->name : NULL);
 
       if (pdr->pdi.fields & F_PDI_LOCAL_F_TEID)
@@ -3154,9 +3154,9 @@ format_pfcp_session (u8 *s, va_list *args)
     s = format (s, "  Measurement Method: %04x == %U\n"
 		   "  Reporting Triggers: %04x == %U\n"
 		   "  Status: %d == %U\n",
-		   urr->methods, format_flags, (u64)urr->methods, urr_method_flags,
-		   urr->triggers, format_flags, (u64)urr->triggers, urr_trigger_flags,
-		   urr->status, format_flags, (u64)urr->status, urr_status_flags);
+		   urr->methods, format_pfcp_flags, (u64)urr->methods, urr_method_flags,
+		   urr->triggers, format_pfcp_flags, (u64)urr->triggers, urr_trigger_flags,
+		   urr->status, format_pfcp_flags, (u64)urr->status, urr_status_flags);
       /* clang-format on */
 
       if (urr->triggers & PFCP_REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
@@ -3289,9 +3289,9 @@ format_pfcp_session (u8 *s, va_list *args)
 		  "  DL Gate: %d == %U\n",
 		  qer->id,
 		  qer->gate_status[UPF_UL],
-		  format_flags, (u64)qer->gate_status[UPF_UL], qer_gate_status_flags,
+		  format_pfcp_flags, (u64)qer->gate_status[UPF_UL], qer_gate_status_flags,
 		  qer->gate_status[UPF_DL],
-		  format_flags, (u64)qer->gate_status[UPF_DL], qer_gate_status_flags);
+		  format_pfcp_flags, (u64)qer->gate_status[UPF_DL], qer_gate_status_flags);
       /* clang-format on */
     }
   return s;
@@ -3319,7 +3319,7 @@ format_pfcp_node_association (u8 *s, va_list *args)
               "Node: %U\n"
               "  Recovery Time Stamp: %U\n"
               "  Sessions: ",
-              format_node_id, &node->node_id, format_time_stamp,
+              format_pfcp_ie_node_id, &node->node_id, format_time_stamp,
               &node->recovery_time_stamp);
 
   if (verbose)
@@ -3365,7 +3365,7 @@ format_network_instance_index (u8 *s, va_list *args)
     return format (s, "(@~0)");
 
   upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, n);
-  return format (s, "(@%u) %U", n, format_dns_labels, nwi->name);
+  return format (s, "(@%u) %U", n, format_pfcp_dns_labels, nwi->name);
 }
 
 u8 *

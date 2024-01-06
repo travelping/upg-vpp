@@ -525,7 +525,7 @@ request_t1_expired (u32 seq_no)
       upf_session_t *sx = pool_elt_at_index (gtm->sessions, req->session.idx);
 
       pfcp_decoded_msg_t dmsg;
-      pfcp_offending_ie_t *err = NULL;
+      pfcp_ie_offending_ie_t *err = NULL;
 
       /* Decode request to dmesg so we can reencode it as new request */
       pfcp_decode_msg (req->data, vec_len (req->data), &dmsg, &err);
@@ -554,8 +554,9 @@ request_t1_expired (u32 seq_no)
           upf_pfcp_associnfo (
             gtm,
             "PFCP Association unstable: node %U, local IP %U, remote IP %U\n",
-            format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
-            IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
+            format_pfcp_ie_node_id, &n->node_id, format_ip46_address,
+            &n->lcl_addr, IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr,
+            IP46_TYPE_ANY);
         }
 
       upf_debug ("resend...\n");
@@ -588,8 +589,9 @@ request_t1_expired (u32 seq_no)
 
           upf_pfcp_associnfo (
             gtm, "PFCP Association lost: node %U, local IP %U, remote IP %U\n",
-            format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
-            IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
+            format_pfcp_ie_node_id, &n->node_id, format_ip46_address,
+            &n->lcl_addr, IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr,
+            IP46_TYPE_ANY);
 
           pfcp_release_association (n);
         }
@@ -798,7 +800,7 @@ upf_pfcp_session_up_deletion_report (upf_session_t *sx)
    */
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
-  pfcp_session_report_request_t *req = &dmsg.session_report_request;
+  pfcp_msg_session_report_request_t *req = &dmsg.session_report_request;
   struct rules *active;
   f64 now = psm->now;
 
@@ -838,7 +840,7 @@ upf_pfcp_session_usage_report (upf_session_t *sx, ip46_address_t *ue,
                                upf_event_urr_data_t *uev, f64 now)
 {
   pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
-  pfcp_session_report_request_t *req = &dmsg.session_report_request;
+  pfcp_msg_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
   upf_event_urr_data_t *ev;
@@ -1021,7 +1023,7 @@ static void
 upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
 {
   pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
-  pfcp_session_report_request_t *req = &dmsg.session_report_request;
+  pfcp_msg_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
   upf_usage_report_t report;
@@ -1395,7 +1397,7 @@ upf_server_handle_hb_timer (u32 node_idx)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_HEARTBEAT_REQUEST };
-  pfcp_heartbeat_request_t *req = &dmsg.heartbeat_request;
+  pfcp_msg_heartbeat_request_t *req = &dmsg.heartbeat_request;
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;
 

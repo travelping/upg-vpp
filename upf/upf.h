@@ -457,7 +457,7 @@ typedef struct
 /* Packet Detection Information */
 typedef struct
 {
-  pfcp_source_interface_t src_intf;
+  pfcp_ie_source_interface_t src_intf;
   u32 nwi_index;
 
   u32 fields;
@@ -466,8 +466,8 @@ typedef struct
 #define F_PDI_SDF_FILTER     0x0008
 #define F_PDI_APPLICATION_ID 0x0010
 
-  pfcp_f_teid_t teid;
-  pfcp_ue_ip_address_t ue_addr;
+  pfcp_ie_f_teid_t teid;
+  pfcp_ie_ue_ip_address_t ue_addr;
   acl_rule_t *acl;
   adr_rule_t adr;
 } upf_pdi_t;
@@ -493,13 +493,13 @@ typedef struct
 #define FAR_F_OUTER_HEADER_CREATION BIT (1)
 #define FAR_F_FORWARDING_POLICY     BIT (2)
 
-  pfcp_destination_interface_t dst_intf;
+  pfcp_ie_destination_interface_t dst_intf;
   u32 dst_sw_if_index;
   u32 nwi_index;
 
-  pfcp_redirect_information_t redirect_information;
-  pfcp_outer_header_creation_t outer_header_creation;
-  pfcp_forwarding_policy_t forwarding_policy;
+  pfcp_ie_redirect_information_t redirect_information;
+  pfcp_ie_outer_header_creation_t outer_header_creation;
+  pfcp_ie_forwarding_policy_t forwarding_policy;
 
   uword fp_pool_index;
   u32 peer_idx;
@@ -711,7 +711,7 @@ typedef struct
   uword *traffic_by_ue;
   urr_time_t traffic_timer;
 
-  pfcp_linked_urr_id_t *linked_urr_ids;
+  pfcp_ie_linked_urr_id_t *linked_urr_ids;
   uword *liusa_bitmap;
 } upf_urr_t;
 
@@ -724,7 +724,7 @@ typedef struct
   policer_t policer[UPF_DIRECTION_MAX];
 
   u64 ref_cnt;
-  pfcp_mbr_t mbr;
+  pfcp_ie_mbr_t mbr;
 } upf_qer_policer_t;
 
 typedef struct
@@ -736,7 +736,7 @@ typedef struct
 
   u8 gate_status[UPF_DIRECTION_MAX];
 
-  pfcp_mbr_t mbr;
+  pfcp_ie_mbr_t mbr;
   clib_bihash_kv_8_8_t policer;
 } upf_qer_t;
 
@@ -823,7 +823,7 @@ typedef struct
 
   f64 unix_time_start;
 
-  pfcp_user_id_t user_id;
+  pfcp_ie_user_id_t user_id;
 
   session_flows_list_t flows;
 
@@ -912,8 +912,8 @@ typedef struct
   /* Required for pool_get_aligned  */
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
 
-  pfcp_node_id_t node_id;
-  pfcp_recovery_time_stamp_t recovery_time_stamp;
+  pfcp_ie_node_id_t node_id;
+  pfcp_ie_recovery_time_stamp_t recovery_time_stamp;
 
   session_handle_t session_handle;
   ip46_address_t rmt_addr;
@@ -1090,7 +1090,7 @@ typedef struct
   u32 pfcp_spec_version;
   u32 rand_base;
 
-  pfcp_node_id_t node_id;
+  pfcp_ie_node_id_t node_id;
 
   upf_nat_pool_t *nat_pools;
   uword *nat_pool_index_by_name;
@@ -1159,7 +1159,7 @@ int vnet_upf_tdf_ul_enable_disable (fib_protocol_t fproto, u32 sw_if_index,
 int vnet_upf_tdf_ul_table_add_del (u32 vrf, fib_protocol_t fproto,
                                    u32 table_id, u8 add);
 
-int vnet_upf_node_id_set (const pfcp_node_id_t *node_id);
+int vnet_upf_node_id_set (const pfcp_ie_node_id_t *node_id);
 
 int vnet_upf_pfcp_heartbeat_config (u32 timeout, u32 retires);
 
