@@ -60,16 +60,16 @@ static char *upf_proxy_error_strings[] = {
 
 typedef enum
 {
-#define _(sym, str) UPPFCP_F_PROXY_ERROR_##sym,
+#define _(sym, str) UPF_PROXY_ERROR_##sym,
   foreach_upf_proxy_error
 #undef _
-    UPPFCP_F_PROXY_N_ERROR,
+    UPF_PROXY_N_ERROR,
 } upf_proxy_error_t;
 
 typedef enum
 {
-  UPPFCP_F_PROXY_NEXT_DROP,
-  UPPFCP_F_PROXY_N_NEXT,
+  UPF_PROXY_NEXT_DROP,
+  UPF_PROXY_N_NEXT,
 } upf_proxy_next_t;
 
 typedef struct
@@ -239,7 +239,7 @@ upf_proxy_accept_inline (vlib_main_t *vm, vlib_node_runtime_t *node,
       upf_debug ("TCP SYN: %d", tcp_syn (tcp));
       if (PREDICT_FALSE (!tcp_syn (tcp)))
         {
-          error = UPPFCP_F_PROXY_ERROR_NO_LISTENER;
+          error = UPF_PROXY_ERROR_NO_LISTENER;
           goto done;
         }
 
@@ -252,7 +252,7 @@ upf_proxy_accept_inline (vlib_main_t *vm, vlib_node_runtime_t *node,
       if (PREDICT_FALSE (old_conn != NULL))
         {
           clib_warning ("duplicate connection in upf-proxy-accept");
-          error = UPPFCP_F_PROXY_ERROR_CONNECTION_EXISTS;
+          error = UPF_PROXY_ERROR_CONNECTION_EXISTS;
           goto done;
         }
 
@@ -261,7 +261,7 @@ upf_proxy_accept_inline (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       if (tcp_options_parse (tcp, &child->rcv_opts, 1))
         {
-          error = UPPFCP_F_PROXY_ERROR_OPTIONS;
+          error = UPF_PROXY_ERROR_OPTIONS;
           tcp_connection_free (child);
           goto done;
         }
@@ -289,7 +289,7 @@ upf_proxy_accept_inline (vlib_main_t *vm, vlib_node_runtime_t *node,
       if (proxy_session_stream_accept_notify (&child->connection, flow_id))
         {
           tcp_connection_cleanup (child);
-          error = UPPFCP_F_PROXY_ERROR_CREATE_SESSION_FAIL;
+          error = UPF_PROXY_ERROR_CREATE_SESSION_FAIL;
           goto done;
         }
 

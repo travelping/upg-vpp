@@ -372,7 +372,7 @@ vnet_upf_node_id_set (const pfcp_ie_node_id_t *node_id)
     case PFCP_NID_IPv4:
     case PFCP_NID_IPv6:
     case PFCP_NID_FQDN:
-      free_node_id (&gtm->node_id);
+      free_pfcp_ie_node_id (&gtm->node_id);
       gtm->node_id = *node_id;
       return 0;
     }

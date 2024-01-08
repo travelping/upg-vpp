@@ -889,15 +889,15 @@ format_pfcp_ie_f_teid (u8 *s, va_list *args)
   pfcp_ie_f_teid_t *v = va_arg (*args, pfcp_ie_f_teid_t *);
   u16 flags = (v->flags & 0xf);
 
-  s = format (s, "CH:%d,CHID:%d,V4:%d,V6:%d,", !!(flags & PFCP_F_TEIDCH),
-              !!(flags & PFCP_F_TEIDCHID), !!(flags & PFCP_F_TEIDV4),
-              !!(flags & PFCP_F_TEIDV6));
+  s = format (s, "CH:%d,CHID:%d,V4:%d,V6:%d,", !!(flags & PFCP_F_TEID_CH),
+              !!(flags & PFCP_F_TEID_CHID), !!(flags & PFCP_F_TEID_V4),
+              !!(flags & PFCP_F_TEID_V6));
 
-  if ((v->flags & 0xf) == PFCP_F_TEIDV4)
+  if ((v->flags & 0xf) == PFCP_F_TEID_V4)
     s = format (s, "TEID:%d,IPv4:%U", v->teid, format_ip4_address, &v->ip4);
-  else if ((v->flags & 0xf) == PFCP_F_TEIDV6)
+  else if ((v->flags & 0xf) == PFCP_F_TEID_V6)
     s = format (s, "TEID:%d,IPv6:%U", v->teid, format_ip6_address, &v->ip6);
-  else if ((v->flags & 0xf) == (PFCP_F_TEIDV4 | PFCP_F_TEIDV6))
+  else if ((v->flags & 0xf) == (PFCP_F_TEID_V4 | PFCP_F_TEID_V6))
     s = format (s, "TEID:%d,IPv4:%U,IPv6:%U", v->teid, format_ip4_address,
                 &v->ip4, format_ip6_address, &v->ip6);
 
@@ -914,7 +914,7 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
 
   v->flags = get_u8 (data) & 0x0f;
 
-  if (!(v->flags & PFCP_F_TEIDCH))
+  if (!(v->flags & PFCP_F_TEID_CH))
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -922,7 +922,7 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
       v->teid = get_u32 (data);
       length -= 4;
 
-      if (v->flags & PFCP_F_TEIDCHID)
+      if (v->flags & PFCP_F_TEID_CHID)
         {
           pfcp_debug (
             "PFCP: F-TEID with invalid flags (CHID without CH): %02x.",
@@ -930,13 +930,13 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
           return -1;
         }
 
-      if (!(v->flags & (PFCP_F_TEIDV4 | PFCP_F_TEIDV6)))
+      if (!(v->flags & (PFCP_F_TEID_V4 | PFCP_F_TEID_V6)))
         {
           pfcp_debug ("PFCP: F-TEID without v4/v6 address: %02x.", v->flags);
           return -1;
         }
 
-      if (v->flags & PFCP_F_TEIDV4)
+      if (v->flags & PFCP_F_TEID_V4)
         {
           if (length < 4)
             return PFCP_CAUSE_INVALID_LENGTH;
@@ -945,7 +945,7 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
           length -= 4;
         }
 
-      if (v->flags & PFCP_F_TEIDV6)
+      if (v->flags & PFCP_F_TEID_V6)
         {
           if (length < 16)
             return PFCP_CAUSE_INVALID_LENGTH;
@@ -959,7 +959,7 @@ decode_pfcp_ie_f_teid (u8 *data, u16 length, void *p)
       if (length < 1)
         return PFCP_CAUSE_INVALID_LENGTH;
 
-      if (!(v->flags & PFCP_F_TEIDV6) && !(v->flags & PFCP_F_TEIDV4))
+      if (!(v->flags & PFCP_F_TEID_V6) && !(v->flags & PFCP_F_TEID_V4))
         {
           pfcp_debug (
             "PFCP: F-TEID with CH flag should have at least v4/v6 flag:%02x",
@@ -980,11 +980,11 @@ encode_pfcp_ie_f_teid (void *p, u8 **vec)
 
   put_u8 (*vec, v->flags);
   put_u32 (*vec, v->teid);
-  if (v->flags & PFCP_F_TEIDV4)
+  if (v->flags & PFCP_F_TEID_V4)
     put_ip4 (*vec, v->ip4);
-  if (v->flags & PFCP_F_TEIDV6)
+  if (v->flags & PFCP_F_TEID_V6)
     put_ip6 (*vec, v->ip6);
-  if (v->flags & PFCP_F_TEIDCHID)
+  if (v->flags & PFCP_F_TEID_CHID)
     put_u8 (*vec, v->choose_id);
   return 0;
 }
@@ -1814,17 +1814,17 @@ format_pfcp_ie_f_seid (u8 *s, va_list *args)
 
   s = format (s, "0x%016" PRIx64 "@", n->seid);
 
-  switch (n->flags & (PFCP_F_SEID_IP_ADDRESS_V44 | PFCP_F_SEID_IP_ADDRESS_V46))
+  switch (n->flags & (PFCP_F_SEID_IP_ADDRESS_V4 | PFCP_F_SEID_IP_ADDRESS_V6))
     {
-    case PFCP_F_SEID_IP_ADDRESS_V44:
+    case PFCP_F_SEID_IP_ADDRESS_V4:
       s = format (s, "%U", format_ip4_address, &n->ip4);
       break;
 
-    case PFCP_F_SEID_IP_ADDRESS_V46:
+    case PFCP_F_SEID_IP_ADDRESS_V6:
       s = format (s, "%U", format_ip6_address, &n->ip6);
       break;
 
-    case (PFCP_F_SEID_IP_ADDRESS_V44 | PFCP_F_SEID_IP_ADDRESS_V46):
+    case (PFCP_F_SEID_IP_ADDRESS_V4 | PFCP_F_SEID_IP_ADDRESS_V6):
       s = format (s, "%U,%U", format_ip4_address, &n->ip4, format_ip6_address,
                   &n->ip6);
       break;
@@ -1850,7 +1850,7 @@ decode_pfcp_ie_f_seid (u8 *data, u16 length, void *p)
 
   v->seid = get_u64 (data);
 
-  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V44)
+  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V4)
     {
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1859,7 +1859,7 @@ decode_pfcp_ie_f_seid (u8 *data, u16 length, void *p)
       length -= 4;
     }
 
-  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V46)
+  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V6)
     {
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
@@ -1878,10 +1878,10 @@ encode_pfcp_ie_f_seid (void *p, u8 **vec)
   put_u8 (*vec, v->flags);
   put_u64 (*vec, v->seid);
 
-  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V44)
+  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V4)
     put_ip4 (*vec, v->ip4);
 
-  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V46)
+  if (v->flags & PFCP_F_SEID_IP_ADDRESS_V6)
     put_ip6 (*vec, v->ip6);
 
   return 0;
@@ -2239,12 +2239,12 @@ format_pfcp_ie_fq_csid (u8 *s, va_list *args)
 
   switch (v->node_id_type)
     {
-    case PFCP_FQ_CSID_PFCP_NID_IP4:
-    case PFCP_FQ_CSID_PFCP_NID_IP6:
+    case PFCP_FQ_CSID_NID_IP4:
+    case PFCP_FQ_CSID_NID_IP6:
       s = format (s, "NID:%U,", format_ip46_address, &v->node_id.ip,
                   IP46_TYPE_ANY);
       break;
-    case PFCP_FQ_CSID_PFCP_NID_NID:
+    case PFCP_FQ_CSID_NID_NID:
       s = format (s, "NID:MCC:%u,MNC:%u,NID:%u,", v->node_id.mcc,
                   v->node_id.mnc, v->node_id.nid);
       break;
@@ -2283,21 +2283,21 @@ decode_pfcp_ie_fq_csid (u8 *data, u16 length, void *p)
 
   switch (v->node_id_type)
     {
-    case PFCP_FQ_CSID_PFCP_NID_IP4:
+    case PFCP_FQ_CSID_NID_IP4:
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
       get_ip46_ip4 (v->node_id.ip, data);
       length -= 4;
       break;
 
-    case PFCP_FQ_CSID_PFCP_NID_IP6:
+    case PFCP_FQ_CSID_NID_IP6:
       if (length < 16)
         return PFCP_CAUSE_INVALID_LENGTH;
       get_ip46_ip6 (v->node_id.ip, data);
       length -= 16;
       break;
 
-    case PFCP_FQ_CSID_PFCP_NID_NID:
+    case PFCP_FQ_CSID_NID_NID:
       if (length < 4)
         return PFCP_CAUSE_INVALID_LENGTH;
 
@@ -2331,15 +2331,15 @@ encode_pfcp_ie_fq_csid (void *p, u8 **vec)
 
   switch (v->node_id_type)
     {
-    case PFCP_FQ_CSID_PFCP_NID_IP4:
+    case PFCP_FQ_CSID_NID_IP4:
       put_ip46_ip4 (*vec, v->node_id.ip);
       break;
 
-    case PFCP_FQ_CSID_PFCP_NID_IP6:
+    case PFCP_FQ_CSID_NID_IP6:
       put_ip46_ip6 (*vec, v->node_id.ip);
       break;
 
-    case PFCP_FQ_CSID_PFCP_NID_NID:
+    case PFCP_FQ_CSID_NID_NID:
       put_u32 (*vec, (v->node_id.mcc * 1000 + v->node_id.mnc) << 12 |
                        (v->node_id.nid & 0x0fff));
       break;
@@ -5174,8 +5174,8 @@ static struct pfcp_group_ie_def pfcp_forwarding_parameters_group[] =
       .type = PFCP_IE_TGPP_INTERFACE_TYPE,
       .offset = offsetof(pfcp_ie_forwarding_parameters_t, destination_interface_type)
     },
-    [FORWARDING_PARAMETERS_BBPFCP_F_APPLY_ACTION] = {
-      .type = PFCP_IE_BBPFCP_F_APPLY_ACTION,
+    [FORWARDING_PARAMETERS_BBF_APPLY_ACTION] = {
+      .type = PFCP_IE_BBF_APPLY_ACTION,
       .vendor = PFCP_VENDOR_BBF,
       .offset = offsetof(pfcp_ie_forwarding_parameters_t, bbf_apply_action)
     },
@@ -5473,7 +5473,7 @@ static struct pfcp_group_ie_def pfcp_update_forwarding_parameters_group[] =
       .type = PFCP_IE_HEADER_ENRICHMENT,
       .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, header_enrichment)
     },
-    [UPDATE_FORWARDING_PARAMETERS_PFCP_PFCPSMREQ_FLAGS] = {
+    [UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS] = {
       .type = PFCP_IE_PFCPSMREQ_FLAGS,
       .offset = offsetof(pfcp_ie_update_forwarding_parameters_t, pfcpsmreq_flags)
     },
@@ -6348,7 +6348,7 @@ static struct pfcp_group_ie_def pfcp_update_access_forwarding_action_information
 static struct pfcp_group_ie_def pfcp_ue_ip_address_pool_group[] =
   {
     [UE_IP_ADDRESS_POOL_INFORMATION_POOL_IDENTIFY] = {
-      .type = PFCP_PFCP_UE_IP_ADDRESS_POOL_IDENTITY,
+      .type = PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY,
       .offset = offsetof(pfcp_ie_ue_ip_address_pool_information_t,
 			 ue_ip_address_pool_identity)
     },
@@ -7025,7 +7025,7 @@ static struct pfcp_ie_def tgpp_specs[] =
       .size = ARRAY_LEN(pfcp_update_access_forwarding_action_information_group),
       .group = pfcp_update_access_forwarding_action_information_group,
     },
-    SIMPLE_IE(PFCP_PFCP_UE_IP_ADDRESS_POOL_IDENTITY, ue_ip_address_pool_identity, "UE IP address Pool Identity"),
+    SIMPLE_IE(PFCP_IE_UE_IP_ADDRESS_POOL_IDENTITY, ue_ip_address_pool_identity, "UE IP address Pool Identity"),
     SIMPLE_IE(PFCP_IE_ALTERNATIVE_SMF_IP_ADDRESS, alternative_smf_ip_address, "Alternative SMF IP Address"),
     SIMPLE_IE_FREE(PFCP_IE_SMF_SET_ID, smf_set_id, "SMF Set ID"),
     SIMPLE_IE(PFCP_IE_QUOTA_VALIDITY_TIME, quota_validity_time, "Quota Validity Time"),
@@ -7071,7 +7071,7 @@ static struct pfcp_ie_def vendor_bbf_specs[] =
   {
    SIMPLE_IE(PFCP_IE_BBF_UP_FUNCTION_FEATURES, bbf_up_function_features, "BBF UP Function Features"),
    SIMPLE_IE(PFCP_IE_BBF_NAT_OUTSIDE_ADDRESS, bbf_nat_outside_address, "BBF NAT Outside Address"),
-   SIMPLE_IE(PFCP_IE_BBPFCP_F_APPLY_ACTION, bbf_apply_action, "BBF Apply Action"),
+   SIMPLE_IE(PFCP_IE_BBF_APPLY_ACTION, bbf_apply_action, "BBF Apply Action"),
    SIMPLE_IE_FREE(PFCP_IE_BBF_NAT_PORT_BLOCK, bbf_nat_port_block, "BBF NAT Port Block"),
    SIMPLE_IE(PFCP_IE_BBF_NAT_EXTERNAL_PORT_RANGE, bbf_nat_external_port_range, "BBF NAT External Port Range"),
   };
@@ -7592,7 +7592,7 @@ static struct pfcp_group_ie_def pfcp_session_modification_request_group[] =
       .is_array = true,
       .offset = offsetof(pfcp_msg_session_modification_request_t, update_traffic_endpoint)
     },
-    [SESSION_MODIFICATION_REQUEST_PFCP_PFCPSMREQ_FLAGS] = {
+    [SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS] = {
       .type = PFCP_IE_PFCPSMREQ_FLAGS,
       .offset = offsetof(pfcp_msg_session_modification_request_t, pfcpsmreq_flags)
     },
@@ -7774,7 +7774,7 @@ static struct pfcp_group_ie_def pfcp_session_report_response_group[] =
       .is_array = true,
       .offset = offsetof(pfcp_msg_session_report_response_t, update_bar)
     },
-    [SESSION_REPORT_RESPONSE_PFCP_PFCPSRRSP_FLAGS] = {
+    [SESSION_REPORT_RESPONSE_PFCPSRRSP_FLAGS] = {
       .type = PFCP_IE_PFCPSRRSP_FLAGS,
       .offset = offsetof(pfcp_msg_session_report_response_t, pfcpsrrsp_flags)
     },

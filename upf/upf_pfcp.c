@@ -1967,11 +1967,11 @@ build_pfcp_rules (upf_session_t *sx)
       /* register Local F-TEIDs */
       if (pdr->pdi.fields & F_PDI_LOCAL_F_TEID)
         {
-          if (pdr->pdi.teid.flags & PFCP_F_TEIDV4)
+          if (pdr->pdi.teid.flags & PFCP_F_TEID_V4)
             rules_add_v4_teid (pending, &pdr->pdi.teid.ip4, pdr->pdi.teid.teid,
                                idx);
 
-          if (pdr->pdi.teid.flags & PFCP_F_TEIDV6)
+          if (pdr->pdi.teid.flags & PFCP_F_TEID_V6)
             rules_add_v6_teid (pending, &pdr->pdi.teid.ip6, pdr->pdi.teid.teid,
                                idx);
         }
@@ -3082,10 +3082,10 @@ format_pfcp_session (u8 *s, va_list *args)
         {
           s = format (s, "    Local F-TEID: %u (0x%08x)\n", pdr->pdi.teid.teid,
                       pdr->pdi.teid.teid);
-          if (pdr->pdi.teid.flags & PFCP_F_TEIDV4)
+          if (pdr->pdi.teid.flags & PFCP_F_TEID_V4)
             s = format (s, "            IPv4: %U\n", format_ip4_address,
                         &pdr->pdi.teid.ip4);
-          if (pdr->pdi.teid.flags & PFCP_F_TEIDV6)
+          if (pdr->pdi.teid.flags & PFCP_F_TEID_V6)
             s = format (s, "            IPv6: %U\n", format_ip6_address,
                         &pdr->pdi.teid.ip6);
         }

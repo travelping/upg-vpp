@@ -42,18 +42,18 @@
 
 typedef enum
 {
-  UPPFCP_F_PROXY_OUTPUT_NEXT_DROP,
-  UPPFCP_F_PROXY_OUTPUT_NEXT_CLASSIFY,
-  UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS,
-  UPPFCP_F_PROXY_OUTPUT_NEXT_IP_LOOKUP,
-  UPPFCP_F_PROXY_OUTPUT_N_NEXT,
+  UPF_PROXY_OUTPUT_NEXT_DROP,
+  UPF_PROXY_OUTPUT_NEXT_CLASSIFY,
+  UPF_PROXY_OUTPUT_NEXT_PROCESS,
+  UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP,
+  UPF_PROXY_OUTPUT_N_NEXT,
 } upf_proxy_output_next_t;
 
 static upf_proxy_output_next_t ft_next_map_next[FT_NEXT_N_NEXT] = {
-  [FT_NEXT_DROP] = UPPFCP_F_PROXY_OUTPUT_NEXT_DROP,
-  [FT_NEXT_CLASSIFY] = UPPFCP_F_PROXY_OUTPUT_NEXT_CLASSIFY,
-  [FT_NEXT_PROCESS] = UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS,
-  [FT_NEXT_PROXY] = UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS,
+  [FT_NEXT_DROP] = UPF_PROXY_OUTPUT_NEXT_DROP,
+  [FT_NEXT_CLASSIFY] = UPF_PROXY_OUTPUT_NEXT_CLASSIFY,
+  [FT_NEXT_PROCESS] = UPF_PROXY_OUTPUT_NEXT_PROCESS,
+  [FT_NEXT_PROXY] = UPF_PROXY_OUTPUT_NEXT_PROCESS,
 };
 
 /* Statistics (not all errors) */
@@ -70,10 +70,10 @@ static char *upf_proxy_output_error_strings[] = {
 
 typedef enum
 {
-#define _(sym, str) UPPFCP_F_PROXY_OUTPUT_ERROR_##sym,
+#define _(sym, str) UPF_PROXY_OUTPUT_ERROR_##sym,
   foreach_upf_proxy_output_error
 #undef _
-    UPPFCP_F_PROXY_OUTPUT_N_ERROR,
+    UPF_PROXY_OUTPUT_N_ERROR,
 } upf_proxy_output_error_t;
 
 typedef struct
@@ -221,7 +221,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
                              "TCP output, IP hdr: %U",
                              format_ip4_header, vlib_buffer_get_current (b),
                              b->current_length);
-                  next = UPPFCP_F_PROXY_OUTPUT_NEXT_IP_LOOKUP;
+                  next = UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP;
                   goto trace;
                 }
               flow_id = tconn->next_node_opaque;
@@ -234,7 +234,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
               /* VPP host stack traffic not related to UPG */
               upf_debug ("Non-UPG TCP traffic, IP hdr: %U", format_ip4_header,
                          vlib_buffer_get_current (b), b->current_length);
-              next = UPPFCP_F_PROXY_OUTPUT_NEXT_IP_LOOKUP;
+              next = UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP;
               goto trace;
             }
 
@@ -242,8 +242,8 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
 
           if (pool_is_free_index (fm->flows, flow_id))
             {
-              next = UPPFCP_F_PROXY_OUTPUT_NEXT_DROP;
-              error = UPPFCP_F_PROXY_OUTPUT_ERROR_INVALID_FLOW;
+              next = UPF_PROXY_OUTPUT_NEXT_DROP;
+              error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
               goto trace;
             }
 
@@ -274,8 +274,8 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
               clib_warning (
                 "The flow has sidx %d that refers to a dead session",
                 flow->session_index);
-              next = UPPFCP_F_PROXY_OUTPUT_NEXT_DROP;
-              error = UPPFCP_F_PROXY_OUTPUT_ERROR_INVALID_FLOW;
+              next = UPF_PROXY_OUTPUT_NEXT_DROP;
+              error = UPF_PROXY_OUTPUT_ERROR_INVALID_FLOW;
               goto trace;
             }
 
@@ -306,7 +306,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
                                             VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
 
           next = ft_next_map_next[flow_next (flow, direction)];
-          if (next == UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS)
+          if (next == UPF_PROXY_OUTPUT_NEXT_PROCESS)
             {
               upf_pdr_t *pdr;
 
@@ -328,8 +328,8 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
                   NULL;
               if (!pdr)
                 {
-                  next = UPPFCP_F_PROXY_OUTPUT_NEXT_DROP;
-                  error = UPPFCP_F_PROXY_OUTPUT_ERROR_NO_SESSION;
+                  next = UPF_PROXY_OUTPUT_NEXT_DROP;
+                  error = UPF_PROXY_OUTPUT_ERROR_NO_SESSION;
                   goto trace;
                 }
 
@@ -432,12 +432,12 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_server_far_only_output_node) = {
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(upf_proxy_output_error_strings),
   .error_strings = upf_proxy_output_error_strings,
-  .n_next_nodes = UPPFCP_F_PROXY_OUTPUT_N_NEXT,
+  .n_next_nodes = UPF_PROXY_OUTPUT_N_NEXT,
   .next_nodes = {
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip4-classify",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip4-forward",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
+    [UPF_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
+    [UPF_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip4-classify",
+    [UPF_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip4-forward",
+    [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
   },
 };
 /* clang-format on */
@@ -450,12 +450,12 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_server_far_only_output_node) = {
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(upf_proxy_output_error_strings),
   .error_strings = upf_proxy_output_error_strings,
-  .n_next_nodes = UPPFCP_F_PROXY_OUTPUT_N_NEXT,
+  .n_next_nodes = UPF_PROXY_OUTPUT_N_NEXT,
   .next_nodes = {
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip6-classify",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip6-forward",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
+    [UPF_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
+    [UPF_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip6-classify",
+    [UPF_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip6-forward",
+    [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
   },
 };
 /* clang-format on */
@@ -468,12 +468,12 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_server_no_conn_output_node) = {
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(upf_proxy_output_error_strings),
   .error_strings = upf_proxy_output_error_strings,
-  .n_next_nodes = UPPFCP_F_PROXY_OUTPUT_N_NEXT,
+  .n_next_nodes = UPF_PROXY_OUTPUT_N_NEXT,
   .next_nodes = {
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip4-classify",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip4-forward",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
+    [UPF_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
+    [UPF_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip4-classify",
+    [UPF_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip4-forward",
+    [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
   },
 };
 /* clang-format on */
@@ -486,12 +486,12 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_server_no_conn_output_node) = {
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(upf_proxy_output_error_strings),
   .error_strings = upf_proxy_output_error_strings,
-  .n_next_nodes = UPPFCP_F_PROXY_OUTPUT_N_NEXT,
+  .n_next_nodes = UPF_PROXY_OUTPUT_N_NEXT,
   .next_nodes = {
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip6-classify",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip6-forward",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
+    [UPF_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
+    [UPF_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip6-classify",
+    [UPF_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip6-forward",
+    [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
   },
 };
 /* clang-format on */
@@ -504,12 +504,12 @@ VLIB_REGISTER_NODE (upf_ip4_proxy_server_output_node) = {
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(upf_proxy_output_error_strings),
   .error_strings = upf_proxy_output_error_strings,
-  .n_next_nodes = UPPFCP_F_PROXY_OUTPUT_N_NEXT,
+  .n_next_nodes = UPF_PROXY_OUTPUT_N_NEXT,
   .next_nodes = {
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip4-classify",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip4-forward",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
+    [UPF_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
+    [UPF_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip4-classify",
+    [UPF_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip4-forward",
+    [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip4-lookup",
   },
 };
 /* clang-format on */
@@ -522,12 +522,12 @@ VLIB_REGISTER_NODE (upf_ip6_proxy_server_output_node) = {
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(upf_proxy_output_error_strings),
   .error_strings = upf_proxy_output_error_strings,
-  .n_next_nodes = UPPFCP_F_PROXY_OUTPUT_N_NEXT,
+  .n_next_nodes = UPF_PROXY_OUTPUT_N_NEXT,
   .next_nodes = {
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip6-classify",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip6-forward",
-    [UPPFCP_F_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
+    [UPF_PROXY_OUTPUT_NEXT_DROP]      = "error-drop",
+    [UPF_PROXY_OUTPUT_NEXT_CLASSIFY]  = "upf-ip6-classify",
+    [UPF_PROXY_OUTPUT_NEXT_PROCESS]   = "upf-ip6-forward",
+    [UPF_PROXY_OUTPUT_NEXT_IP_LOOKUP] = "ip6-lookup",
   },
 };
 /* clang-format on */

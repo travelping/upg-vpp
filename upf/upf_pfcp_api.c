@@ -114,12 +114,12 @@ init_response_up_f_seid (pfcp_ie_f_seid_t *up_f_seid, ip46_address_t *address,
 {
   if (is_ip4)
     {
-      up_f_seid->flags |= PFCP_F_SEID_IP_ADDRESS_V44;
+      up_f_seid->flags |= PFCP_F_SEID_IP_ADDRESS_V4;
       up_f_seid->ip4 = address->ip4;
     }
   else
     {
-      up_f_seid->flags |= PFCP_F_SEID_IP_ADDRESS_V46;
+      up_f_seid->flags |= PFCP_F_SEID_IP_ADDRESS_V6;
       up_f_seid->ip6 = address->ip6;
     }
 }
@@ -612,9 +612,9 @@ process_teid_generation (upf_main_t *gtm, u8 chid, u32 flags,
          present in a UPIP res. It will always return
          UPF_GTPU_ERROR_NO_SUCH_TUNNEL for such cases
        */
-      ok = (!(flags & PFCP_F_TEIDV4) ||
+      ok = (!(flags & PFCP_F_TEID_V4) ||
             teid_v4_lookup_session_index (gtm, teid, &res->ip4) == ~0) &&
-           (!(flags & PFCP_F_TEIDV6) ||
+           (!(flags & PFCP_F_TEID_V6) ||
             teid_v6_lookup_session_index (gtm, teid, &res->ip6) == ~0);
 
       if (ok)
@@ -626,7 +626,7 @@ process_teid_generation (upf_main_t *gtm, u8 chid, u32 flags,
     /* can't generate unique for given UPIP resource */
     return 0;
 
-  if ((flags & PFCP_F_TEIDCHID))
+  if ((flags & PFCP_F_TEID_CHID))
     {
       u32 *n = sparse_vec_validate (sx->teid_by_chid, chid);
       n[0] = teid;
@@ -647,12 +647,12 @@ handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_ie_pdi_t *pdi,
   process_pdr->pdi.fields |= F_PDI_LOCAL_F_TEID;
 
   // We only generate F_TEID if NWI is defined
-  if ((pdi->f_teid.flags & PFCP_F_TEIDCH))
+  if ((pdi->f_teid.flags & PFCP_F_TEID_CH))
     {
       if (!res)
         return -1;
 
-      if ((pdi->f_teid.flags & PFCP_F_TEIDCHID))
+      if ((pdi->f_teid.flags & PFCP_F_TEID_CHID))
         {
           uword i = sparse_vec_index (sx->teid_by_chid, pdi->f_teid.choose_id);
           if (i)
@@ -673,16 +673,16 @@ handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_ie_pdi_t *pdi,
       process_pdr->pdi.teid.teid = teid;
 
       if ((!is_zero_ip4_address (&res->ip4)) &&
-          (pdi->f_teid.flags & PFCP_F_TEIDV4))
+          (pdi->f_teid.flags & PFCP_F_TEID_V4))
         {
           process_pdr->pdi.teid.ip4 = res->ip4;
-          process_pdr->pdi.teid.flags |= PFCP_F_TEIDV4;
+          process_pdr->pdi.teid.flags |= PFCP_F_TEID_V4;
         }
 
       if ((!is_zero_ip6_address (&res->ip6)) &&
-          (pdi->f_teid.flags & PFCP_F_TEIDV6))
+          (pdi->f_teid.flags & PFCP_F_TEID_V6))
         {
-          process_pdr->pdi.teid.flags |= PFCP_F_TEIDV6;
+          process_pdr->pdi.teid.flags |= PFCP_F_TEID_V6;
           process_pdr->pdi.teid.ip6 = res->ip6;
         }
 
@@ -700,10 +700,10 @@ handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_ie_pdi_t *pdi,
     {
       /* CH == 0, check for conflicts with other sessions */
 
-      if (pdi->f_teid.flags & PFCP_F_TEIDV4)
+      if (pdi->f_teid.flags & PFCP_F_TEID_V4)
         sidx = teid_v4_lookup_session_index (gtm, pdi->f_teid.teid,
                                              &pdi->f_teid.ip4);
-      else if (pdi->f_teid.flags & PFCP_F_TEIDV6)
+      else if (pdi->f_teid.flags & PFCP_F_TEID_V6)
         sidx = teid_v6_lookup_session_index (gtm, pdi->f_teid.teid,
                                              &pdi->f_teid.ip6);
       if (sidx != ~0 && sidx != sx - gtm->sessions)
@@ -1482,9 +1482,9 @@ handle_create_far (upf_session_t *sx, pfcp_ie_create_far_t *create_far,
             }
 
           if ((ISSET_BIT (far->forwarding_parameters.grp.fields,
-                          FORWARDING_PARAMETERS_BBPFCP_F_APPLY_ACTION)) &&
+                          FORWARDING_PARAMETERS_BBF_APPLY_ACTION)) &&
               (far->forwarding_parameters.bbf_apply_action &
-               PFCP_BBPFCP_F_APPLY_ACTION_NAT) &&
+               PFCP_BBF_APPLY_ACTION_NAT) &&
               (ISSET_BIT (far->forwarding_parameters.grp.fields,
                           FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK)))
             {
@@ -1670,9 +1670,8 @@ handle_update_far (upf_session_t *sx, pfcp_ie_update_far_t *update_far,
               fib_protocol_t fproto =
                 is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
 
-              if (ISSET_BIT (
-                    far->update_forwarding_parameters.grp.fields,
-                    UPDATE_FORWARDING_PARAMETERS_PFCP_PFCPSMREQ_FLAGS) &&
+              if (ISSET_BIT (far->update_forwarding_parameters.grp.fields,
+                             UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS) &&
                   far->update_forwarding_parameters.pfcpsmreq_flags &
                     PFCP_PFCPSMREQ_SNDEM)
                 pfcp_send_end_marker (sx, far->far_id);
@@ -2820,7 +2819,7 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
         }
     }
   else if (ISSET_BIT (req->grp.fields,
-                      SESSION_MODIFICATION_REQUEST_PFCP_PFCPSMREQ_FLAGS) &&
+                      SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS) &&
            req->pfcpsmreq_flags & PFCP_PFCPSMREQ_QAURR)
     {
       if (!have_report)
@@ -3020,12 +3019,12 @@ upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error)
   f_teid.teid = error->teid;
   if (ip46_address_is_ip4 (&error->addr))
     {
-      f_teid.flags = PFCP_F_TEIDV4;
+      f_teid.flags = PFCP_F_TEID_V4;
       f_teid.ip4 = error->addr.ip4;
     }
   else
     {
-      f_teid.flags = PFCP_F_TEIDV6;
+      f_teid.flags = PFCP_F_TEID_V6;
       f_teid.ip6 = error->addr.ip6;
     }
 
