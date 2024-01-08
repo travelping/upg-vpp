@@ -96,9 +96,9 @@
 
 #define IPFIX_VALUE_MOBILE_IMSI(v, n, c)		\
   do {							\
-    uword l = tbcd_len (v, n);				\
+    uword l = pfcp_tbcd_len (v, n);				\
     to_b->data[offset++] = l;				\
-    decode_tbcd (v, n, to_b->data + offset, l);		\
+    decode_pfcp_tbcd (v, n, to_b->data + offset, l);		\
     offset += l;					\
   } while (0)
 

@@ -279,7 +279,7 @@ tbcd_test()
   int res = 0;
   u8 sample_value[] = { 0x09, 0x09, 0x60, 0x00, 0xa2, 0xcb, 0xed, 0xf9 };
   u8 * expected = "909006002*#abc9";
-  u8 * actual = format(0, "%U", format_tbcd, sample_value, sizeof(sample_value));
+  u8 * actual = format(0, "%U", format_pfcp_tbcd, sample_value, sizeof(sample_value));
 
   UPF_TEST (vec_len (actual) == strlen (expected) &&
 	    !memcmp (actual, expected, strlen(expected)),

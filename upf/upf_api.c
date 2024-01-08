@@ -254,14 +254,14 @@ vl_api_upf_pfcp_reencode_t_handler (vl_api_upf_pfcp_reencode_t *mp)
   upf_main_t *sm = &upf_main;
   vl_api_upf_pfcp_reencode_reply_t *rmp;
   pfcp_decoded_msg_t dmsg;
-  pfcp_offending_ie_t *err = 0;
+  pfcp_ie_offending_ie_t *err = 0;
   u8 *reply_data = 0;
   int rv = 0;
   int data_len = 0, packet_len = clib_net_to_host_u32 (mp->packet_len);
 
   if ((rv = pfcp_decode_msg (mp->packet, packet_len, &dmsg, &err)) != 0)
     {
-      pfcp_offending_ie_t *cur_err;
+      pfcp_ie_offending_ie_t *cur_err;
       vec_foreach (cur_err, err)
         {
           clib_warning ("offending IE: %d", *cur_err);
@@ -294,15 +294,15 @@ vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t *mp)
   upf_main_t *sm = &upf_main;
   vl_api_upf_pfcp_format_reply_t *rmp;
   pfcp_decoded_msg_t dmsg;
-  pfcp_offending_ie_t *err = 0;
+  pfcp_ie_offending_ie_t *err = 0;
   u8 *s;
-  /* pfcp_offending_ie_t *err = NULL; */
+  /* pfcp_ie_offending_ie_t *err = NULL; */
   int rv = 0;
   int text_len = 0, packet_len = clib_net_to_host_u32 (mp->packet_len);
 
   if ((rv = pfcp_decode_msg (mp->packet, packet_len, &dmsg, &err)) != 0)
     {
-      pfcp_offending_ie_t *cur_err;
+      pfcp_ie_offending_ie_t *cur_err;
       vec_foreach (cur_err, err)
         {
           clib_warning ("offending IE: %d", *cur_err);
@@ -312,7 +312,7 @@ vl_api_upf_pfcp_format_t_handler (vl_api_upf_pfcp_reencode_t *mp)
       goto reply;
     }
 
-  s = format (0, "%U\n", format_dmsg, &dmsg);
+  s = format (0, "%U\n", format_pfcp_dmsg, &dmsg);
 
   text_len = vec_len (s);
 
@@ -894,7 +894,7 @@ vl_api_upf_set_node_id_t_handler (vl_api_upf_set_node_id_t *mp)
   upf_main_t *sm = &upf_main;
   vl_api_upf_set_node_id_reply_t *rmp = NULL;
 
-  pfcp_node_id_t node_id = { 0 };
+  pfcp_ie_node_id_t node_id = { 0 };
   node_id.type = mp->type;
 
   switch (mp->type)
@@ -932,7 +932,7 @@ vl_api_upf_get_node_id_t_handler (vl_api_upf_get_node_id_t *mp)
 
   vl_api_upf_get_node_id_reply_t *rmp = NULL;
   upf_main_t *sm = &upf_main;
-  pfcp_node_id_t *node = &sm->node_id;
+  pfcp_ie_node_id_t *node = &sm->node_id;
 
   switch (node->type)
     {

@@ -363,7 +363,7 @@ upf_tdf_ul_lookup_add_i (u32 tdf_ul_fib_index, const fib_prefix_t *pfx,
 }
 
 int
-vnet_upf_node_id_set (const pfcp_node_id_t *node_id)
+vnet_upf_node_id_set (const pfcp_ie_node_id_t *node_id)
 {
   upf_main_t *gtm = &upf_main;
 

@@ -549,7 +549,7 @@ upf_show_nwi_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
       vlib_cli_output (vm,
                        "%U, ip4-table-id %u, ip6-table-id %u, ipfix-policy "
                        "%U, ipfix-collector-ip %U\n",
-                       format_dns_labels, nwi->name, fib4->hash.table_id,
+                       format_pfcp_dns_labels, nwi->name, fib4->hash.table_id,
                        fib6->table_id, format_upf_ipfix_policy,
                        nwi->ipfix_policy, format_ip_address,
                        &nwi->ipfix_collector_ip);
@@ -854,7 +854,7 @@ upf_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
   u8 *fqdn = 0;
-  pfcp_node_id_t node_id = { .type = (u8) ~0 };
+  pfcp_ie_node_id_t node_id = { .type = (u8) ~0 };
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
     return 0;
@@ -905,7 +905,7 @@ upf_show_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
                              vlib_cli_command_t *cmd)
 {
   upf_main_t *gtm = &upf_main;
-  vlib_cli_output (vm, "Node ID: %U", format_node_id, &gtm->node_id);
+  vlib_cli_output (vm, "Node ID: %U", format_pfcp_ie_node_id, &gtm->node_id);
   return NULL;
 }
 
@@ -1282,7 +1282,7 @@ upf_show_assoc_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 
   if (has_ip && has_fqdn)
     {
-      pfcp_node_id_t node_id;
+      pfcp_ie_node_id_t node_id;
 
       if (has_ip)
         {
