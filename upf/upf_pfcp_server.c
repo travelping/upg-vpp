@@ -514,6 +514,16 @@ request_t1_expired (u32 seq_no)
 
   req = pfcp_msg_pool_elt_at_index (psm, p[0]);
   ASSERT (req->flags.is_stopped == 0);
+
+  // verify that the session was not deleted by timer in the same loop
+  // TODO: this should not be needed after multithreading
+  upf_session_t *sx;
+  if (!pool_is_free_index (gtm->sessions, req->session.idx))
+    sx = pool_elt_at_index (gtm->sessions, req->session.idx);
+
+  if (!sx || sx->up_seid != req->up_seid)
+    return;
+
   req->timer = ~0;
 
   upf_debug ("Msg Seq No: %u, %p, n1 %u\n", req->seq_no, req, req->n1);
