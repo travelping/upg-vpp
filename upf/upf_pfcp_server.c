@@ -302,6 +302,8 @@ static int
 upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
+  upf_main_t *gtm = &upf_main;
+
   int len = vec_len (msg->data);
 
   if (len < 4)
@@ -388,6 +390,15 @@ upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
         upf_debug ("Msg Seq No: %u, %p, idx %u\n", msg->seq_no, p,
                    p ? p[0] : ~0);
         if (!p)
+          break;
+
+        // verify that the session was not deleted by timer in the same loop
+        // TODO: this may not be needed after multithreading
+        upf_session_t *sx;
+        if (!pool_is_free_index (gtm->sessions, req->session.idx))
+          sx = pool_elt_at_index (gtm->sessions, req->session.idx);
+
+        if (!sx || sx->up_seid != req->up_seid)
           break;
 
         req = pfcp_msg_pool_elt_at_index (psm, p[0]);
@@ -514,16 +525,6 @@ request_t1_expired (u32 seq_no)
 
   req = pfcp_msg_pool_elt_at_index (psm, p[0]);
   ASSERT (req->flags.is_stopped == 0);
-
-  // verify that the session was not deleted by timer in the same loop
-  // TODO: this should not be needed after multithreading
-  upf_session_t *sx;
-  if (!pool_is_free_index (gtm->sessions, req->session.idx))
-    sx = pool_elt_at_index (gtm->sessions, req->session.idx);
-
-  if (!sx || sx->up_seid != req->up_seid)
-    return;
-
   req->timer = ~0;
 
   upf_debug ("Msg Seq No: %u, %p, n1 %u\n", req->seq_no, req, req->n1);
