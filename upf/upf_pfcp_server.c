@@ -539,6 +539,7 @@ request_t1_expired (u32 seq_no)
 
   if (!req->data)
     return;
+
   u8 type = pfcp_msg_type (req->data);
 
   if (--req->n1 != 0)
