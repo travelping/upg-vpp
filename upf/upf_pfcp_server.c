@@ -302,8 +302,6 @@ static int
 upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  upf_main_t *gtm = &upf_main;
-
   int len = vec_len (msg->data);
 
   if (len < 4)
@@ -539,10 +537,12 @@ request_t1_expired (u32 seq_no)
       return;
     }
 
+  if (!req->data)
+    return;
+  u8 type = pfcp_msg_type (req->data);
+
   if (--req->n1 != 0)
     {
-      u8 type = pfcp_msg_type (req->data);
-
       /*
          FIXME: here in pool_is_free_index we check for node index which can be
          reused as soon as node goes back. Instead we should stop all requests
@@ -569,7 +569,6 @@ request_t1_expired (u32 seq_no)
     }
   else
     {
-      u8 type = pfcp_msg_type (req->data);
       u32 node = req->node;
 
       upf_debug ("abort...\n");
@@ -1467,6 +1466,108 @@ pfcp_process (vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
        * updated timers is set to now */
       upf_pfcp_server_expire_timers ();
 
+      switch (event_type)
+        {
+        case ~0: /* timeout */
+          // upf_debug ("timeout....");
+          break;
+
+        case EVENT_RX:
+          {
+            for (int i = 0; i < vec_len (event_data); i++)
+              {
+                pfcp_msg_t *msg = (pfcp_msg_t *) event_data[i];
+
+                upf_pfcp_server_rx_msg (msg);
+
+                vec_free (msg->data);
+                clib_mem_free (msg);
+              }
+            break;
+          }
+
+        case EVENT_TX:
+          {
+            for (int i = 0; i < vec_len (event_data); i++)
+              {
+                pfcp_msg_t *tx = (pfcp_msg_t *) event_data[i];
+                // Handle case when session was removed before
+                // receiving this event
+
+                if (!pool_is_free_index (gtm->nodes, tx->node))
+                  {
+                    pfcp_msg_t *msg;
+
+                    msg = pfcp_msg_pool_add (psm, tx);
+                    upf_pfcp_server_send_request (msg);
+                  }
+                else
+                  {
+                    vec_free (tx->data);
+                  }
+
+                clib_mem_free (tx);
+              }
+            break;
+          }
+
+        case EVENT_URR:
+          {
+            for (int i = 0; i < vec_len (event_data); i++)
+              {
+                upf_event_urr_data_t *uev =
+                  (upf_event_urr_data_t *) event_data[i];
+                /* TBD: re-verify! */
+                upf_event_urr_hdr_t *ueh =
+                  (upf_event_urr_hdr_t *) vec_header (uev);
+                upf_session_t *sx = 0;
+
+                /*
+                 * The session could have been freed or replaced after
+                 * this even has been queued, but before it has been
+                 * handled. So we check if the pool entry is free, and
+                 * also verify that UP-SEID in the session matches
+                 * UP-SEID in the event.
+                 */
+                if (!pool_is_free_index (gtm->sessions, ueh->session_idx))
+                  sx = pool_elt_at_index (gtm->sessions, ueh->session_idx);
+
+                if (!sx || sx->up_seid != ueh->up_seid)
+                  goto next_ev_urr;
+
+                if (!(ueh->status & URR_DROP_SESSION))
+                  {
+                    upf_debug ("URR Event on Session Idx: %wd, %p, UE: %U, "
+                               "Events: %u\n",
+                               ueh->session_idx, sx, format_ip46_address,
+                               &ueh->ue, IP46_TYPE_ANY, vec_len (uev));
+                    upf_pfcp_session_usage_report (sx, &ueh->ue, uev,
+                                                   psm->now);
+                  }
+                else
+                  {
+                    /*
+                     * The session has a fatal reporting issue such as
+                     * multiple Monitoring Time splits being queued
+                     */
+                    upf_debug ("URR Event on Session Idx: DROP: %wd, %p\n",
+                               ueh->session_idx, sx);
+                    upf_pfcp_session_up_deletion_report (sx);
+                    pfcp_disable_session (sx);
+                    pfcp_free_session (sx);
+                  }
+
+              next_ev_urr:
+                vec_free (uev);
+              }
+            break;
+          }
+
+        default:
+          upf_debug ("event %ld, %p. ", event_type, event_data[0]);
+          break;
+        }
+
       vec_sort_with_function (psm->expired, timer_id_cmp);
       last_expired = ~0;
 
@@ -1570,108 +1671,6 @@ pfcp_process (vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
       vec_reset_length (psm->expired);
       vec_reset_length (event_data);
       hash_free (psm->free_msgs_by_node);
-
-      switch (event_type)
-        {
-        case ~0: /* timeout */
-          // upf_debug ("timeout....");
-          break;
-
-        case EVENT_RX:
-          {
-            for (int i = 0; i < vec_len (event_data); i++)
-              {
-                pfcp_msg_t *msg = (pfcp_msg_t *) event_data[i];
-
-                upf_pfcp_server_rx_msg (msg);
-
-                vec_free (msg->data);
-                clib_mem_free (msg);
-              }
-            break;
-          }
-
-        case EVENT_TX:
-          {
-            for (int i = 0; i < vec_len (event_data); i++)
-              {
-                pfcp_msg_t *tx = (pfcp_msg_t *) event_data[i];
-                // Handle case when session was removed before
-                // receiving this event
-
-                if (!pool_is_free_index (gtm->nodes, tx->node))
-                  {
-                    pfcp_msg_t *msg;
-
-                    msg = pfcp_msg_pool_add (psm, tx);
-                    upf_pfcp_server_send_request (msg);
-                  }
-                else
-                  {
-                    vec_free (tx->data);
-                  }
-
-                clib_mem_free (tx);
-              }
-            break;
-          }
-
-        case EVENT_URR:
-          {
-            for (int i = 0; i < vec_len (event_data); i++)
-              {
-                upf_event_urr_data_t *uev =
-                  (upf_event_urr_data_t *) event_data[i];
-                /* TBD: re-verify! */
-                upf_event_urr_hdr_t *ueh =
-                  (upf_event_urr_hdr_t *) vec_header (uev);
-                upf_session_t *sx = 0;
-
-                /*
-                 * The session could have been freed or replaced after
-                 * this even has been queued, but before it has been
-                 * handled. So we check if the pool entry is free, and
-                 * also verify that UP-SEID in the session matches
-                 * UP-SEID in the event.
-                 */
-                if (!pool_is_free_index (gtm->sessions, ueh->session_idx))
-                  sx = pool_elt_at_index (gtm->sessions, ueh->session_idx);
-
-                if (!sx || sx->up_seid != ueh->up_seid)
-                  goto next_ev_urr;
-
-                if (!(ueh->status & URR_DROP_SESSION))
-                  {
-                    upf_debug ("URR Event on Session Idx: %wd, %p, UE: %U, "
-                               "Events: %u\n",
-                               ueh->session_idx, sx, format_ip46_address,
-                               &ueh->ue, IP46_TYPE_ANY, vec_len (uev));
-                    upf_pfcp_session_usage_report (sx, &ueh->ue, uev,
-                                                   psm->now);
-                  }
-                else
-                  {
-                    /*
-                     * The session has a fatal reporting issue such as
-                     * multiple Monitoring Time splits being queued
-                     */
-                    upf_debug ("URR Event on Session Idx: DROP: %wd, %p\n",
-                               ueh->session_idx, sx);
-                    upf_pfcp_session_up_deletion_report (sx);
-                    pfcp_disable_session (sx);
-                    pfcp_free_session (sx);
-                  }
-
-              next_ev_urr:
-                vec_free (uev);
-              }
-            break;
-          }
-
-        default:
-          upf_debug ("event %ld, %p. ", event_type, event_data[0]);
-          break;
-        }
 
 #if CLIB_DEBUG > 10
       upf_validate_session_timers ();
