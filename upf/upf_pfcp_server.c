@@ -516,6 +516,11 @@ request_t1_expired (u32 seq_no)
   ASSERT (req->flags.is_stopped == 0);
   req->timer = ~0;
 
+  // handle edge case: timer expired in this iteration
+  // TODO: this should not be needed after multithreading
+  if (!req->data)
+    return;
+
   upf_debug ("Msg Seq No: %u, %p, n1 %u\n", req->seq_no, req, req->n1);
 
   /* make sure to resent reports to new peer if smfset peer is changed */
@@ -536,9 +541,6 @@ request_t1_expired (u32 seq_no)
       upf_pfcp_server_stop_request (req);
       return;
     }
-
-  if (!req->data)
-    return;
 
   u8 type = pfcp_msg_type (req->data);
 
