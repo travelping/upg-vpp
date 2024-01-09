@@ -227,7 +227,7 @@ encode_pfcp_session_msg (upf_session_t *sx, pfcp_decoded_msg_t *dmsg,
   msg->session.idx = sx - gtm->sessions;
   msg->up_seid = sx->up_seid;
 
-  if (dmsg->type == PFCP_SESSION_REPORT_REQUEST &&
+  if (dmsg->type == PFCP_MSG_SESSION_REPORT_REQUEST &&
       sx->flags & UPF_SESSION_LOST_CP)
     {
       upf_cached_f_seid_t *cached_f_seid =
@@ -307,7 +307,7 @@ upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
   if (len < 4)
     return -1;
 
-  upf_debug ("%U", format_pfcp_msg_hdr, (pfcp_header_t *) msg->data);
+  upf_debug ("%U", format_pfcp_msg_hdr, (pfcp_msg_header_t *) msg->data);
 
   if (!pfcp_msg_version_valid (msg->data))
     {
@@ -338,17 +338,17 @@ upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
 
   switch (pfcp_msg_type (msg->data))
     {
-    case PFCP_HEARTBEAT_REQUEST:
-    case PFCP_PFD_MANAGEMENT_REQUEST:
-    case PFCP_ASSOCIATION_SETUP_REQUEST:
-    case PFCP_ASSOCIATION_UPDATE_REQUEST:
-    case PFCP_ASSOCIATION_RELEASE_REQUEST:
-    case PFCP_NODE_REPORT_REQUEST:
-    case PFCP_SESSION_SET_DELETION_REQUEST:
-    case PFCP_SESSION_ESTABLISHMENT_REQUEST:
-    case PFCP_SESSION_MODIFICATION_REQUEST:
-    case PFCP_SESSION_DELETION_REQUEST:
-    case PFCP_SESSION_REPORT_REQUEST:
+    case PFCP_MSG_HEARTBEAT_REQUEST:
+    case PFCP_MSG_PFD_MANAGEMENT_REQUEST:
+    case PFCP_MSG_ASSOCIATION_SETUP_REQUEST:
+    case PFCP_MSG_ASSOCIATION_UPDATE_REQUEST:
+    case PFCP_MSG_ASSOCIATION_RELEASE_REQUEST:
+    case PFCP_MSG_NODE_REPORT_REQUEST:
+    case PFCP_MSG_SESSION_SET_DELETION_REQUEST:
+    case PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST:
+    case PFCP_MSG_SESSION_MODIFICATION_REQUEST:
+    case PFCP_MSG_SESSION_DELETION_REQUEST:
+    case PFCP_MSG_SESSION_REPORT_REQUEST:
       {
         uword *p = NULL;
 
@@ -368,18 +368,18 @@ upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
         break;
       }
 
-    case PFCP_HEARTBEAT_RESPONSE:
-    case PFCP_PFD_MANAGEMENT_RESPONSE:
-    case PFCP_ASSOCIATION_SETUP_RESPONSE:
-    case PFCP_ASSOCIATION_UPDATE_RESPONSE:
-    case PFCP_ASSOCIATION_RELEASE_RESPONSE:
-    case PFCP_VERSION_NOT_SUPPORTED_RESPONSE:
-    case PFCP_NODE_REPORT_RESPONSE:
-    case PFCP_SESSION_SET_DELETION_RESPONSE:
-    case PFCP_SESSION_ESTABLISHMENT_RESPONSE:
-    case PFCP_SESSION_MODIFICATION_RESPONSE:
-    case PFCP_SESSION_DELETION_RESPONSE:
-    case PFCP_SESSION_REPORT_RESPONSE:
+    case PFCP_MSG_HEARTBEAT_RESPONSE:
+    case PFCP_MSG_PFD_MANAGEMENT_RESPONSE:
+    case PFCP_MSG_ASSOCIATION_SETUP_RESPONSE:
+    case PFCP_MSG_ASSOCIATION_UPDATE_RESPONSE:
+    case PFCP_MSG_ASSOCIATION_RELEASE_RESPONSE:
+    case PFCP_MSG_VERSION_NOT_SUPPORTED_RESPONSE:
+    case PFCP_MSG_NODE_REPORT_RESPONSE:
+    case PFCP_MSG_SESSION_SET_DELETION_RESPONSE:
+    case PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE:
+    case PFCP_MSG_SESSION_MODIFICATION_RESPONSE:
+    case PFCP_MSG_SESSION_DELETION_RESPONSE:
+    case PFCP_MSG_SESSION_REPORT_RESPONSE:
       {
         pfcp_msg_t *req;
         uword *p;
@@ -520,12 +520,12 @@ request_t1_expired (u32 seq_no)
 
   /* make sure to resent reports to new peer if smfset peer is changed */
   if (req->flags.is_migrated_in_smfset && req->session.idx != ~0 &&
-      pfcp_msg_type (req->data) == PFCP_SESSION_REPORT_REQUEST)
+      pfcp_msg_type (req->data) == PFCP_MSG_SESSION_REPORT_REQUEST)
     {
       upf_session_t *sx = pool_elt_at_index (gtm->sessions, req->session.idx);
 
       pfcp_decoded_msg_t dmsg;
-      pfcp_offending_ie_t *err = NULL;
+      pfcp_ie_offending_ie_t *err = NULL;
 
       /* Decode request to dmesg so we can reencode it as new request */
       pfcp_decode_msg (req->data, vec_len (req->data), &dmsg, &err);
@@ -547,15 +547,16 @@ request_t1_expired (u32 seq_no)
          as soon as node is stopped. It should be easier to track since we can
          have only one heartbeat request at time
        */
-      if (type == PFCP_HEARTBEAT_REQUEST &&
+      if (type == PFCP_MSG_HEARTBEAT_REQUEST &&
           !pool_is_free_index (gtm->nodes, req->node))
         {
           upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, req->node);
           upf_pfcp_associnfo (
             gtm,
             "PFCP Association unstable: node %U, local IP %U, remote IP %U\n",
-            format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
-            IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
+            format_pfcp_ie_node_id, &n->node_id, format_ip46_address,
+            &n->lcl_addr, IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr,
+            IP46_TYPE_ANY);
         }
 
       upf_debug ("resend...\n");
@@ -581,15 +582,16 @@ request_t1_expired (u32 seq_no)
          could track or requests of node and forget them as soon as association
          is lost
        */
-      if (type == PFCP_HEARTBEAT_REQUEST &&
+      if (type == PFCP_MSG_HEARTBEAT_REQUEST &&
           !pool_is_free_index (gtm->nodes, node))
         {
           upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, node);
 
           upf_pfcp_associnfo (
             gtm, "PFCP Association lost: node %U, local IP %U, remote IP %U\n",
-            format_node_id, &n->node_id, format_ip46_address, &n->lcl_addr,
-            IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr, IP46_TYPE_ANY);
+            format_pfcp_ie_node_id, &n->node_id, format_ip46_address,
+            &n->lcl_addr, IP46_TYPE_ANY, format_ip46_address, &n->rmt_addr,
+            IP46_TYPE_ANY);
 
           pfcp_release_association (n);
         }
@@ -625,7 +627,7 @@ upf_pfcp_server_send_request (pfcp_msg_t *msg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
 
-  if (pfcp_msg_type (msg->data) == PFCP_HEARTBEAT_REQUEST)
+  if (pfcp_msg_type (msg->data) == PFCP_MSG_HEARTBEAT_REQUEST)
     enqueue_request (msg, psm->hb_cfg.retries, psm->hb_cfg.timeout);
   else
     enqueue_request (msg, PFCP_DEFAULT_REQUEST_RETRIES,
@@ -649,7 +651,7 @@ upf_pfcp_police_message (upf_session_t *sx, pfcp_decoded_msg_t *dmsg)
   upf_node_assoc_t *n = pool_elt_at_index (gtm->nodes, sx->assoc.node);
   policer_t *p = pool_elt_at_index (gtm->pfcp_policers, n->policer_idx);
 
-  if (dmsg->type != PFCP_SESSION_REPORT_REQUEST ||
+  if (dmsg->type != PFCP_MSG_SESSION_REPORT_REQUEST ||
       !dmsg->session_report_request.usage_report)
     return true;
 
@@ -658,7 +660,7 @@ upf_pfcp_police_message (upf_session_t *sx, pfcp_decoded_msg_t *dmsg)
       !ISSET_BIT (dmsg->session_report_request.usage_report->grp.fields,
                   USAGE_REPORT_UE_IP_ADDRESS) ||
       !(dmsg->session_report_request.usage_report->usage_report_trigger &
-        USAGE_REPORT_TRIGGER_START_OF_TRAFFIC))
+        PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC))
     return true;
 
   time_in_policer_periods =
@@ -780,10 +782,10 @@ urr_check_counter (u64 bytes, u64 consumed, u64 threshold, u64 quota)
   u32 r = 0;
 
   if (quota != 0 && consumed >= quota)
-    r |= USAGE_REPORT_TRIGGER_VOLUME_QUOTA;
+    r |= PFCP_USAGE_REPORT_TRIGGER_VOLUME_QUOTA;
 
   if (threshold != 0 && bytes > threshold)
-    r |= USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD;
+    r |= PFCP_USAGE_REPORT_TRIGGER_VOLUME_THRESHOLD;
 
   return r;
 }
@@ -797,8 +799,8 @@ upf_pfcp_session_up_deletion_report (upf_session_t *sx)
    * the reason for session termination
    */
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
-  pfcp_session_report_request_t *req = &dmsg.session_report_request;
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
+  pfcp_msg_session_report_request_t *req = &dmsg.session_report_request;
   struct rules *active;
   f64 now = psm->now;
 
@@ -810,23 +812,24 @@ upf_pfcp_session_up_deletion_report (upf_session_t *sx)
     {
       upf_usage_report_t report;
 
-      req->report_type = REPORT_TYPE_USAR;
+      req->report_type = PFCP_REPORT_TYPE_USAR;
 
       UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
       upf_usage_report_init (&report, vec_len (active->urr));
       upf_usage_report_set (
-        &report, USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT, now);
+        &report, PFCP_USAGE_REPORT_TRIGGER_TERMINATION_BY_UP_FUNCTION_REPORT,
+        now);
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
                               &req->usage_report);
       upf_usage_report_free (&report);
     }
   else
-    req->report_type = REPORT_TYPE_UISR;
+    req->report_type = PFCP_REPORT_TYPE_UISR;
 
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_PFCPSRREQ_FLAGS);
   /* PSDBU = PFCP Session Deleted By the UP function */
-  req->pfcpsrreq_flags = PFCPSRREQ_PSDBU;
+  req->pfcpsrreq_flags = PFCP_PFCPSRREQ_PSDBU;
 
   upf_pfcp_server_send_session_request (sx, &dmsg);
   pfcp_free_dmsg_contents (&dmsg);
@@ -836,8 +839,8 @@ static void
 upf_pfcp_session_usage_report (upf_session_t *sx, ip46_address_t *ue,
                                upf_event_urr_data_t *uev, f64 now)
 {
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
-  pfcp_session_report_request_t *req = &dmsg.session_report_request;
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
+  pfcp_msg_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
   upf_event_urr_data_t *ev;
@@ -856,7 +859,7 @@ upf_pfcp_session_usage_report (upf_session_t *sx, ip46_address_t *ue,
 
   memset (req, 0, sizeof (*req));
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
-  req->report_type = REPORT_TYPE_USAR;
+  req->report_type = PFCP_REPORT_TYPE_USAR;
 
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
@@ -871,7 +874,7 @@ upf_pfcp_session_usage_report (upf_session_t *sx, ip46_address_t *ue,
       if (ev->trigger & URR_START_OF_TRAFFIC)
         {
           upf_usage_report_trigger (&report, urr - active->urr,
-                                    USAGE_REPORT_TRIGGER_START_OF_TRAFFIC,
+                                    PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC,
                                     urr->liusa_bitmap, now);
           send = 1;
 
@@ -1019,8 +1022,8 @@ upf_pfcp_session_start_stop_urr_time (u32 si, urr_time_t *t, u8 start_it)
 static void
 upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
 {
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
-  pfcp_session_report_request_t *req = &dmsg.session_report_request;
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
+  pfcp_msg_session_report_request_t *req = &dmsg.session_report_request;
   upf_main_t *gtm = &upf_main;
   u32 si = sx - gtm->sessions;
   upf_usage_report_t report;
@@ -1050,7 +1053,7 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
           active->inactivity_timer.period)
         {
           active->inactivity_timer.handle = ~0;
-          req->report_type |= REPORT_TYPE_UPIR;
+          req->report_type |= PFCP_REPORT_TYPE_UPIR;
         }
       else
         {
@@ -1119,9 +1122,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
       if (urr_check (urr->measurement_period, now))
         {
           urr_check_late (urr->measurement_period, now);
-          if (urr->triggers & REPORTING_TRIGGER_PERIODIC_REPORTING)
+          if (urr->triggers & PFCP_REPORTING_TRIGGER_PERIODIC_REPORTING)
             {
-              trigger |= USAGE_REPORT_TRIGGER_PERIODIC_REPORTING;
+              trigger |= PFCP_USAGE_REPORT_TRIGGER_PERIODIC_REPORTING;
               trigger_now =
                 clib_min (trigger_now, urr->measurement_period.expected);
             }
@@ -1154,9 +1157,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
       if (urr_check (urr->time_threshold, now))
         {
           urr_check_late (urr->time_threshold, now);
-          if (urr->triggers & REPORTING_TRIGGER_TIME_THRESHOLD)
+          if (urr->triggers & PFCP_REPORTING_TRIGGER_TIME_THRESHOLD)
             {
-              trigger |= USAGE_REPORT_TRIGGER_TIME_THRESHOLD;
+              trigger |= PFCP_USAGE_REPORT_TRIGGER_TIME_THRESHOLD;
               trigger_now =
                 clib_min (trigger_now, urr->time_threshold.expected);
             }
@@ -1166,9 +1169,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
       if (urr_check (urr->time_quota, now))
         {
           urr_check_late (urr->time_quota, now);
-          if (urr->triggers & REPORTING_TRIGGER_TIME_QUOTA)
+          if (urr->triggers & PFCP_REPORTING_TRIGGER_TIME_QUOTA)
             {
-              trigger |= USAGE_REPORT_TRIGGER_TIME_QUOTA;
+              trigger |= PFCP_USAGE_REPORT_TRIGGER_TIME_QUOTA;
               trigger_now = clib_min (trigger_now, urr->time_quota.expected);
             }
 
@@ -1179,9 +1182,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
       if (urr_check (urr->quota_validity_time, now))
         {
           urr_check_late (urr->quota_validity_time, now);
-          if (urr->triggers & REPORTING_TRIGGER_QUOTA_VALIDITY_TIME)
+          if (urr->triggers & PFCP_REPORTING_TRIGGER_QUOTA_VALIDITY_TIME)
             {
-              trigger |= USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME;
+              trigger |= PFCP_USAGE_REPORT_TRIGGER_QUOTA_VALIDITY_TIME;
               trigger_now =
                 clib_min (trigger_now, urr->quota_validity_time.expected);
             }
@@ -1223,7 +1226,7 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
 
       if (trigger != 0)
         {
-          req->report_type |= REPORT_TYPE_USAR;
+          req->report_type |= PFCP_REPORT_TYPE_USAR;
           UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_USAGE_REPORT);
 
           upf_usage_report_trigger (&report, idx, trigger, urr->liusa_bitmap,
@@ -1231,9 +1234,9 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
 
           // clear reporting on the time based triggers, until rearmed by
           // update
-          urr->triggers &=
-            ~(REPORTING_TRIGGER_TIME_THRESHOLD | REPORTING_TRIGGER_TIME_QUOTA |
-              REPORTING_TRIGGER_QUOTA_VALIDITY_TIME);
+          urr->triggers &= ~(PFCP_REPORTING_TRIGGER_TIME_THRESHOLD |
+                             PFCP_REPORTING_TRIGGER_TIME_QUOTA |
+                             PFCP_REPORTING_TRIGGER_QUOTA_VALIDITY_TIME);
         }
     }
 
@@ -1393,8 +1396,8 @@ void
 upf_server_handle_hb_timer (u32 node_idx)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_HEARTBEAT_REQUEST };
-  pfcp_heartbeat_request_t *req = &dmsg.heartbeat_request;
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_HEARTBEAT_REQUEST };
+  pfcp_msg_heartbeat_request_t *req = &dmsg.heartbeat_request;
   upf_main_t *gtm = &upf_main;
   upf_node_assoc_t *n;
 

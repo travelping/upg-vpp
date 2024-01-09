@@ -549,7 +549,7 @@ upf_show_nwi_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
       vlib_cli_output (vm,
                        "%U, ip4-table-id %u, ip6-table-id %u, ipfix-policy "
                        "%U, ipfix-collector-ip %U\n",
-                       format_dns_labels, nwi->name, fib4->hash.table_id,
+                       format_pfcp_dns_labels, nwi->name, fib4->hash.table_id,
                        fib6->table_id, format_upf_ipfix_policy,
                        nwi->ipfix_policy, format_ip_address,
                        &nwi->ipfix_collector_ip);
@@ -854,7 +854,7 @@ upf_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
   unformat_input_t _line_input, *line_input = &_line_input;
   clib_error_t *error = NULL;
   u8 *fqdn = 0;
-  pfcp_node_id_t node_id = { .type = (u8) ~0 };
+  pfcp_ie_node_id_t node_id = { .type = (u8) ~0 };
 
   if (!unformat_user (main_input, unformat_line_input, line_input))
     return 0;
@@ -863,19 +863,19 @@ upf_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
     {
       if (unformat (line_input, "fqdn %_%v%_", &fqdn))
         {
-          node_id.type = NID_FQDN;
+          node_id.type = PFCP_NID_FQDN;
           node_id.fqdn = upf_name_to_labels (fqdn);
           vec_free (fqdn);
         }
       else if (unformat (line_input, "ip4 %U", unformat_ip46_address,
                          &node_id.ip, IP46_TYPE_ANY))
         {
-          node_id.type = NID_IPv4;
+          node_id.type = PFCP_NID_IPv4;
         }
       else if (unformat (line_input, "ip6 %U", unformat_ip46_address,
                          &node_id.ip, IP46_TYPE_ANY))
         {
-          node_id.type = NID_IPv6;
+          node_id.type = PFCP_NID_IPv6;
         }
       else
         {
@@ -905,7 +905,7 @@ upf_show_node_id_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
                              vlib_cli_command_t *cmd)
 {
   upf_main_t *gtm = &upf_main;
-  vlib_cli_output (vm, "Node ID: %U", format_node_id, &gtm->node_id);
+  vlib_cli_output (vm, "Node ID: %U", format_pfcp_ie_node_id, &gtm->node_id);
   return NULL;
 }
 
@@ -955,18 +955,18 @@ upf_gtpu_endpoint_add_del_command_fn (vlib_main_t *vm,
           vec_free (s);
         }
       else if (unformat (line_input, "intf access"))
-        intf = SRC_INTF_ACCESS;
+        intf = PFCP_SRC_INTF_ACCESS;
       else if (unformat (line_input, "intf core"))
-        intf = SRC_INTF_CORE;
+        intf = PFCP_SRC_INTF_CORE;
       else if (unformat (line_input, "intf sgi"))
         /*
          * WTF: the specification does permit that,
          *      but what does that mean in terms
          *      of the UPIP IE?
          */
-        intf = SRC_INTF_SGI_LAN;
+        intf = PFCP_SRC_INTF_SGI_LAN;
       else if (unformat (line_input, "intf cp"))
-        intf = SRC_INTF_CP;
+        intf = PFCP_SRC_INTF_CP;
       else if (unformat (line_input, "teid %u/%u", &teid, &teidri))
         {
           if (teidri > 7)
@@ -1282,22 +1282,23 @@ upf_show_assoc_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 
   if (has_ip && has_fqdn)
     {
-      pfcp_node_id_t node_id;
+      pfcp_ie_node_id_t node_id;
 
       if (has_ip)
         {
-          node_id.type = ip46_address_is_ip4 (&node_ip) ? NID_IPv4 : NID_IPv6;
+          node_id.type =
+            ip46_address_is_ip4 (&node_ip) ? PFCP_NID_IPv4 : PFCP_NID_IPv6;
           node_id.ip = node_ip;
         }
       if (has_fqdn)
         {
-          node_id.type = NID_FQDN;
+          node_id.type = PFCP_NID_FQDN;
           node_id.fqdn = upf_name_to_labels (fqdn);
         }
 
       node = pfcp_get_association (&node_id);
 
-      if (node_id.type == NID_FQDN)
+      if (node_id.type == PFCP_NID_FQDN)
         vec_free (node_id.fqdn);
 
       if (!node)

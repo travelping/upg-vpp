@@ -165,7 +165,7 @@ upf_input (vlib_main_t *vm, vlib_node_runtime_t *node,
           /* Outer Header Removal */
           switch (pdr->outer_header_removal)
             {
-            case OUTER_HEADER_REMOVAL_GTP_IP4: /* GTP-U/UDP/IPv4 */
+            case PFCP_OUTER_HEADER_REMOVAL_GTP_IP4: /* GTP-U/UDP/IPv4 */
               if (PREDICT_FALSE ((upf_buffer_opaque (b)->gtpu.flags &
                                   BUFFER_HDR_MASK) != BUFFER_GTP_UDP_IP4))
                 {
@@ -177,7 +177,7 @@ upf_input (vlib_main_t *vm, vlib_node_runtime_t *node,
               upf_vnet_buffer_l3_hdr_offset_is_current (b);
               break;
 
-            case OUTER_HEADER_REMOVAL_GTP_IP6: /* GTP-U/UDP/IPv6 */
+            case PFCP_OUTER_HEADER_REMOVAL_GTP_IP6: /* GTP-U/UDP/IPv6 */
               if (PREDICT_FALSE ((upf_buffer_opaque (b)->gtpu.flags &
                                   BUFFER_HDR_MASK) != BUFFER_GTP_UDP_IP6))
                 {
@@ -189,7 +189,7 @@ upf_input (vlib_main_t *vm, vlib_node_runtime_t *node,
               upf_vnet_buffer_l3_hdr_offset_is_current (b);
               break;
 
-            case OUTER_HEADER_REMOVAL_UDP_IP4: /* UDP/IPv4 */
+            case PFCP_OUTER_HEADER_REMOVAL_UDP_IP4: /* UDP/IPv4 */
               if (PREDICT_FALSE ((upf_buffer_opaque (b)->gtpu.flags &
                                   BUFFER_HDR_MASK) != BUFFER_UDP_IP4))
                 {
@@ -202,7 +202,7 @@ upf_input (vlib_main_t *vm, vlib_node_runtime_t *node,
                                         sizeof (udp_header_t));
               break;
 
-            case OUTER_HEADER_REMOVAL_UDP_IP6: /* UDP/IPv6 */
+            case PFCP_OUTER_HEADER_REMOVAL_UDP_IP6: /* UDP/IPv6 */
               if (PREDICT_FALSE ((upf_buffer_opaque (b)->gtpu.flags &
                                   BUFFER_HDR_MASK) != BUFFER_UDP_IP6))
                 {
@@ -215,7 +215,7 @@ upf_input (vlib_main_t *vm, vlib_node_runtime_t *node,
                                         sizeof (udp_header_t));
               break;
 
-            case OUTER_HEADER_REMOVAL_GTP: /* GTP-U/UDP/IP */
+            case PFCP_OUTER_HEADER_REMOVAL_GTP: /* GTP-U/UDP/IP */
               switch (upf_buffer_opaque (b)->gtpu.flags & BUFFER_HDR_MASK)
                 {
                 case BUFFER_GTP_UDP_IP4:

@@ -98,28 +98,28 @@ upf_pfcp_api_session_data_init (void *sxp, time_t start_time)
 }
 
 static void
-init_response_node_id (pfcp_node_id_t *node_id)
+init_response_node_id (pfcp_ie_node_id_t *node_id)
 {
   upf_main_t *gtm = &upf_main;
   *node_id = gtm->node_id;
-  if (gtm->node_id.type == NID_FQDN)
+  if (gtm->node_id.type == PFCP_NID_FQDN)
     {
       node_id->fqdn = vec_dup (gtm->node_id.fqdn);
     }
 }
 
 static void
-init_response_up_f_seid (pfcp_f_seid_t *up_f_seid, ip46_address_t *address,
+init_response_up_f_seid (pfcp_ie_f_seid_t *up_f_seid, ip46_address_t *address,
                          bool is_ip4)
 {
   if (is_ip4)
     {
-      up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V4;
+      up_f_seid->flags |= PFCP_F_SEID_IP_ADDRESS_V4;
       up_f_seid->ip4 = address->ip4;
     }
   else
     {
-      up_f_seid->flags |= IE_F_SEID_IP_ADDRESS_V6;
+      up_f_seid->flags |= PFCP_F_SEID_IP_ADDRESS_V6;
       up_f_seid->ip6 = address->ip6;
     }
 }
@@ -136,7 +136,7 @@ init_response_up_f_seid (pfcp_f_seid_t *up_f_seid, ip46_address_t *address,
   while (0)
 
 void
-init_tp_error_report (pfcp_tp_error_report_t *report, const char *file,
+init_tp_error_report (pfcp_ie_tp_error_report_t *report, const char *file,
                       int line, char *fmt, ...)
 {
 #if CLIB_DEBUG > 1
@@ -173,7 +173,7 @@ init_tp_error_report (pfcp_tp_error_report_t *report, const char *file,
 
 static void
 build_ue_ip_address_information (
-  pfcp_ue_ip_address_pool_information_t **ue_pool_info)
+  pfcp_ie_ue_ip_address_pool_information_t **ue_pool_info)
 {
   upf_main_t *gtm = &upf_main;
   upf_nat_pool_t *np;
@@ -183,7 +183,7 @@ build_ue_ip_address_information (
 
   pool_foreach (ue_p, gtm->ueip_pools)
     {
-      pfcp_ue_ip_address_pool_information_t *ueif;
+      pfcp_ie_ue_ip_address_pool_information_t *ueif;
 
       vec_add2 (*ue_pool_info, ueif, 1);
       ueif->ue_ip_address_pool_identity = vec_dup (ue_p->identity);
@@ -199,7 +199,7 @@ build_ue_ip_address_information (
           if (!(vec_is_equal (np->network_instance, ue_p->nwi_name)))
             continue;
 
-          pfcp_bbf_nat_port_block_t *block;
+          pfcp_ie_bbf_nat_port_block_t *block;
 
           vec_add2 (ueif->port_blocks, block, 1);
           *block = vec_dup (np->name);
@@ -211,7 +211,7 @@ build_ue_ip_address_information (
 
 static void
 build_user_plane_ip_resource_information (
-  pfcp_user_plane_ip_resource_information_t **upip)
+  pfcp_ie_user_plane_ip_resource_information_t **upip)
 {
   upf_main_t *gtm = &upf_main;
   upf_upip_res_t *res;
@@ -220,7 +220,7 @@ build_user_plane_ip_resource_information (
 
   pool_foreach (res, gtm->upip_res)
     {
-      pfcp_user_plane_ip_resource_information_t *r;
+      pfcp_ie_user_plane_ip_resource_information_t *r;
 
       vec_add2 (*upip, r, 1);
 
@@ -228,14 +228,14 @@ build_user_plane_ip_resource_information (
         {
           upf_nwi_t *nwi = pool_elt_at_index (gtm->nwis, res->nwi_index);
 
-          r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI;
+          r->flags |= PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSONI;
           r->network_instance = vec_dup (nwi->name);
         }
 
       if (INTF_INVALID != res->intf)
         {
 
-          r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI;
+          r->flags |= PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_ASSOSI;
           r->source_intf = res->intf;
         }
 
@@ -247,13 +247,13 @@ build_user_plane_ip_resource_information (
 
       if (!is_zero_ip4_address (&res->ip4))
         {
-          r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V4;
+          r->flags |= PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V4;
           r->ip4 = res->ip4;
         }
 
       if (!is_zero_ip6_address (&res->ip6))
         {
-          r->flags |= USER_PLANE_IP_RESOURCE_INFORMATION_V6;
+          r->flags |= PFCP_USER_PLANE_IP_RESOURCE_INFORMATION_V6;
           r->ip6 = res->ip6;
         }
     }
@@ -265,7 +265,7 @@ static int
 handle_heartbeat_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_decoded_msg_t resp_dmsg = { .type = PFCP_HEARTBEAT_RESPONSE };
+  pfcp_decoded_msg_t resp_dmsg = { .type = PFCP_MSG_HEARTBEAT_RESPONSE };
   pfcp_simple_response_t *resp = &resp_dmsg.simple_response;
 
   memset (resp, 0, sizeof (*resp));
@@ -286,7 +286,7 @@ handle_heartbeat_response (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
   upf_main_t *gtm = &upf_main;
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_node_assoc_t *n;
-  pfcp_recovery_time_stamp_t ts =
+  pfcp_ie_recovery_time_stamp_t ts =
     dmsg->simple_response.response.recovery_time_stamp;
 
   if (msg->node == ~0 || pool_is_free_index (gtm->nodes, msg->node))
@@ -336,10 +336,11 @@ handle_association_setup_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_main_t *gtm = &upf_main;
-  pfcp_association_setup_request_t *req = &dmsg->association_setup_request;
-  pfcp_decoded_msg_t resp_dmsg = { .type = PFCP_ASSOCIATION_SETUP_RESPONSE };
-  pfcp_association_procedure_response_t *resp =
-    &resp_dmsg.association_procedure_response;
+  pfcp_msg_association_setup_request_t *req = &dmsg->association_setup_request;
+  pfcp_decoded_msg_t resp_dmsg = { .type =
+                                     PFCP_MSG_ASSOCIATION_SETUP_RESPONSE };
+  pfcp_msg_association_procedure_response_t *resp =
+    &resp_dmsg.association_setup_response;
   upf_node_assoc_t *n;
   int r = 0;
 
@@ -387,12 +388,12 @@ handle_association_setup_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 
   UPF_SET_BIT (resp->grp.fields,
                ASSOCIATION_PROCEDURE_RESPONSE_UP_FUNCTION_FEATURES);
-  resp->up_function_features |= F_UPFF_EMPU;
-  resp->up_function_features |= F_UPFF_MPAS;
+  resp->up_function_features |= PFCP_F_UPFF_EMPU;
+  resp->up_function_features |= PFCP_F_UPFF_MPAS;
   if (gtm->pfcp_spec_version >= 16)
     {
-      resp->up_function_features |= F_UPFF_VTIME;
-      resp->up_function_features |= F_UPFF_FTUP;
+      resp->up_function_features |= PFCP_F_UPFF_VTIME;
+      resp->up_function_features |= PFCP_F_UPFF_FTUP;
       build_ue_ip_address_information (&resp->ue_ip_address_pool_information);
       if (vec_len (resp->ue_ip_address_pool_information) != 0)
         UPF_SET_BIT (
@@ -400,7 +401,7 @@ handle_association_setup_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
           ASSOCIATION_PROCEDURE_RESPONSE_UE_IP_ADDRESS_POOL_INFORMATION);
       UPF_SET_BIT (resp->grp.fields,
                    ASSOCIATION_PROCEDURE_RESPONSE_BBF_UP_FUNCTION_FEATURES);
-      resp->bbf_up_function_features |= BBF_UP_NAT;
+      resp->bbf_up_function_features |= PFCP_BBF_UP_NAT;
     }
   else
     {
@@ -477,8 +478,8 @@ handle_node_report_response (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 
 /* this methods used for cases when incoming message decode is failed */
 static void
-send_simple_response (pfcp_msg_t *req, u8 type, pfcp_cause_t cause,
-                      pfcp_offending_ie_t *err)
+send_simple_response (pfcp_msg_t *req, u8 type, pfcp_ie_cause_t cause,
+                      pfcp_ie_offending_ie_t *err)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t resp_dmsg = {
@@ -492,11 +493,11 @@ send_simple_response (pfcp_msg_t *req, u8 type, pfcp_cause_t cause,
 
   switch (type)
     {
-    case PFCP_HEARTBEAT_RESPONSE:
-    case PFCP_PFD_MANAGEMENT_RESPONSE:
-    case PFCP_SESSION_MODIFICATION_RESPONSE:
-    case PFCP_SESSION_DELETION_RESPONSE:
-    case PFCP_SESSION_REPORT_RESPONSE:
+    case PFCP_MSG_HEARTBEAT_RESPONSE:
+    case PFCP_MSG_PFD_MANAGEMENT_RESPONSE:
+    case PFCP_MSG_SESSION_MODIFICATION_RESPONSE:
+    case PFCP_MSG_SESSION_DELETION_RESPONSE:
+    case PFCP_MSG_SESSION_REPORT_RESPONSE:
       break;
 
     default:
@@ -507,8 +508,8 @@ send_simple_response (pfcp_msg_t *req, u8 type, pfcp_cause_t cause,
 
   switch (type)
     {
-    case PFCP_HEARTBEAT_RESPONSE:
-    case PFCP_ASSOCIATION_SETUP_RESPONSE:
+    case PFCP_MSG_HEARTBEAT_RESPONSE:
+    case PFCP_MSG_ASSOCIATION_SETUP_RESPONSE:
       UPF_SET_BIT (resp->grp.fields, PFCP_RESPONSE_RECOVERY_TIME_STAMP);
       resp->response.recovery_time_stamp = psm->start_time;
       break;
@@ -611,9 +612,9 @@ process_teid_generation (upf_main_t *gtm, u8 chid, u32 flags,
          present in a UPIP res. It will always return
          UPF_GTPU_ERROR_NO_SUCH_TUNNEL for such cases
        */
-      ok = (!(flags & F_TEID_V4) ||
+      ok = (!(flags & PFCP_F_TEID_V4) ||
             teid_v4_lookup_session_index (gtm, teid, &res->ip4) == ~0) &&
-           (!(flags & F_TEID_V6) ||
+           (!(flags & PFCP_F_TEID_V6) ||
             teid_v6_lookup_session_index (gtm, teid, &res->ip6) == ~0);
 
       if (ok)
@@ -625,7 +626,7 @@ process_teid_generation (upf_main_t *gtm, u8 chid, u32 flags,
     /* can't generate unique for given UPIP resource */
     return 0;
 
-  if ((flags & F_TEID_CHID))
+  if ((flags & PFCP_F_TEID_CHID))
     {
       u32 *n = sparse_vec_validate (sx->teid_by_chid, chid);
       n[0] = teid;
@@ -635,23 +636,23 @@ process_teid_generation (upf_main_t *gtm, u8 chid, u32 flags,
 }
 
 static int
-handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_pdi_t *pdi,
-               upf_pdr_t *process_pdr, pfcp_created_pdr_t **created_pdr_vec,
+handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_ie_pdi_t *pdi,
+               upf_pdr_t *process_pdr, pfcp_ie_created_pdr_t **created_pdr_vec,
                upf_upip_res_t *res, u8 create)
 {
-  pfcp_created_pdr_t *created_pdr;
+  pfcp_ie_created_pdr_t *created_pdr;
   u32 teid = 0;
   u32 sidx = ~0;
 
   process_pdr->pdi.fields |= F_PDI_LOCAL_F_TEID;
 
   // We only generate F_TEID if NWI is defined
-  if ((pdi->f_teid.flags & F_TEID_CH))
+  if ((pdi->f_teid.flags & PFCP_F_TEID_CH))
     {
       if (!res)
         return -1;
 
-      if ((pdi->f_teid.flags & F_TEID_CHID))
+      if ((pdi->f_teid.flags & PFCP_F_TEID_CHID))
         {
           uword i = sparse_vec_index (sx->teid_by_chid, pdi->f_teid.choose_id);
           if (i)
@@ -672,16 +673,16 @@ handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_pdi_t *pdi,
       process_pdr->pdi.teid.teid = teid;
 
       if ((!is_zero_ip4_address (&res->ip4)) &&
-          (pdi->f_teid.flags & F_TEID_V4))
+          (pdi->f_teid.flags & PFCP_F_TEID_V4))
         {
           process_pdr->pdi.teid.ip4 = res->ip4;
-          process_pdr->pdi.teid.flags |= F_TEID_V4;
+          process_pdr->pdi.teid.flags |= PFCP_F_TEID_V4;
         }
 
       if ((!is_zero_ip6_address (&res->ip6)) &&
-          (pdi->f_teid.flags & F_TEID_V6))
+          (pdi->f_teid.flags & PFCP_F_TEID_V6))
         {
-          process_pdr->pdi.teid.flags |= F_TEID_V6;
+          process_pdr->pdi.teid.flags |= PFCP_F_TEID_V6;
           process_pdr->pdi.teid.ip6 = res->ip6;
         }
 
@@ -699,10 +700,10 @@ handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_pdi_t *pdi,
     {
       /* CH == 0, check for conflicts with other sessions */
 
-      if (pdi->f_teid.flags & F_TEID_V4)
+      if (pdi->f_teid.flags & PFCP_F_TEID_V4)
         sidx = teid_v4_lookup_session_index (gtm, pdi->f_teid.teid,
                                              &pdi->f_teid.ip4);
-      else if (pdi->f_teid.flags & F_TEID_V6)
+      else if (pdi->f_teid.flags & PFCP_F_TEID_V6)
         sidx = teid_v6_lookup_session_index (gtm, pdi->f_teid.teid,
                                              &pdi->f_teid.ip6);
       if (sidx != ~0 && sidx != sx - gtm->sessions)
@@ -720,14 +721,14 @@ handle_f_teid (upf_session_t *sx, upf_main_t *gtm, pfcp_pdi_t *pdi,
  */
 static void
 purge_conflicting_session (upf_session_t *sx_old, upf_session_t *sx_new,
-                           pfcp_ue_ip_address_t *ue_addr)
+                           pfcp_ie_ue_ip_address_t *ue_addr)
 {
   if (sx_old->assoc.node != sx_new->assoc.node)
     return;
 
   clib_warning ("UE IP conflict: deleting session CP SEID=0x%016" PRIx64 " %U "
                 "due to attempt to create CP SEID=0x%0x16" PRIx64,
-                sx_old->cp_seid, format_ue_ip_address, ue_addr,
+                sx_old->cp_seid, format_pfcp_ie_ue_ip_address, ue_addr,
                 sx_new->cp_seid);
 
   upf_pfcp_session_up_deletion_report (sx_old);
@@ -738,13 +739,13 @@ purge_conflicting_session (upf_session_t *sx_old, upf_session_t *sx_new,
 
 static int
 resolve_ue_ip_conflicts (upf_session_t *sx, upf_nwi_t *nwi,
-                         pfcp_ue_ip_address_t *ue_addr)
+                         pfcp_ie_ue_ip_address_t *ue_addr)
 {
   upf_main_t *gtm = &upf_main;
   const dpo_id_t *dpo;
   int r = 0;
 
-  if (ue_addr->flags & IE_UE_IP_ADDRESS_V4)
+  if (ue_addr->flags & PFCP_UE_IP_ADDRESS_V4)
     {
       dpo = upf_get_session_dpo_ip4 (nwi, &ue_addr->ip4);
       if (dpo && dpo->dpoi_index != sx - gtm->sessions)
@@ -755,7 +756,7 @@ resolve_ue_ip_conflicts (upf_session_t *sx, upf_nwi_t *nwi,
         }
     }
 
-  if (ue_addr->flags & IE_UE_IP_ADDRESS_V6)
+  if (ue_addr->flags & PFCP_UE_IP_ADDRESS_V6)
     {
       dpo = upf_get_session_dpo_ip6 (nwi, &ue_addr->ip6);
       if (dpo && dpo->dpoi_index != sx - gtm->sessions)
@@ -797,9 +798,9 @@ get_nat_addr (upf_nat_pool_t *np)
 }
 
 int
-upf_alloc_and_assign_nat_binding (upf_nat_pool_t *np, upf_nat_addr_t *addr,
-                                  ip4_address_t user_ip, upf_session_t *sx,
-                                  pfcp_tp_created_binding_t *created_binding)
+upf_alloc_and_assign_nat_binding (
+  upf_nat_pool_t *np, upf_nat_addr_t *addr, ip4_address_t user_ip,
+  upf_session_t *sx, pfcp_ie_tp_created_binding_t *created_binding)
 {
   u16 port_start, port_end;
   u16 (*upf_nat_create_binding) (ip4_address_t user_addr,
@@ -833,11 +834,11 @@ upf_alloc_and_assign_nat_binding (upf_nat_pool_t *np, upf_nat_addr_t *addr,
 }
 
 static int
-handle_create_pdr (upf_session_t *sx, pfcp_create_pdr_t *create_pdr,
-                   pfcp_session_procedure_response_t *response)
+handle_create_pdr (upf_session_t *sx, pfcp_ie_create_pdr_t *create_pdr,
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
-  pfcp_create_pdr_t *pdr;
+  pfcp_ie_create_pdr_t *pdr;
   struct rules *rules;
 
   if (pfcp_make_pending_pdr (sx) != 0)
@@ -911,7 +912,7 @@ handle_create_pdr (upf_session_t *sx, pfcp_create_pdr_t *create_pdr,
         {
           create->pdi.fields |= F_PDI_UE_IP_ADDR;
           create->pdi.ue_addr = pdr->pdi.ue_ip_address;
-          if (create->pdi.ue_addr.flags & IE_UE_IP_ADDRESS_V4)
+          if (create->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
             sx->user_addr.as_u32 = create->pdi.ue_addr.ip4.as_u32;
 
           if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
@@ -926,7 +927,7 @@ handle_create_pdr (upf_session_t *sx, pfcp_create_pdr_t *create_pdr,
 
       if (ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
         {
-          pfcp_sdf_filter_t *sdf;
+          pfcp_ie_sdf_filter_t *sdf;
 
           create->pdi.fields |= F_PDI_SDF_FILTER;
 
@@ -988,7 +989,7 @@ handle_create_pdr (upf_session_t *sx, pfcp_create_pdr_t *create_pdr,
       create->far_id = OPT (pdr, CREATE_PDR_FAR_ID, far_id, ~0);
       if (ISSET_BIT (pdr->grp.fields, CREATE_PDR_URR_ID))
         {
-          pfcp_urr_id_t *urr_id;
+          pfcp_ie_urr_id_t *urr_id;
 
           vec_alloc (create->urr_ids, _vec_len (pdr->urr_id));
           vec_foreach (urr_id, pdr->urr_id)
@@ -999,7 +1000,7 @@ handle_create_pdr (upf_session_t *sx, pfcp_create_pdr_t *create_pdr,
 
       if (ISSET_BIT (pdr->grp.fields, CREATE_PDR_QER_ID))
         {
-          pfcp_qer_id_t *qer_id;
+          pfcp_ie_qer_id_t *qer_id;
 
           vec_alloc (create->qer_ids, _vec_len (pdr->qer_id));
           vec_foreach (qer_id, pdr->qer_id)
@@ -1026,17 +1027,17 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_PDR;
 
   return -1;
 }
 
 static int
-handle_update_pdr (upf_session_t *sx, pfcp_update_pdr_t *update_pdr,
-                   pfcp_session_procedure_response_t *response)
+handle_update_pdr (upf_session_t *sx, pfcp_ie_update_pdr_t *update_pdr,
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
-  pfcp_update_pdr_t *pdr;
+  pfcp_ie_update_pdr_t *pdr;
 
   if (pfcp_make_pending_pdr (sx) != 0)
     {
@@ -1113,7 +1114,7 @@ handle_update_pdr (upf_session_t *sx, pfcp_update_pdr_t *update_pdr,
 
       if (ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER))
         {
-          pfcp_sdf_filter_t *sdf;
+          pfcp_ie_sdf_filter_t *sdf;
 
           update->pdi.fields |= F_PDI_SDF_FILTER;
 
@@ -1180,7 +1181,7 @@ handle_update_pdr (upf_session_t *sx, pfcp_update_pdr_t *update_pdr,
       update->far_id = OPT (pdr, UPDATE_PDR_FAR_ID, far_id, ~0);
       if (ISSET_BIT (pdr->grp.fields, UPDATE_PDR_URR_ID))
         {
-          pfcp_urr_id_t *urr_id;
+          pfcp_ie_urr_id_t *urr_id;
 
           vec_reset_length (update->urr_ids);
           vec_alloc (update->urr_ids, _vec_len (pdr->urr_id));
@@ -1192,7 +1193,7 @@ handle_update_pdr (upf_session_t *sx, pfcp_update_pdr_t *update_pdr,
 
       if (ISSET_BIT (pdr->grp.fields, UPDATE_PDR_QER_ID))
         {
-          pfcp_qer_id_t *qer_id;
+          pfcp_ie_qer_id_t *qer_id;
 
           vec_reset_length (update->qer_ids);
           vec_alloc (update->qer_ids, _vec_len (pdr->qer_id));
@@ -1219,16 +1220,16 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_PDR;
 
   return -1;
 }
 
 static int
-handle_remove_pdr (upf_session_t *sx, pfcp_remove_pdr_t *remove_pdr,
-                   pfcp_session_procedure_response_t *response)
+handle_remove_pdr (upf_session_t *sx, pfcp_ie_remove_pdr_t *remove_pdr,
+                   pfcp_msg_session_procedure_response_t *response)
 {
-  pfcp_remove_pdr_t *pdr;
+  pfcp_ie_remove_pdr_t *pdr;
 
   if (pfcp_make_pending_pdr (sx) != 0)
     {
@@ -1253,7 +1254,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_PDR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_PDR;
 
   return -1;
 }
@@ -1387,7 +1388,7 @@ ip_udp_gtpu_rewrite (upf_far_forward_t *ff, u32 fib_index, int is_ip4)
 
 static int
 handle_nat_binding_creation (upf_session_t *sx, u8 *nat_pool_name,
-                             pfcp_session_procedure_response_t *response)
+                             pfcp_msg_session_procedure_response_t *response)
 {
   upf_nat_pool_t *np;
   upf_nat_addr_t *ap;
@@ -1418,11 +1419,11 @@ handle_nat_binding_creation (upf_session_t *sx, u8 *nat_pool_name,
 }
 
 static int
-handle_create_far (upf_session_t *sx, pfcp_create_far_t *create_far,
-                   pfcp_session_procedure_response_t *response)
+handle_create_far (upf_session_t *sx, pfcp_ie_create_far_t *create_far,
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
-  pfcp_create_far_t *far;
+  pfcp_ie_create_far_t *far;
   struct rules *rules;
   u8 *policy_id = NULL;
   uword *hash_ptr;
@@ -1475,7 +1476,7 @@ handle_create_far (upf_session_t *sx, pfcp_create_far_t *create_far,
                          FORWARDING_PARAMETERS_REDIRECT_INFORMATION))
             {
               create->forward.flags |= FAR_F_REDIRECT_INFORMATION;
-              cpy_redirect_information (
+              copy_pfcp_ie_redirect_information (
                 &create->forward.redirect_information,
                 &far->forwarding_parameters.redirect_information);
             }
@@ -1483,12 +1484,12 @@ handle_create_far (upf_session_t *sx, pfcp_create_far_t *create_far,
           if ((ISSET_BIT (far->forwarding_parameters.grp.fields,
                           FORWARDING_PARAMETERS_BBF_APPLY_ACTION)) &&
               (far->forwarding_parameters.bbf_apply_action &
-               BBF_APPLY_ACTION_NAT) &&
+               PFCP_BBF_APPLY_ACTION_NAT) &&
               (ISSET_BIT (far->forwarding_parameters.grp.fields,
                           FORWARDING_PARAMETERS_BBF_NAT_PORT_BLOCK)))
             {
               int rc = 0;
-              pfcp_bbf_nat_port_block_t pool_name =
+              pfcp_ie_bbf_nat_port_block_t pool_name =
                 vec_dup (far->forwarding_parameters.nat_port_block);
               rc = handle_nat_binding_creation (sx, pool_name, response);
               vec_free (pool_name);
@@ -1504,11 +1505,11 @@ handle_create_far (upf_session_t *sx, pfcp_create_far_t *create_far,
           if (ISSET_BIT (far->forwarding_parameters.grp.fields,
                          FORWARDING_PARAMETERS_OUTER_HEADER_CREATION))
             {
-              pfcp_outer_header_creation_t *ohc =
+              pfcp_ie_outer_header_creation_t *ohc =
                 &far->forwarding_parameters.outer_header_creation;
               u32 fib_index;
               int is_ip4 =
-                !!(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
+                !!(ohc->description & PFCP_OUTER_HEADER_CREATION_ANY_IP4);
               fib_protocol_t fproto =
                 is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
 
@@ -1583,17 +1584,17 @@ out_error:
 out_cause_set:
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_FAR;
 
   return -1;
 }
 
 static int
-handle_update_far (upf_session_t *sx, pfcp_update_far_t *update_far,
-                   pfcp_session_procedure_response_t *response)
+handle_update_far (upf_session_t *sx, pfcp_ie_update_far_t *update_far,
+                   pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
-  pfcp_update_far_t *far;
+  pfcp_ie_update_far_t *far;
   u8 *policy_id = NULL;
   uword *hash_ptr;
   upf_forwarding_policy_t *fp_entry;
@@ -1651,9 +1652,9 @@ handle_update_far (upf_session_t *sx, pfcp_update_far_t *update_far,
                          UPDATE_FORWARDING_PARAMETERS_REDIRECT_INFORMATION))
             {
               update->forward.flags |= FAR_F_REDIRECT_INFORMATION;
-              free_redirect_information (
+              free_pfcp_ie_redirect_information (
                 &update->forward.redirect_information);
-              cpy_redirect_information (
+              copy_pfcp_ie_redirect_information (
                 &update->forward.redirect_information,
                 &far->update_forwarding_parameters.redirect_information);
             }
@@ -1661,18 +1662,18 @@ handle_update_far (upf_session_t *sx, pfcp_update_far_t *update_far,
           if (ISSET_BIT (far->update_forwarding_parameters.grp.fields,
                          UPDATE_FORWARDING_PARAMETERS_OUTER_HEADER_CREATION))
             {
-              pfcp_outer_header_creation_t *ohc =
+              pfcp_ie_outer_header_creation_t *ohc =
                 &far->update_forwarding_parameters.outer_header_creation;
               u32 fib_index;
               int is_ip4 =
-                !!(ohc->description & OUTER_HEADER_CREATION_ANY_IP4);
+                !!(ohc->description & PFCP_OUTER_HEADER_CREATION_ANY_IP4);
               fib_protocol_t fproto =
                 is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
 
               if (ISSET_BIT (far->update_forwarding_parameters.grp.fields,
                              UPDATE_FORWARDING_PARAMETERS_PFCPSMREQ_FLAGS) &&
                   far->update_forwarding_parameters.pfcpsmreq_flags &
-                    PFCPSMREQ_SNDEM)
+                    PFCP_PFCPSMREQ_SNDEM)
                 pfcp_send_end_marker (sx, far->far_id);
 
               update->forward.flags |= FAR_F_OUTER_HEADER_CREATION;
@@ -1747,16 +1748,16 @@ out_error:
 out_cause_set:
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_FAR;
 
   return -1;
 }
 
 static int
-handle_remove_far (upf_session_t *sx, pfcp_remove_far_t *remove_far,
-                   pfcp_session_procedure_response_t *response)
+handle_remove_far (upf_session_t *sx, pfcp_ie_remove_far_t *remove_far,
+                   pfcp_msg_session_procedure_response_t *response)
 {
-  pfcp_remove_far_t *far;
+  pfcp_ie_remove_far_t *far;
 
   if (pfcp_make_pending_far (sx) != 0)
     {
@@ -1781,7 +1782,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_FAR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_FAR;
 
   return -1;
 }
@@ -1798,11 +1799,11 @@ out_error:
   while (0)
 
 static int
-handle_create_urr (upf_session_t *sx, pfcp_create_urr_t *create_urr, f64 now,
-                   pfcp_session_procedure_response_t *response)
+handle_create_urr (upf_session_t *sx, pfcp_ie_create_urr_t *create_urr,
+                   f64 now, pfcp_msg_session_procedure_response_t *response)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_create_urr_t *urr;
+  pfcp_ie_create_urr_t *urr;
   struct rules *rules;
 
   if (pfcp_make_pending_urr (sx) != 0)
@@ -1897,7 +1898,7 @@ handle_create_urr (upf_session_t *sx, pfcp_create_urr_t *create_urr, f64 now,
       // TODO: inactivity_detection_time;
 
       if (ISSET_BIT (urr->grp.fields, CREATE_URR_LINKED_URR_ID) &&
-          create->triggers & REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
+          create->triggers & PFCP_REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
         create->linked_urr_ids = vec_dup (urr->linked_urr_id);
 
       // TODO: linked_urr_id;
@@ -1910,11 +1911,11 @@ handle_create_urr (upf_session_t *sx, pfcp_create_urr_t *create_urr, f64 now,
 }
 
 static int
-handle_update_urr (upf_session_t *sx, pfcp_update_urr_t *update_urr, f64 now,
-                   pfcp_session_procedure_response_t *response)
+handle_update_urr (upf_session_t *sx, pfcp_ie_update_urr_t *update_urr,
+                   f64 now, pfcp_msg_session_procedure_response_t *response)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_update_urr_t *urr;
+  pfcp_ie_update_urr_t *urr;
 
   if (pfcp_make_pending_urr (sx) != 0)
     {
@@ -2011,7 +2012,7 @@ handle_update_urr (upf_session_t *sx, pfcp_update_urr_t *update_urr, f64 now,
       // TODO: inactivity_detection_time;
 
       if (ISSET_BIT (urr->grp.fields, UPDATE_URR_LINKED_URR_ID) &&
-          update->triggers & REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
+          update->triggers & PFCP_REPORTING_TRIGGER_LINKED_USAGE_REPORTING)
         update->linked_urr_ids = vec_dup (urr->linked_urr_id);
       else
         vec_free (update->linked_urr_ids);
@@ -2027,16 +2028,16 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_URR;
 
   return -1;
 }
 
 static int
-handle_remove_urr (upf_session_t *sx, pfcp_remove_urr_t *remove_urr, f64 now,
-                   pfcp_session_procedure_response_t *response)
+handle_remove_urr (upf_session_t *sx, pfcp_ie_remove_urr_t *remove_urr,
+                   f64 now, pfcp_msg_session_procedure_response_t *response)
 {
-  pfcp_remove_urr_t *urr;
+  pfcp_ie_remove_urr_t *urr;
 
   if (pfcp_make_pending_urr (sx) != 0)
     {
@@ -2061,7 +2062,7 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_URR;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_URR;
 
   return -1;
 }
@@ -2078,11 +2079,11 @@ out_error:
   while (0)
 
 static int
-handle_create_qer (upf_session_t *sx, pfcp_create_qer_t *create_qer, f64 now,
-                   pfcp_session_procedure_response_t *response)
+handle_create_qer (upf_session_t *sx, pfcp_ie_create_qer_t *create_qer,
+                   f64 now, pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
-  pfcp_create_qer_t *qer;
+  pfcp_ie_create_qer_t *qer;
   struct rules *rules;
 
   if (pfcp_make_pending_qer (sx) != 0)
@@ -2129,11 +2130,11 @@ handle_create_qer (upf_session_t *sx, pfcp_create_qer_t *create_qer, f64 now,
 }
 
 static int
-handle_update_qer (upf_session_t *sx, pfcp_update_qer_t *update_qer, f64 now,
-                   pfcp_session_procedure_response_t *response)
+handle_update_qer (upf_session_t *sx, pfcp_ie_update_qer_t *update_qer,
+                   f64 now, pfcp_msg_session_procedure_response_t *response)
 {
   upf_main_t *gtm = &upf_main;
-  pfcp_update_qer_t *qer;
+  pfcp_ie_update_qer_t *qer;
 
   if (pfcp_make_pending_qer (sx) != 0)
     {
@@ -2185,16 +2186,16 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_QER;
 
   return -1;
 }
 
 static int
-handle_remove_qer (upf_session_t *sx, pfcp_remove_qer_t *remove_qer, f64 now,
-                   pfcp_session_procedure_response_t *response)
+handle_remove_qer (upf_session_t *sx, pfcp_ie_remove_qer_t *remove_qer,
+                   f64 now, pfcp_msg_session_procedure_response_t *response)
 {
-  pfcp_remove_qer_t *qer;
+  pfcp_ie_remove_qer_t *qer;
 
   if (pfcp_make_pending_qer (sx) != 0)
     {
@@ -2219,17 +2220,18 @@ out_error:
 
   UPF_SET_BIT (response->grp.fields,
                SESSION_PROCEDURE_RESPONSE_FAILED_RULE_ID);
-  response->failed_rule_id.type = FAILED_RULE_TYPE_QER;
+  response->failed_rule_id.type = PFCP_FAILED_RULE_TYPE_QER;
 
   return -1;
 }
 
 #undef qer_error
 
-static pfcp_usage_report_t *
-init_usage_report (upf_urr_t *urr, u32 trigger, pfcp_usage_report_t **report)
+static pfcp_ie_usage_report_t *
+init_usage_report (upf_urr_t *urr, u32 trigger,
+                   pfcp_ie_usage_report_t **report)
 {
-  pfcp_usage_report_t *r;
+  pfcp_ie_usage_report_t *r;
 
   vec_add2 (*report, r, 1);
   memset (r, 0, sizeof (*r));
@@ -2249,10 +2251,10 @@ init_usage_report (upf_urr_t *urr, u32 trigger, pfcp_usage_report_t **report)
 
 static void
 report_usage_ev (upf_session_t *sess, ip46_address_t *ue, upf_urr_t *urr,
-                 u32 trigger, f64 now, pfcp_usage_report_t **report)
+                 u32 trigger, f64 now, pfcp_ie_usage_report_t **report)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
-  pfcp_usage_report_t *r;
+  pfcp_ie_usage_report_t *r;
   urr_volume_t volume;
   u64 start_time, duration;
   f64 vnow = vlib_time_now (psm->vlib_main);
@@ -2294,17 +2296,17 @@ report_usage_ev (upf_session_t *sess, ip46_address_t *ue, upf_urr_t *urr,
 
   if (urr->status & URR_AFTER_MONITORING_TIME)
     {
-      r =
-        init_usage_report (urr, USAGE_REPORT_TRIGGER_MONITORING_TIME, report);
+      r = init_usage_report (urr, PFCP_USAGE_REPORT_TRIGGER_MONITORING_TIME,
+                             report);
 
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_INFORMATION);
-      r->usage_information = USAGE_INFORMATION_BEFORE;
+      r->usage_information = PFCP_USAGE_INFORMATION_BEFORE;
 
       start_time = trunc (urr->usage_before_monitoring_time.start_time);
       duration = trunc (urr->start_time) - start_time;
 
-      if ((trigger & (USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
-                      USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
+      if ((trigger & (PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
+                      PFCP_USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
         {
           UPF_SET_BIT (r->grp.fields, USAGE_REPORT_START_TIME);
           UPF_SET_BIT (r->grp.fields, USAGE_REPORT_END_TIME);
@@ -2367,14 +2369,14 @@ report_usage_ev (upf_session_t *sess, ip46_address_t *ue, upf_urr_t *urr,
   if (urr->status & URR_AFTER_MONITORING_TIME)
     {
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_USAGE_INFORMATION);
-      r->usage_information = USAGE_INFORMATION_AFTER;
+      r->usage_information = PFCP_USAGE_INFORMATION_AFTER;
     }
 
   start_time = trunc (urr->start_time);
   duration = trunc (now) - start_time;
 
-  if ((trigger & (USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
-                  USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
+  if ((trigger & (PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
+                  PFCP_USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) == 0)
     {
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_START_TIME);
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_END_TIME);
@@ -2405,25 +2407,25 @@ report_usage_ev (upf_session_t *sess, ip46_address_t *ue, upf_urr_t *urr,
       r->tp_end_time = urr->start_time + duration;
     }
 
-  if (((trigger & (USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
-                   USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) != 0) &&
+  if (((trigger & (PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC |
+                   PFCP_USAGE_REPORT_TRIGGER_STOP_OF_TRAFFIC)) != 0) &&
       (ue != NULL))
     {
 
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_UE_IP_ADDRESS);
       if (ip46_address_is_ip4 (ue))
         {
-          r->ue_ip_address.flags = IE_UE_IP_ADDRESS_V4;
+          r->ue_ip_address.flags = PFCP_UE_IP_ADDRESS_V4;
           r->ue_ip_address.ip4 = ue->ip4;
         }
       else
         {
-          r->ue_ip_address.flags = IE_UE_IP_ADDRESS_V6;
+          r->ue_ip_address.flags = PFCP_UE_IP_ADDRESS_V6;
           r->ue_ip_address.ip6 = ue->ip6;
         }
     }
 
-  if ((trigger & USAGE_REPORT_TRIGGER_START_OF_TRAFFIC) == 0)
+  if ((trigger & PFCP_USAGE_REPORT_TRIGGER_START_OF_TRAFFIC) == 0)
     {
       UPF_SET_BIT (r->grp.fields, USAGE_REPORT_VOLUME_MEASUREMENT);
       r->volume_measurement.fields = PFCP_VOLUME_ALL;
@@ -2455,7 +2457,7 @@ report_usage_ev (upf_session_t *sess, ip46_address_t *ue, upf_urr_t *urr,
 void
 upf_usage_report_build (upf_session_t *sx, ip46_address_t *ue, upf_urr_t *urr,
                         f64 now, upf_usage_report_t *report,
-                        pfcp_usage_report_t **usage_report)
+                        pfcp_ie_usage_report_t **usage_report)
 {
   u32 idx;
 
@@ -2475,8 +2477,8 @@ upf_usage_report_build (upf_session_t *sx, ip46_address_t *ue, upf_urr_t *urr,
 
           if (clib_bitmap_get (report->liusa_bitmap, idx))
             report_usage_ev (sx, ue, vec_elt_at_index (urr, idx),
-                             USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING, now,
-                             usage_report);
+                             PFCP_USAGE_REPORT_TRIGGER_LINKED_USAGE_REPORTING,
+                             now, usage_report);
         }
     }
 }
@@ -2500,11 +2502,11 @@ handle_session_establishment_request (pfcp_msg_t *msg,
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_main_t *gtm = &upf_main;
-  pfcp_session_establishment_request_t *req =
+  pfcp_msg_session_establishment_request_t *req =
     &dmsg->session_establishment_request;
   pfcp_decoded_msg_t resp_dmsg = { .type =
-                                     PFCP_SESSION_ESTABLISHMENT_RESPONSE };
-  pfcp_session_procedure_response_t *resp =
+                                     PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE };
+  pfcp_msg_session_procedure_response_t *resp =
     &resp_dmsg.session_procedure_response;
   upf_session_t *sess = NULL;
   upf_node_assoc_t *assoc;
@@ -2609,7 +2611,7 @@ handle_session_establishment_request (pfcp_msg_t *msg,
 
   if (ISSET_BIT (req->grp.fields, SESSION_ESTABLISHMENT_REQUEST_USER_ID))
     {
-      memcpy (&sess->user_id, &req->user_id, sizeof (pfcp_user_id_t));
+      memcpy (&sess->user_id, &req->user_id, sizeof (pfcp_ie_user_id_t));
       sess->user_id.nai = vec_dup (req->user_id.nai);
     }
 
@@ -2659,19 +2661,19 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   upf_usage_report_t report;
-  pfcp_query_urr_t *qry;
-  pfcp_remove_urr_t *rurr;
+  pfcp_ie_query_urr_t *qry;
+  pfcp_ie_remove_urr_t *rurr;
   bool have_report = false;
   struct rules *active;
   upf_session_t *sess;
   f64 now = psm->now;
   int r = 0;
-  pfcp_session_modification_request_t *req =
+  pfcp_msg_session_modification_request_t *req =
     &dmsg->session_modification_request;
   pfcp_decoded_msg_t resp_dmsg = {
-    .type = PFCP_SESSION_MODIFICATION_RESPONSE,
+    .type = PFCP_MSG_SESSION_MODIFICATION_RESPONSE,
   };
-  pfcp_session_procedure_response_t *resp =
+  pfcp_msg_session_procedure_response_t *resp =
     &resp_dmsg.session_procedure_response;
 
   memset (resp, 0, sizeof (*resp));
@@ -2713,7 +2715,7 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
             continue;
 
           upf_usage_report_trigger (&report, urr - active->urr,
-                                    USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
+                                    PFCP_USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
                                     urr->liusa_bitmap, now);
         }
     }
@@ -2812,13 +2814,13 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
             continue;
 
           upf_usage_report_trigger (&report, urr - active->urr,
-                                    USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
+                                    PFCP_USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
                                     urr->liusa_bitmap, now);
         }
     }
   else if (ISSET_BIT (req->grp.fields,
                       SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS) &&
-           req->pfcpsmreq_flags & PFCPSMREQ_QAURR)
+           req->pfcpsmreq_flags & PFCP_PFCPSMREQ_QAURR)
     {
       if (!have_report)
         {
@@ -2829,8 +2831,8 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
         {
           UPF_SET_BIT (resp->grp.fields,
                        SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
-          upf_usage_report_set (&report, USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT,
-                                now);
+          upf_usage_report_set (
+            &report, PFCP_USAGE_REPORT_TRIGGER_IMMEDIATE_REPORT, now);
         }
     }
 
@@ -2866,9 +2868,9 @@ handle_session_deletion_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 {
   pfcp_server_main_t *psm = &pfcp_server_main;
   pfcp_decoded_msg_t resp_dmsg = {
-    .type = PFCP_SESSION_DELETION_RESPONSE,
+    .type = PFCP_MSG_SESSION_DELETION_RESPONSE,
   };
-  pfcp_session_procedure_response_t *resp =
+  pfcp_msg_session_procedure_response_t *resp =
     &resp_dmsg.session_procedure_response;
   struct rules *active;
   f64 now = psm->now;
@@ -2900,8 +2902,8 @@ handle_session_deletion_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
       UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 
       upf_usage_report_init (&report, vec_len (active->urr));
-      upf_usage_report_set (&report, USAGE_REPORT_TRIGGER_TERMINATION_REPORT,
-                            now);
+      upf_usage_report_set (&report,
+                            PFCP_USAGE_REPORT_TRIGGER_TERMINATION_REPORT, now);
       upf_usage_report_build (sess, NULL, active->urr, now, &report,
                               &resp->usage_report);
       upf_usage_report_free (&report);
@@ -2940,7 +2942,7 @@ static int
 handle_session_report_response (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 {
   upf_main_t *gtm = &upf_main;
-  pfcp_session_report_response_t *resp = &dmsg->session_report_response;
+  pfcp_msg_session_report_response_t *resp = &dmsg->session_report_response;
 
   if (msg->session.idx == ~0)
     {
@@ -2983,7 +2985,8 @@ handle_session_report_response (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
       if ((sx->flags & UPF_SESSION_LOST_CP) &&
           (resp->grp.fields & SESSION_REPORT_RESPONSE_CP_F_SEID))
         {
-          pfcp_f_seid_t *cp_f_seid = &dmsg->session_report_response.cp_f_seid;
+          pfcp_ie_f_seid_t *cp_f_seid =
+            &dmsg->session_report_response.cp_f_seid;
 
           sx->flags &= ~(UPF_SESSION_LOST_CP);
           pfcp_session_set_cp_fseid (sx, cp_f_seid);
@@ -3000,13 +3003,13 @@ handle_session_report_response (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 void
 upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error)
 {
-  pfcp_f_teid_t f_teid;
-  pfcp_decoded_msg_t dmsg = { .type = PFCP_SESSION_REPORT_REQUEST };
-  pfcp_session_report_request_t *req = &dmsg.session_report_request;
+  pfcp_ie_f_teid_t f_teid;
+  pfcp_decoded_msg_t dmsg = { .type = PFCP_MSG_SESSION_REPORT_REQUEST };
+  pfcp_msg_session_report_request_t *req = &dmsg.session_report_request;
 
   memset (req, 0, sizeof (*req));
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
-  req->report_type = REPORT_TYPE_ERIR;
+  req->report_type = PFCP_REPORT_TYPE_ERIR;
 
   UPF_SET_BIT (req->grp.fields,
                SESSION_REPORT_REQUEST_ERROR_INDICATION_REPORT);
@@ -3016,12 +3019,12 @@ upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error)
   f_teid.teid = error->teid;
   if (ip46_address_is_ip4 (&error->addr))
     {
-      f_teid.flags = F_TEID_V4;
+      f_teid.flags = PFCP_F_TEID_V4;
       f_teid.ip4 = error->addr.ip4;
     }
   else
     {
-      f_teid.flags = F_TEID_V6;
+      f_teid.flags = PFCP_F_TEID_V6;
       f_teid.ip6 = error->addr.ip6;
     }
 
@@ -3033,31 +3036,37 @@ upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error)
 typedef int (*msg_handler_t) (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg);
 
 static msg_handler_t msg_handlers[] = {
-  [PFCP_HEARTBEAT_REQUEST] = handle_heartbeat_request,
-  [PFCP_HEARTBEAT_RESPONSE] = handle_heartbeat_response,
-  [PFCP_PFD_MANAGEMENT_REQUEST] = handle_pfd_management_request,
-  [PFCP_PFD_MANAGEMENT_RESPONSE] = handle_pfd_management_response,
-  [PFCP_ASSOCIATION_SETUP_REQUEST] = handle_association_setup_request,
-  [PFCP_ASSOCIATION_SETUP_RESPONSE] = handle_association_setup_response,
-  [PFCP_ASSOCIATION_UPDATE_REQUEST] = handle_association_update_request,
-  [PFCP_ASSOCIATION_UPDATE_RESPONSE] = handle_association_update_response,
-  [PFCP_ASSOCIATION_RELEASE_REQUEST] = handle_association_release_request,
-  [PFCP_ASSOCIATION_RELEASE_RESPONSE] = handle_association_release_response,
-  [PFCP_VERSION_NOT_SUPPORTED_RESPONSE] =
+  [PFCP_MSG_HEARTBEAT_REQUEST] = handle_heartbeat_request,
+  [PFCP_MSG_HEARTBEAT_RESPONSE] = handle_heartbeat_response,
+  [PFCP_MSG_PFD_MANAGEMENT_REQUEST] = handle_pfd_management_request,
+  [PFCP_MSG_PFD_MANAGEMENT_RESPONSE] = handle_pfd_management_response,
+  [PFCP_MSG_ASSOCIATION_SETUP_REQUEST] = handle_association_setup_request,
+  [PFCP_MSG_ASSOCIATION_SETUP_RESPONSE] = handle_association_setup_response,
+  [PFCP_MSG_ASSOCIATION_UPDATE_REQUEST] = handle_association_update_request,
+  [PFCP_MSG_ASSOCIATION_UPDATE_RESPONSE] = handle_association_update_response,
+  [PFCP_MSG_ASSOCIATION_RELEASE_REQUEST] = handle_association_release_request,
+  [PFCP_MSG_ASSOCIATION_RELEASE_RESPONSE] =
+    handle_association_release_response,
+  [PFCP_MSG_VERSION_NOT_SUPPORTED_RESPONSE] =
     0, /* handle_version_not_supported_response, */
-  [PFCP_NODE_REPORT_REQUEST] = handle_node_report_request,
-  [PFCP_NODE_REPORT_RESPONSE] = handle_node_report_response,
-  [PFCP_SESSION_SET_DELETION_REQUEST] = handle_session_set_deletion_request,
-  [PFCP_SESSION_SET_DELETION_RESPONSE] = handle_session_set_deletion_response,
-  [PFCP_SESSION_ESTABLISHMENT_REQUEST] = handle_session_establishment_request,
-  [PFCP_SESSION_ESTABLISHMENT_RESPONSE] =
+  [PFCP_MSG_NODE_REPORT_REQUEST] = handle_node_report_request,
+  [PFCP_MSG_NODE_REPORT_RESPONSE] = handle_node_report_response,
+  [PFCP_MSG_SESSION_SET_DELETION_REQUEST] =
+    handle_session_set_deletion_request,
+  [PFCP_MSG_SESSION_SET_DELETION_RESPONSE] =
+    handle_session_set_deletion_response,
+  [PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST] =
+    handle_session_establishment_request,
+  [PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE] =
     handle_session_establishment_response,
-  [PFCP_SESSION_MODIFICATION_REQUEST] = handle_session_modification_request,
-  [PFCP_SESSION_MODIFICATION_RESPONSE] = handle_session_modification_response,
-  [PFCP_SESSION_DELETION_REQUEST] = handle_session_deletion_request,
-  [PFCP_SESSION_DELETION_RESPONSE] = handle_session_deletion_response,
-  [PFCP_SESSION_REPORT_REQUEST] = handle_session_report_request,
-  [PFCP_SESSION_REPORT_RESPONSE] = handle_session_report_response,
+  [PFCP_MSG_SESSION_MODIFICATION_REQUEST] =
+    handle_session_modification_request,
+  [PFCP_MSG_SESSION_MODIFICATION_RESPONSE] =
+    handle_session_modification_response,
+  [PFCP_MSG_SESSION_DELETION_REQUEST] = handle_session_deletion_request,
+  [PFCP_MSG_SESSION_DELETION_RESPONSE] = handle_session_deletion_response,
+  [PFCP_MSG_SESSION_REPORT_REQUEST] = handle_session_report_request,
+  [PFCP_MSG_SESSION_REPORT_RESPONSE] = handle_session_report_response,
 };
 
 /**
@@ -3072,7 +3081,7 @@ int
 upf_pfcp_handle_msg (pfcp_msg_t *msg)
 {
   pfcp_decoded_msg_t dmsg;
-  pfcp_offending_ie_t *err = NULL;
+  pfcp_ie_offending_ie_t *err = NULL;
   u8 type = pfcp_msg_type (msg->data);
   int r;
 
@@ -3099,16 +3108,16 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
       upf_debug ("PFCP: error response %d", r);
       switch (dmsg.type)
         {
-        case PFCP_HEARTBEAT_REQUEST:
-        case PFCP_PFD_MANAGEMENT_REQUEST:
-        case PFCP_ASSOCIATION_SETUP_REQUEST:
-        case PFCP_ASSOCIATION_UPDATE_REQUEST:
-        case PFCP_ASSOCIATION_RELEASE_REQUEST:
-        case PFCP_SESSION_SET_DELETION_REQUEST:
-        case PFCP_SESSION_ESTABLISHMENT_REQUEST:
-        case PFCP_SESSION_MODIFICATION_REQUEST:
-        case PFCP_SESSION_DELETION_REQUEST:
-        case PFCP_SESSION_REPORT_REQUEST:
+        case PFCP_MSG_HEARTBEAT_REQUEST:
+        case PFCP_MSG_PFD_MANAGEMENT_REQUEST:
+        case PFCP_MSG_ASSOCIATION_SETUP_REQUEST:
+        case PFCP_MSG_ASSOCIATION_UPDATE_REQUEST:
+        case PFCP_MSG_ASSOCIATION_RELEASE_REQUEST:
+        case PFCP_MSG_SESSION_SET_DELETION_REQUEST:
+        case PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST:
+        case PFCP_MSG_SESSION_MODIFICATION_REQUEST:
+        case PFCP_MSG_SESSION_DELETION_REQUEST:
+        case PFCP_MSG_SESSION_REPORT_REQUEST:
           send_simple_response (msg, dmsg.type + 1, r, err);
           break;
 

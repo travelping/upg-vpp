@@ -30,7 +30,7 @@ int upf_pfcp_handle_msg (pfcp_msg_t *msg);
 
 typedef struct
 {
-  pfcp_reporting_triggers_t triggers;
+  pfcp_ie_reporting_triggers_t triggers;
   f64 now;
 } upf_usage_report_ev_t;
 
@@ -51,7 +51,7 @@ upf_usage_report_init (upf_usage_report_t *report, int n_urrs)
 
 static inline void
 upf_usage_report_set (upf_usage_report_t *report,
-                      pfcp_reporting_triggers_t triggers, f64 now)
+                      pfcp_ie_reporting_triggers_t triggers, f64 now)
 {
   ASSERT (report);
 
@@ -70,7 +70,7 @@ upf_usage_report_free (upf_usage_report_t *report)
 
 static inline void
 upf_usage_report_trigger (upf_usage_report_t *report, u32 idx,
-                          pfcp_reporting_triggers_t triggers,
+                          pfcp_ie_reporting_triggers_t triggers,
                           uword *liusa_bitmap, f64 now)
 {
   ASSERT (report);
@@ -85,6 +85,6 @@ upf_usage_report_trigger (upf_usage_report_t *report, u32 idx,
 void upf_usage_report_build (upf_session_t *sx, ip46_address_t *ue,
                              upf_urr_t *urr, f64 now,
                              upf_usage_report_t *report,
-                             pfcp_usage_report_t **usage_report);
+                             pfcp_ie_usage_report_t **usage_report);
 
 #endif /* _UPF_PFCP_ERL_H */

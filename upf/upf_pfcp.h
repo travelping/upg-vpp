@@ -22,20 +22,20 @@
 #define upf_pfcp_associnfo(gtm, ...)                                          \
   vlib_log_info ((gtm)->log_class, __VA_ARGS__)
 
-upf_node_assoc_t *pfcp_get_association (pfcp_node_id_t *node_id);
+upf_node_assoc_t *pfcp_get_association (pfcp_ie_node_id_t *node_id);
 upf_node_assoc_t *pfcp_new_association (session_handle_t session_handle,
                                         ip46_address_t *lcl_addr,
                                         ip46_address_t *rmt_addr,
-                                        pfcp_node_id_t *node_id);
+                                        pfcp_ie_node_id_t *node_id);
 void pfcp_release_association (upf_node_assoc_t *n);
 
-void pfcp_session_set_cp_fseid (upf_session_t *sx, pfcp_f_seid_t *f_seid);
+void pfcp_session_set_cp_fseid (upf_session_t *sx, pfcp_ie_f_seid_t *f_seid);
 
 void pfcp_node_enter_smf_set (upf_node_assoc_t *n, u8 *fqdn);
 u32 *pfcp_node_exit_smf_set (upf_node_assoc_t *n);
 
 upf_session_t *pfcp_create_session (upf_node_assoc_t *assoc,
-                                    pfcp_f_seid_t *cp_f_seid, u64 up_seid);
+                                    pfcp_ie_f_seid_t *cp_f_seid, u64 up_seid);
 void pfcp_update_session (upf_session_t *sx);
 void pfcp_disable_session (upf_session_t *sx);
 void pfcp_free_session (upf_session_t *sx);
@@ -71,7 +71,7 @@ void pfcp_update_finish (upf_session_t *sx);
 upf_session_t *pfcp_lookup_up_seid (u64 up_seid);
 upf_session_t *pfcp_lookup_cp_cached_f_seid (u32 cached_f_seid_idx,
                                              u64 cp_seid);
-upf_session_t *pfcp_lookup_cp_f_seid (pfcp_f_seid_t *f_seid);
+upf_session_t *pfcp_lookup_cp_f_seid (pfcp_ie_f_seid_t *f_seid);
 
 static inline struct rules *
 pfcp_get_rules (upf_session_t *sx, int rules)
