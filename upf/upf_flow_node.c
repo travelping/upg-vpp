@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include <vppinfra/dlist.h>
 #include <vppinfra/types.h>
 #include <vppinfra/vec.h>
 #include <vnet/ip/ip4_packet.h>
@@ -346,7 +345,7 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
 
               /* TODO: see comment in dual loop */
 
-              CPT_UNHANDLED++;
+              CPT_NO_SESSION++;
               next0 = FT_NEXT_DROP;
 
               goto stats1;
@@ -367,19 +366,14 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
             sx0->generation, sx0 - gtm->sessions, &created);
           if (created)
             {
-              flow_entry_t *f = pool_elt_at_index (fm->flows, flow_idx);
-              ASSERT (!session_flows_list_el_is_part_of_list (f));
-
               session_flows_list_insert_tail (
                 fm->flows, &sx0->flows,
                 pool_elt_at_index (fm->flows, flow_idx));
-
-              ASSERT (session_flows_list_el_is_part_of_list (f));
             }
 
           if (PREDICT_FALSE (~0 == flow_idx))
             {
-              CPT_UNHANDLED++;
+              CPT_OVERFLOW++;
               next0 = FT_NEXT_DROP;
 
               goto stats1;

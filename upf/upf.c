@@ -515,6 +515,7 @@ flow_remove_counter_handler (flowtable_main_t *fm, flow_entry_t *flow,
 {
   upf_main_t *gtm = &upf_main;
 
+  fm->current_flows_count -= 1;
   vlib_decrement_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
                                  vlib_get_thread_index (), 0, 1);
 

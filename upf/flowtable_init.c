@@ -15,7 +15,6 @@
 
 #include <vnet/plugin/plugin.h>
 #include <vppinfra/bihash_8_8.h>
-#include <vppinfra/dlist.h>
 #include <vppinfra/pool.h>
 #include <vppinfra/types.h>
 #include <vppinfra/vec.h>
@@ -41,7 +40,7 @@ flowtable_lifetime_update (flowtable_timeout_type_t type, u16 value)
 {
   flowtable_main_t *fm = &flowtable_main;
 
-  if (value > fm->timer_max_lifetime)
+  if (value > FLOW_TIMER_MAX_LIFETIME)
     return clib_error_return (0, "value is too big");
 
   if (type >= FT_TIMEOUT_TYPE_MAX)
@@ -52,28 +51,10 @@ flowtable_lifetime_update (flowtable_timeout_type_t type, u16 value)
   return 0;
 }
 
-clib_error_t *
-flowtable_max_lifetime_update (u16 value)
-{
-  /*
-   * TODO: need to do range check on the value (> 0)
-   * and also reschedule the current flows, if any
-   */
-  clib_error_t *error = 0;
-  flowtable_main_t *fm = &flowtable_main;
-
-  fm->timer_max_lifetime = value;
-
-  return error;
-}
-
 static clib_error_t *
 flowtable_init_cpu (flowtable_main_t *fm, u32 cpu_index)
 {
-  int i;
-  flow_entry_t *f;
   clib_error_t *error = 0;
-  dlist_elt_t *timer_slot;
   flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
   /*
    * As advised in the thread below :
@@ -93,38 +74,13 @@ flowtable_init_cpu (flowtable_main_t *fm, u32 cpu_index)
   fmt->time_index = ~0;
   fmt->next_check = ~0;
 
-  /* alloc TIMER_MAX_LIFETIME heads from the timers pool and fill them with
-   * defaults */
-  for (u32 n = 0; n < TIMER_MAX_LIFETIME; n++)
-    {
-      dlist_elt_t *timer;
-      pool_get (fmt->timers, timer);
-      ASSERT (timer - fmt->timers == n);
-    }
-  upf_debug ("POOL SIZE %u", pool_elts (fmt->timers));
-
-  pool_foreach (timer_slot, fmt->timers)
-    {
-      u32 timer_slot_head_index = timer_slot - fmt->timers;
-
-      clib_dlist_init (fmt->timers, timer_slot_head_index);
-    }
-
-  /* fill flow entry cache */
-  if (pthread_spin_lock (&fm->flows_lock) == 0)
-    {
-      for (i = 0; i < FLOW_CACHE_SZ; i++)
-        {
-          pool_get_aligned (fm->flows, f, CLIB_CACHE_LINE_BYTES);
-#if CLIB_DEBUG > 0
-          f->cpu_index = cpu_index;
-#endif
-          vec_add1 (fmt->flow_cache, f - fm->flows);
-        }
-      fm->flows_cpt += FLOW_CACHE_SZ;
-
-      pthread_spin_unlock (&fm->flows_lock);
-    }
+  fmt->timers = 0;
+  vec_validate (fmt->timers, FLOW_TIMER_MAX_LIFETIME - 1);
+  {
+    flow_timeout_list_t *l;
+    vec_foreach (l, fmt->timers)
+      flow_timeout_list_init (l);
+  }
 
   return error;
 }
@@ -144,13 +100,11 @@ flowtable_init (vlib_main_t *vm)
   fm->flows_max = 1 << fm->log2_size;
   upf_debug ("flows_max %u", fm->flows_max);
   pool_alloc_aligned (fm->flows, fm->flows_max, CLIB_CACHE_LINE_BYTES);
-  pthread_spin_init (&fm->flows_lock, PTHREAD_PROCESS_PRIVATE);
-  fm->flows_cpt = 0;
+  fm->current_flows_count = 0;
 
   for (flowtable_timeout_type_t i = FT_TIMEOUT_TYPE_UNKNOWN;
        i < FT_TIMEOUT_TYPE_MAX; i++)
-    fm->timer_lifetime[i] = TIMER_DEFAULT_LIFETIME;
-  fm->timer_max_lifetime = TIMER_MAX_LIFETIME;
+    fm->timer_lifetime[i] = FLOW_TIMER_DEFAULT_LIFETIME;
 
   /* Init flows counter per cpu */
   vlib_validate_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],

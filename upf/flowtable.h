@@ -23,7 +23,6 @@
 #include <vnet/vnet.h>
 #include <vnet/ip/ip.h>
 #include <vppinfra/bihash_48_8.h>
-#include <vppinfra/dlist.h>
 #include <vppinfra/pool.h>
 #include <vppinfra/vec.h>
 
@@ -34,10 +33,10 @@
   _ (HIT, "packets with an existing flow")                                    \
   _ (THRU, "packets gone through")                                            \
   _ (CREATED, "packets which created a new flow")                             \
-  _ (UNHANDLED, "unhandled (non-ip)  packet")                                 \
+  _ (NO_SESSION, "packet without session")                                    \
   _ (TIMER_EXPIRE, "flows that have expired")                                 \
   _ (COLLISION, "hashtable collisions")                                       \
-  _ (RECYCLE, "flow recycled")
+  _ (OVERFLOW, "dropped due to flowtable overflow")
 
 typedef enum
 {
@@ -79,13 +78,6 @@ typedef struct
   };
 } flow_key_t;
 
-/* dlist helpers */
-#define dlist_is_empty(pool, head_index)                                      \
-  ({                                                                          \
-    dlist_elt_t *head = pool_elt_at_index ((pool), (head_index));             \
-    (head->next == (u32) ~0 || head->next == (head_index));                   \
-  })
-
 typedef struct
 {
   u32 pkts;
@@ -114,6 +106,7 @@ typedef struct flow_tc
 } flow_tc_t;
 
 UPF_LLIST_TEMPLATE_TYPES (session_flows_list);
+UPF_LLIST_TEMPLATE_TYPES (flow_timeout_list);
 
 typedef struct flow_entry
 {
@@ -131,16 +124,17 @@ typedef struct flow_entry
   u8 dont_splice : 1;
   u8 app_detection_done : 1;
   u8 exported : 1;
-  u16 tcp_state;
+  u8 tcp_state;
   u32 ps_index;
 
   /* stats */
   flow_stats_t stats[FT_ORDER_MAX];
 
   /* timers */
-  u32 active;      /* last activity ts */
-  u16 lifetime;    /* in seconds */
-  u32 timer_index; /* index in the timer pool */
+  u32 active;     /* last activity ts */
+  u16 lifetime;   /* in seconds */
+  u16 timer_slot; /* timer list index in the timer lists pool */
+  flow_timeout_list_anchor_t timer_anchor;
 
   /* UPF data */
   u32 application_id;        /* L7 app index */
@@ -171,6 +165,7 @@ typedef struct flow_entry
 
 UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t,
                                 session_list_anchor);
+UPF_LLIST_TEMPLATE_DEFINITIONS (flow_timeout_list, flow_entry_t, timer_anchor);
 
 /* accessor helper */
 #define flow_member(F, M, D)     (F)->M[(D) ^ (F)->is_reverse]
@@ -185,29 +180,24 @@ UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t,
 #define flow_ipfix_info(F, D)    flow_member ((F), ipfix_info_index, (D))
 
 /* Timers (in seconds) */
-#define TIMER_DEFAULT_LIFETIME (60)
-#define TIMER_MAX_LIFETIME     (600)
+#define FLOW_TIMER_DEFAULT_LIFETIME (60)
+#define FLOW_TIMER_MAX_LIFETIME     (600)
 
 /* Default max number of flows to expire during one run.
  * 256 is the max number of packets in a vector, so this is a minimum
  * if all packets create a flow. */
-#define TIMER_MAX_EXPIRE (1 << 8)
+#define FLOW_TIMER_MAX_EXPIRE (1 << 8)
 
 typedef struct
 {
   /* hashtable */
   clib_bihash_48_8_t flows_ht;
 
-  /* timers */
-  dlist_elt_t *timers;
+  /* vector of FLOW_TIMER_MAX_LIFETIME timers lists */
+  flow_timeout_list_t *timers;
+
   u32 time_index;
   u32 next_check;
-
-  /* flow cache
-   * set cache size to 256 so that the worst node run fills the cache at most
-   * once */
-#define FLOW_CACHE_SZ 256
-  u32 *flow_cache;
 } flowtable_main_per_cpu_t;
 
 #define FLOWTABLE_DEFAULT_LOG2_SIZE 22
@@ -218,11 +208,9 @@ typedef struct
   u32 log2_size;
   u32 flows_max;
   flow_entry_t *flows;
-  pthread_spinlock_t flows_lock;
-  u64 flows_cpt;
+  u32 current_flows_count;
 
   u16 timer_lifetime[FT_TIMEOUT_TYPE_MAX];
-  u16 timer_max_lifetime;
 
   /* per cpu */
   flowtable_main_per_cpu_t *per_cpu;
@@ -301,7 +289,6 @@ u8 *format_flow (u8 *, va_list *);
 
 clib_error_t *flowtable_lifetime_update (flowtable_timeout_type_t type,
                                          u16 value);
-clib_error_t *flowtable_max_lifetime_update (u16 value);
 clib_error_t *flowtable_init (vlib_main_t *vm);
 
 static inline u16
@@ -332,6 +319,45 @@ void timer_wheel_index_update (flowtable_main_t *fm,
 
 u64 flowtable_timer_expire (flowtable_main_t *fm,
                             flowtable_main_per_cpu_t *fmt, u32 now);
+
+always_inline u16
+flowtable_time_to_timer_slot (u32 when_seconds)
+{
+  return when_seconds % FLOW_TIMER_MAX_LIFETIME;
+}
+
+always_inline void
+flowtable_timeout_stop_entry (flowtable_main_t *fm,
+                              flowtable_main_per_cpu_t *fmt, flow_entry_t *f)
+{
+  ASSERT (f->timer_slot != (u16) ~0);
+
+  flow_timeout_list_remove (fm->flows,
+                            vec_elt_at_index (fmt->timers, f->timer_slot), f);
+  f->timer_slot = ~0;
+};
+
+// returns timers slot which was used for flow
+always_inline u16
+flowtable_timeout_start_entry (flowtable_main_t *fm,
+                               flowtable_main_per_cpu_t *fmt, flow_entry_t *f,
+                               u32 now)
+{
+  ASSERT (f->timer_slot == (u16) ~0);
+
+  /*
+   * Make sure we're not scheduling this flow "in the past",
+   * otherwise it may add the period of the "wheel turn" to its
+   * expiration time
+   */
+  ASSERT (fmt->next_check == ~0 || now + f->lifetime >= fmt->next_check);
+
+  u16 timer_slot = flowtable_time_to_timer_slot (now + f->lifetime);
+  flow_timeout_list_insert_tail (
+    fm->flows, vec_elt_at_index (fmt->timers, timer_slot), f);
+  f->timer_slot = timer_slot;
+  return timer_slot;
+}
 
 static inline void
 parse_packet_protocol (udp_header_t *udp, uword is_reverse, flow_key_t *key)
@@ -415,7 +441,7 @@ flow_mk_key (u64 up_seid, u8 *header, u8 is_ip4, uword *is_reverse,
 }
 
 always_inline void
-flow_tcp_update_lifetime (flow_entry_t *f, tcp_header_t *hdr)
+flow_tcp_update_lifetime (flow_entry_t *f, tcp_header_t *hdr, u32 now)
 {
   tcp_f_state_t old_state, new_state;
 
@@ -429,23 +455,13 @@ flow_tcp_update_lifetime (flow_entry_t *f, tcp_header_t *hdr)
       flowtable_main_t *fm = &flowtable_main;
       u32 cpu_index = os_get_thread_index ();
       flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
-      u32 timer_slot_head_index;
 
-      /*
-       * Make sure we're not scheduling this flow "in the past",
-       * otherwise it may add the period of the "wheel turn" to its
-       * expiration time
-       */
-      ASSERT (fmt->next_check == ~0 ||
-              f->active + f->lifetime >= fmt->next_check);
       f->tcp_state = new_state;
       f->lifetime = tcp_lifetime[new_state];
-      /* reschedule */
-      clib_dlist_remove (fmt->timers, f->timer_index);
 
-      timer_slot_head_index =
-        (f->active + f->lifetime) % fm->timer_max_lifetime;
-      clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
+      /* reschedule */
+      flowtable_timeout_stop_entry (fm, fmt, f);
+      flowtable_timeout_start_entry (fm, fmt, f, now);
     }
 }
 
@@ -461,7 +477,7 @@ flow_update (vlib_main_t *vm, flow_entry_t *f, u8 *iph, u8 is_ip4, u16 len,
       tcp_header_t *hdr =
         (tcp_header_t *) (is_ip4 ? ip4_next_header ((ip4_header_t *) iph) :
                                    ip6_next_header ((ip6_header_t *) iph));
-      flow_tcp_update_lifetime (f, hdr);
+      flow_tcp_update_lifetime (f, hdr, now);
     }
 }
 
@@ -505,17 +521,6 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
   f->flow_end_time = timestamp_ns;
 
   flowtable_handle_event (fm, f, FLOW_EVENT_STATS_UPDATE, direction, now);
-}
-
-always_inline void
-timer_wheel_insert_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
-                         flow_entry_t *f)
-{
-  u32 timer_slot_head_index;
-
-  timer_slot_head_index =
-    (fmt->time_index + f->lifetime) % fm->timer_max_lifetime;
-  clib_dlist_addtail (fmt->timers, timer_slot_head_index, f->timer_index);
 }
 
 extern vlib_node_registration_t flowtable_process_node;

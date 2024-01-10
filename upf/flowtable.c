@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include <vppinfra/dlist.h>
 #include <vppinfra/types.h>
 #include <vppinfra/vec.h>
 #include <vnet/ip/ip4_packet.h>
@@ -58,93 +57,19 @@ flowtable_add_event_handler (flowtable_main_t *fm, flow_event_t event,
 }
 
 always_inline void
-flow_entry_cache_fill (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt)
-{
-  u32 cpu_index = os_get_thread_index ();
-  int i;
-  flow_entry_t *f;
-
-  if (pthread_spin_lock (&fm->flows_lock) == 0)
-    {
-      if (PREDICT_FALSE (fm->flows_cpt > fm->flows_max))
-        {
-          pthread_spin_unlock (&fm->flows_lock);
-          return;
-        }
-
-      for (i = 0; i < FLOW_CACHE_SZ; i++)
-        {
-          pool_get_aligned (fm->flows, f, CLIB_CACHE_LINE_BYTES);
-          f->cpu_index = cpu_index;
-          vec_add1 (fmt->flow_cache, f - fm->flows);
-        }
-      fm->flows_cpt += FLOW_CACHE_SZ;
-
-      pthread_spin_unlock (&fm->flows_lock);
-    }
-}
-
-always_inline void
-flow_entry_cache_empty (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt)
-{
-#if CLIB_DEBUG > 0
-  u32 cpu_index = os_get_thread_index ();
-#endif
-  int i;
-
-  if (pthread_spin_lock (&fm->flows_lock) == 0)
-    {
-      for (i = vec_len (fmt->flow_cache) - 1; i > FLOW_CACHE_SZ; i--)
-        {
-          u32 f_index = vec_pop (fmt->flow_cache);
-
-          upf_debug ("releasing flow %p, index %u",
-                     pool_elt_at_index (fm->flows, f_index), f_index);
-#if CLIB_DEBUG > 0
-          ASSERT (pool_elt_at_index (fm->flows, f_index)->cpu_index ==
-                  cpu_index);
-#endif
-
-          pool_put_index (fm->flows, f_index);
-        }
-      fm->flows_cpt -= FLOW_CACHE_SZ;
-
-      pthread_spin_unlock (&fm->flows_lock);
-    }
-}
-
-always_inline flow_entry_t *
-flow_entry_alloc (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt)
-{
-  u32 f_index;
-  flow_entry_t *f;
-
-  if (vec_len (fmt->flow_cache) == 0)
-    flow_entry_cache_fill (fm, fmt);
-
-  if (PREDICT_FALSE ((vec_len (fmt->flow_cache) == 0)))
-    return NULL;
-
-  f_index = vec_pop (fmt->flow_cache);
-  f = pool_elt_at_index (fm->flows, f_index);
-  ASSERT (f->cpu_index == os_get_thread_index ());
-
-  return f;
-}
-
-always_inline void
 flow_entry_free (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
                  flow_entry_t *f)
 {
+  /* timer should be already removed */
+  ASSERT (!flow_timeout_list_el_is_part_of_list (f));
+  ASSERT (f->timer_slot == (u16) ~0);
+
   ASSERT (f->cpu_index == os_get_thread_index ());
 
   if (f->app_uri)
     vec_free (f->app_uri);
 
-  vec_add1 (fmt->flow_cache, f - fm->flows);
-
-  if (vec_len (fmt->flow_cache) > 2 * FLOW_CACHE_SZ)
-    flow_entry_cache_empty (fm, fmt);
+  pool_put (fm->flows, f);
 }
 
 always_inline void
@@ -159,30 +84,30 @@ flowtable_entry_remove_internal (flowtable_main_t *fm,
   flowtable_handle_event (fm, f, FLOW_EVENT_REMOVE, FT_ORIGIN, now);
   flowtable_handle_event (fm, f, FLOW_EVENT_UNLINK, FT_ORIGIN, now);
 
-  /* timers unlink */
-  clib_dlist_remove (fmt->timers, f->timer_index);
-  pool_put_index (fmt->timers, f->timer_index);
+  /* timer unlink */
+  flowtable_timeout_stop_entry (fm, fmt, f);
 
   /* hashtable unlink */
   clib_memcpy (kv.key, f->key.key, sizeof (kv.key));
   clib_bihash_add_del_48_8 (&fmt->flows_ht, &kv, 0 /* is_add */);
 
-  /* free to flow cache && pool (last) */
   flow_entry_free (fm, fmt, f);
 }
 
+/* return true if flow was removed */
 always_inline bool
-expire_single_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
-                    flow_entry_t *f, dlist_elt_t *e, u32 now)
+try_expire_single_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
+                        flow_entry_t *f, flow_timeout_list_t *e, u32 now)
 {
   bool keep = f->active + f->lifetime > now;
-  ASSERT (f->timer_index == (e - fmt->timers));
+  ASSERT (f->timer_slot == (e - fmt->timers));
   ASSERT (f->active <= now);
 
   upf_debug ("Flow Timeout Check %d: %u (%u) > %u (%u)", f - fm->flows,
              f->active + f->lifetime,
-             (f->active + f->lifetime) % fm->timer_max_lifetime, now,
+             (f->active + f->lifetime) % FLOW_TIMER_MAX_LIFETIME, now,
              fmt->time_index);
+
   if (!keep &&
       flowtable_handle_event (fm, f, FLOW_EVENT_EXPIRE, FT_ORIGIN, now) != 0)
     {
@@ -197,21 +122,8 @@ expire_single_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
     {
       /* There was activity on the entry, so the idle timeout
          has not passed. Enqueue for another time period. */
-      u32 timer_slot_head_index;
-
-      timer_slot_head_index =
-        (f->active + f->lifetime) % fm->timer_max_lifetime;
-      if (timer_slot_head_index != f->timer_index)
-        {
-          upf_debug ("Flow Reshedule %d to %u", f - fm->flows,
-                     timer_slot_head_index);
-          /* timers unlink */
-          clib_dlist_remove (fmt->timers, f->timer_index);
-          clib_dlist_addtail (fmt->timers, timer_slot_head_index,
-                              f->timer_index);
-          return true;
-        }
-
+      flowtable_timeout_stop_entry (fm, fmt, f);
+      flowtable_timeout_start_entry (fm, fmt, f, now);
       return false;
     }
   else
@@ -226,17 +138,13 @@ flowtable_timer_expire (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
                         u32 now)
 {
   u32 t;
-  flow_entry_t *f;
-  dlist_elt_t *time_slot_curr;
-  u32 index;
-  dlist_elt_t *e;
   u64 expire_cpt = 0;
 
   /*
    * Must call flowtable_timer_expire() only after timer_wheel_index_update()
    * with the same 'now' value
    */
-  ASSERT (now % fm->timer_max_lifetime == fmt->time_index);
+  ASSERT (now % FLOW_TIMER_MAX_LIFETIME == fmt->time_index);
 
   /*
    * In case some of the time slots were skipped e.g. due to low traffic
@@ -244,7 +152,7 @@ flowtable_timer_expire (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
    * process all of the skipped entries, but don't expire too many
    * of them to avoid any pauses. We can expire more of the flows
    * if there's low traffic currently, though, so we apply
-   * TIMER_MAX_EXPIRE limit per step, not per this function run.
+   * FLOW_TIMER_MAX_EXPIRE limit per step, not per this function run.
    */
 
   t = now;
@@ -266,31 +174,27 @@ flowtable_timer_expire (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
 
   for (; t <= now; t++)
     {
-      u32 time_slot_curr_index = t % fm->timer_max_lifetime;
-      if (PREDICT_TRUE (!dlist_is_empty (fmt->timers, time_slot_curr_index)))
+
+      flow_timeout_list_t *timer_list =
+        vec_elt_at_index (fmt->timers, flowtable_time_to_timer_slot (t));
+
+      /* clang-format off */
+      upf_llist_foreach (f, fm->flows, timer_anchor, timer_list,
         {
-          time_slot_curr =
-            pool_elt_at_index (fmt->timers, time_slot_curr_index);
+          if (try_expire_single_flow (fm, fmt, f, timer_list, now))
+            expire_cpt++;
 
-          index = time_slot_curr->next;
-          while (index != time_slot_curr_index &&
-                 expire_cpt < TIMER_MAX_EXPIRE)
-            {
-              e = pool_elt_at_index (fmt->timers, index);
-              f = pool_elt_at_index (fm->flows, e->value);
-
-              index = e->next;
-              if (expire_single_flow (fm, fmt, f, e, now))
-                expire_cpt++;
-            }
-        }
+          if (expire_cpt >= FLOW_TIMER_MAX_EXPIRE)
+            break;
+        });
+      /* clang-format on */
 
       /*
        * If max N of expirations has been reached, the timer wheel
        * entry corresponding to this moment will be revisited upon
        * the next flowtable_timer_expire() call
        */
-      if (expire_cpt == TIMER_MAX_EXPIRE)
+      if (expire_cpt >= FLOW_TIMER_MAX_EXPIRE)
         break;
     }
 
@@ -322,37 +226,6 @@ flowtable_lifetime_calculate (flowtable_main_t *fm, flow_key_t const *key)
   return fm->timer_lifetime[FT_TIMEOUT_TYPE_UNKNOWN];
 }
 
-static void
-recycle_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt, u32 now)
-{
-  u32 next;
-
-  next = (now + 1) % fm->timer_max_lifetime;
-  while (PREDICT_FALSE (next != now))
-    {
-      flow_entry_t *f;
-      u32 slot_index = next;
-
-      if (PREDICT_FALSE (dlist_is_empty (fmt->timers, slot_index)))
-        {
-          next = (next + 1) % fm->timer_max_lifetime;
-          continue;
-        }
-      dlist_elt_t *head = pool_elt_at_index (fmt->timers, slot_index);
-      dlist_elt_t *e = pool_elt_at_index (fmt->timers, head->next);
-
-      f = pool_elt_at_index (fm->flows, e->value);
-      expire_single_flow (fm, fmt, f, e, now);
-    }
-
-  /*
-   * unreachable:
-   * this should be called if there is no free flows, so we're bound to have
-   * at least *one* flow within the timer wheel (cpu cache is filled at init).
-   */
-  clib_error ("recycle_flow did not find any flow to recycle !");
-}
-
 void
 flowtable_entry_remove (flowtable_main_t *fm, flow_entry_t *f, u32 now)
 {
@@ -369,7 +242,6 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
                                u32 session_index, int *created)
 {
   flow_entry_t *f;
-  dlist_elt_t *timer_entry;
   upf_main_t *gtm = &upf_main;
 
   if (PREDICT_FALSE (clib_bihash_search_inline_48_8 (&fmt->flows_ht, kv) == 0))
@@ -378,24 +250,15 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
     }
 
   /* create new flow */
-  f = flow_entry_alloc (fm, fmt);
-  if (PREDICT_FALSE (f == NULL))
+  if (fm->current_flows_count >= fm->flows_max)
     {
-      recycle_flow (fm, fmt, now);
-      f = flow_entry_alloc (fm, fmt);
-      if (PREDICT_FALSE (f == NULL))
-        {
-          clib_error ("flowtable failed to recycle a flow");
-
-          vlib_node_increment_counter (fm->vlib_main, upf_flow_node.index,
-                                       FLOWTABLE_ERROR_RECYCLE, 1);
-          return ~0;
-        }
+      return ~0;
     }
 
   *created = 1;
 
-  memset (f, 0, sizeof (*f));
+  pool_get_zero (fm->flows, f);
+
   clib_memcpy (f->key.key, kv->key, sizeof (f->key.key));
   f->is_reverse = is_reverse;
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
@@ -424,16 +287,18 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   flow_last_exported (f, FT_ORIGIN) = now;
   flow_last_exported (f, FT_REVERSE) = now;
   f->ps_index = ~0;
+
   session_flows_list_anchor_init (f);
+  flow_timeout_list_anchor_init (f);
+  f->timer_slot = ~0;
 
   /* insert in timer list */
-  pool_get (fmt->timers, timer_entry);
-  timer_entry->value = f - fm->flows;         /* index within the flow pool */
-  f->timer_index = timer_entry - fmt->timers; /* index within the timer pool */
-  timer_wheel_insert_flow (fm, fmt, f);
-  upf_debug ("Flow Created: fidx %d timer_index %d", f - fm->flows,
-             f->timer_index);
+  flowtable_timeout_start_entry (fm, fmt, f, now);
 
+  upf_debug ("Flow Created: fidx %d timer_slot %d", f - fm->flows,
+             f->timer_slot);
+
+  fm->current_flows_count += 1;
   vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
                                  vlib_get_thread_index (), 0, 1);
 
@@ -448,7 +313,7 @@ void
 timer_wheel_index_update (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
                           u32 now)
 {
-  fmt->time_index = now % fm->timer_max_lifetime;
+  fmt->time_index = now % FLOW_TIMER_MAX_LIFETIME;
 }
 
 u8 *
