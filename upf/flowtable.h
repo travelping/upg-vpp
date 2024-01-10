@@ -193,8 +193,7 @@ typedef struct
   /* hashtable */
   clib_bihash_48_8_t flows_ht;
 
-  /* timers */
-  /* this is vector of max_ */
+  /* vector of FLOW_TIMER_MAX_LIFETIME timers lists */
   flow_timeout_list_t *timers;
 
   u32 time_index;
