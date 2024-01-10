@@ -208,8 +208,8 @@ typedef struct
   u32 log2_size;
   u32 flows_max;
   flow_entry_t *flows;
+  u32 current_flows_count;
 
-  u32 flows_created_count;
   u16 timer_lifetime[FT_TIMEOUT_TYPE_MAX];
 
   /* per cpu */

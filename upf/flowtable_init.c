@@ -100,7 +100,7 @@ flowtable_init (vlib_main_t *vm)
   fm->flows_max = 1 << fm->log2_size;
   upf_debug ("flows_max %u", fm->flows_max);
   pool_alloc_aligned (fm->flows, fm->flows_max, CLIB_CACHE_LINE_BYTES);
-  fm->flows_created_count = 0;
+  fm->current_flows_count = 0;
 
   for (flowtable_timeout_type_t i = FT_TIMEOUT_TYPE_UNKNOWN;
        i < FT_TIMEOUT_TYPE_MAX; i++)

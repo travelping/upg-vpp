@@ -250,7 +250,7 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
     }
 
   /* create new flow */
-  if (fm->flows_created_count >= fm->flows_max)
+  if (fm->current_flows_count >= fm->flows_max)
     {
       return ~0;
     }
@@ -298,7 +298,7 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   upf_debug ("Flow Created: fidx %d timer_slot %d", f - fm->flows,
              f->timer_slot);
 
-  fm->flows_created_count += 1;
+  fm->current_flows_count += 1;
   vlib_increment_simple_counter (&gtm->upf_simple_counters[UPF_FLOW_COUNTER],
                                  vlib_get_thread_index (), 0, 1);
 
