@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include <vppinfra/dlist.h>
 #include <vppinfra/types.h>
 #include <vppinfra/vec.h>
 #include <vnet/ip/ip4_packet.h>
