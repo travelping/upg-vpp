@@ -33,7 +33,7 @@
   _ (HIT, "packets with an existing flow")                                    \
   _ (THRU, "packets gone through")                                            \
   _ (CREATED, "packets which created a new flow")                             \
-  _ (NO_SESSION, "packet without session")                                 \
+  _ (NO_SESSION, "packet without session")                                    \
   _ (TIMER_EXPIRE, "flows that have expired")                                 \
   _ (COLLISION, "hashtable collisions")                                       \
   _ (OVERFLOW, "dropped due to flowtable overflow")
@@ -131,9 +131,9 @@ typedef struct flow_entry
   flow_stats_t stats[FT_ORDER_MAX];
 
   /* timers */
-  u32 active;      /* last activity ts */
-  u16 lifetime;    /* in seconds */
-  u16 timer_slot;  /* timer list index in the timer lists pool */
+  u32 active;     /* last activity ts */
+  u16 lifetime;   /* in seconds */
+  u16 timer_slot; /* timer list index in the timer lists pool */
   flow_timeout_list_anchor_t timer_anchor;
 
   /* UPF data */
@@ -165,8 +165,7 @@ typedef struct flow_entry
 
 UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t,
                                 session_list_anchor);
-UPF_LLIST_TEMPLATE_DEFINITIONS (flow_timeout_list, flow_entry_t,
-                                timer_anchor);
+UPF_LLIST_TEMPLATE_DEFINITIONS (flow_timeout_list, flow_entry_t, timer_anchor);
 
 /* accessor helper */
 #define flow_member(F, M, D)     (F)->M[(D) ^ (F)->is_reverse]
@@ -323,32 +322,40 @@ u64 flowtable_timer_expire (flowtable_main_t *fm,
                             flowtable_main_per_cpu_t *fmt, u32 now);
 
 always_inline u16
-flowtable_time_to_timer_slot (u32 when_seconds) {
+flowtable_time_to_timer_slot (u32 when_seconds)
+{
   return when_seconds % FLOW_TIMER_MAX_LIFETIME;
 }
 
 always_inline void
-flowtable_timeout_stop_entry (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt, flow_entry_t *f) {
-  ASSERT(f->timer_slot != (u16) ~0);
+flowtable_timeout_stop_entry (flowtable_main_t *fm,
+                              flowtable_main_per_cpu_t *fmt, flow_entry_t *f)
+{
+  ASSERT (f->timer_slot != (u16) ~0);
 
-  flow_timeout_list_remove(fm->flows, vec_elt_at_index(fmt->timers, f->timer_slot), f);
+  flow_timeout_list_remove (fm->flows,
+                            vec_elt_at_index (fmt->timers, f->timer_slot), f);
   f->timer_slot = ~0;
 };
 
 // returns timers slot which was used for flow
 always_inline u16
-flowtable_timeout_start_entry (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt, flow_entry_t *f, u32 now) {
-  ASSERT(f->timer_slot == (u16) ~0);
+flowtable_timeout_start_entry (flowtable_main_t *fm,
+                               flowtable_main_per_cpu_t *fmt, flow_entry_t *f,
+                               u32 now)
+{
+  ASSERT (f->timer_slot == (u16) ~0);
 
   /*
-    * Make sure we're not scheduling this flow "in the past",
-    * otherwise it may add the period of the "wheel turn" to its
-    * expiration time
-    */
+   * Make sure we're not scheduling this flow "in the past",
+   * otherwise it may add the period of the "wheel turn" to its
+   * expiration time
+   */
   ASSERT (fmt->next_check == ~0 || now + f->lifetime >= fmt->next_check);
 
-  u16 timer_slot = flowtable_time_to_timer_slot(now + f->lifetime);
-  flow_timeout_list_insert_tail(fm->flows, vec_elt_at_index(fmt->timers, timer_slot), f);
+  u16 timer_slot = flowtable_time_to_timer_slot (now + f->lifetime);
+  flow_timeout_list_insert_tail (
+    fm->flows, vec_elt_at_index (fmt->timers, timer_slot), f);
   f->timer_slot = timer_slot;
   return timer_slot;
 }
@@ -454,8 +461,8 @@ flow_tcp_update_lifetime (flow_entry_t *f, tcp_header_t *hdr, u32 now)
       f->lifetime = tcp_lifetime[new_state];
 
       /* reschedule */
-      flowtable_timeout_stop_entry(fm, fmt, f);
-      flowtable_timeout_start_entry(fm, fmt, f, now);
+      flowtable_timeout_stop_entry (fm, fmt, f);
+      flowtable_timeout_start_entry (fm, fmt, f, now);
     }
 }
 
