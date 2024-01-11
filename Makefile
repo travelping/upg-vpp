@@ -24,7 +24,7 @@ version:
 	fi
 
 checkstyle:
-	find . -name "*.c" -or -name "*.h" | xargs clang-format-11 -n --Werror
+	git ls-files | grep -e "\\.[c|h]$$" | xargs clang-format-11 -n --Werror
 
 ci-build: version
 	hack/ci-build.sh
