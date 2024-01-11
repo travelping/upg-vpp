@@ -16,5 +16,9 @@
         "c"
       ]
     }
+  ],
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": [
+    "--fast"
   ]
 }
