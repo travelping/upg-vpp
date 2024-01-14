@@ -8,10 +8,10 @@
         "/vpp-src/**"
       ],
       "defines": [],
-      "compilerPath": "/usr/bin/gcc",
+      "compilerPath": "/usr/bin/clang-11",
       "cStandard": "c17",
       "cppStandard": "c++14",
-      "intelliSenseMode": "linux-gcc-x64",
+      "intelliSenseMode": "linux-clang-x64",
       "configurationProvider": "ms-vscode.makefile-tools"
     }
   ],
