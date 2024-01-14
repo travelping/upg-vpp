@@ -300,19 +300,21 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 			v := &ipfixVerifier{f: f}
 			v.withNWIIPFIXPolicy("dest")
 			v.withIPFIXHandler()
-			v.withReportingInterval(7)
+			const INTERVAL = 7 // 7 seconds so we receive ipfix flow description
+			const MIN_REPORTS_FOR_CHECK = 4
+			v.withReportingInterval(INTERVAL)
 			ginkgo.It("can be set via NWI", func() {
 				trafficCfg := smallVolumeHTTPConfig(nil)
 				// Make sure the flow lasts long enough to measure the intervals
-				trafficCfg.ChunkCount = 50
-				trafficCfg.ChunkDelay = 500 * time.Millisecond
+				trafficCfg.ChunkCount = MIN_REPORTS_FOR_CHECK * (INTERVAL + 1)
+				trafficCfg.ChunkDelay = time.Second
 				v.verifyIPFIX(ipfixVerifierCfg{
 					trafficCfg:          trafficCfg,
 					protocol:            layers.IPProtocolTCP,
 					expectedTrafficPort: 80,
 				})
 				v.verifyIPFIXDestRecords()
-				v.verifyReportingInterval(7)
+				v.verifyReportingInterval(INTERVAL)
 			})
 		})
 	})
