@@ -1090,53 +1090,50 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 		f.PFCPCfg = nil
 
 		ginkgo.It("lists and removes the PFCP endpoint", func() {
-			ipAddr, err := ip_types.ParseAddress("10.0.0.2")
-			gomega.Expect(err).To(gomega.BeNil())
+			ipAddr, err := ip_types.ParseAddress("10.1.0.2")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			req := &upf.UpfPfcpEndpointAddDel{
-				IsAdd: 1,
-				// TODO: verify other table IDs (somewhat tricky)
-				// TableID: 100,
-				IP: ipAddr,
+				IsAdd:   1,
+				TableID: 100,
+				IP:      ipAddr,
 			}
 			reply := &upf.UpfPfcpEndpointAddDelReply{}
 			err = f.VPP.ApiChannel.SendRequest(req).ReceiveReply(reply)
-			gomega.Expect(err).To(gomega.BeNil(), "upf_pfcp_endpoint_add_del")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "upf_pfcp_endpoint_add_del")
 
 			reqCtx := f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPfcpEndpointDump{})
 			found := false
 			for {
 				msg := &upf.UpfPfcpEndpointDetails{}
 				stop, err := reqCtx.ReceiveReply(msg)
-				gomega.Expect(err).To(gomega.BeNil())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				if stop {
 					break
 				}
-				if msg.IP != req.IP {
-					continue
+				if msg.IP == req.IP {
+					found = true
+					gomega.Expect(msg.TableID).To(gomega.BeEquivalentTo(100))
 				}
-				found = true
-				gomega.Expect(msg.TableID).To(gomega.BeEquivalentTo(0))
 			}
 			gomega.Expect(found).To(gomega.BeTrue())
 
 			req.IsAdd = 0
 			pfcpEndpointReply := &upf.UpfPfcpEndpointAddDelReply{}
 			err = f.VPP.ApiChannel.SendRequest(req).ReceiveReply(pfcpEndpointReply)
-			gomega.Expect(err).To(gomega.BeNil())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			reqCtx = f.VPP.ApiChannel.SendMultiRequest(&upf.UpfPfcpEndpointDump{})
 			found = false
 			for {
 				msg := &upf.UpfPfcpEndpointDetails{}
 				stop, err := reqCtx.ReceiveReply(msg)
-				gomega.Expect(err).To(gomega.BeNil())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				if stop {
 					break
 				}
-				if msg.IP != req.IP {
-					continue
+				if msg.IP == req.IP {
+					found = true
 				}
-				found = true
 			}
 			gomega.Expect(found).To(gomega.BeFalse())
 		})

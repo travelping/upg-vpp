@@ -274,7 +274,6 @@ vnet_upf_pfcp_endpoint_add_del (ip46_address_t *ip, u32 fib_index, u8 add)
   pfcp_session_server_main_t *pssm = &pfcp_session_server_main;
   upf_main_t *gtm = &upf_main;
   ip46_address_fib_t key;
-  int rv = 0;
   uword *p;
 
   key.addr = *ip;
@@ -301,7 +300,15 @@ vnet_upf_pfcp_endpoint_add_del (ip46_address_t *ip, u32 fib_index, u8 add)
       a->sep_ext.ip = *ip;
       a->sep_ext.port = clib_host_to_net_u16 (UDP_DST_PORT_PFCP);
 
-      if ((rv = vnet_listen (a)) == 0)
+      session_error_t listen_err = vnet_listen (a);
+      if (listen_err != SESSION_E_NONE)
+        {
+          clib_warning ("vnet_listen returned %U", format_session_error,
+                        listen_err);
+          // most probably it was caused by invalid address for provided fib
+          return VNET_API_ERROR_ADDRESS_NOT_FOUND_FOR_INTERFACE;
+        }
+      else
         mhash_set (&gtm->pfcp_endpoint_index, &key, a->handle, NULL);
     }
   else
@@ -317,10 +324,17 @@ vnet_upf_pfcp_endpoint_add_del (ip46_address_t *ip, u32 fib_index, u8 add)
       a->handle = p[0];
 
       mhash_unset (&gtm->pfcp_endpoint_index, &key, NULL);
-      rv = vnet_unlisten (a);
+
+      session_error_t listen_err = vnet_unlisten (a);
+      if (listen_err != SESSION_E_NONE)
+        {
+          clib_warning ("ignoring vnet_listen error %U", format_session_error,
+                        listen_err);
+          return VNET_API_ERROR_UNSPECIFIED;
+        }
     }
 
-  return rv;
+  return 0;
 }
 
 int
