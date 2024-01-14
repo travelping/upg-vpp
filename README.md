@@ -180,8 +180,6 @@ Here are some nice plugins to work with this repo:
 	"extensions": [
 		"eamodio.gitlens",
 		"EditorConfig.EditorConfig",
-		"GitHub.copilot",
-		"GitHub.copilot-chat",
 		"golang.go",
 		"ms-azuretools.vscode-docker",
 		"ms-vscode.cmake-tools",
