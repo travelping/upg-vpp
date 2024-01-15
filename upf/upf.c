@@ -572,7 +572,7 @@ upf_init (vlib_main_t *vm)
   vnet_register_format_buffer_opaque2_helper (upf_format_buffer_opaque_helper);
 
   mhash_init (&sm->pfcp_endpoint_index, sizeof (uword),
-              sizeof (ip46_address_t));
+              sizeof (ip46_address_fib_t));
   sm->nwi_index_by_name =
     hash_create_vec (/* initial length */ 32, sizeof (u8), sizeof (uword));
   mhash_init (&sm->upip_res_index, sizeof (uword), sizeof (upf_upip_res_t));
