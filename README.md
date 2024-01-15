@@ -181,14 +181,15 @@ Here are some nice plugins to work with this repo:
 		"eamodio.gitlens",
 		"EditorConfig.EditorConfig",
 		"golang.go",
-		"jkillian.custom-local-formatters",
 		"ms-azuretools.vscode-docker",
 		"ms-vscode.cmake-tools",
 		"ms-vscode.cpptools",
 		"ms-vscode.cpptools-extension-pack",
 		"ms-vscode.cpptools-themes",
 		"ms-vscode.makefile-tools",
-		"twxs.cmake"
-	]
+		"llvm-vs-code-extensions.vscode-clangd",
+		"xaver.clang-format",
+		"twxs.cmake",
+	],
 }
 ```

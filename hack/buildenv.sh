@@ -62,6 +62,7 @@ function docker_buildenv {
   docker run --rm --name "${name}" --shm-size 1024m \
          ${priv} \
          -v $PWD:/src:delegated -v $PWD/vpp-out:/vpp-out \
+         -v ${PWD}/hack/vscode-buildenv:/src/.vscode \
          "${opts[@]}" -w /src "${DEV_IMAGE}" "$@"
 }
 
