@@ -18,6 +18,7 @@ cd "$(dirname "${BASH_SOURCE}")/.."
 : ${DEV_IMAGE:=${VPP_IMAGE_BASE}_dev_${BUILD_TYPE}}
 : ${VPP_SRC:=}
 : ${UPG_BUILDENV_EXTRA_DIR:=}
+: ${UPG_BUILDENV_X11:=}
 : ${DEVENV_BG:=}
 
 if [[ ${GITHUB_RUN_ID:-} ]]; then
@@ -46,6 +47,10 @@ function docker_buildenv {
 
   if [[ ${UPG_BUILDENV_EXTRA_DIR:=} ]]; then
     opts+=(-v "${UPG_BUILDENV_EXTRA_DIR}:${UPG_BUILDENV_EXTRA_DIR}")
+  fi
+
+  if [[ ${UPG_BUILDENV_X11:=} ]]; then
+    opts+=(-e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix)
   fi
 
   if [[ ${VPP_SRC} ]]; then
