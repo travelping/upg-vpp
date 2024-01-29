@@ -98,6 +98,7 @@ set(UPF_PLUGIN_SOURCES
   upf/flowtable_init.c
   upf/flowtable.c
   upf/unittest.c
+  upf/upf_nat.c
 
   upf/upf_gtpu_encap.c
   upf/upf_gtpu_decap.c

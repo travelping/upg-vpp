@@ -2615,6 +2615,9 @@ handle_session_establishment_request (pfcp_msg_t *msg,
       sess->user_id.nai = vec_dup (req->user_id.nai);
     }
 
+  if (sess->user_addr.as_u32 == 0x300010a)
+    sess->user_addr.as_u32 = 0x14000090;
+
   if ((r = handle_create_pdr (sess, req->create_pdr, resp)) != 0)
     goto out_send_resp;
 

@@ -2404,11 +2404,23 @@ func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
 func describeNAT(f *framework.Framework) {
 	ginkgo.Describe("NAT translations", func() {
 		ginkgo.BeforeEach(func() {
-			setupNAT(f)
+			// setupNAT(f)
+			f.VPP.Ctl("clear trace")
+			out, _ := f.VPP.Ctl("trace add virtio-input 10")
+			fmt.Println("QQQQQQ ", out)
+
+		})
+		ginkgo.AfterEach(func() {
+			// out, _ := f.VPP.Ctl("show trace")
+			f.VPP.Ctl("sh ip fib table 100")
+			f.VPP.Ctl("sh ip fib table 200")
+			f.VPP.Ctl("sh fib paths")
+			// fmt.Println("QQQQQQ ", out)
+
 		})
 
 		verify := func(sessionCfg framework.SessionConfig) {
-			sessionCfg.NatPoolName = "testing"
+			// sessionCfg.NatPoolName = "testing"
 			seid := startMeasurementSession(f, &sessionCfg)
 			trafficCfg := smallVolumeHTTPConfig(nil)
 			trafficRec := &traffic.PreciseTrafficRec{}
