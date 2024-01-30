@@ -376,7 +376,7 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
 
   /* this runs after the forward and reverse ACL rules have been established */
   /* reverse and origin may not be there yet during flow reclassification */
-  if (flow_pdr_id (flow, FT_ORIGIN) != 0)
+  if (flow_pdr_id (flow, FT_ORIGIN) != ~0)
     {
       origin = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
     }
