@@ -538,10 +538,11 @@ upf_config_fn (vlib_main_t *vm, unformat_input_t *input)
     {
       if (unformat (input, "pfcp-server-mode"))
         {
+          clib_warning ("pfcp-server-mode is deprecated and ignored");
           if (unformat (input, "polling"))
             ;
           else if (unformat (input, "interrupt"))
-            vnet_upf_pfcp_set_polling (vm, 0);
+            ;
         }
       else
         return clib_error_return (0, "unknown input `%U'",
