@@ -1387,7 +1387,7 @@ upf_proxy_create (vlib_main_t *vm, u32 fib_index, int is_ip4)
     clib_error ("UPF http redirect server create returned %d", rv);
 }
 
-static int
+int
 upf_proxy_flow_expire_event_handler (flowtable_main_t *fm, flow_entry_t *flow,
                                      flow_direction_t direction, u32 now)
 {
@@ -1407,7 +1407,7 @@ upf_proxy_flow_expire_event_handler (flowtable_main_t *fm, flow_entry_t *flow,
   return -1;
 }
 
-static int
+int
 upf_proxy_flow_remove_handler (flowtable_main_t *fm, flow_entry_t *flow,
                                flow_direction_t direction, u32 now)
 {
@@ -1459,7 +1459,6 @@ upf_proxy_main_init (vlib_main_t *vm)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   tcp_main_t *tm = vnet_get_tcp_main ();
-  flowtable_main_t *fm = &flowtable_main;
 
   pm->mss = 1350;
   pm->fifo_size = 64 << 10;
@@ -1496,11 +1495,6 @@ upf_proxy_main_init (vlib_main_t *vm)
   pm->tcp6_server_output_next_active =
     vlib_node_add_next (vm, tcp6_output_node.index,
                         upf_ip6_proxy_server_far_only_output_node.index);
-
-  flowtable_add_event_handler (fm, FLOW_EVENT_EXPIRE,
-                               upf_proxy_flow_expire_event_handler);
-  flowtable_add_event_handler (fm, FLOW_EVENT_REMOVE,
-                               upf_proxy_flow_remove_handler);
 
   return 0;
 }

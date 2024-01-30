@@ -391,8 +391,8 @@ upf_ipfix_get_buffer (vlib_main_t *vm, upf_ipfix_protocol_context_t *context)
 
       /* Initialize the buffer */
       b0 = context->buffers_per_worker[my_cpu_number] =
-        vlib_get_buffer (vm, bi0);
 
+        vlib_get_buffer (vm, bi0);
       b0->current_data = 0;
       b0->current_length = upf_ipfix_get_headersize ();
       b0->flags |=
@@ -466,7 +466,7 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
   upf_ipfix_export_send (vm, b0, context, now);
 }
 
-static int
+int
 upf_ipfix_flow_stats_update_handler (flowtable_main_t *_fm, flow_entry_t *f,
                                      flow_direction_t direction, u32 now)
 {
@@ -490,7 +490,7 @@ upf_ipfix_flow_stats_update_handler (flowtable_main_t *_fm, flow_entry_t *f,
   return 0;
 }
 
-static int
+int
 upf_ipfix_flow_remove_handler (flowtable_main_t *_fm, flow_entry_t *f,
                                flow_direction_t direction, u32 now)
 {
@@ -755,7 +755,6 @@ clib_error_t *
 upf_ipfix_init (vlib_main_t *vm)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
-  flowtable_main_t *_fm = &flowtable_main;
   clib_error_t *error = 0;
 
   clib_spinlock_init (&fm->lock);
@@ -777,11 +776,6 @@ upf_ipfix_init (vlib_main_t *vm)
                          UPF_IPFIX_MAPPING_MEMORY_SIZE);
   /* clib_bihash_set_kvp_format_fn_24_8 (&fm->info_by_key, */
   /* 				      format_ipfix_info_key); */
-
-  flowtable_add_event_handler (_fm, FLOW_EVENT_STATS_UPDATE,
-                               upf_ipfix_flow_stats_update_handler);
-  flowtable_add_event_handler (_fm, FLOW_EVENT_REMOVE,
-                               upf_ipfix_flow_remove_handler);
 
   return error;
 }

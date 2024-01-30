@@ -37,25 +37,6 @@
 
 vlib_node_registration_t upf_flow_node;
 
-flow_event_handler_t
-  flowtable_handlers[FLOW_NUM_EVENTS << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2];
-
-void
-flowtable_add_event_handler (flowtable_main_t *fm, flow_event_t event,
-                             flow_event_handler_t handler)
-{
-  ASSERT (event >= 0 && event < FLOW_NUM_EVENTS);
-  u32 start = event << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2;
-  u32 end = start + FLOWTABLE_MAX_EVENT_HANDLERS - 1;
-  u32 index = start;
-  while (flowtable_handlers[index])
-    {
-      index++;
-      ALWAYS_ASSERT (index <= end);
-    }
-  flowtable_handlers[index] = handler;
-}
-
 always_inline void
 flow_entry_free (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
                  flow_entry_t *f)
@@ -72,7 +53,16 @@ flow_entry_free (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
   pool_put (fm->flows, f);
 }
 
-always_inline void
+int upf_ipfix_flow_remove_handler (flowtable_main_t *_fm, flow_entry_t *f,
+                                   flow_direction_t direction, u32 now);
+int upf_proxy_flow_remove_handler (flowtable_main_t *fm, flow_entry_t *flow,
+                                   flow_direction_t direction, u32 now);
+int flow_remove_counter_handler (flowtable_main_t *fm, flow_entry_t *flow,
+                                 flow_direction_t direction, u32 now);
+int session_flow_unlink_handler (flowtable_main_t *fm, flow_entry_t *flow,
+                                 flow_direction_t direction, u32 now);
+
+void
 flowtable_entry_remove_internal (flowtable_main_t *fm,
                                  flowtable_main_per_cpu_t *fmt,
                                  flow_entry_t *f, u32 now)
@@ -81,8 +71,10 @@ flowtable_entry_remove_internal (flowtable_main_t *fm,
 
   upf_debug ("Flow Remove %d", f - fm->flows);
 
-  flowtable_handle_event (fm, f, FLOW_EVENT_REMOVE, FT_ORIGIN, now);
-  flowtable_handle_event (fm, f, FLOW_EVENT_UNLINK, FT_ORIGIN, now);
+  upf_ipfix_flow_remove_handler (fm, f, FT_ORIGIN, now);
+  upf_proxy_flow_remove_handler (fm, f, FT_ORIGIN, now);
+  flow_remove_counter_handler (fm, f, FT_ORIGIN, now);
+  session_flow_unlink_handler (fm, f, FT_ORIGIN, now);
 
   /* timer unlink */
   flowtable_timeout_stop_entry (fm, fmt, f);
@@ -93,6 +85,10 @@ flowtable_entry_remove_internal (flowtable_main_t *fm,
 
   flow_entry_free (fm, fmt, f);
 }
+
+int upf_proxy_flow_expire_event_handler (flowtable_main_t *fm,
+                                         flow_entry_t *flow,
+                                         flow_direction_t direction, u32 now);
 
 /* return true if flow was removed */
 always_inline bool
@@ -108,8 +104,7 @@ try_expire_single_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
              (f->active + f->lifetime) % FLOW_TIMER_MAX_LIFETIME, now,
              fmt->time_index);
 
-  if (!keep &&
-      flowtable_handle_event (fm, f, FLOW_EVENT_EXPIRE, FT_ORIGIN, now) != 0)
+  if (!keep && upf_proxy_flow_expire_event_handler (fm, f, FT_ORIGIN, now))
     {
       /* flow still in use, wait for another lifetime */
       upf_debug ("Flow %d: expiration blocked by the event handler",
