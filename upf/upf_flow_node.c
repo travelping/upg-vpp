@@ -121,7 +121,7 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
   next_index = node->cached_next_index;
 
   u32 current_time = (u32) vlib_time_now (vm);
-  timer_wheel_index_update (fm, fmt, current_time);
+  flowtable_timer_wheel_index_update (fm, fmt, current_time);
   timestamp_ns = unix_time_now_nsec ();
 
   while (n_left_from > 0)
@@ -432,9 +432,6 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
         }
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
-
-  /* handle expirations */
-  CPT_TIMER_EXPIRE += flowtable_timer_expire (fm, fmt, current_time);
 
 #define _(sym, str)                                                           \
   vlib_node_increment_counter (vm, node->node_index, FLOWTABLE_ERROR_##sym,   \

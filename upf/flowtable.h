@@ -34,7 +34,6 @@
   _ (THRU, "packets gone through")                                            \
   _ (CREATED, "packets which created a new flow")                             \
   _ (NO_SESSION, "packet without session")                                    \
-  _ (TIMER_EXPIRE, "flows that have expired")                                 \
   _ (COLLISION, "hashtable collisions")                                       \
   _ (OVERFLOW, "dropped due to flowtable overflow")
 
@@ -252,11 +251,13 @@ u32 flowtable_entry_lookup_create (flowtable_main_t *fm,
                                    u16 generation, u32 session_index,
                                    int *created);
 
-void timer_wheel_index_update (flowtable_main_t *fm,
-                               flowtable_main_per_cpu_t *fmt, u32 now);
+void flowtable_timer_wheel_index_update (flowtable_main_t *fm,
+                                         flowtable_main_per_cpu_t *fmt,
+                                         u32 now);
 
-u64 flowtable_timer_expire (flowtable_main_t *fm,
-                            flowtable_main_per_cpu_t *fmt, u32 now);
+void flowtable_entry_remove_internal (flowtable_main_t *fm,
+                                      flowtable_main_per_cpu_t *fmt,
+                                      flow_entry_t *f, u32 now);
 
 always_inline u16
 flowtable_time_to_timer_slot (u32 when_seconds)
@@ -426,7 +427,6 @@ always_inline void
 flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
                    u8 is_ip4, u64 timestamp_ns, u32 now)
 {
-  flowtable_main_t *fm = &flowtable_main;
   /*
    * Performance note:
    * vlib_buffer_length_in_chain() caches its result for the buffer
@@ -463,7 +463,5 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
 
   upf_ipfix_flow_stats_update_handler (f, direction, now);
 }
-
-extern vlib_node_registration_t flowtable_process_node;
 
 #endif /* __flowtable_h__ */

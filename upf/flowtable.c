@@ -33,9 +33,6 @@
     }                                                                         \
   while (0)
 #endif
-#define FLOWTABLE_PROCESS_WAIT 1
-
-vlib_node_registration_t upf_flow_node;
 
 always_inline void
 flow_entry_free (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
@@ -82,116 +79,6 @@ flowtable_entry_remove_internal (flowtable_main_t *fm,
   clib_bihash_add_del_48_8 (&fmt->flows_ht, &kv, 0 /* is_add */);
 
   flow_entry_free (fm, fmt, f);
-}
-
-int upf_proxy_flow_expire_event_handler (flow_entry_t *flow);
-
-/* return true if flow was removed */
-always_inline bool
-try_expire_single_flow (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
-                        flow_entry_t *f, flow_timeout_list_t *e, u32 now)
-{
-  bool keep = f->active + f->lifetime > now;
-  ASSERT (f->timer_slot == (e - fmt->timers));
-  ASSERT (f->active <= now);
-
-  upf_debug ("Flow Timeout Check %d: %u (%u) > %u (%u)", f - fm->flows,
-             f->active + f->lifetime,
-             (f->active + f->lifetime) % FLOW_TIMER_MAX_LIFETIME, now,
-             fmt->time_index);
-
-  if (!keep && upf_proxy_flow_expire_event_handler (f))
-    {
-      /* flow still in use, wait for another lifetime */
-      upf_debug ("Flow %d: expiration blocked by the event handler",
-                 f - fm->flows);
-      f->active += f->lifetime;
-      keep = true;
-    }
-
-  if (keep)
-    {
-      /* There was activity on the entry, so the idle timeout
-         has not passed. Enqueue for another time period. */
-      flowtable_timeout_stop_entry (fm, fmt, f);
-      flowtable_timeout_start_entry (fm, fmt, f, now);
-      return false;
-    }
-  else
-    {
-      flowtable_entry_remove_internal (fm, fmt, f, now);
-      return true;
-    }
-}
-
-u64
-flowtable_timer_expire (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
-                        u32 now)
-{
-  u32 t;
-  u64 expire_cpt = 0;
-
-  /*
-   * Must call flowtable_timer_expire() only after timer_wheel_index_update()
-   * with the same 'now' value
-   */
-  ASSERT (now % FLOW_TIMER_MAX_LIFETIME == fmt->time_index);
-
-  /*
-   * In case some of the time slots were skipped e.g. due to low traffic
-   * (so flowtable_timer_expire is not called often enough),
-   * process all of the skipped entries, but don't expire too many
-   * of them to avoid any pauses. We can expire more of the flows
-   * if there's low traffic currently, though, so we apply
-   * FLOW_TIMER_MAX_EXPIRE limit per step, not per this function run.
-   */
-
-  t = now;
-  if (PREDICT_TRUE (fmt->next_check != ~0))
-    {
-      /*
-       * This happens when flowtable_timer_expire() is called
-       * multiple times per second and max number of expired flows
-       * hasn't been previously reached, as fmt->next_check is set
-       * to the next second after last flowtable_timer_expire()
-       * call.
-       */
-      if (PREDICT_TRUE (now < fmt->next_check))
-        return 0;
-
-      /* check the skipped slots */
-      t = fmt->next_check;
-    }
-
-  for (; t <= now; t++)
-    {
-
-      flow_timeout_list_t *timer_list =
-        vec_elt_at_index (fmt->timers, flowtable_time_to_timer_slot (t));
-
-      /* clang-format off */
-      upf_llist_foreach (f, fm->flows, timer_anchor, timer_list,
-        {
-          if (try_expire_single_flow (fm, fmt, f, timer_list, now))
-            expire_cpt++;
-
-          if (expire_cpt >= FLOW_TIMER_MAX_EXPIRE)
-            break;
-        });
-      /* clang-format on */
-
-      /*
-       * If max N of expirations has been reached, the timer wheel
-       * entry corresponding to this moment will be revisited upon
-       * the next flowtable_timer_expire() call
-       */
-      if (expire_cpt >= FLOW_TIMER_MAX_EXPIRE)
-        break;
-    }
-
-  fmt->next_check = t;
-
-  return expire_cpt;
 }
 
 static inline u16
@@ -301,8 +188,8 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
 }
 
 void
-timer_wheel_index_update (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
-                          u32 now)
+flowtable_timer_wheel_index_update (flowtable_main_t *fm,
+                                    flowtable_main_per_cpu_t *fmt, u32 now)
 {
   fmt->time_index = now % FLOW_TIMER_MAX_LIFETIME;
 }
@@ -512,40 +399,3 @@ VLIB_CLI_COMMAND (upf_show_flow_timeout_command, static) =
   .function = upf_show_flow_timeout_command_fn,
 };
 /* clang-format on */
-
-static uword
-flowtable_process (vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
-{
-  flowtable_main_t *fm = &flowtable_main;
-
-  while (1)
-    {
-      u32 num_expired;
-      u32 current_time = (u32) vlib_time_now (vm);
-      // TODO: support multiple cores here
-      // (although this is only needed for debugging)
-      u32 cpu_index = os_get_thread_index ();
-      flowtable_main_per_cpu_t *fmt = &fm->per_cpu[cpu_index];
-      (void) vlib_process_wait_for_event_or_clock (vm, FLOWTABLE_PROCESS_WAIT);
-      vlib_worker_thread_barrier_sync (vm);
-      timer_wheel_index_update (fm, fmt, current_time);
-      num_expired = flowtable_timer_expire (fm, fmt, current_time);
-      if (num_expired > 0)
-        upf_debug ("expired %d flows", num_expired);
-      vlib_node_increment_counter (vm, rt->node_index,
-                                   FLOWTABLE_ERROR_TIMER_EXPIRE, num_expired);
-      vlib_worker_thread_barrier_release (vm);
-    }
-
-  return 0;
-}
-
-/* clang-format off */
-VLIB_REGISTER_NODE (flowtable_process_node) = {
-  .function = flowtable_process,
-  .type = VLIB_NODE_TYPE_PROCESS,
-  .process_log2_n_stack_bytes = 16,
-  .runtime_data_bytes = sizeof (void *),
-  .name = "upf-flowtable",
-  .state = VLIB_NODE_STATE_DISABLED,
-};
