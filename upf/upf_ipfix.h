@@ -137,8 +137,8 @@ clib_error_t *upf_ipfix_init (vlib_main_t *vm);
 typedef ipfix_field_specifier_t *(*upf_ipfix_field_func_t) (
   ipfix_field_specifier_t *);
 typedef u32 (*upf_ipfix_value_func_t) (vlib_buffer_t *to_b, flow_entry_t *f,
-                                       flow_direction_t direction, u16 offset,
-                                       upf_session_t *sx,
+                                       flow_key_direction_t direction,
+                                       u16 offset, upf_session_t *sx,
                                        upf_ipfix_info_t *info, bool last);
 
 typedef struct

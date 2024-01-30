@@ -128,6 +128,7 @@ set(UPF_PLUGIN_HEADER_FILES
   upf/flowtable.h
   upf/flowtable_timer.h
   upf/flowtable_tcp.h
+  upf/upf_buffer_opaque.h
   upf/upf_ipfix.h
   upf/upf_ipfix_templates.h
   upf/upf_gtpu_error.def

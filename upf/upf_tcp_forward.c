@@ -108,7 +108,7 @@ net_sub (u32 *data, u32 sub)
 }
 
 static_always_inline int
-upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
+upf_tcp_tstamp_mod (tcp_header_t *th, flow_key_direction_t direction,
                     flow_entry_t *flow)
 {
   const u8 *data;
@@ -197,7 +197,7 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
 
 static uword
 upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
-                 vlib_frame_t *from_frame, flow_direction_t direction,
+                 vlib_frame_t *from_frame, flow_key_direction_t direction,
                  int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
@@ -224,7 +224,7 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       while (n_left_from > 0 && n_left_to_next > 0)
         {
-          flow_direction_t direction;
+          flow_key_direction_t direction;
           flow_entry_t *flow = NULL;
           ip4_header_t *ip4;
           ip6_header_t *ip6;
@@ -255,10 +255,10 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
             }
 
           flow = pool_elt_at_index (fm->flows, flow_id);
-          direction =
-            (flow->is_reverse == upf_buffer_opaque (b)->gtpu.is_reverse) ?
-              FT_ORIGIN :
-              FT_REVERSE;
+          direction = (flow->initiator_direction ==
+                       upf_buffer_opaque (b)->gtpu.pkt_direction) ?
+                        FT_ORIGIN :
+                        FT_REVERSE;
 
           /* mostly borrowed from vnet/interface_output.c calc_checksums */
           if (is_ip4)

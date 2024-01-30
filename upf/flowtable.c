@@ -116,8 +116,9 @@ u32
 flowtable_entry_lookup_create (flowtable_main_t *fm,
                                flowtable_main_per_cpu_t *fmt,
                                clib_bihash_kv_48_8_t *kv, u64 timestamp_ns,
-                               u32 const now, u8 is_reverse, u16 generation,
-                               u32 session_index, int *created)
+                               u32 const now,
+                               flow_key_direction_t key_direction,
+                               u16 generation, u32 session_index, int *created)
 {
   flow_entry_t *f;
   upf_main_t *gtm = &upf_main;
@@ -138,7 +139,7 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   pool_get_zero (fm->flows, f);
 
   clib_memcpy (f->key.key, kv->key, sizeof (f->key.key));
-  f->is_reverse = is_reverse;
+  f->initiator_direction = key_direction;
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
   f->flow_start_time = timestamp_ns;
@@ -210,7 +211,7 @@ u8 *
 format_flow (u8 *s, va_list *args)
 {
   flow_entry_t *flow = va_arg (*args, flow_entry_t *);
-  int is_reverse = flow->is_reverse;
+  int initiator_direction = flow->initiator_direction;
   upf_main_t *sm = &upf_main;
 #if CLIB_DEBUG > 0
   flowtable_main_t *fm = &flowtable_main;
@@ -228,15 +229,15 @@ format_flow (u8 *s, va_list *args)
 #if CLIB_DEBUG > 0
   s = format (s, "Flow %d: ", flow - fm->flows);
 #endif
-  s = format (s,
-              "%U, UL pkt %u, DL pkt %u, "
-              "Forward PDR %u, Reverse PDR %u, "
-              "app %v, lifetime %u, proxy %d, spliced %d nat port %d",
-              format_flow_key, &flow->key, flow->stats[is_reverse].pkts,
-              flow->stats[is_reverse ^ FT_REVERSE].pkts,
-              flow_pdr_id (flow, FT_ORIGIN), flow_pdr_id (flow, FT_REVERSE),
-              app_name, flow->lifetime, flow->is_l3_proxy, flow->is_spliced,
-              flow->nat_sport);
+  s = format (
+    s,
+    "%U, UL pkt %u, DL pkt %u, "
+    "Forward PDR %u, Reverse PDR %u, "
+    "app %v, lifetime %u, proxy %d, spliced %d nat port %d",
+    format_flow_key, &flow->key, flow->stats[initiator_direction].pkts,
+    flow->stats[initiator_direction ^ FT_REVERSE].pkts,
+    flow_pdr_id (flow, FT_ORIGIN), flow_pdr_id (flow, FT_REVERSE), app_name,
+    flow->lifetime, flow->is_l3_proxy, flow->is_spliced, flow->nat_sport);
 #if CLIB_DEBUG > 0
   s = format (s, ", dont_splice %d", flow->dont_splice);
 #endif

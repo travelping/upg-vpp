@@ -95,10 +95,11 @@ format_upf_proxy_input_trace (u8 *s, va_list *args)
 
 static u8
 tcp_flow_is_valid (tcp_connection_t *tc, flow_entry_t *f,
-                   flow_direction_t direction)
+                   flow_key_direction_t direction)
 {
-  flow_direction_t origin = direction ^ f->is_reverse;
-  flow_direction_t reverse = direction ^ FT_REVERSE ^ f->is_reverse;
+  flow_key_direction_t origin = direction ^ f->initiator_direction;
+  flow_key_direction_t reverse =
+    direction ^ FT_REVERSE ^ f->initiator_direction;
 
   if (!tc)
     return 1;
@@ -125,10 +126,10 @@ upf_kill_connection_hard (tcp_connection_t *tc)
 
 static_always_inline u32
 splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
-                       flow_direction_t direction)
+                       flow_key_direction_t direction)
 {
-  flow_direction_t origin = FT_ORIGIN ^ direction;
-  flow_direction_t reverse = FT_REVERSE ^ direction;
+  flow_key_direction_t origin = FT_ORIGIN ^ direction;
+  flow_key_direction_t reverse = FT_REVERSE ^ direction;
   flow_tc_t *rev = &flow_tc (flow, reverse);
   flow_tc_t *ftc = &flow_tc (flow, origin);
   transport_connection_t *tc;
@@ -260,7 +261,7 @@ upf_vnet_load_tcp_hdr_offset (vlib_buffer_t *b)
 }
 
 static_always_inline void
-load_tstamp_offset (vlib_buffer_t *b, flow_direction_t direction,
+load_tstamp_offset (vlib_buffer_t *b, flow_key_direction_t direction,
                     flow_entry_t *flow, u32 thread_index)
 {
   tcp_header_t *tcp;
@@ -317,7 +318,7 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
       while (n_left_from > 0 && n_left_to_next > 0)
         {
           upf_session_t *sess = NULL;
-          flow_direction_t direction;
+          flow_key_direction_t direction;
           flow_entry_t *flow = NULL;
           upf_pdr_t *pdr = NULL;
           upf_far_t *far = NULL;
@@ -378,13 +379,14 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
             pool_elt_at_index (fm->flows, upf_buffer_opaque (b)->gtpu.flow_id);
           ASSERT (flow);
 
-          direction =
-            (flow->is_reverse == upf_buffer_opaque (b)->gtpu.is_reverse) ?
-              FT_ORIGIN :
-              FT_REVERSE;
+          direction = (flow->initiator_direction ==
+                       upf_buffer_opaque (b)->gtpu.pkt_direction) ?
+                        FT_ORIGIN :
+                        FT_REVERSE;
 
           upf_debug ("direction: %u, buffer: %u, flow: %u", direction,
-                     upf_buffer_opaque (b)->gtpu.is_reverse, flow->is_reverse);
+                     upf_buffer_opaque (b)->gtpu.pkt_direction,
+                     flow->initiator_direction);
 
           vnet_buffer (b)->ip.rx_sw_if_index =
             vnet_buffer (b)->sw_if_index[VLIB_RX];

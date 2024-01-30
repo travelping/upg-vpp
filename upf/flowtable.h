@@ -28,6 +28,7 @@
 
 #include "flowtable_tcp.h"
 #include "llist.h"
+#include "upf_buffer_opaque.h"
 
 #define foreach_flowtable_error                                               \
   _ (HIT, "packets with an existing flow")                                    \
@@ -54,12 +55,20 @@ typedef enum
   FT_NEXT_N_NEXT
 } flowtable_next_t;
 
+// This enum has no high-level meaning like ingres or uplink, but instead
+// needed to use same flow key for ingress and egress direction and means
+// swapping of dst/src addresses in flow key for this purposes.
+// Other meaning of this enum is index of flow directional elements, if
+// element with index FT_ORIGIN is used, then it's initiator, otherwise
+// responder
 typedef enum
 {
+  // src to dst direction, or initiator (if xored with initiator_direction)
   FT_ORIGIN = 0,
+  // dst to src direction, or responder (if xored with initiator_direction)
   FT_REVERSE,
   FT_ORDER_MAX
-} flow_direction_t;
+} __clib_packed flow_key_direction_t;
 
 /* key */
 typedef struct
@@ -115,7 +124,12 @@ typedef struct flow_entry
   /* flow signature */
   flow_key_t key;
   u32 session_index;
-  u8 is_reverse : 1;
+
+  // Is src/dst been swapped on flow creation
+  // Bascially this means if dst field is initiator of flow or not.
+  // Note that initiator of flow is not related to direction in ipfix
+  // As well as not related to uplink/downlink in pfcp
+  u8 initiator_direction : 1;
   u8 is_redirect : 1;
   u8 is_l3_proxy : 1;
   u8 is_spliced : 1;
@@ -127,6 +141,8 @@ typedef struct flow_entry
   u32 ps_index;
 
   /* stats */
+  // This array indexes are not relative to initiator_direction, this means
+  // that xor with initiator_direction is not needed
   flow_stats_t stats[FT_ORDER_MAX];
 
   /* timers */
@@ -167,7 +183,7 @@ UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t,
 UPF_LLIST_TEMPLATE_DEFINITIONS (flow_timeout_list, flow_entry_t, timer_anchor);
 
 /* accessor helper */
-#define flow_member(F, M, D)     (F)->M[(D) ^ (F)->is_reverse]
+#define flow_member(F, M, D)     (F)->M[(D) ^ (F)->initiator_direction]
 #define flow_next(F, D)          flow_member ((F), _next, (D))
 #define flow_teid(F, D)          flow_member ((F), _teid, (D))
 #define flow_pdr_id(F, D)        flow_member ((F), _pdr_id, (D))
@@ -228,7 +244,7 @@ clib_error_t *flowtable_lifetime_update (flowtable_timeout_type_t type,
                                          u16 value);
 clib_error_t *flowtable_init (vlib_main_t *vm);
 
-static inline u16
+__clib_unused static inline u16
 flowtable_lifetime_get (flowtable_timeout_type_t type)
 {
   flowtable_main_t *fm = &flowtable_main;
@@ -236,7 +252,7 @@ flowtable_lifetime_get (flowtable_timeout_type_t type)
   return (type >= FT_TIMEOUT_TYPE_MAX) ? ~0 : fm->timer_lifetime[type];
 }
 
-static inline flow_entry_t *
+__clib_unused static inline flow_entry_t *
 flowtable_get_flow (flowtable_main_t *fm, u32 flow_index)
 {
   return pool_elt_at_index (fm->flows, flow_index);
@@ -247,7 +263,8 @@ void flowtable_entry_remove (flowtable_main_t *fm, flow_entry_t *f, u32 now);
 u32 flowtable_entry_lookup_create (flowtable_main_t *fm,
                                    flowtable_main_per_cpu_t *fmt,
                                    clib_bihash_kv_48_8_t *kv, u64 timestamp_ns,
-                                   u32 const now, u8 is_reverse,
+                                   u32 const now,
+                                   flow_key_direction_t key_direction,
                                    u16 generation, u32 session_index,
                                    int *created);
 
@@ -299,13 +316,14 @@ flowtable_timeout_start_entry (flowtable_main_t *fm,
 }
 
 static inline void
-parse_packet_protocol (udp_header_t *udp, uword is_reverse, flow_key_t *key)
+parse_packet_protocol (udp_header_t *udp, flow_key_direction_t key_direction,
+                       flow_key_t *key)
 {
   if (key->proto == IP_PROTOCOL_UDP || key->proto == IP_PROTOCOL_TCP)
     {
       /* tcp and udp ports have the same offset */
-      key->port[FT_ORIGIN ^ is_reverse] = udp->src_port;
-      key->port[FT_REVERSE ^ is_reverse] = udp->dst_port;
+      key->port[FT_ORIGIN ^ key_direction] = udp->src_port;
+      key->port[FT_REVERSE ^ key_direction] = udp->dst_port;
     }
   else
     {
@@ -313,7 +331,7 @@ parse_packet_protocol (udp_header_t *udp, uword is_reverse, flow_key_t *key)
     }
 }
 
-static inline flow_direction_t
+static inline flow_key_direction_t
 ip4_packet_is_reverse (ip4_header_t *ip4)
 {
   return (ip4_address_compare (&ip4->src_address, &ip4->dst_address) < 0) ?
@@ -322,20 +340,23 @@ ip4_packet_is_reverse (ip4_header_t *ip4)
 }
 
 static inline void
-parse_ip4_packet (ip4_header_t *ip4, uword *is_reverse, flow_key_t *key)
+parse_ip4_packet (ip4_header_t *ip4, flow_key_direction_t *key_direction,
+                  flow_key_t *key)
 {
   key->proto = ip4->protocol;
 
-  *is_reverse = ip4_packet_is_reverse (ip4);
+  *key_direction = ip4_packet_is_reverse (ip4);
 
-  ip46_address_set_ip4 (&key->ip[FT_ORIGIN ^ *is_reverse], &ip4->src_address);
-  ip46_address_set_ip4 (&key->ip[FT_REVERSE ^ *is_reverse], &ip4->dst_address);
+  ip46_address_set_ip4 (&key->ip[FT_ORIGIN ^ *key_direction],
+                        &ip4->src_address);
+  ip46_address_set_ip4 (&key->ip[FT_REVERSE ^ *key_direction],
+                        &ip4->dst_address);
 
-  parse_packet_protocol ((udp_header_t *) ip4_next_header (ip4), *is_reverse,
-                         key);
+  parse_packet_protocol ((udp_header_t *) ip4_next_header (ip4),
+                         *key_direction, key);
 }
 
-static inline flow_direction_t
+static inline flow_key_direction_t
 ip6_packet_is_reverse (ip6_header_t *ip6)
 {
   return (ip6_address_compare (&ip6->src_address, &ip6->dst_address) < 0) ?
@@ -344,22 +365,25 @@ ip6_packet_is_reverse (ip6_header_t *ip6)
 }
 
 static inline void
-parse_ip6_packet (ip6_header_t *ip6, uword *is_reverse, flow_key_t *key)
+parse_ip6_packet (ip6_header_t *ip6, flow_key_direction_t *key_direction,
+                  flow_key_t *key)
 {
   key->proto = ip6->protocol;
 
-  *is_reverse = ip6_packet_is_reverse (ip6);
+  *key_direction = ip6_packet_is_reverse (ip6);
 
-  ip46_address_set_ip6 (&key->ip[FT_ORIGIN ^ *is_reverse], &ip6->src_address);
-  ip46_address_set_ip6 (&key->ip[FT_REVERSE ^ *is_reverse], &ip6->dst_address);
+  ip46_address_set_ip6 (&key->ip[FT_ORIGIN ^ *key_direction],
+                        &ip6->src_address);
+  ip46_address_set_ip6 (&key->ip[FT_REVERSE ^ *key_direction],
+                        &ip6->dst_address);
 
-  parse_packet_protocol ((udp_header_t *) ip6_next_header (ip6), *is_reverse,
-                         key);
+  parse_packet_protocol ((udp_header_t *) ip6_next_header (ip6),
+                         *key_direction, key);
 }
 
-static inline void
-flow_mk_key (u64 up_seid, u8 *header, u8 is_ip4, uword *is_reverse,
-             clib_bihash_kv_48_8_t *kv)
+__clib_unused static inline void
+flow_mk_key (u64 up_seid, u8 *header, u8 is_ip4,
+             flow_key_direction_t *key_direction, clib_bihash_kv_48_8_t *kv)
 {
   flow_key_t *key = (flow_key_t *) &kv->key;
 
@@ -371,11 +395,11 @@ flow_mk_key (u64 up_seid, u8 *header, u8 is_ip4, uword *is_reverse,
    * get into the same flow */
   if (is_ip4)
     {
-      parse_ip4_packet ((ip4_header_t *) header, is_reverse, key);
+      parse_ip4_packet ((ip4_header_t *) header, key_direction, key);
     }
   else
     {
-      parse_ip6_packet ((ip6_header_t *) header, is_reverse, key);
+      parse_ip6_packet ((ip6_header_t *) header, key_direction, key);
     }
 }
 
@@ -404,7 +428,7 @@ flow_tcp_update_lifetime (flow_entry_t *f, tcp_header_t *hdr, u32 now)
     }
 }
 
-always_inline void
+__clib_unused always_inline void
 flow_update (vlib_main_t *vm, flow_entry_t *f, u8 *iph, u8 is_ip4, u16 len,
              u32 now)
 {
@@ -421,9 +445,10 @@ flow_update (vlib_main_t *vm, flow_entry_t *f, u8 *iph, u8 is_ip4, u16 len,
 }
 
 int upf_ipfix_flow_stats_update_handler (flow_entry_t *f,
-                                         flow_direction_t direction, u32 now);
+                                         flow_key_direction_t direction,
+                                         u32 now);
 
-always_inline void
+__clib_unused always_inline void
 flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
                    u8 is_ip4, u64 timestamp_ns, u32 now)
 {
@@ -432,16 +457,16 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
    * vlib_buffer_length_in_chain() caches its result for the buffer
    */
   u16 len = vlib_buffer_length_in_chain (vm, b);
+
+  u8 pkt_direction = upf_buffer_opaque (b)->gtpu.pkt_direction;
+
   u8 *iph = vlib_buffer_get_current (b);
   u8 *l4h = (is_ip4 ? ip4_next_header ((ip4_header_t *) iph) :
                       ip6_next_header ((ip6_header_t *) iph));
   u16 l4_len = len - (l4h - iph);
   u16 diff;
-  flow_direction_t is_reverse =
-    is_ip4 ? ip4_packet_is_reverse ((ip4_header_t *) iph) :
-             ip6_packet_is_reverse ((ip6_header_t *) iph);
 
-  flow_direction_t direction = f->is_reverse ^ is_reverse;
+  flow_key_direction_t direction = f->initiator_direction ^ pkt_direction;
   switch (f->key.proto)
     {
     case IP_PROTOCOL_TCP:
@@ -453,12 +478,12 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
     }
   l4_len = l4_len > diff ? l4_len - diff : 0;
 
-  f->stats[is_reverse].pkts++;
-  f->stats[is_reverse].pkts_unreported++;
-  f->stats[is_reverse].bytes += len;
-  f->stats[is_reverse].bytes_unreported += len;
-  f->stats[is_reverse].l4_bytes += l4_len;
-  f->stats[is_reverse].l4_bytes_unreported += l4_len;
+  f->stats[pkt_direction].pkts++;
+  f->stats[pkt_direction].pkts_unreported++;
+  f->stats[pkt_direction].bytes += len;
+  f->stats[pkt_direction].bytes_unreported += len;
+  f->stats[pkt_direction].l4_bytes += l4_len;
+  f->stats[pkt_direction].l4_bytes_unreported += l4_len;
   f->flow_end_time = timestamp_ns;
 
   upf_ipfix_flow_stats_update_handler (f, direction, now);

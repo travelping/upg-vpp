@@ -329,10 +329,12 @@ upf_app_dpo_match (upf_adf_entry_t *appentry, flow_entry_t *flow,
   if (appentry->fib_index_ip4 == ~0)
     return 0;
   return upf_do_ip_rule_match (
-    appentry, &flow->key.ip[FT_REVERSE ^ flow->is_reverse],
-    clib_net_to_host_u16 (flow->key.port[FT_REVERSE ^ flow->is_reverse]),
-    &flow->key.ip[FT_ORIGIN ^ flow->is_reverse],
-    clib_net_to_host_u16 (flow->key.port[FT_ORIGIN ^ flow->is_reverse]),
+    appentry, &flow->key.ip[FT_REVERSE ^ flow->initiator_direction],
+    clib_net_to_host_u16 (
+      flow->key.port[FT_REVERSE ^ flow->initiator_direction]),
+    &flow->key.ip[FT_ORIGIN ^ flow->initiator_direction],
+    clib_net_to_host_u16 (
+      flow->key.port[FT_ORIGIN ^ flow->initiator_direction]),
     assigned);
 }
 

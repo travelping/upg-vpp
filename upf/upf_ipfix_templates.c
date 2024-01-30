@@ -69,8 +69,8 @@ upf_ipfix_template_default_ip6_fields (ipfix_field_specifier_t *f)
 
 static u32
 upf_ipfix_template_default_ip4_values (vlib_buffer_t *to_b, flow_entry_t *f,
-                                       flow_direction_t direction, u16 offset,
-                                       upf_session_t *sx,
+                                       flow_key_direction_t direction,
+                                       u16 offset, upf_session_t *sx,
                                        upf_ipfix_info_t *info, bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV4,
@@ -79,8 +79,8 @@ upf_ipfix_template_default_ip4_values (vlib_buffer_t *to_b, flow_entry_t *f,
 
 static u32
 upf_ipfix_template_default_ip6_values (vlib_buffer_t *to_b, flow_entry_t *f,
-                                       flow_direction_t direction, u16 offset,
-                                       upf_session_t *sx,
+                                       flow_key_direction_t direction,
+                                       u16 offset, upf_session_t *sx,
                                        upf_ipfix_info_t *info, bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV6,
@@ -120,7 +120,7 @@ upf_ipfix_template_dest_ip6_fields (ipfix_field_specifier_t *f)
 
 static u32
 upf_ipfix_template_dest_ip4_values (vlib_buffer_t *to_b, flow_entry_t *f,
-                                    flow_direction_t direction, u16 offset,
+                                    flow_key_direction_t direction, u16 offset,
                                     upf_session_t *sx, upf_ipfix_info_t *info,
                                     bool last)
 {
@@ -129,7 +129,7 @@ upf_ipfix_template_dest_ip4_values (vlib_buffer_t *to_b, flow_entry_t *f,
 
 static u32
 upf_ipfix_template_dest_ip6_values (vlib_buffer_t *to_b, flow_entry_t *f,
-                                    flow_direction_t direction, u16 offset,
+                                    flow_key_direction_t direction, u16 offset,
                                     upf_session_t *sx, upf_ipfix_info_t *info,
                                     bool last)
 {

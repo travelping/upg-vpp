@@ -54,7 +54,7 @@ uword upf_ipfix_walker_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
                                 vlib_frame_t *f);
 
 static u32 upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f,
-                                             flow_direction_t direction);
+                                             flow_key_direction_t direction);
 
 static inline ipfix_exporter_t *
 upf_ipfix_get_exporter (upf_ipfix_protocol_context_t *context)
@@ -249,7 +249,7 @@ upf_ipfix_report_add_del (upf_ipfix_main_t *fm, u32 domain_id,
 }
 
 static void upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
-                                    flow_direction_t direction, u32 now,
+                                    flow_key_direction_t direction, u32 now,
                                     bool last);
 
 /* TBD: add trace */
@@ -408,7 +408,7 @@ upf_ipfix_get_buffer (vlib_main_t *vm, upf_ipfix_protocol_context_t *context)
 
 static void
 upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
-                        flow_direction_t direction, u32 now, bool last)
+                        flow_key_direction_t direction, u32 now, bool last)
 {
   u32 my_cpu_number = vm->thread_index;
   upf_ipfix_main_t *fm = &upf_ipfix_main;
@@ -468,7 +468,7 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
 
 int
 upf_ipfix_flow_stats_update_handler (flow_entry_t *f,
-                                     flow_direction_t direction, u32 now)
+                                     flow_key_direction_t direction, u32 now)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   vlib_main_t *vm = fm->vlib_main;
@@ -842,7 +842,8 @@ format_upf_ipfix_policy (u8 *s, va_list *args)
 }
 
 static u32
-upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
+upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f,
+                                  flow_key_direction_t direction)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   upf_main_t *gtm = &upf_main;
@@ -957,7 +958,8 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
   else
     info_key.sw_if_index = upf_ip46_get_resolving_interface (
       info_key.egress_fib_index,
-      &f->key.ip[FT_REVERSE ^ f->is_reverse ^ direction], info_key.is_ip4);
+      &f->key.ip[FT_REVERSE ^ f->initiator_direction ^ direction],
+      info_key.is_ip4);
 
   iidx = upf_ensure_ref_ipfix_info (&info_key);
   if (iidx != ~0)

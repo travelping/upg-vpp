@@ -114,22 +114,22 @@
 #define IPFIX_FIELD_SOURCE_IPV4_ADDRESS(F)			\
   F(sourceIPv4Address, 4,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.ip[FT_ORIGIN ^ f->is_reverse ^ direction].ip4,	\
+    &f->key.ip[FT_ORIGIN ^ f->initiator_direction ^ direction].ip4,	\
     sizeof(ip4_address_t), 1)
 #define IPFIX_FIELD_SOURCE_IPV6_ADDRESS(F)			\
   F(sourceIPv6Address, 16,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.ip[FT_ORIGIN ^ f->is_reverse ^ direction].ip6,	\
+    &f->key.ip[FT_ORIGIN ^ f->initiator_direction ^ direction].ip6,	\
     sizeof(ip6_address_t), 1)
 #define IPFIX_FIELD_DESTINATION_IPV4_ADDRESS(F)			\
   F(destinationIPv4Address, 4,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.ip[FT_REVERSE ^ f->is_reverse ^ direction].ip4,	\
+    &f->key.ip[FT_REVERSE ^ f->initiator_direction ^ direction].ip4,	\
     sizeof(ip4_address_t), 1)
 #define IPFIX_FIELD_DESTINATION_IPV6_ADDRESS(F)			\
   F(destinationIPv6Address, 16,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.ip[FT_REVERSE ^ f->is_reverse ^ direction].ip6,	\
+    &f->key.ip[FT_REVERSE ^ f->initiator_direction ^ direction].ip6,	\
     sizeof(ip6_address_t), 1)
 #define IPFIX_FIELD_PROTOCOL_IDENTIFIER(F)			\
   F(protocolIdentifier, 1,					\
@@ -196,12 +196,12 @@
 #define IPFIX_FIELD_SOURCE_TRANSPORT_PORT(F)			\
   F(sourceTransportPort, 2,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.port[FT_ORIGIN ^ f->is_reverse ^ direction],	\
+    &f->key.port[FT_ORIGIN ^ f->initiator_direction ^ direction],	\
     2, 1)
 #define IPFIX_FIELD_DESTINATION_TRANSPORT_PORT(F)		\
   F(destinationTransportPort, 2,				\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.port[FT_REVERSE ^ f->is_reverse ^ direction],	\
+    &f->key.port[FT_REVERSE ^ f->initiator_direction ^ direction],	\
     2, 1)
 #define IPFIX_FIELD_POST_NAT_IPV4_ADDRESS(F)			\
   F(postNATSourceIPv4Address, 4,				\

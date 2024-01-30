@@ -104,7 +104,7 @@ format_upf_proxy_output_trace (u8 *s, va_list *args)
 
 static uword
 upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
-                  vlib_frame_t *from_frame, flow_direction_t direction,
+                  vlib_frame_t *from_frame, flow_key_direction_t direction,
                   int is_ip4, int no_opaque, int far_only)
 {
   u32 n_left_from, next_index, *from, *to_next;
@@ -186,7 +186,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
                * Note that at this point, direction only denotes if
                * the packet goes from a lower-value IP address to a
                * higher-value IP address (0) or vice-versa (1).  It
-               * needs to be XORed with flow's is_reverse to get the
+               * needs to be XORed with flow's initiator_direction to get the
                * actual direction, which is done after we get the
                * flow.
                */
@@ -255,7 +255,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
            * have the flow, so we update it here
            */
           if (no_opaque)
-            direction ^= flow->is_reverse;
+            direction ^= flow->initiator_direction;
 
           upf_debug ("flow: %p (0x%08x): %U\n", flow, flow_id, format_flow_key,
                      &flow->key);
@@ -281,8 +281,8 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
 
           UPF_ENTER_SUBGRAPH (b, flow->session_index, is_ip4);
           upf_buffer_opaque (b)->gtpu.flow_id = flow_id;
-          upf_buffer_opaque (b)->gtpu.is_reverse =
-            direction ^ flow->is_reverse;
+          upf_buffer_opaque (b)->gtpu.pkt_direction =
+            direction ^ flow->initiator_direction;
           upf_buffer_opaque (b)->gtpu.is_proxied = 1;
 
           /* mostly borrowed from vnet/interface_output.c calc_checksums */

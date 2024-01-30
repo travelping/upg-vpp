@@ -144,6 +144,8 @@ proxy_session_stream_accept_notify (transport_connection_t *tc, u32 flow_id)
 
 /**
  * Lookup transport connection
+ * is_reverse - in this context means that buffer source adress is local
+ * address instead of destination
  */
 tcp_connection_t *
 upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t *b, u8 thread_index,
