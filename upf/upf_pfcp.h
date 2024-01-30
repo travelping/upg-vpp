@@ -160,7 +160,7 @@ flow_pdr_idx (flow_entry_t *flow, flow_key_direction_t direction,
               struct rules *r)
 {
   upf_pdr_t *pdr;
-  u32 pdr_id = flow_pdr_id (flow, direction);
+  u32 pdr_id = flow_side (flow, direction)->pdr_id;
 
   if (pdr_id == ~0)
     return ~0;

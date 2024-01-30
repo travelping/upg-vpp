@@ -86,16 +86,16 @@ load_gtpu_flow_info (flowtable_main_t *fm, vlib_buffer_t *b,
                   &flow->key);
       flow->application_id = ~0;
       flow->generation = generation;
-      flow_pdr_id (flow, FT_ORIGIN) = ~0;
-      flow_pdr_id (flow, FT_REVERSE) = ~0;
-      flow_next (flow, FT_ORIGIN) = FT_NEXT_CLASSIFY;
-      flow_next (flow, FT_REVERSE) = FT_NEXT_CLASSIFY;
+      flow_side (flow, FT_ORIGIN)->pdr_id = ~0;
+      flow_side (flow, FT_REVERSE)->pdr_id = ~0;
+      flow_side (flow, FT_ORIGIN)->next = FT_NEXT_CLASSIFY;
+      flow_side (flow, FT_REVERSE)->next = FT_NEXT_CLASSIFY;
       upf_buffer_opaque (b)->gtpu.pdr_idx = ~0;
     }
   else
     upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, r);
 
-  return flow_next (flow, direction);
+  return flow_side (flow, direction)->next;
 }
 
 #define FLOW_DEBUG(fm, flow)                                                  \
@@ -395,8 +395,8 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           next0 = load_gtpu_flow_info (fm, b0, flow, active0, pkt_direction,
                                        sx0->generation);
           flow_debug ("flow next: %u, origin: %u, reverse: %u", next0,
-                      flow_next (flow, FT_ORIGIN),
-                      flow_next (flow, FT_REVERSE));
+                      flow_side (flow, FT_ORIGIN)->next,
+                      flow_side (flow, FT_REVERSE)->next);
 
           /* flowtable counters */
           CPT_THRU++;

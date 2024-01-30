@@ -263,10 +263,11 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
 
           upf_debug ("IP hdr: %U", format_ip4_header,
                      vlib_buffer_get_current (b), b->current_length);
-          upf_debug (
-            "Flow ORIGIN/REVERSE Pdr Id: %u/%u, FT Next %u/%u",
-            flow_pdr_id (flow, FT_ORIGIN), flow_pdr_id (flow, FT_REVERSE),
-            flow_next (flow, FT_ORIGIN), flow_next (flow, FT_REVERSE));
+          upf_debug ("Flow ORIGIN/REVERSE Pdr Id: %u/%u, FT Next %u/%u",
+                     flow_side (flow, FT_ORIGIN)->pdr_id,
+                     flow_side (flow, FT_REVERSE)->pdr_id,
+                     flow_side (flow, FT_ORIGIN)->next,
+                     flow_side (flow, FT_REVERSE)->next);
 
           if (pool_is_free (gtm->sessions,
                             gtm->sessions + flow->session_index))
@@ -305,7 +306,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
                                             VNET_BUFFER_OFFLOAD_F_UDP_CKSUM |
                                             VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
 
-          next = ft_next_map_next[flow_next (flow, direction)];
+          next = ft_next_map_next[flow_side (flow, direction)->next];
           if (next == UPF_PROXY_OUTPUT_NEXT_PROCESS)
             {
               upf_pdr_t *pdr;
@@ -320,12 +321,11 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
               if (sx->generation != flow->generation)
                 sx = NULL;
 
-              ASSERT (flow_pdr_id (flow, direction) != ~0);
+              ASSERT (flow_side (flow, direction)->pdr_id != ~0);
               active = sx ? pfcp_get_rules (sx, PFCP_ACTIVE) : NULL;
-              pdr =
-                active ?
-                  pfcp_get_pdr_by_id (active, flow_pdr_id (flow, direction)) :
-                  NULL;
+              pdr = active ? pfcp_get_pdr_by_id (
+                               active, flow_side (flow, direction)->pdr_id) :
+                             NULL;
               if (!pdr)
                 {
                   next = UPF_PROXY_OUTPUT_NEXT_DROP;

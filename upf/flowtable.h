@@ -94,7 +94,7 @@ typedef struct
   u64 bytes_unreported;
   u64 l4_bytes;
   u64 l4_bytes_unreported;
-} flow_stats_t;
+} flow_side_stats_t;
 
 typedef enum
 {
@@ -107,11 +107,30 @@ typedef enum
   FT_TIMEOUT_TYPE_MAX
 } flowtable_timeout_type_t;
 
-typedef struct flow_tc
+typedef struct flow_side_tcp_t_
 {
-  u32 conn_index;
+  u32 conn_index; // vpp transport_connection_t->c_index
   u32 thread_index;
-} flow_tc_t;
+  u32 seq_offs;
+  u32 tsval_offs;
+} flow_side_tcp_t;
+
+typedef struct flow_side_ipfix_t_
+{
+  u32 last_exported;
+  u32 info_index;
+} flow_side_ipfix_t;
+
+typedef struct flow_side_t_
+{
+  flow_side_stats_t stats;
+  flow_side_ipfix_t ipfix;
+  flow_side_tcp_t tcp;
+
+  u32 pdr_id;
+  u32 teid;
+  u32 next;
+} flow_side_t;
 
 UPF_LLIST_TEMPLATE_TYPES (session_flows_list);
 UPF_LLIST_TEMPLATE_TYPES (flow_timeout_list);
@@ -140,35 +159,21 @@ typedef struct flow_entry
   u8 tcp_state;
   u32 ps_index;
 
-  /* stats */
-  // This array indexes are not relative to initiator_direction, this means
-  // that xor with initiator_direction is not needed
-  flow_stats_t stats[FT_ORDER_MAX];
-
   /* timers */
   u32 active;     /* last activity ts */
   u16 lifetime;   /* in seconds */
   u16 timer_slot; /* timer list index in the timer lists pool */
   flow_timeout_list_anchor_t timer_anchor;
 
+  flow_side_t side[FT_ORDER_MAX];
+
   /* UPF data */
-  u32 application_id;        /* L7 app index */
-  u32 _pdr_id[FT_ORDER_MAX]; /* PDRs */
-  u32 _teid[FT_ORDER_MAX];
-  u32 _next[FT_ORDER_MAX];
-
-  flow_tc_t _tc[FT_ORDER_MAX];
-
-  u32 _seq_offs[FT_ORDER_MAX];
-  u32 _tsval_offs[FT_ORDER_MAX];
+  u32 application_id; /* L7 app index */
 
   u8 *app_uri;
 
   u64 flow_start_time; /* unix nanoseconds */
   u64 flow_end_time;   /* unix nanoseconds */
-
-  u32 last_exported[FT_ORDER_MAX];
-  u32 ipfix_info_index[FT_ORDER_MAX];
 
   session_flows_list_anchor_t session_list_anchor;
 
@@ -183,16 +188,12 @@ UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t,
 UPF_LLIST_TEMPLATE_DEFINITIONS (flow_timeout_list, flow_entry_t, timer_anchor);
 
 /* accessor helper */
-#define flow_member(F, M, D)     (F)->M[(D) ^ (F)->initiator_direction]
-#define flow_next(F, D)          flow_member ((F), _next, (D))
-#define flow_teid(F, D)          flow_member ((F), _teid, (D))
-#define flow_pdr_id(F, D)        flow_member ((F), _pdr_id, (D))
-#define flow_tc(F, D)            flow_member ((F), _tc, (D))
-#define flow_seq_offs(F, D)      flow_member ((F), _seq_offs, (D))
-#define flow_tsval_offs(F, D)    flow_member ((F), _tsval_offs, (D))
-#define flow_stats(F, D)         flow_member ((F), stats, (D))
-#define flow_last_exported(F, D) flow_member ((F), last_exported, (D))
-#define flow_ipfix_info(F, D)    flow_member ((F), ipfix_info_index, (D))
+always_inline flow_side_t *
+flow_side (flow_entry_t *f, flow_key_direction_t direction)
+{
+  ASSERT (direction >= 0 && direction < FT_ORDER_MAX);
+  return &f->side[direction ^ f->initiator_direction];
+}
 
 /* Timers (in seconds) */
 #define FLOW_TIMER_DEFAULT_LIFETIME (60)
@@ -478,12 +479,16 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
     }
   l4_len = l4_len > diff ? l4_len - diff : 0;
 
-  f->stats[pkt_direction].pkts++;
-  f->stats[pkt_direction].pkts_unreported++;
-  f->stats[pkt_direction].bytes += len;
-  f->stats[pkt_direction].bytes_unreported += len;
-  f->stats[pkt_direction].l4_bytes += l4_len;
-  f->stats[pkt_direction].l4_bytes_unreported += l4_len;
+  // FIXME: looks like mistake and flow_side(f, pkt_direction) should be used
+  // instead, reverify
+  flow_side_stats_t *stats = &f->side[pkt_direction].stats;
+  stats->pkts++;
+  stats->pkts_unreported++;
+  stats->bytes += len;
+  stats->bytes_unreported += len;
+  stats->l4_bytes += l4_len;
+  stats->l4_bytes_unreported += l4_len;
+
   f->flow_end_time = timestamp_ns;
 
   upf_ipfix_flow_stats_update_handler (f, direction, now);

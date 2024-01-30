@@ -499,7 +499,7 @@ pfcp_release_association (upf_node_assoc_t *n)
           upf_node_assoc_t *node =
             pool_elt_at_index (gtm->nodes, *set_node_id);
           upf_debug ("smf_set remaining %d node: %U",
-                     (u32) (node - gtm->nodes), format_node_id,
+                     (u32) (node - gtm->nodes), format_pfcp_ie_node_id,
                      &node->node_id);
         }
 #endif
@@ -571,7 +571,7 @@ pfcp_new_smf_set (u8 *fqdn)
   smfs_idx = smfs - gtm->smf_sets;
   hash_set_mem (gtm->smf_set_by_fqdn, smfs->fqdn, smfs_idx);
 
-  upf_debug ("new smf set %U", format_dns_labels, smfs->fqdn);
+  upf_debug ("new smf set %U", format_pfcp_dns_labels, smfs->fqdn);
 
   return smfs_idx;
 }
@@ -618,8 +618,9 @@ pfcp_node_enter_smf_set (upf_node_assoc_t *n, u8 *fqdn)
   upf_smfset_nodes_list_insert_tail (gtm->nodes, &smfs->nodes, n);
   n->smf_set.idx = smfs_idx;
 
-  upf_debug ("node %d %U entered set %U", n - gtm->nodes, format_node_id,
-             &n->node_id, format_dns_labels, smfs->fqdn);
+  upf_debug ("node %d %U entered set %U", n - gtm->nodes,
+             format_pfcp_ie_node_id, &n->node_id, format_pfcp_dns_labels,
+             smfs->fqdn);
 }
 
 /* returns vector of alternative node indexes */

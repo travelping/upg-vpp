@@ -381,8 +381,8 @@ proxy_start_connect_fn (const u32 *session_index)
   dst = &flow->key.ip[FT_REVERSE ^ flow->initiator_direction];
   is_ip4 = ip46_address_is_ip4 (dst);
 
-  ASSERT (flow_pdr_id (flow, FT_ORIGIN) != ~0);
-  pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
+  ASSERT (flow_side (flow, FT_ORIGIN)->pdr_id != ~0);
+  pdr = pfcp_get_pdr_by_id (active, flow_side (flow, FT_ORIGIN)->pdr_id);
   ASSERT (pdr);
   far = pfcp_get_far_by_id (active, pdr->far_id);
 
@@ -613,7 +613,7 @@ session_cleanup (session_t *s, session_cleanup_ntf_t ntf, int is_active_open)
   flowtable_main_t *fm = &flowtable_main;
   upf_proxy_session_t *ps;
   flow_entry_t *flow;
-  flow_tc_t *ftc;
+  flow_side_tcp_t *ftc;
   u32 flow_index;
 
   proxy_server_sessions_writer_lock ();
@@ -647,7 +647,7 @@ session_cleanup (session_t *s, session_cleanup_ntf_t ntf, int is_active_open)
     goto out_unlock;
   flow = pool_elt_at_index (fm->flows, flow_index);
 
-  ftc = &flow_tc (flow, is_active_open ? FT_REVERSE : FT_ORIGIN);
+  ftc = &flow_side (flow, is_active_open ? FT_REVERSE : FT_ORIGIN)->tcp;
   ftc->conn_index = ~0;
 
 out_unlock:
@@ -809,7 +809,7 @@ proxy_send_redir (session_t *s, upf_proxy_session_t *ps, flow_entry_t *flow,
   u8 *wispr, *html, *http, *url;
   int i;
 
-  pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
+  pdr = pfcp_get_pdr_by_id (active, flow_side (flow, FT_ORIGIN)->pdr_id);
   far = pfcp_get_far_by_id (active, pdr->far_id);
 
   /* Edge case: session modified, redirect no longer applicable */
@@ -913,8 +913,8 @@ proxy_rx_callback_static (session_t *s, upf_proxy_session_t *ps)
        */
       upf_debug ("connect outgoing session");
 
-      flow_next (flow, FT_ORIGIN) = flow_next (flow, FT_REVERSE) =
-        FT_NEXT_PROXY;
+      flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROXY;
+      flow_side (flow, FT_REVERSE)->next = FT_NEXT_PROXY;
 
       /* start outgoing connect to server */
       proxy_start_connect (ps);
@@ -946,8 +946,8 @@ proxy_rx_callback_static (session_t *s, upf_proxy_session_t *ps)
       upf_debug ("connect outgoing session");
 
       /* we are done with scanning for PDRs */
-      flow_next (flow, FT_ORIGIN) = flow_next (flow, FT_REVERSE) =
-        FT_NEXT_PROXY;
+      flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROXY;
+      flow_side (flow, FT_REVERSE)->next = FT_NEXT_PROXY;
 
       /* start outgoing connect to server */
       proxy_start_connect (ps);
@@ -1105,7 +1105,7 @@ active_open_connected_callback (u32 app_index, u32 opaque, session_t *s,
 
   transport_connection_t *tc;
   flow_entry_t *flow;
-  flow_tc_t *ftc;
+  flow_side_tcp_t *ftc;
 
   flow = pool_elt_at_index (fm->flows, ps->flow_index);
   ASSERT (flow->ps_index == opaque);
@@ -1113,7 +1113,7 @@ active_open_connected_callback (u32 app_index, u32 opaque, session_t *s,
 
   ASSERT (tc->thread_index == thread_index);
 
-  ftc = &flow_tc (flow, FT_REVERSE);
+  ftc = &flow_side (flow, FT_REVERSE)->tcp;
   ftc->conn_index = tc->c_index;
   ftc->thread_index = tc->thread_index;
 

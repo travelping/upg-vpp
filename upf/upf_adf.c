@@ -345,7 +345,7 @@ app_scan_for_uri (u8 *uri, flow_entry_t *flow, struct rules *active,
         }
 
       if ((pdr->pdi.fields & F_PDI_LOCAL_F_TEID) &&
-          flow_teid (flow, direction) != pdr->pdi.teid.teid)
+          flow_side (flow, direction)->teid != pdr->pdi.teid.teid)
         {
           adf_debug ("skip PDR %u for TEID mismatch\n", pdr->id);
           continue;
@@ -370,26 +370,27 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
                            struct rules *active)
 {
   adr_result_t r;
-  upf_pdr_t *origin = 0, *reverse = 0;
+  upf_pdr_t *origin = NULL, *reverse = NULL;
   u16 port;
   u8 *uri = NULL;
 
   /* this runs after the forward and reverse ACL rules have been established */
   /* reverse and origin may not be there yet during flow reclassification */
-  if (flow_pdr_id (flow, FT_ORIGIN) != ~0)
-    {
-      origin = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
-    }
-  if (flow_pdr_id (flow, FT_REVERSE) != ~0)
-    {
-      reverse = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_REVERSE));
-    }
+
+  u32 origin_pdr_id = flow_side (flow, FT_ORIGIN)->pdr_id;
+  u32 reverse_pdr_id = flow_side (flow, FT_REVERSE)->pdr_id;
+
+  if (origin_pdr_id != ~0)
+    origin = pfcp_get_pdr_by_id (active, origin_pdr_id);
+
+  if (reverse_pdr_id != ~0)
+    reverse = pfcp_get_pdr_by_id (active, reverse_pdr_id);
+
   if (!origin && !reverse)
     return ADR_FAIL;
 
-  adf_debug ("Old PDR Origin: %p %u, Reverse: %p %u\n", origin,
-             flow_pdr_id (flow, FT_ORIGIN), reverse,
-             flow_pdr_id (flow, FT_REVERSE));
+  adf_debug ("Old PDR Origin: %p %u, Reverse: %p %u\n", origin, origin_pdr_id,
+             reverse, reverse_pdr_id);
 
   if (flow->app_detection_done)
     {
@@ -446,24 +447,24 @@ out:
     return ADR_FAIL;
 
   flow->app_detection_done = 1;
-  flow_pdr_id (flow, FT_ORIGIN) = origin->id;
+  flow_side (flow, FT_ORIGIN)->pdr_id = origin->id;
   if ((origin->pdi.fields & F_PDI_APPLICATION_ID))
     flow->application_id = origin->pdi.adr.application_id;
 
   /* we are done with scanning for PDRs */
   if (reverse)
     {
-      flow_pdr_id (flow, FT_REVERSE) = reverse->id;
-      flow_next (flow, FT_REVERSE) = FT_NEXT_PROXY;
+      flow_side (flow, FT_REVERSE)->pdr_id = reverse->id;
+      flow_side (flow, FT_REVERSE)->next = FT_NEXT_PROXY;
     }
   else
-    flow_next (flow, FT_REVERSE) = FT_NEXT_CLASSIFY;
+    flow_side (flow, FT_REVERSE)->next = FT_NEXT_CLASSIFY;
 
-  flow_next (flow, FT_ORIGIN) = FT_NEXT_PROXY;
+  flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROXY;
 
   adf_debug ("New PDR Origin: %p %u, Reverse: %p %u\n", origin,
-             flow_pdr_id (flow, FT_ORIGIN), reverse,
-             flow_pdr_id (flow, FT_REVERSE));
+             flow_side (flow, FT_ORIGIN)->pdr_id, reverse,
+             flow_side (flow, FT_REVERSE)->pdr_id);
 
   return ADR_OK;
 }

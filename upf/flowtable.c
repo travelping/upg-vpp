@@ -111,6 +111,20 @@ flowtable_entry_remove (flowtable_main_t *fm, flow_entry_t *f, u32 now)
   flowtable_entry_remove_internal (fm, fmt, f, now);
 }
 
+always_inline void
+flowtable_entry_init_side (flow_side_t *side, u32 now)
+{
+  side->pdr_id = ~0;
+  // TODO: check if it better to 0 teid instead, since ~0 is
+  // valid teid, but not 0
+  side->teid = ~0;
+  side->next = FT_NEXT_CLASSIFY;
+  side->ipfix.last_exported = now;
+  side->ipfix.info_index = ~0;
+  side->tcp.conn_index = ~0;
+  side->tcp.thread_index = ~0;
+}
+
 /* TODO: replace with a more appropriate hashtable */
 u32
 flowtable_entry_lookup_create (flowtable_main_t *fm,
@@ -145,31 +159,16 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   f->flow_start_time = timestamp_ns;
   f->flow_end_time = timestamp_ns;
   f->application_id = ~0;
-  flow_ipfix_info (f, FT_ORIGIN) = ~0;
-  flow_ipfix_info (f, FT_REVERSE) = ~0;
   f->cpu_index = os_get_thread_index ();
   f->generation = generation;
-  flow_pdr_id (f, FT_ORIGIN) = ~0;
-  flow_pdr_id (f, FT_REVERSE) = ~0;
-  flow_teid (f, FT_ORIGIN) = ~0;
-  flow_teid (f, FT_REVERSE) = ~0;
-  flow_next (f, FT_ORIGIN) = FT_NEXT_CLASSIFY;
-  flow_next (f, FT_REVERSE) = FT_NEXT_CLASSIFY;
-  flow_tc (f, FT_ORIGIN).conn_index = ~0;
-  flow_tc (f, FT_ORIGIN).thread_index = ~0;
-  flow_tc (f, FT_REVERSE).conn_index = ~0;
-  flow_tc (f, FT_REVERSE).thread_index = ~0;
-  /*
-   * IPFIX export shouldn't happen immediately.
-   * Need to wait for the first interval to pass
-   */
-  flow_last_exported (f, FT_ORIGIN) = now;
-  flow_last_exported (f, FT_REVERSE) = now;
   f->ps_index = ~0;
+  f->timer_slot = ~0;
+
+  flowtable_entry_init_side (flow_side (f, FT_ORIGIN), now);
+  flowtable_entry_init_side (flow_side (f, FT_REVERSE), now);
 
   session_flows_list_anchor_init (f);
   flow_timeout_list_anchor_init (f);
-  f->timer_slot = ~0;
 
   /* insert in timer list */
   flowtable_timeout_start_entry (fm, fmt, f, now);
@@ -229,15 +228,16 @@ format_flow (u8 *s, va_list *args)
 #if CLIB_DEBUG > 0
   s = format (s, "Flow %d: ", flow - fm->flows);
 #endif
-  s = format (
-    s,
-    "%U, UL pkt %u, DL pkt %u, "
-    "Forward PDR %u, Reverse PDR %u, "
-    "app %v, lifetime %u, proxy %d, spliced %d nat port %d",
-    format_flow_key, &flow->key, flow->stats[initiator_direction].pkts,
-    flow->stats[initiator_direction ^ FT_REVERSE].pkts,
-    flow_pdr_id (flow, FT_ORIGIN), flow_pdr_id (flow, FT_REVERSE), app_name,
-    flow->lifetime, flow->is_l3_proxy, flow->is_spliced, flow->nat_sport);
+  s = format (s,
+              "%U, UL pkt %u, DL pkt %u, "
+              "Forward PDR %u, Reverse PDR %u, "
+              "app %v, lifetime %u, proxy %d, spliced %d nat port %d",
+              format_flow_key, &flow->key,
+              flow_side (flow, FT_ORIGIN)->stats.pkts,
+              flow_side (flow, FT_REVERSE)->stats.pkts,
+              flow_side (flow, FT_ORIGIN)->pdr_id,
+              flow_side (flow, FT_REVERSE)->pdr_id, app_name, flow->lifetime,
+              flow->is_l3_proxy, flow->is_spliced, flow->nat_sport);
 #if CLIB_DEBUG > 0
   s = format (s, ", dont_splice %d", flow->dont_splice);
 #endif

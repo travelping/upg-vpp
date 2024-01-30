@@ -419,7 +419,7 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
   u16 offset;
   upf_ipfix_template_t *template;
   upf_session_t *sx;
-  u32 iidx = flow_ipfix_info (f, direction);
+  u32 iidx = flow_side (f, direction)->ipfix.info_index;
 
   if (iidx == (u32) ~0)
     return;
@@ -454,7 +454,7 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
       template->add_ip6_values (b0, f, direction, offset, sx, info, last);
 
   /* Reset per flow-export counters */
-  flow_last_exported (f, direction) = now;
+  flow_side (f, direction)->ipfix.last_exported = now;
   f->exported = 1;
 
   b0->current_length = offset;
@@ -483,7 +483,7 @@ upf_ipfix_flow_stats_update_handler (flow_entry_t *f,
 
   info = pool_elt_at_index (fm->infos, iidx);
   if (info->report_interval)
-    if (PREDICT_FALSE (now > flow_last_exported (f, direction) +
+    if (PREDICT_FALSE (now > flow_side (f, direction)->ipfix.last_exported +
                                info->report_interval))
       upf_ipfix_export_entry (vm, f, direction, now, false);
 
@@ -499,17 +499,20 @@ upf_ipfix_flow_remove_handler (flow_entry_t *f, u32 now)
   if (fm->disabled)
     return 0;
 
-  if (flow_ipfix_info (f, FT_ORIGIN) != ~0)
+  u32 origin_iidx = flow_side (f, FT_ORIGIN)->ipfix.info_index;
+  u32 reverse_iidx = flow_side (f, FT_REVERSE)->ipfix.info_index;
+
+  if (origin_iidx != ~0)
     {
-      bool last = flow_ipfix_info (f, FT_REVERSE) == ~0;
+      bool last = reverse_iidx == ~0;
       upf_ipfix_export_entry (vm, f, FT_ORIGIN, now, last);
-      upf_unref_ipfix_info (flow_ipfix_info (f, FT_ORIGIN));
+      upf_unref_ipfix_info (origin_iidx);
     }
 
-  if (flow_ipfix_info (f, FT_REVERSE) != ~0)
+  if (reverse_iidx != ~0)
     {
       upf_ipfix_export_entry (vm, f, FT_REVERSE, now, true);
-      upf_unref_ipfix_info (flow_ipfix_info (f, FT_REVERSE));
+      upf_unref_ipfix_info (reverse_iidx);
     }
 }
 
@@ -858,13 +861,13 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f,
   upf_ipfix_info_t *other_info = 0;
   u32 iidx;
 
-  if ((iidx = flow_ipfix_info (f, direction)) != ~0)
+  if ((iidx = flow_side (f, direction)->ipfix.info_index != ~0))
     return iidx;
 
   sx = pool_elt_at_index (gtm->sessions, f->session_index);
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
-  pdr_id = flow_pdr_id (f, direction);
+  pdr_id = flow_side (f, direction)->pdr_id;
   if (pdr_id == ~0)
     return ~0;
 
@@ -899,10 +902,10 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f,
        * If this is the reverse flow direction, use IPFIX settings for the
        * forward direction;
        */
-      if (flow_ipfix_info (f, FT_ORIGIN) != ~0)
+      if (flow_side (f, FT_ORIGIN)->ipfix.info_index != ~0)
         {
-          other_info =
-            pool_elt_at_index (fm->infos, flow_ipfix_info (f, FT_ORIGIN));
+          other_info = pool_elt_at_index (
+            fm->infos, flow_side (f, FT_ORIGIN)->ipfix.info_index);
           if (info_key.policy == UPF_IPFIX_POLICY_NONE)
             info_key.policy = other_info->key.policy;
           info_key.info_nwi_index = other_info->key.info_nwi_index;
@@ -963,7 +966,7 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f,
 
   iidx = upf_ensure_ref_ipfix_info (&info_key);
   if (iidx != ~0)
-    flow_ipfix_info (f, direction) = iidx;
+    flow_side (f, direction)->ipfix.info_index = iidx;
 
   return iidx;
 }

@@ -130,8 +130,8 @@ splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
 {
   flow_key_direction_t origin = FT_ORIGIN ^ direction;
   flow_key_direction_t reverse = FT_REVERSE ^ direction;
-  flow_tc_t *rev = &flow_tc (flow, reverse);
-  flow_tc_t *ftc = &flow_tc (flow, origin);
+  flow_side_tcp_t *rev = &flow_side (flow, reverse)->tcp;
+  flow_side_tcp_t *ftc = &flow_side (flow, origin)->tcp;
   transport_connection_t *tc;
   tcp_connection_t *tcpRx, *tcpTx;
   session_t *s;
@@ -196,15 +196,13 @@ splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
       return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
     }
 
-  if (flow_seq_offs (flow, origin) == 0)
-    flow_seq_offs (flow, origin) = direction == FT_ORIGIN ?
-                                     tcpTx->snd_nxt - tcpRx->rcv_nxt :
-                                     tcpRx->rcv_nxt - tcpTx->snd_nxt;
+  if (ftc->seq_offs == 0)
+    ftc->seq_offs = direction == FT_ORIGIN ? tcpTx->snd_nxt - tcpRx->rcv_nxt :
+                                             tcpRx->rcv_nxt - tcpTx->snd_nxt;
 
-  if (flow_seq_offs (flow, reverse) == 0)
-    flow_seq_offs (flow, reverse) = direction == FT_ORIGIN ?
-                                      tcpTx->rcv_nxt - tcpRx->snd_nxt :
-                                      tcpRx->snd_nxt - tcpTx->rcv_nxt;
+  if (rev->seq_offs == 0)
+    rev->seq_offs = direction == FT_ORIGIN ? tcpTx->rcv_nxt - tcpRx->snd_nxt :
+                                             tcpRx->snd_nxt - tcpTx->rcv_nxt;
 
   /* check fifo, proxy Tx/Rx are connected... */
   if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
@@ -267,7 +265,7 @@ load_tstamp_offset (vlib_buffer_t *b, flow_key_direction_t direction,
   tcp_header_t *tcp;
   tcp_options_t opts;
 
-  if (flow_tsval_offs (flow, direction) != 0)
+  if (flow_side (flow, direction)->tcp.tsval_offs != 0)
     return;
 
   if (upf_vnet_load_tcp_hdr_offset (b))
@@ -281,7 +279,7 @@ load_tstamp_offset (vlib_buffer_t *b, flow_key_direction_t direction,
   if (!tcp_opts_tstamp (&opts))
     return;
 
-  flow_tsval_offs (flow, direction) =
+  flow_side (flow, direction)->tcp.tsval_offs =
     opts.tsval - tcp_time_tstamp (thread_index);
 }
 
@@ -323,7 +321,7 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
           upf_pdr_t *pdr = NULL;
           upf_far_t *far = NULL;
           struct rules *active;
-          flow_tc_t *ftc;
+          flow_side_tcp_t *ftc;
 
           bi = from[0];
           to_next[0] = bi;
@@ -391,7 +389,7 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
           vnet_buffer (b)->ip.rx_sw_if_index =
             vnet_buffer (b)->sw_if_index[VLIB_RX];
 
-          ftc = &flow_tc (flow, direction);
+          ftc = &flow_side (flow, direction)->tcp;
 
           if (flow->is_spliced)
             {
@@ -446,7 +444,8 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
               /* Get next node index and adj index from tunnel next_dpo */
               sess = pool_elt_at_index (gtm->sessions, flow->session_index);
               active = pfcp_get_rules (sess, PFCP_ACTIVE);
-              pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, direction));
+              pdr = pfcp_get_pdr_by_id (active,
+                                        flow_side (flow, direction)->pdr_id);
               far = pdr ? pfcp_get_far_by_id (active, pdr->far_id) : NULL;
 
               if (PREDICT_FALSE (!pdr) || PREDICT_FALSE (!far))
