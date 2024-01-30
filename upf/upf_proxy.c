@@ -1388,8 +1388,7 @@ upf_proxy_create (vlib_main_t *vm, u32 fib_index, int is_ip4)
 }
 
 int
-upf_proxy_flow_expire_event_handler (flowtable_main_t *fm, flow_entry_t *flow,
-                                     flow_direction_t direction, u32 now)
+upf_proxy_flow_expire_event_handler (flow_entry_t *flow)
 {
   upf_proxy_session_t *ps;
   if (flow->ps_index == ~0)
@@ -1408,8 +1407,7 @@ upf_proxy_flow_expire_event_handler (flowtable_main_t *fm, flow_entry_t *flow,
 }
 
 int
-upf_proxy_flow_remove_handler (flowtable_main_t *fm, flow_entry_t *flow,
-                               flow_direction_t direction, u32 now)
+upf_proxy_flow_remove_handler (flow_entry_t *flow)
 {
   int is_active_open;
   session_t *sess;

@@ -510,8 +510,7 @@ upf_format_buffer_opaque_helper (const vlib_buffer_t *b, u8 *s)
 }
 
 int
-flow_remove_counter_handler (flowtable_main_t *fm, flow_entry_t *flow,
-                             flow_direction_t direction, u32 now)
+flow_remove_counter_handler (flowtable_main_t *fm, flow_entry_t *flow)
 {
   upf_main_t *gtm = &upf_main;
 

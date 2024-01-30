@@ -467,7 +467,7 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
 }
 
 int
-upf_ipfix_flow_stats_update_handler (flowtable_main_t *_fm, flow_entry_t *f,
+upf_ipfix_flow_stats_update_handler (flow_entry_t *f,
                                      flow_direction_t direction, u32 now)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
@@ -491,8 +491,7 @@ upf_ipfix_flow_stats_update_handler (flowtable_main_t *_fm, flow_entry_t *f,
 }
 
 int
-upf_ipfix_flow_remove_handler (flowtable_main_t *_fm, flow_entry_t *f,
-                               flow_direction_t direction, u32 now)
+upf_ipfix_flow_remove_handler (flow_entry_t *f, u32 now)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   vlib_main_t *vm = fm->vlib_main;

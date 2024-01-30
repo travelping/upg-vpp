@@ -222,10 +222,6 @@ typedef struct
 
 extern flowtable_main_t flowtable_main;
 
-int upf_ipfix_flow_stats_update_handler (flowtable_main_t *_fm,
-                                         flow_entry_t *f,
-                                         flow_direction_t direction, u32 now);
-
 u8 *format_flow_key (u8 *, va_list *);
 u8 *format_flow (u8 *, va_list *);
 
@@ -423,6 +419,9 @@ flow_update (vlib_main_t *vm, flow_entry_t *f, u8 *iph, u8 is_ip4, u16 len,
     }
 }
 
+int upf_ipfix_flow_stats_update_handler (flow_entry_t *f,
+                                         flow_direction_t direction, u32 now);
+
 always_inline void
 flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
                    u8 is_ip4, u64 timestamp_ns, u32 now)
@@ -462,7 +461,7 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
   f->stats[is_reverse].l4_bytes_unreported += l4_len;
   f->flow_end_time = timestamp_ns;
 
-  upf_ipfix_flow_stats_update_handler (fm, f, direction, now);
+  upf_ipfix_flow_stats_update_handler (f, direction, now);
 }
 
 extern vlib_node_registration_t flowtable_process_node;

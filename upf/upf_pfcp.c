@@ -1373,8 +1373,7 @@ pfcp_free_session (upf_session_t *sx)
 }
 
 int
-session_flow_unlink_handler (flowtable_main_t *fm, flow_entry_t *flow,
-                             flow_direction_t direction, u32 now)
+session_flow_unlink_handler (flowtable_main_t *fm, flow_entry_t *flow)
 {
   upf_main_t *gtm = &upf_main;
   ASSERT (flow->session_index != ~0);

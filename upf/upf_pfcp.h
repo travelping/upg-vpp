@@ -39,8 +39,6 @@ upf_session_t *pfcp_create_session (upf_node_assoc_t *assoc,
 void pfcp_update_session (upf_session_t *sx);
 void pfcp_disable_session (upf_session_t *sx);
 void pfcp_free_session (upf_session_t *sx);
-int session_flow_unlink_handler (flowtable_main_t *fm, flow_entry_t *flow,
-                                 flow_direction_t direction, u32 now);
 
 #define pfcp_rule_vector_fns(t)                                               \
   upf_##t##_t *pfcp_get_##t##_by_id (                                         \
