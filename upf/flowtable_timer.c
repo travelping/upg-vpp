@@ -123,7 +123,7 @@ flowtable_timer_expire (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
   return expire_cpt;
 }
 
-VLIB_NODE_FN (upf_flowtable_timer_input_node)
+VLIB_NODE_FN (upf_flowtable_timer_wk_process_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *frame)
 {
   flowtable_main_t *fm = &flowtable_main;
@@ -146,36 +146,36 @@ static char *flowtable_timer_input_error_strings[] = {
 #undef _
 };
 
-VLIB_REGISTER_NODE (upf_flowtable_timer_input_node) = {
-  .name = "upf-flow-timer-input",
+VLIB_REGISTER_NODE (upf_flowtable_timer_wk_process_node) = {
+  .name = "upf-flowtable-wk-timer",
   .type = VLIB_NODE_TYPE_INPUT,
   .state = VLIB_NODE_STATE_INTERRUPT,
   .error_strings = flowtable_timer_input_error_strings,
   .n_errors = FLOWTABLE_TIMER_N_ERROR,
 };
 
-VLIB_NODE_FN (upf_flowtable_timer_process_node)
-(vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
+static uword
+upf_flowtable_timer_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
+                             vlib_frame_t *f)
 {
+
   while (1)
     {
       (void) vlib_process_wait_for_event_or_clock (
-        vm, 1.0 / UPF_SLO_PER_THREAD_FLOWS_PER_SECOND);
+        vm, 1.0 / FLOWTABLE_TIMER_FREQUENCY);
 
       // send interrupts
       for (int ti = 0; ti < vlib_get_n_threads (); ti++)
-        vlib_node_set_interrupt_pending (vlib_get_main_by_index (ti),
-                                         upf_flowtable_timer_input_node.index);
+        vlib_node_set_interrupt_pending (
+          vlib_get_main_by_index (ti),
+          upf_flowtable_timer_wk_process_node.index);
     }
 
   return 0;
 }
 
-/* clang-format off */
 VLIB_REGISTER_NODE (upf_flowtable_timer_process_node) = {
+  .name = "upf-flowtable-timer",
+  .function = upf_flowtable_timer_process,
   .type = VLIB_NODE_TYPE_PROCESS,
-  .process_log2_n_stack_bytes = 16,
-  .runtime_data_bytes = sizeof (void *),
-  .name = "upf-flowtable",
-  .state = VLIB_NODE_STATE_DISABLED,
 };

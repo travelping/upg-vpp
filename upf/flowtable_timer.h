@@ -19,9 +19,9 @@ typedef enum
     FLOWTABLE_TIMER_N_ERROR
 } upf_flowtable_timer_node_error_t;
 
-vlib_node_registration_t upf_flowtable_timer_node;
-
+vlib_node_registration_t upf_flowtable_timer_wk_process_node;
+vlib_node_registration_t upf_flowtable_timer_process_node;
 // distribute (batch) flow expirations over time
-#define FLOWTABLE_TIMER_FREQUENCY UPF_SLO_THREAD_FLOWS_PER_SECOND / 512.0
+#define FLOWTABLE_TIMER_FREQUENCY (UPF_SLO_PER_THREAD_FLOWS_PER_SECOND / 512.0)
 
 #endif /* __flowtable_timer_h__ */
