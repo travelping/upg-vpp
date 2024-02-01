@@ -115,8 +115,9 @@ upf_do_ip_rule_match (upf_adf_entry_t *appentry, ip46_address_t *src,
   index_t dpo_index = upf_app_dpo_lookup (appentry, src);
   while (dpo_index != INDEX_INVALID)
     {
-      upf_app_dpo_t *app_dpo = appentry->app_dpos + dpo_index;
-      acl_rule_t *rule = appentry->acl + app_dpo->rule_index;
+      upf_app_dpo_t *app_dpo =
+        vec_elt_at_index (appentry->app_dpos, dpo_index);
+      acl_rule_t *rule = vec_elt_at_index (appentry->acl, app_dpo->rule_index);
       ipfilter_address_t *dst_rule_addr =
         &rule->address[IPFILTER_RULE_FIELD_DST];
       ip46_address_t *dst_match = &dst_rule_addr->address;
@@ -245,7 +246,7 @@ upf_ensure_app_fib_if_needed (upf_adf_entry_t *appentry)
        * with the this app_dpo, we link it from this one, as the FIB
        * table can yield just one match per address
        */
-      rule = appentry->acl + app_dpo->rule_index;
+      rule = vec_elt_at_index (appentry->acl, app_dpo->rule_index);
       app_dpo->next = upf_app_dpo_lookup (
         appentry, &rule->address[IPFILTER_RULE_FIELD_SRC].address);
       if (acl_addr_is_any (&rule->address[IPFILTER_RULE_FIELD_SRC]))
@@ -287,7 +288,7 @@ upf_app_fib_cleanup (upf_adf_entry_t *appentry)
 
   vec_foreach (app_dpo, appentry->app_dpos)
     {
-      acl_rule_t *rule = appentry->acl + app_dpo->rule_index;
+      acl_rule_t *rule = vec_elt_at_index (appentry->acl, app_dpo->rule_index);
       fib_prefix_t pfx;
       if (acl_addr_is_any (&rule->address[IPFILTER_RULE_FIELD_SRC]))
         {
@@ -329,12 +330,13 @@ upf_app_dpo_match (upf_adf_entry_t *appentry, flow_entry_t *flow,
   if (appentry->fib_index_ip4 == ~0)
     return 0;
   return upf_do_ip_rule_match (
-    appentry, &flow->key.ip[FT_REVERSE ^ flow->initiator_direction],
+    appentry,
+    &flow->key.ip[FTK_EL_SRC ^ FT_RESPONDER ^ flow->flow_key_direction],
     clib_net_to_host_u16 (
-      flow->key.port[FT_REVERSE ^ flow->initiator_direction]),
-    &flow->key.ip[FT_ORIGIN ^ flow->initiator_direction],
+      flow->key.port[FTK_EL_SRC ^ FT_RESPONDER ^ flow->flow_key_direction]),
+    &flow->key.ip[FTK_EL_SRC ^ FT_INITIATOR ^ flow->flow_key_direction],
     clib_net_to_host_u16 (
-      flow->key.port[FT_ORIGIN ^ flow->initiator_direction]),
+      flow->key.port[FTK_EL_SRC ^ FT_INITIATOR ^ flow->flow_key_direction]),
     assigned);
 }
 

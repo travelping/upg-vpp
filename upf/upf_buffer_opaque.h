@@ -33,7 +33,9 @@ typedef struct
     u16 data_offset; /* offset relative to ip hdr */
     u8 hdr_flags;
     u8 flags;
-    u8 pkt_direction : 1;
+    u8 pkt_key_direction : 1; // same as flow_key_direction_t
+    // TODO: maybe add additional field which would be pkt_direction:1 and
+    // equal to flow_direction_t to avoid lots of XOR
     u8 is_proxied : 1;
     u32 pdr_idx;
     u32 flow_id;

@@ -104,8 +104,9 @@ format_upf_proxy_output_trace (u8 *s, va_list *args)
 
 static uword
 upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
-                  vlib_frame_t *from_frame, flow_key_direction_t direction,
-                  int is_ip4, int no_opaque, int far_only)
+                  vlib_frame_t *from_frame,
+                  flow_direction_t node_pkt_direction, int is_ip4,
+                  int no_opaque, int far_only)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -116,7 +117,6 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
   from = vlib_frame_vector_args (from_frame);
   n_left_from = from_frame->n_vectors;
 
-  u32 sw_if_index = 0;
   u32 next = 0;
 
   next_index = node->cached_next_index;
@@ -139,6 +139,8 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
           ip4_header_t *ip4;
           ip6_header_t *ip6;
           tcp_header_t *th;
+          flow_key_direction_t pkt_key_direction;
+          flow_direction_t pkt_direction;
 
           bi = from[0];
           to_next[0] = bi;
@@ -186,12 +188,12 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
                * Note that at this point, direction only denotes if
                * the packet goes from a lower-value IP address to a
                * higher-value IP address (0) or vice-versa (1).  It
-               * needs to be XORed with flow's initiator_direction to get the
+               * needs to be XORed with flow's flow_key_direction to get the
                * actual direction, which is done after we get the
                * flow.
                */
-              direction = is_ip4 ? ip4_packet_is_reverse (ip4) :
-                                   ip6_packet_is_reverse (ip6);
+              pkt_key_direction = is_ip4 ? ip4_packet_is_reverse (ip4) :
+                                           ip6_packet_is_reverse (ip6);
               fib_idx = vlib_buffer_get_ip_fib_index (b, is_ip4);
               /*
                * We need the flow to understand the direction of the
@@ -254,8 +256,15 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
            * connection, we can only get the proper direction after we
            * have the flow, so we update it here
            */
+          // TODO: verify this place,
           if (no_opaque)
-            direction ^= flow->initiator_direction;
+            {
+              clib_warning (
+                "hithithit!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+              pkt_direction = pkt_key_direction ^ flow->flow_key_direction;
+            }
+          else
+            pkt_direction = node_pkt_direction;
 
           upf_debug ("flow: %p (0x%08x): %U\n", flow, flow_id, format_flow_key,
                      &flow->key);
@@ -263,11 +272,11 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
 
           upf_debug ("IP hdr: %U", format_ip4_header,
                      vlib_buffer_get_current (b), b->current_length);
-          upf_debug ("Flow ORIGIN/REVERSE Pdr Id: %u/%u, FT Next %u/%u",
-                     flow_side (flow, FT_ORIGIN)->pdr_id,
-                     flow_side (flow, FT_REVERSE)->pdr_id,
-                     flow_side (flow, FT_ORIGIN)->next,
-                     flow_side (flow, FT_REVERSE)->next);
+          upf_debug ("Flow INITIATOR/RESPONDER Pdr Id: %u/%u, FT Next %u/%u",
+                     flow_side (flow, FT_INITIATOR)->pdr_id,
+                     flow_side (flow, FT_RESPONDER)->pdr_id,
+                     flow_side (flow, FT_INITIATOR)->next,
+                     flow_side (flow, FT_RESPONDER)->next);
 
           if (pool_is_free (gtm->sessions,
                             gtm->sessions + flow->session_index))
@@ -282,8 +291,8 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
 
           UPF_ENTER_SUBGRAPH (b, flow->session_index, is_ip4);
           upf_buffer_opaque (b)->gtpu.flow_id = flow_id;
-          upf_buffer_opaque (b)->gtpu.pkt_direction =
-            direction ^ flow->initiator_direction;
+          upf_buffer_opaque (b)->gtpu.pkt_key_direction =
+            pkt_direction ^ flow->flow_key_direction;
           upf_buffer_opaque (b)->gtpu.is_proxied = 1;
 
           /* mostly borrowed from vnet/interface_output.c calc_checksums */
@@ -306,7 +315,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
                                             VNET_BUFFER_OFFLOAD_F_UDP_CKSUM |
                                             VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
 
-          next = ft_next_map_next[flow_side (flow, direction)->next];
+          next = ft_next_map_next[flow_side (flow, pkt_direction)->next];
           if (next == UPF_PROXY_OUTPUT_NEXT_PROCESS)
             {
               upf_pdr_t *pdr;
@@ -321,11 +330,12 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
               if (sx->generation != flow->generation)
                 sx = NULL;
 
-              ASSERT (flow_side (flow, direction)->pdr_id != ~0);
+              ASSERT (flow_side (flow, pkt_direction)->pdr_id != ~0);
               active = sx ? pfcp_get_rules (sx, PFCP_ACTIVE) : NULL;
-              pdr = active ? pfcp_get_pdr_by_id (
-                               active, flow_side (flow, direction)->pdr_id) :
-                             NULL;
+              pdr = active ?
+                      pfcp_get_pdr_by_id (
+                        active, flow_side (flow, pkt_direction)->pdr_id) :
+                      NULL;
               if (!pdr)
                 {
                   next = UPF_PROXY_OUTPUT_NEXT_DROP;
@@ -376,28 +386,28 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
 VLIB_NODE_FN (upf_ip4_proxy_server_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 1,
+  return upf_proxy_output (vm, node, from_frame, FT_RESPONDER, /* is_ip4 */ 1,
                            /* no_opaque */ 0, /* far_only */ 0);
 }
 
 VLIB_NODE_FN (upf_ip6_proxy_server_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 0,
+  return upf_proxy_output (vm, node, from_frame, FT_RESPONDER, /* is_ip4 */ 0,
                            /* no_opaque */ 0, /* far_only */ 0);
 }
 
 VLIB_NODE_FN (upf_ip4_proxy_server_far_only_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 1,
+  return upf_proxy_output (vm, node, from_frame, FT_INITIATOR, /* is_ip4 */ 1,
                            /* no_opaque */ 0, /* far_only */ 1);
 }
 
 VLIB_NODE_FN (upf_ip6_proxy_server_far_only_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 0,
+  return upf_proxy_output (vm, node, from_frame, FT_INITIATOR, /* is_ip4 */ 0,
                            /* no_opaque */ 0, /* far_only */ 1);
 }
 
@@ -413,14 +423,14 @@ VLIB_NODE_FN (upf_ip6_proxy_server_far_only_output_node)
 VLIB_NODE_FN (upf_ip4_proxy_server_no_conn_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 1,
+  return upf_proxy_output (vm, node, from_frame, FT_INITIATOR, /* is_ip4 */ 1,
                            /* no_opaque */ 1, /* far_only */ 1);
 }
 
 VLIB_NODE_FN (upf_ip6_proxy_server_no_conn_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 0,
+  return upf_proxy_output (vm, node, from_frame, FT_INITIATOR, /* is_ip4 */ 0,
                            /* no_opaque */ 1, /* far_only */ 1);
 }
 

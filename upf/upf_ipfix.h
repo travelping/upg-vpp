@@ -12,6 +12,7 @@
 #include <vnet/ipfix-export/flow_report_classify.h>
 #include <vppinfra/tw_timer_2t_1w_2048sl.h>
 
+#include "upf.h"
 #include "flowtable.h"
 
 #define FLOW_MAXIMUM_EXPORT_ENTRIES (1024)
@@ -137,8 +138,8 @@ clib_error_t *upf_ipfix_init (vlib_main_t *vm);
 typedef ipfix_field_specifier_t *(*upf_ipfix_field_func_t) (
   ipfix_field_specifier_t *);
 typedef u32 (*upf_ipfix_value_func_t) (vlib_buffer_t *to_b, flow_entry_t *f,
-                                       flow_key_direction_t direction,
-                                       u16 offset, upf_session_t *sx,
+                                       flow_direction_t direction, u16 offset,
+                                       upf_session_t *sx,
                                        upf_ipfix_info_t *info, bool last);
 
 typedef struct

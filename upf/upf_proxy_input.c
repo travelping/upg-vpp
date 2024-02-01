@@ -95,23 +95,25 @@ format_upf_proxy_input_trace (u8 *s, va_list *args)
 
 static u8
 tcp_flow_is_valid (tcp_connection_t *tc, flow_entry_t *f,
-                   flow_key_direction_t direction)
+                   flow_direction_t direction)
 {
-  flow_key_direction_t origin = direction ^ f->initiator_direction;
-  flow_key_direction_t reverse =
-    direction ^ FT_REVERSE ^ f->initiator_direction;
+  flow_key_direction_t pkt_key_direction = direction ^ f->flow_key_direction;
 
   if (!tc)
     return 1;
 
-  if (!ip46_address_is_equal (&f->key.ip[origin], &tc->connection.rmt_ip))
+  if (!ip46_address_is_equal (&f->key.ip[FTK_EL_SRC ^ pkt_key_direction],
+                              &tc->connection.rmt_ip))
     return 0;
 
-  if (!ip46_address_is_equal (&f->key.ip[reverse], &tc->connection.lcl_ip))
+  if (!ip46_address_is_equal (&f->key.ip[FTK_EL_DST ^ pkt_key_direction],
+                              &tc->connection.lcl_ip))
     return 0;
 
-  return (f->key.port[origin] == tc->connection.rmt_port) &&
-         (f->key.port[reverse] == tc->connection.lcl_port);
+  return (f->key.port[FTK_EL_SRC ^ pkt_key_direction] ==
+          tc->connection.rmt_port) &&
+         (f->key.port[FTK_EL_DST ^ pkt_key_direction] ==
+          tc->connection.lcl_port);
 }
 
 void
@@ -126,12 +128,10 @@ upf_kill_connection_hard (tcp_connection_t *tc)
 
 static_always_inline u32
 splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
-                       flow_key_direction_t direction)
+                       flow_direction_t direction)
 {
-  flow_key_direction_t origin = FT_ORIGIN ^ direction;
-  flow_key_direction_t reverse = FT_REVERSE ^ direction;
-  flow_side_tcp_t *rev = &flow_side (flow, reverse)->tcp;
-  flow_side_tcp_t *ftc = &flow_side (flow, origin)->tcp;
+  flow_side_tcp_t *ftc = &flow_side (flow, FT_FORWARD ^ direction)->tcp;
+  flow_side_tcp_t *rev = &flow_side (flow, FT_REVERSE ^ direction)->tcp;
   transport_connection_t *tc;
   tcp_connection_t *tcpRx, *tcpTx;
   session_t *s;
@@ -157,7 +157,7 @@ splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
   tcpTx = tcp_get_connection_from_transport (transport_get_connection (
     TRANSPORT_PROTO_TCP, rev->conn_index, rev->thread_index));
 
-  ASSERT (tcp_flow_is_valid (tcpRx, flow, direction));
+  ASSERT (tcp_flow_is_valid (tcpRx, flow, FT_FORWARD ^ direction));
   ASSERT (tcp_flow_is_valid (tcpTx, flow, FT_REVERSE ^ direction));
 
   if (!tcpRx || !tcpTx)
@@ -197,12 +197,12 @@ splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
     }
 
   if (ftc->seq_offs == 0)
-    ftc->seq_offs = direction == FT_ORIGIN ? tcpTx->snd_nxt - tcpRx->rcv_nxt :
-                                             tcpRx->rcv_nxt - tcpTx->snd_nxt;
+    ftc->seq_offs = direction == FT_FORWARD ? tcpTx->snd_nxt - tcpRx->rcv_nxt :
+                                              tcpRx->rcv_nxt - tcpTx->snd_nxt;
 
   if (rev->seq_offs == 0)
-    rev->seq_offs = direction == FT_ORIGIN ? tcpTx->rcv_nxt - tcpRx->snd_nxt :
-                                             tcpRx->snd_nxt - tcpTx->rcv_nxt;
+    rev->seq_offs = direction == FT_FORWARD ? tcpTx->rcv_nxt - tcpRx->snd_nxt :
+                                              tcpRx->snd_nxt - tcpTx->rcv_nxt;
 
   /* check fifo, proxy Tx/Rx are connected... */
   if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
@@ -259,7 +259,7 @@ upf_vnet_load_tcp_hdr_offset (vlib_buffer_t *b)
 }
 
 static_always_inline void
-load_tstamp_offset (vlib_buffer_t *b, flow_key_direction_t direction,
+load_tstamp_offset (vlib_buffer_t *b, flow_direction_t direction,
                     flow_entry_t *flow, u32 thread_index)
 {
   tcp_header_t *tcp;
@@ -316,7 +316,7 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
       while (n_left_from > 0 && n_left_to_next > 0)
         {
           upf_session_t *sess = NULL;
-          flow_key_direction_t direction;
+          flow_direction_t direction;
           flow_entry_t *flow = NULL;
           upf_pdr_t *pdr = NULL;
           upf_far_t *far = NULL;
@@ -377,14 +377,12 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
             pool_elt_at_index (fm->flows, upf_buffer_opaque (b)->gtpu.flow_id);
           ASSERT (flow);
 
-          direction = (flow->initiator_direction ==
-                       upf_buffer_opaque (b)->gtpu.pkt_direction) ?
-                        FT_ORIGIN :
-                        FT_REVERSE;
+          direction = flow->flow_key_direction ^
+                      upf_buffer_opaque (b)->gtpu.pkt_key_direction;
 
           upf_debug ("direction: %u, buffer: %u, flow: %u", direction,
                      upf_buffer_opaque (b)->gtpu.pkt_direction,
-                     flow->initiator_direction);
+                     flow->flow_key_direction);
 
           vnet_buffer (b)->ip.rx_sw_if_index =
             vnet_buffer (b)->sw_if_index[VLIB_RX];
@@ -419,13 +417,13 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
                   upf_debug ("LATE TCP FRAGMENT");
                   next = UPF_FORWARD_NEXT_DROP;
                 }
-              else if (direction == FT_ORIGIN)
+              else if (direction == FT_INITIATOR)
                 {
                   upf_debug ("PROXY_ACCEPT");
                   load_tstamp_offset (b, direction, flow, thread_index);
                   next = UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT;
                 }
-              else if (direction == FT_REVERSE)
+              else if (direction == FT_RESPONDER)
                 {
                   upf_debug ("INPUT_LOOKUP");
                   load_tstamp_offset (b, direction, flow, thread_index);
@@ -435,10 +433,10 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
                 goto trace;
             }
 
-          // FT_REVERSE direction (DL) and stitched traffic
+          // FT_RESPONDER direction (DL) and stitched traffic
           // (upf-ip[46]-tcp-forward) is accounted for on the
           // upf-ip[46]-forward node
-          if (direction == FT_ORIGIN &&
+          if (direction == FT_INITIATOR &&
               next != UPF_PROXY_INPUT_NEXT_TCP_FORWARD)
             {
               /* Get next node index and adj index from tunnel next_dpo */

@@ -96,7 +96,7 @@ flowtable_lifetime_calculate (flowtable_main_t *fm, flow_key_t const *key)
       return fm->timer_lifetime[FT_TIMEOUT_TYPE_TCP];
 
     default:
-      return ip46_address_is_ip4 (&key->ip[FT_ORIGIN]) ?
+      return ip46_address_is_ip4 (&key->ip[FT_FORWARD]) ?
                fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV4] :
                fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV6];
     }
@@ -131,7 +131,7 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
                                flowtable_main_per_cpu_t *fmt,
                                clib_bihash_kv_48_8_t *kv, u64 timestamp_ns,
                                u32 const now,
-                               flow_key_direction_t key_direction,
+                               flow_key_direction_t flow_key_direction,
                                u16 generation, u32 session_index, int *created)
 {
   flow_entry_t *f;
@@ -153,7 +153,7 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   pool_get_zero (fm->flows, f);
 
   clib_memcpy (f->key.key, kv->key, sizeof (f->key.key));
-  f->initiator_direction = key_direction;
+  f->flow_key_direction = flow_key_direction;
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
   f->flow_start_time = timestamp_ns;
@@ -164,8 +164,8 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   f->ps_index = ~0;
   f->timer_slot = ~0;
 
-  flowtable_entry_init_side (flow_side (f, FT_ORIGIN), now);
-  flowtable_entry_init_side (flow_side (f, FT_REVERSE), now);
+  flowtable_entry_init_side (flow_side (f, FT_INITIATOR), now);
+  flowtable_entry_init_side (flow_side (f, FT_RESPONDER), now);
 
   session_flows_list_anchor_init (f);
   flow_timeout_list_anchor_init (f);
@@ -200,8 +200,8 @@ format_flow_key (u8 *s, va_list *args)
   flow_key_t *key = va_arg (*args, flow_key_t *);
 
   return format (s, "proto 0x%x, %U:%u <-> %U:%u, seid 0x%016llx", key->proto,
-                 format_ip46_address, &key->ip[FT_ORIGIN], IP46_TYPE_ANY,
-                 clib_net_to_host_u16 (key->port[FT_ORIGIN]),
+                 format_ip46_address, &key->ip[FT_FORWARD], IP46_TYPE_ANY,
+                 clib_net_to_host_u16 (key->port[FT_FORWARD]),
                  format_ip46_address, &key->ip[FT_REVERSE], IP46_TYPE_ANY,
                  clib_net_to_host_u16 (key->port[FT_REVERSE]), key->up_seid);
 }
@@ -210,7 +210,6 @@ u8 *
 format_flow (u8 *s, va_list *args)
 {
   flow_entry_t *flow = va_arg (*args, flow_entry_t *);
-  int initiator_direction = flow->initiator_direction;
   upf_main_t *sm = &upf_main;
 #if CLIB_DEBUG > 0
   flowtable_main_t *fm = &flowtable_main;
@@ -233,10 +232,10 @@ format_flow (u8 *s, va_list *args)
               "Forward PDR %u, Reverse PDR %u, "
               "app %v, lifetime %u, proxy %d, spliced %d nat port %d",
               format_flow_key, &flow->key,
-              flow_side (flow, FT_ORIGIN)->stats.pkts,
-              flow_side (flow, FT_REVERSE)->stats.pkts,
-              flow_side (flow, FT_ORIGIN)->pdr_id,
-              flow_side (flow, FT_REVERSE)->pdr_id, app_name, flow->lifetime,
+              flow_side (flow, FT_INITIATOR)->stats.pkts,
+              flow_side (flow, FT_RESPONDER)->stats.pkts,
+              flow_side (flow, FT_INITIATOR)->pdr_id,
+              flow_side (flow, FT_RESPONDER)->pdr_id, app_name, flow->lifetime,
               flow->is_l3_proxy, flow->is_spliced, flow->nat_sport);
 #if CLIB_DEBUG > 0
   s = format (s, ", dont_splice %d", flow->dont_splice);

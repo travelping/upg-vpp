@@ -42,7 +42,7 @@
 #endif
 
 always_inline adr_result_t
-upf_adr_try_tls (u16 port, u8 *p, u8 **uri)
+upf_adr_try_tls (u16 server_port, u8 *p, u8 **uri)
 {
   struct tls_record_hdr *hdr = (struct tls_record_hdr *) p;
   struct tls_handshake_hdr *hsk = (struct tls_handshake_hdr *) (hdr + 1);
@@ -160,8 +160,8 @@ upf_adr_try_tls (u16 port, u8 *p, u8 **uri)
 
       vec_add (*uri, "https://", strlen ("https://"));
       vec_add (*uri, data + 9, name_len);
-      if (port != 443)
-        *uri = format (*uri, ":%u", port);
+      if (server_port != 443)
+        *uri = format (*uri, ":%u", server_port);
       vec_add1 (*uri, '/');
 
       return ADR_OK;
@@ -175,7 +175,7 @@ upf_adr_try_tls (u16 port, u8 *p, u8 **uri)
 }
 
 always_inline adr_result_t
-upf_adr_try_http (u16 port, u8 *p, u8 **uri)
+upf_adr_try_http (u16 server_port, u8 *p, u8 **uri)
 {
   word len = vec_len (p);
   word uri_len;
@@ -253,8 +253,8 @@ upf_adr_try_http (u16 port, u8 *p, u8 **uri)
 
           vec_add (*uri, "http://", strlen ("http://"));
           vec_add (*uri, s, eol - s + 1);
-          if (port != 80)
-            *uri = format (*uri, ":%u", port);
+          if (server_port != 80)
+            *uri = format (*uri, ":%u", server_port);
           vec_add (*uri, p, uri_len);
 
           return ADR_OK;
@@ -269,7 +269,7 @@ upf_adr_try_http (u16 port, u8 *p, u8 **uri)
 
 static upf_pdr_t *
 app_scan_for_uri (u8 *uri, flow_entry_t *flow, struct rules *active,
-                  flow_key_direction_t direction, upf_pdr_t *adr)
+                  flow_direction_t direction, upf_pdr_t *adr)
 {
   upf_pdr_t *pdr;
 
@@ -296,9 +296,11 @@ app_scan_for_uri (u8 *uri, flow_entry_t *flow, struct rules *active,
         {
           const ip46_address_t *addr;
 
-          addr =
-            &flow->key.ip[direction ^ flow->initiator_direction ^
-                          !!(pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD)];
+          flow_key_direction_t pdi_direction =
+            (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD) ? FT_REVERSE :
+                                                               FT_FORWARD;
+          addr = &flow->key
+                    .ip[direction ^ flow->flow_key_direction ^ pdi_direction];
           upf_debug ("Using %U as UE IP, S/D: %u", format_ip46_address, addr,
                      IP46_TYPE_ANY,
                      !!(pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD));
@@ -371,14 +373,14 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
 {
   adr_result_t r;
   upf_pdr_t *origin = NULL, *reverse = NULL;
-  u16 port;
+  u16 server_port;
   u8 *uri = NULL;
 
   /* this runs after the forward and reverse ACL rules have been established */
   /* reverse and origin may not be there yet during flow reclassification */
 
-  u32 origin_pdr_id = flow_side (flow, FT_ORIGIN)->pdr_id;
-  u32 reverse_pdr_id = flow_side (flow, FT_REVERSE)->pdr_id;
+  u32 origin_pdr_id = flow_side (flow, FT_INITIATOR)->pdr_id;
+  u32 reverse_pdr_id = flow_side (flow, FT_RESPONDER)->pdr_id;
 
   if (origin_pdr_id != ~0)
     origin = pfcp_get_pdr_by_id (active, origin_pdr_id);
@@ -403,16 +405,17 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
     {
       ASSERT (p);
 
-      port = clib_net_to_host_u16 (
-        flow->key.port[FT_REVERSE ^ flow->initiator_direction]);
-      upf_debug ("Using port %u, instead of %u", port,
-                 clib_net_to_host_u16 (
-                   flow->key.port[FT_ORIGIN ^ flow->initiator_direction]));
+      server_port = clib_net_to_host_u16 (
+        flow->key.port[FTK_EL_DST ^ FT_INITIATOR ^ flow->flow_key_direction]);
+      upf_debug (
+        "Using port %u, instead of %u", port,
+        clib_net_to_host_u16 (flow->key.port[FT_INITIATOR ^ FTK_EL_SRC ^
+                                             flow->flow_key_direction]));
 
       if (*p == TLS_HANDSHAKE)
-        r = upf_adr_try_tls (port, p, &uri);
+        r = upf_adr_try_tls (server_port, p, &uri);
       else
-        r = upf_adr_try_http (port, p, &uri);
+        r = upf_adr_try_http (server_port, p, &uri);
 
       switch (r)
         {
@@ -431,7 +434,7 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
 
   adf_debug ("URI: %v", uri);
 
-  origin = app_scan_for_uri (uri, flow, active, FT_ORIGIN, origin);
+  origin = app_scan_for_uri (uri, flow, active, FT_RESPONDER, origin);
   if (origin)
     {
       upf_far_t *far = pfcp_get_far_by_id (active, origin->far_id);
@@ -440,31 +443,31 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
     }
   reverse = flow->is_redirect ?
               origin :
-              app_scan_for_uri (uri, flow, active, FT_REVERSE, reverse);
+              app_scan_for_uri (uri, flow, active, FT_INITIATOR, reverse);
 
 out:
   if (!origin)
     return ADR_FAIL;
 
   flow->app_detection_done = 1;
-  flow_side (flow, FT_ORIGIN)->pdr_id = origin->id;
+  flow_side (flow, FT_INITIATOR)->pdr_id = origin->id;
   if ((origin->pdi.fields & F_PDI_APPLICATION_ID))
     flow->application_id = origin->pdi.adr.application_id;
 
   /* we are done with scanning for PDRs */
   if (reverse)
     {
-      flow_side (flow, FT_REVERSE)->pdr_id = reverse->id;
-      flow_side (flow, FT_REVERSE)->next = FT_NEXT_PROXY;
+      flow_side (flow, FT_RESPONDER)->pdr_id = reverse->id;
+      flow_side (flow, FT_RESPONDER)->next = FT_NEXT_PROXY;
     }
   else
-    flow_side (flow, FT_REVERSE)->next = FT_NEXT_CLASSIFY;
+    flow_side (flow, FT_RESPONDER)->next = FT_NEXT_CLASSIFY;
 
-  flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROXY;
+  flow_side (flow, FT_INITIATOR)->next = FT_NEXT_PROXY;
 
   adf_debug ("New PDR Origin: %p %u, Reverse: %p %u\n", origin,
-             flow_side (flow, FT_ORIGIN)->pdr_id, reverse,
-             flow_side (flow, FT_REVERSE)->pdr_id);
+             flow_side (flow, FT_INITIATOR)->pdr_id, reverse,
+             flow_side (flow, FT_RESPONDER)->pdr_id);
 
   return ADR_OK;
 }

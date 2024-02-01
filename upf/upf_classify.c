@@ -132,9 +132,12 @@ acl_port_in_range (const u16 port, upf_acl_t *acl, int field)
 
 always_inline int
 upf_acl_classify_one (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
-                      flow_key_direction_t direction, u8 is_ip4,
-                      upf_acl_t *acl, struct rules *active)
+                      flow_direction_t direction, u8 is_ip4, upf_acl_t *acl,
+                      struct rules *active)
 {
+  flow_key_direction_t pkt_key_direction =
+    direction ^ flow->flow_key_direction;
+
   u32 pf_len = is_ip4 ? 32 : 64;
 
   if (!!is_ip4 != !!acl->is_ip4)
@@ -150,18 +153,18 @@ upf_acl_classify_one (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
     case UPF_ACL_UL:
       upf_debug ("UL: UE %U, Src: %U\n", format_ip46_address, &acl->ue_ip,
                  IP46_TYPE_ANY, format_ip46_address,
-                 &flow->key.ip[FT_ORIGIN ^ direction], IP46_TYPE_ANY);
+                 &flow->key.ip[FTK_EL_SRC ^ pkt_key_direction], IP46_TYPE_ANY);
       if (!ip46_address_is_equal_masked (
-            &acl->ue_ip, &flow->key.ip[FT_ORIGIN ^ direction],
+            &acl->ue_ip, &flow->key.ip[FTK_EL_SRC ^ pkt_key_direction],
             (ip46_address_t *) &ip6_main.fib_masks[pf_len]))
         return 0;
       break;
     case UPF_ACL_DL:
       upf_debug ("DL: UE %U, Dst: %U\n", format_ip46_address, &acl->ue_ip,
                  IP46_TYPE_ANY, format_ip46_address,
-                 &flow->key.ip[FT_REVERSE ^ direction], IP46_TYPE_ANY);
+                 &flow->key.ip[FTK_EL_DST ^ pkt_key_direction], IP46_TYPE_ANY);
       if (!ip46_address_is_equal_masked (
-            &acl->ue_ip, &flow->key.ip[FT_REVERSE ^ direction],
+            &acl->ue_ip, &flow->key.ip[FTK_EL_DST ^ pkt_key_direction],
             (ip46_address_t *) &ip6_main.fib_masks[pf_len]))
         return 0;
       break;
@@ -190,18 +193,18 @@ upf_acl_classify_one (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
       (acl->match.protocol & acl->mask.protocol))
     return 0;
 
-  if (!acl_ip46_is_equal_masked (&flow->key.ip[FT_ORIGIN ^ direction], acl,
-                                 UPF_ACL_FIELD_SRC) ||
-      !acl_ip46_is_equal_masked (&flow->key.ip[FT_REVERSE ^ direction], acl,
-                                 UPF_ACL_FIELD_DST))
+  if (!acl_ip46_is_equal_masked (&flow->key.ip[FTK_EL_SRC ^ pkt_key_direction],
+                                 acl, UPF_ACL_FIELD_SRC) ||
+      !acl_ip46_is_equal_masked (&flow->key.ip[FTK_EL_DST ^ pkt_key_direction],
+                                 acl, UPF_ACL_FIELD_DST))
     return 0;
 
   if (!acl_port_in_range (
-        clib_net_to_host_u16 (flow->key.port[FT_ORIGIN ^ direction]), acl,
-        UPF_ACL_FIELD_SRC) ||
+        clib_net_to_host_u16 (flow->key.port[FTK_EL_SRC ^ pkt_key_direction]),
+        acl, UPF_ACL_FIELD_SRC) ||
       !acl_port_in_range (
-        clib_net_to_host_u16 (flow->key.port[FT_REVERSE ^ direction]), acl,
-        UPF_ACL_FIELD_DST))
+        clib_net_to_host_u16 (flow->key.port[FTK_EL_DST ^ pkt_key_direction]),
+        acl, UPF_ACL_FIELD_DST))
     return 0;
 
   return 1;
@@ -225,27 +228,27 @@ upf_acl_classify_forward (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
     *pdr_idx = ~0;
   if (teid != 0)
     {
-      flow_side (flow, FT_ORIGIN)->teid = teid;
+      flow_side (flow, FT_INITIATOR)->teid = teid;
     }
   else
     {
-      teid = flow_side (flow, FT_ORIGIN)->teid;
+      teid = flow_side (flow, FT_INITIATOR)->teid;
     }
 
   if (flow->key.proto == IP_PROTOCOL_TCP && active->proxy_pdr_idx != ~0)
     {
       /* bypass flow classification if we decided to proxy */
       flow->is_l3_proxy = 1;
-      flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROXY;
-      flow_side (flow, FT_REVERSE)->next = FT_NEXT_CLASSIFY;
+      flow_side (flow, FT_INITIATOR)->next = FT_NEXT_PROXY;
+      flow_side (flow, FT_RESPONDER)->next = FT_NEXT_CLASSIFY;
       next = UPF_CLASSIFY_NEXT_PROXY;
     }
   else
     {
       /* no matching ACL and not pending ADF */
       flow->is_l3_proxy = 0;
-      flow_side (flow, FT_ORIGIN)->next = FT_NEXT_DROP;
-      flow_side (flow, FT_REVERSE)->next = FT_NEXT_DROP;
+      flow_side (flow, FT_INITIATOR)->next = FT_NEXT_DROP;
+      flow_side (flow, FT_RESPONDER)->next = FT_NEXT_DROP;
       next = UPF_CLASSIFY_NEXT_DROP;
     }
 
@@ -255,14 +258,13 @@ upf_acl_classify_forward (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
   /* find ACL with the highest precedence that matches this flow */
   vec_foreach (acl, acl_vec)
     {
-      if (upf_acl_classify_one (vm, teid, flow,
-                                FT_ORIGIN ^ flow->initiator_direction, is_ip4,
-                                acl, active))
+      if (upf_acl_classify_one (vm, teid, flow, FT_INITIATOR, is_ip4, acl,
+                                active))
         {
           upf_pdr_t *pdr;
 
           pdr = vec_elt_at_index (active->pdr, acl->pdr_idx);
-          flow_side (flow, FT_ORIGIN)->pdr_id = pdr->id;
+          flow_side (flow, FT_INITIATOR)->pdr_id = pdr->id;
 
           /* FIXME: the following needs more testing for the reclassify case */
           if (!flow->is_l3_proxy ||
@@ -280,24 +282,24 @@ upf_acl_classify_forward (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
                 {
                   flow->is_l3_proxy = 1;
                   flow->is_redirect = 1;
-                  flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROXY;
-                  flow_side (flow, FT_REVERSE)->next = FT_NEXT_CLASSIFY;
-                  flow_side (flow, FT_REVERSE)->pdr_id = pdr->id;
+                  flow_side (flow, FT_INITIATOR)->next = FT_NEXT_PROXY;
+                  flow_side (flow, FT_RESPONDER)->next = FT_NEXT_CLASSIFY;
+                  flow_side (flow, FT_RESPONDER)->pdr_id = pdr->id;
                   next = UPF_CLASSIFY_NEXT_PROXY;
                 }
               else if (reclassifying_proxy_flow)
                 {
                   /* can't undo proxying that was already there */
                   flow->is_l3_proxy = 1;
-                  flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROXY;
-                  flow_side (flow, FT_REVERSE)->next = FT_NEXT_CLASSIFY;
+                  flow_side (flow, FT_INITIATOR)->next = FT_NEXT_PROXY;
+                  flow_side (flow, FT_RESPONDER)->next = FT_NEXT_CLASSIFY;
                   next = UPF_CLASSIFY_NEXT_PROXY;
                 }
               else
                 {
                   flow->is_l3_proxy = 0;
-                  flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROCESS;
-                  flow_side (flow, FT_REVERSE)->next = FT_NEXT_CLASSIFY;
+                  flow_side (flow, FT_INITIATOR)->next = FT_NEXT_PROCESS;
+                  flow_side (flow, FT_RESPONDER)->next = FT_NEXT_CLASSIFY;
                   next = UPF_CLASSIFY_NEXT_PROCESS;
                 }
 
@@ -323,9 +325,9 @@ upf_acl_classify_proxied (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
   upf_acl_t *acl, *acl_vec;
 
   if (teid)
-    flow_side (flow, FT_REVERSE)->teid = teid;
+    flow_side (flow, FT_RESPONDER)->teid = teid;
   else
-    teid = flow_side (flow, FT_REVERSE)->teid;
+    teid = flow_side (flow, FT_RESPONDER)->teid;
 
   acl_vec = is_ip4 ? active->v4_acls : active->v6_acls;
   upf_debug ("TEID %08x, ACLs %p (%u)\n", teid, acl_vec, vec_len (acl_vec));
@@ -333,9 +335,8 @@ upf_acl_classify_proxied (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
   /* find ACL with the highest precedence that matches this flow */
   vec_foreach (acl, acl_vec)
     {
-      if (upf_acl_classify_one (vm, teid, flow,
-                                FT_REVERSE ^ flow->initiator_direction, is_ip4,
-                                acl, active))
+      if (upf_acl_classify_one (vm, teid, flow, FT_RESPONDER, is_ip4, acl,
+                                active))
         {
           upf_pdr_t *pdr;
           pdr = vec_elt_at_index (active->pdr, acl->pdr_idx);
@@ -344,10 +345,10 @@ upf_acl_classify_proxied (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
             *pdr_idx = acl->pdr_idx;
           next = UPF_CLASSIFY_NEXT_FORWARD;
 
-          if (flow_side (flow, FT_REVERSE)->pdr_id == ~0)
+          if (flow_side (flow, FT_RESPONDER)->pdr_id == ~0)
             {
               /* load the best matching ACL into the flow */
-              flow_side (flow, FT_REVERSE)->pdr_id = pdr->id;
+              flow_side (flow, FT_RESPONDER)->pdr_id = pdr->id;
             }
 
           if (pdr->pdi.fields & F_PDI_APPLICATION_ID)
@@ -370,9 +371,9 @@ upf_acl_classify_return (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
   upf_acl_t *acl, *acl_vec;
 
   if (teid)
-    flow_side (flow, FT_REVERSE)->teid = teid;
+    flow_side (flow, FT_RESPONDER)->teid = teid;
   else
-    teid = flow_side (flow, FT_REVERSE)->teid;
+    teid = flow_side (flow, FT_RESPONDER)->teid;
 
   acl_vec = is_ip4 ? active->v4_acls : active->v6_acls;
   upf_debug ("TEID %08x, ACLs %p (%u)\n", teid, acl_vec, vec_len (acl_vec));
@@ -380,9 +381,8 @@ upf_acl_classify_return (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
   /* find ACL with the highest precedence that matches this flow */
   vec_foreach (acl, acl_vec)
     {
-      if (upf_acl_classify_one (vm, teid, flow,
-                                FT_REVERSE ^ flow->initiator_direction, is_ip4,
-                                acl, active))
+      if (upf_acl_classify_one (vm, teid, flow, FT_RESPONDER, is_ip4, acl,
+                                active))
         {
           upf_pdr_t *pdr;
 
@@ -390,16 +390,16 @@ upf_acl_classify_return (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
 
           if (pdr_idx)
             *pdr_idx = acl->pdr_idx;
-          flow_side (flow, FT_REVERSE)->pdr_id = pdr->id;
+          flow_side (flow, FT_RESPONDER)->pdr_id = pdr->id;
 
           if (flow->is_l3_proxy)
             {
-              flow_side (flow, FT_REVERSE)->next = FT_NEXT_PROXY;
+              flow_side (flow, FT_RESPONDER)->next = FT_NEXT_PROXY;
               next = UPF_CLASSIFY_NEXT_PROXY;
             }
           else
             {
-              flow_side (flow, FT_REVERSE)->next = FT_NEXT_PROCESS;
+              flow_side (flow, FT_RESPONDER)->next = FT_NEXT_PROCESS;
               next = UPF_CLASSIFY_NEXT_PROCESS;
             }
 
@@ -441,8 +441,8 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       u32 n_left_to_next;
       vlib_buffer_t *b;
       flow_entry_t *flow;
-      u8 pkt_direction;
-      flow_key_direction_t direction;
+      flow_key_direction_t pkt_key_direction;
+      flow_direction_t direction;
       u32 bi;
       u8 reclassify_proxy_flow;
       adr_result_t ar;
@@ -475,19 +475,18 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
           flow =
             pool_elt_at_index (fm->flows, upf_buffer_opaque (b)->gtpu.flow_id);
 
-          pkt_direction = upf_buffer_opaque (b)->gtpu.pkt_direction;
-          direction = (pkt_direction == flow->initiator_direction) ?
-                        FT_ORIGIN :
-                        FT_REVERSE;
+          pkt_key_direction = upf_buffer_opaque (b)->gtpu.pkt_key_direction;
+          direction = pkt_key_direction ^ flow->flow_key_direction;
           /*
            * In case of a proxy flow surviving session modification,
            * we need to classify both ends of the flow to re-run the
            * app detection just once
            */
           reclassify_proxy_flow = flow->is_l3_proxy;
-          upf_debug ("pkt_direction %s, dir %s\n",
-                     pkt_direction == FT_ORIGIN ? "FT_ORIGIN" : "FT_REVERSE",
-                     direction == FT_ORIGIN ? "FT_ORIGIN" : "FT_REVERSE");
+          upf_debug (
+            "pkt_direction %s, dir %s\n",
+            pkt_key_direction == FT_FORWARD ? "FT_FORWARD" : "FT_REVERSE",
+            direction == FT_INITIATOR ? "FT_INITIATOR" : "FT_RESPONDER");
 
           if (flow_side (flow, direction)->next != FT_NEXT_CLASSIFY)
             {
@@ -504,7 +503,7 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
                 flow_pdr_idx (flow, direction, active);
               next = upf_classify_flow_next[flow_side (flow, direction)->next];
             }
-          else if (direction == FT_ORIGIN)
+          else if (direction == FT_INITIATOR)
             {
               next = upf_acl_classify_forward (
                 vm, upf_buffer_opaque (b)->gtpu.teid, flow, active, is_ip4,
@@ -542,10 +541,10 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
             }
 
           upf_debug ("Next: %u", next);
-          ASSERT (flow_side (flow, FT_ORIGIN)->next != FT_NEXT_PROXY ||
-                  flow_side (flow, FT_ORIGIN)->pdr_id != ~0);
-          ASSERT (flow_side (flow, FT_REVERSE)->next != FT_NEXT_PROXY ||
-                  flow_side (flow, FT_REVERSE)->pdr_id != ~0);
+          ASSERT (flow_side (flow, FT_INITIATOR)->next != FT_NEXT_PROXY ||
+                  flow_side (flow, FT_INITIATOR)->pdr_id != ~0);
+          ASSERT (flow_side (flow, FT_RESPONDER)->next != FT_NEXT_PROXY ||
+                  flow_side (flow, FT_RESPONDER)->pdr_id != ~0);
 
           upf_debug ("flow: %p (%u): %U\n",
                      fm->flows + upf_buffer_opaque (b)->gtpu.flow_id,

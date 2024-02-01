@@ -108,7 +108,7 @@ net_sub (u32 *data, u32 sub)
 }
 
 static_always_inline int
-upf_tcp_tstamp_mod (tcp_header_t *th, flow_key_direction_t direction,
+upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
                     flow_entry_t *flow)
 {
   const u8 *data;
@@ -172,19 +172,22 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_key_direction_t direction,
           blocks = (opt_len - 2) / TCP_OPTION_LEN_SACK_BLOCK;
           for (j = 0; j < blocks; j++)
             {
-              if (direction == FT_ORIGIN)
+              // TODO: can get rid of this "if" by replacing flow_side with
+              // direction ^ FT_REVERSE
+
+              if (direction == FT_INITIATOR)
                 {
                   net_add ((u32 *) (data + 2 + 8 * j),
-                           flow_side (flow, FT_REVERSE)->tcp.seq_offs);
+                           flow_side (flow, FT_RESPONDER)->tcp.seq_offs);
                   net_add ((u32 *) (data + 6 + 8 * j),
-                           flow_side (flow, FT_REVERSE)->tcp.seq_offs);
+                           flow_side (flow, FT_RESPONDER)->tcp.seq_offs);
                 }
               else
                 {
                   net_sub ((u32 *) (data + 2 + 8 * j),
-                           flow_side (flow, FT_ORIGIN)->tcp.seq_offs);
+                           flow_side (flow, FT_INITIATOR)->tcp.seq_offs);
                   net_sub ((u32 *) (data + 6 + 8 * j),
-                           flow_side (flow, FT_ORIGIN)->tcp.seq_offs);
+                           flow_side (flow, FT_INITIATOR)->tcp.seq_offs);
                 }
             }
           break;
@@ -226,7 +229,7 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       while (n_left_from > 0 && n_left_to_next > 0)
         {
-          flow_key_direction_t direction;
+          flow_direction_t direction;
           flow_entry_t *flow = NULL;
           ip4_header_t *ip4;
           ip6_header_t *ip6;
@@ -257,10 +260,8 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
             }
 
           flow = pool_elt_at_index (fm->flows, flow_id);
-          direction = (flow->initiator_direction ==
-                       upf_buffer_opaque (b)->gtpu.pkt_direction) ?
-                        FT_ORIGIN :
-                        FT_REVERSE;
+          direction = flow->flow_key_direction ^
+                      upf_buffer_opaque (b)->gtpu.pkt_key_direction;
 
           /* mostly borrowed from vnet/interface_output.c calc_checksums */
           if (is_ip4)
@@ -277,15 +278,15 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
           seq = clib_net_to_host_u32 (th->seq_number);
           ack = clib_net_to_host_u32 (th->ack_number);
 
-          if (direction == FT_ORIGIN)
+          if (direction == FT_INITIATOR)
             {
-              seq += flow_side (flow, FT_ORIGIN)->tcp.seq_offs;
-              ack += flow_side (flow, FT_REVERSE)->tcp.seq_offs;
+              seq += flow_side (flow, FT_INITIATOR)->tcp.seq_offs;
+              ack += flow_side (flow, FT_RESPONDER)->tcp.seq_offs;
             }
           else
             {
-              seq -= flow_side (flow, FT_REVERSE)->tcp.seq_offs;
-              ack -= flow_side (flow, FT_ORIGIN)->tcp.seq_offs;
+              seq -= flow_side (flow, FT_RESPONDER)->tcp.seq_offs;
+              ack -= flow_side (flow, FT_INITIATOR)->tcp.seq_offs;
             }
 
           th->seq_number = clib_host_to_net_u32 (seq);
