@@ -434,6 +434,9 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
 
+  /* handle expirations */
+  CPT_TIMER_EXPIRE += flowtable_timer_expire (fm, fmt, current_time);
+
 #define _(sym, str)                                                           \
   vlib_node_increment_counter (vm, node->node_index, FLOWTABLE_ERROR_##sym,   \
                                CPT_##sym);

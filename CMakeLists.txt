@@ -96,7 +96,6 @@ set(UPF_PLUGIN_SOURCES
   upf/upf_ipfix.c
   upf/upf_ipfix_templates.c
   upf/flowtable_init.c
-  upf/flowtable_timer.c
   upf/flowtable.c
   upf/unittest.c
 
@@ -115,7 +114,6 @@ set(UPF_PLUGIN_SOURCES
 
 set(UPF_PLUGIN_HEADER_FILES
   upf/upf.h
-  upf/slo.h
   upf/pfcp.h
   upf/upf_pfcp.h
   upf/upf_pfcp_api.h
@@ -126,7 +124,6 @@ set(UPF_PLUGIN_HEADER_FILES
   upf/upf_app_dpo.h
   upf/upf_app_db.h
   upf/flowtable.h
-  upf/flowtable_timer.h
   upf/flowtable_tcp.h
   upf/upf_buffer_opaque.h
   upf/upf_ipfix.h

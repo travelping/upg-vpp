@@ -391,8 +391,8 @@ upf_ipfix_get_buffer (vlib_main_t *vm, upf_ipfix_protocol_context_t *context)
 
       /* Initialize the buffer */
       b0 = context->buffers_per_worker[my_cpu_number] =
-
         vlib_get_buffer (vm, bi0);
+
       b0->current_data = 0;
       b0->current_length = upf_ipfix_get_headersize ();
       b0->flags |=
@@ -962,7 +962,7 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
   else
     info_key.sw_if_index = upf_ip46_get_resolving_interface (
       info_key.egress_fib_index,
-      &f->key.ip[FTK_EL_SRC ^ FT_REVERSE ^ f->flow_key_direction ^ direction],
+      &f->key.ip[FTK_EL_DST ^ direction ^ f->flow_key_direction],
       info_key.is_ip4);
 
   iidx = upf_ensure_ref_ipfix_info (&info_key);

@@ -35,6 +35,7 @@
   _ (THRU, "packets gone through")                                            \
   _ (CREATED, "packets which created a new flow")                             \
   _ (NO_SESSION, "packet without session")                                    \
+  _ (TIMER_EXPIRE, "flows that have expired")                                 \
   _ (COLLISION, "hashtable collisions")                                       \
   _ (OVERFLOW, "dropped due to flowtable overflow")
 
@@ -55,33 +56,30 @@ typedef enum
   FT_NEXT_N_NEXT
 } flowtable_next_t;
 
-// Currently we have at least 2 directions:
-// packet key direction - to know if key was reversed for this packet
-// flow key direction - to know how to convert key direction to flow direction
-
-// Good rule of thumb is to use pkt/flow/key in names and on every XOR
-// operation "XOR" this names as well. For example:
-// pkt_key_direction ^ flow_key_direction = pkt_flow_direction
-// pkt_key_direction ^ pkt_flow_direction = flow_key_direction
-
-typedef enum
-{
-  FT_FORWARD = 0, // Original key direction
-  FT_REVERSE,     // Reversed key direction
-  FT_ORDER_MAX
-} __clib_packed flow_key_direction_t;
-
+// Flowtable direction based on 3 values which can be xored:
+// - packet key direction - if key is reversed for packet
+// - flow key direction - convert key to index in flow key elements
+// - packet flow direction (or just direction) - direction of packet in flow
+// Good rule of thumb is to use pkt/flow/key in variable names and on every XOR
+// operation "XOR" this names as well. Example:
+//   pkt_key_direction ^ flow_key_direction = pkt_flow_direction
 typedef enum
 {
   FT_INITIATOR = 0, // direction in which flow was created
   FT_RESPONDER = 1,
+  FT_DIRECTION_MAX
 } __clib_packed flow_direction_t;
 
-// Same as forward or reverse, but for selecting fields of key
 typedef enum
 {
-  FTK_EL_SRC = 0,
-  FTK_EL_DST = 1,
+  FT_FORWARD = 0, // original key direction
+  FT_REVERSE,     // reversed key direction
+} __clib_packed flow_key_direction_t;
+
+typedef enum
+{
+  FTK_EL_SRC = 0, // select src field of pkt in direction
+  FTK_EL_DST = 1, // select dst field of pkt in direction
 } __clib_packed flow_key_el_t;
 
 /* key */
@@ -92,8 +90,8 @@ typedef struct
     struct
     {
       u64 up_seid;
-      ip46_address_t ip[FT_ORDER_MAX];
-      u16 port[FT_ORDER_MAX];
+      ip46_address_t ip[FT_DIRECTION_MAX];
+      u16 port[FT_DIRECTION_MAX];
       u8 proto;
     };
     u64 key[6];
@@ -158,11 +156,9 @@ typedef struct flow_entry
   flow_key_t key;
   u32 session_index;
 
-  // Is src/dst been swapped on flow creation
-  // Bascially this means if dst field is initiator of flow or not
-  // And used to store iniciator data in first side array element
-  // Initiator of flow is not corresponding to pfcp or ipfix direction
+  // Used to store initiator fields in first element of key
   u8 flow_key_direction : 1;
+
   u8 is_redirect : 1;
   u8 is_l3_proxy : 1;
   u8 is_spliced : 1;
@@ -179,7 +175,7 @@ typedef struct flow_entry
   u16 timer_slot; /* timer list index in the timer lists pool */
   flow_timeout_list_anchor_t timer_anchor;
 
-  flow_side_t side[FT_ORDER_MAX];
+  flow_side_t side[FT_DIRECTION_MAX];
 
   /* UPF data */
   u32 application_id; /* L7 app index */
@@ -205,9 +201,26 @@ UPF_LLIST_TEMPLATE_DEFINITIONS (flow_timeout_list, flow_entry_t, timer_anchor);
 __clib_unused always_inline flow_side_t *
 flow_side (flow_entry_t *f, flow_direction_t direction)
 {
-  ASSERT (direction >= 0 && direction < FT_ORDER_MAX);
+  ASSERT (direction >= 0 && direction < FT_DIRECTION_MAX);
   return &f->side[direction ^ f->flow_key_direction];
 }
+
+#define foreach_upf_flowtable_timer_error                                     \
+  _ (TIMER_EXPIRE, "flows that have expired")
+
+typedef enum
+{
+#define _(sym, str) FLOWTABLE_TIMER_ERROR_##sym,
+  foreach_upf_flowtable_timer_error
+#undef _
+    FLOWTABLE_TIMER_N_ERROR
+} upf_flowtable_timer_node_error_t;
+
+// TODO: Currently flowtable timer input node is just backup in case if there
+// is low amount of traffic on interface and events need to be flushed. In
+// future make it primary way and tie it to target SLO like
+// FLOWTABLE_TIMER_FREQUENCY = (UPF_SLO_PER_THREAD_FLOWS_PER_SECOND / 512.0)
+#define FLOWTABLE_TIMER_FREQUENCY (32.0)
 
 /* Timers (in seconds) */
 #define FLOW_TIMER_DEFAULT_LIFETIME (60)
@@ -287,9 +300,8 @@ void flowtable_timer_wheel_index_update (flowtable_main_t *fm,
                                          flowtable_main_per_cpu_t *fmt,
                                          u32 now);
 
-void flowtable_entry_remove_internal (flowtable_main_t *fm,
-                                      flowtable_main_per_cpu_t *fmt,
-                                      flow_entry_t *f, u32 now);
+u64 flowtable_timer_expire (flowtable_main_t *fm,
+                            flowtable_main_per_cpu_t *fmt, u32 now);
 
 always_inline u16
 flowtable_time_to_timer_slot (u32 when_seconds)

@@ -415,7 +415,7 @@ typedef struct
 #define FAR_F_FORWARDING_POLICY     BIT (2)
 
   pfcp_ie_destination_interface_t dst_intf;
-  u32 dst_sw_if_index;
+  u32 dst_sw_if_index; // defined only with FAR_F_OUTER_HEADER_CREATION
   u32 nwi_index;
 
   pfcp_ie_redirect_information_t redirect_information;
