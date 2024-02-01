@@ -104,8 +104,9 @@ format_upf_proxy_output_trace (u8 *s, va_list *args)
 
 static uword
 upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
-                  vlib_frame_t *from_frame, const flow_direction_t direction,
-                  int is_ip4, int no_opaque, int far_only)
+                  vlib_frame_t *from_frame,
+                  const flow_direction_t output_direction, int is_ip4,
+                  int no_opaque, int far_only)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -208,7 +209,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
           UPF_ENTER_SUBGRAPH (b, flow->session_index, is_ip4);
           upf_buffer_opaque (b)->gtpu.flow_id = flow_id;
           upf_buffer_opaque (b)->gtpu.pkt_key_direction =
-            direction ^ flow->flow_key_direction;
+            output_direction ^ flow->flow_key_direction;
           upf_buffer_opaque (b)->gtpu.is_proxied = 1;
 
           /* mostly borrowed from vnet/interface_output.c calc_checksums */
@@ -231,7 +232,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
                                             VNET_BUFFER_OFFLOAD_F_UDP_CKSUM |
                                             VNET_BUFFER_OFFLOAD_F_IP_CKSUM));
 
-          next = ft_next_map_next[flow_side (flow, direction)->next];
+          next = ft_next_map_next[flow_side (flow, output_direction)->next];
           if (next == UPF_PROXY_OUTPUT_NEXT_PROCESS)
             {
               upf_pdr_t *pdr;
@@ -246,11 +247,13 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
               if (sx->generation != flow->generation)
                 sx = NULL;
 
-              ASSERT (flow_side (flow, direction)->pdr_id != ~0);
+              ASSERT (flow_side (flow, output_direction)->pdr_id != ~0);
               active = sx ? pfcp_get_rules (sx, PFCP_ACTIVE) : NULL;
-              pdr = active ? pfcp_get_pdr_by_id (
-                               active, flow_side (flow, direction)->pdr_id) :
-                             NULL;
+              pdr = active ?
+                      pfcp_get_pdr_by_id (
+                        active, flow_side (flow, output_direction)->pdr_id) :
+                      NULL;
+
               if (!pdr)
                 {
                   next = UPF_PROXY_OUTPUT_NEXT_DROP;

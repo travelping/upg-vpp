@@ -434,7 +434,7 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
 
   adf_debug ("URI: %v", uri);
 
-  origin = app_scan_for_uri (uri, flow, active, FT_RESPONDER, origin);
+  origin = app_scan_for_uri (uri, flow, active, FT_INITIATOR, origin);
   if (origin)
     {
       upf_far_t *far = pfcp_get_far_by_id (active, origin->far_id);
@@ -443,7 +443,7 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
     }
   reverse = flow->is_redirect ?
               origin :
-              app_scan_for_uri (uri, flow, active, FT_INITIATOR, reverse);
+              app_scan_for_uri (uri, flow, active, FT_RESPONDER, reverse);
 
 out:
   if (!origin)

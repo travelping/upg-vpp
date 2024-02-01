@@ -377,8 +377,8 @@ proxy_start_connect_fn (const u32 *session_index)
     }
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
-  src = &flow->key.ip[FTK_EL_SRC ^ flow->flow_key_direction];
-  dst = &flow->key.ip[FTK_EL_DST ^ flow->flow_key_direction];
+  src = &flow->key.ip[FTK_EL_SRC ^ FT_INITIATOR ^ flow->flow_key_direction];
+  dst = &flow->key.ip[FTK_EL_DST ^ FT_INITIATOR ^ flow->flow_key_direction];
   is_ip4 = ip46_address_is_ip4 (dst);
 
   ASSERT (flow_side (flow, FT_INITIATOR)->pdr_id != ~0);
@@ -390,15 +390,17 @@ proxy_start_connect_fn (const u32 *session_index)
   a->api_context = *session_index;
   a->app_index = pm->active_open_app_index;
   a->sep_ext = (session_endpoint_cfg_t) SESSION_ENDPOINT_CFG_NULL;
+
   upf_nwi_if_and_fib_index (gtm, is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
                             far->forward.nwi_index, &a->sep_ext.sw_if_index,
                             &a->sep_ext.fib_index);
+
   a->sep_ext.transport_proto = TRANSPORT_PROTO_TCP;
   a->sep_ext.mss = pm->mss;
   a->sep_ext.is_ip4 = is_ip4;
   a->sep_ext.ip = *dst;
   a->sep_ext.port =
-    flow->key.port[FTK_EL_SRC ^ FT_RESPONDER ^ flow->flow_key_direction];
+    flow->key.port[FTK_EL_DST ^ FT_INITIATOR ^ flow->flow_key_direction];
   a->sep_ext.next_node_index = is_ip4 ? pm->tcp4_server_output_next_active :
                                         pm->tcp6_server_output_next_active;
   a->sep_ext.next_node_opaque = ps->flow_index + 1;
@@ -649,7 +651,7 @@ session_cleanup (session_t *s, session_cleanup_ntf_t ntf, int is_active_open)
     goto out_unlock;
   flow = pool_elt_at_index (fm->flows, flow_index);
 
-  ftc = &flow_side (flow, is_active_open ? FT_REVERSE : FT_FORWARD)->tcp;
+  ftc = &flow_side (flow, is_active_open ? FT_RESPONDER : FT_INITIATOR)->tcp;
   ftc->conn_index = ~0;
 
 out_unlock:
@@ -811,7 +813,7 @@ proxy_send_redir (session_t *s, upf_proxy_session_t *ps, flow_entry_t *flow,
   u8 *wispr, *html, *http, *url;
   int i;
 
-  pdr = pfcp_get_pdr_by_id (active, flow_side (flow, FT_FORWARD)->pdr_id);
+  pdr = pfcp_get_pdr_by_id (active, flow_side (flow, FT_INITIATOR)->pdr_id);
   far = pfcp_get_far_by_id (active, pdr->far_id);
 
   /* Edge case: session modified, redirect no longer applicable */

@@ -381,7 +381,7 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
                       upf_buffer_opaque (b)->gtpu.pkt_key_direction;
 
           upf_debug ("direction: %u, buffer: %u, flow: %u", direction,
-                     upf_buffer_opaque (b)->gtpu.pkt_direction,
+                     upf_buffer_opaque (b)->gtpu.pkt_key_direction,
                      flow->flow_key_direction);
 
           vnet_buffer (b)->ip.rx_sw_if_index =
