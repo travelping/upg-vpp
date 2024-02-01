@@ -915,6 +915,14 @@ handle_create_pdr (upf_session_t *sx, pfcp_ie_create_pdr_t *create_pdr,
           if (create->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
             sx->user_addr.as_u32 = create->pdi.ue_addr.ip4.as_u32;
 
+          // clib_warning ("sx->user_addr.as_u32 = 0x%08x",
+          // sx->user_addr.as_u32); if (sx->user_addr.as_u32 == 0x300010a)
+          //   {
+          //     sx->user_addr.as_u32 = 0x14000090;
+          //     clib_warning ("sx->user_addr.as_u32 = 0x%08x",
+          //                   sx->user_addr.as_u32);
+          //   }
+
           if (!ISSET_BIT (pdr->pdi.grp.fields, PDI_SDF_FILTER) &&
               !ISSET_BIT (pdr->pdi.grp.fields, PDI_APPLICATION_ID))
             {
@@ -2614,9 +2622,6 @@ handle_session_establishment_request (pfcp_msg_t *msg,
       memcpy (&sess->user_id, &req->user_id, sizeof (pfcp_ie_user_id_t));
       sess->user_id.nai = vec_dup (req->user_id.nai);
     }
-
-  if (sess->user_addr.as_u32 == 0x300010a)
-    sess->user_addr.as_u32 = 0x14000090;
 
   if ((r = handle_create_pdr (sess, req->create_pdr, resp)) != 0)
     goto out_send_resp;

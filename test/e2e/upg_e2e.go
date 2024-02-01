@@ -2411,7 +2411,7 @@ func describeNAT(f *framework.Framework) {
 
 		})
 		ginkgo.AfterEach(func() {
-			// out, _ := f.VPP.Ctl("show trace")
+			f.VPP.Ctl("show trace")
 			f.VPP.Ctl("sh ip fib table 100")
 			f.VPP.Ctl("sh ip fib table 200")
 			f.VPP.Ctl("sh fib paths")

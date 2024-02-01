@@ -1511,6 +1511,16 @@ pfcp_add_del_ue_ip (const void *ip, void *si, int is_add)
 
   memset (&pfx, 0, sizeof (pfx));
 
+  u32 *ip2 = &ue_ip->addr.ip4.as_u32;
+  // this seems to be the one
+
+  clib_warning ("QQQQQ XD2 : ip = 0x%08x", *ip2);
+  if (*ip2 == 0x300010a)
+    {
+      *ip2 = 0x14000090;
+      clib_warning ("QQQQQCD2 = 0x%08x", *ip2);
+    }
+
   if (ip46_address_is_ip4 (&ue_ip->addr))
     {
       pfx.fp_addr.ip4.as_u32 = ue_ip->addr.ip4.as_u32;
@@ -1588,6 +1598,16 @@ pfcp_add_del_tdf (const void *tdf, void *si, int is_ip4, int is_add)
   upf_main_t *gtm = &upf_main;
   upf_acl_t *acl = (upf_acl_t *) tdf;
   upf_session_t *sx = si;
+
+  u32 *ip = &acl->match.address[UPF_ACL_FIELD_SRC].ip4.as_u32;
+
+  clib_warning ("QQQQQ XD : ip = 0x%08x", *ip);
+  if (*ip == 0x300010a)
+    {
+      // *ip = 0x14000090;
+      clib_warning ("QQQQQCD = 0x%08x", *ip);
+    }
+
   fib_prefix_t pfx = {
     .fp_proto = is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
     .fp_addr = acl->match.address[UPF_ACL_FIELD_SRC],
@@ -1944,6 +1964,15 @@ build_pfcp_rules (upf_session_t *sx)
           if (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
             {
               ip46_address_set_ip4 (&ue_ip.addr, &pdr->pdi.ue_addr.ip4);
+
+              clib_warning ("QQQQQNEW = 0x%016x", *ue_ip.addr.as_u64);
+              if (*ue_ip.addr.as_u64 == 0x300010a)
+                {
+                  *ue_ip.addr.as_u64 = 0x14000090;
+                  clib_warning ("QQQQQNEW sess->user_addr.as_u32 = 0x%08x",
+                                *ue_ip.addr.as_u64);
+                }
+
               ue_ip.fib_index =
                 upf_fib_index_by_sw_if_index (sw_if_index, 1 /* is_ip4 */);
               ue_ip.sw_if_index = sw_if_index;

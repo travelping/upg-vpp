@@ -335,6 +335,53 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           len0 = vlib_buffer_length_in_chain (vm, b0);
           UPF_CHECK_INNER_NODE (b0);
 
+          ip4_header_t *ip4 = vlib_buffer_get_current (b0);
+          tcp_header_t *tcp = ip4_next_header (ip4);
+          // ip4->src_address.as_u32 = 0xAAAAAAAA;
+          // upf_debug ("QQQQQQQ IP hdr: %U", format_ip4_header,
+          //            vlib_buffer_get_current (b), b->current_length);
+          //
+          int l3_csum_delta = 0;
+          int l4_csum_delta = 0;
+          if (ip4->dst_address.as_u32 == 0x14000090 &&
+              ip4->src_address.as_u32 == 0x301000a)
+            {
+              ip4->dst_address.as_u32 = 0x300010a;
+              l3_csum_delta = ip_csum_add_even (l3_csum_delta, 0x300010a);
+              l3_csum_delta = ip_csum_sub_even (l3_csum_delta, 0x14000090);
+              // l3_csum_delta = ip_csum_add_even (l3_csum_delta,
+              // 0x300010a); l3_csum_delta = ip_csum_sub_even
+              // (l3_csum_delta, 0x14000090);
+            }
+
+          // // int delta = ip_csum_add_even (0, ip4->src_address.as_u32);
+          // // ip_sum = ip_csum_add_even (ip_sum, delta);
+          // // ip4->checksum = ip_csum_fold (ip_sum);
+          //
+          // ip_csum_t tcp_sum = tcp->checksum;
+          // tcp_sum = ip_csum_sub_even (tcp_sum, f->l3_csum_delta);
+          // tcp_sum = ip_csum_sub_even (tcp_sum, f->l4_csum_delta);
+          // mss_clamping (sm->mss_clamping, tcp, &tcp_sum);
+          // tcp->checksum = ip_csum_fold (tcp_sum);
+          //
+
+          ip_csum_t tcp_sum = tcp->checksum;
+          tcp_sum = ip_csum_sub_even (tcp_sum, l3_csum_delta);
+          tcp_sum = ip_csum_sub_even (tcp_sum, l4_csum_delta);
+          // mss_clamping (sm->mss_clamping, tcp, &tcp_sum);
+          tcp->checksum = ip_csum_fold (tcp_sum);
+
+          ip_csum_t ip_sum = ip4->checksum;
+          ip_sum = ip_csum_sub_even (ip_sum, l3_csum_delta);
+          ip4->checksum = ip_csum_fold (ip_sum);
+
+          // ip4->checksum = 0;
+          // ip4->checksum = ip4_header_checksum (ip4);
+
+          clib_warning ("QQQQQZaaaaa ip4->src_address.as_u32 = %x, "
+                        "ip4->dst_address.as_u32 = %x",
+                        ip4->src_address.as_u32, ip4->dst_address.as_u32);
+
           if (PREDICT_FALSE (pool_is_free_index (
                 gtm->sessions, upf_buffer_opaque (b0)->gtpu.session_index)))
             {
