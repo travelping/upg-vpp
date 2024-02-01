@@ -24,8 +24,6 @@
 
 extern vlib_node_registration_t upf_ip4_proxy_server_output_node;
 extern vlib_node_registration_t upf_ip6_proxy_server_output_node;
-extern vlib_node_registration_t upf_ip4_proxy_server_no_conn_output_node;
-extern vlib_node_registration_t upf_ip6_proxy_server_no_conn_output_node;
 extern vlib_node_registration_t upf_ip4_proxy_server_far_only_output_node;
 extern vlib_node_registration_t upf_ip6_proxy_server_far_only_output_node;
 

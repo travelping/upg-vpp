@@ -1369,20 +1369,10 @@ static void
 upf_proxy_create (vlib_main_t *vm, u32 fib_index, int is_ip4)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
-  tcp_main_t *tm = vnet_get_tcp_main ();
   int rv;
 
   if (pm->server_client_index == (u32) ~0)
     vnet_session_enable_disable (vm, 1 /* turn on TCP, etc. */);
-
-  /* Set next nodes for non-connection-bound packets */
-  /* TODO: this is broken in VPP 22.02, these values are ignored */
-  tm->ipl_next_node[0] =
-    vlib_node_add_next (vm, session_queue_node.index,
-                        upf_ip4_proxy_server_no_conn_output_node.index);
-  tm->ipl_next_node[1] =
-    vlib_node_add_next (vm, session_queue_node.index,
-                        upf_ip6_proxy_server_no_conn_output_node.index);
 
   rv = proxy_create (vm, fib_index, is_ip4);
   if (rv != 0)
