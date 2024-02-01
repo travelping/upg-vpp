@@ -862,7 +862,7 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
   upf_ipfix_info_t *other_info = 0;
   u32 iidx;
 
-  if ((iidx = flow_side (f, direction)->ipfix.info_index != ~0))
+  if ((iidx = flow_side (f, direction)->ipfix.info_index) != ~0)
     return iidx;
 
   sx = pool_elt_at_index (gtm->sessions, f->session_index);
