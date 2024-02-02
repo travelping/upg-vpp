@@ -74,10 +74,10 @@ load_gtpu_flow_info (flowtable_main_t *fm, vlib_buffer_t *b,
                      flow_entry_t *flow, struct rules *r,
                      flow_key_direction_t pkt_key_direction, u16 generation)
 {
-  flow_direction_t pkt_direction =
-    flow->flow_key_direction ^ pkt_key_direction;
+  flow_direction_t direction = flow->flow_key_direction ^ pkt_key_direction;
 
   upf_buffer_opaque (b)->gtpu.pkt_key_direction = pkt_key_direction;
+  upf_buffer_opaque (b)->gtpu.direction = direction;
   upf_buffer_opaque (b)->gtpu.flow_id = flow - fm->flows;
 
   if (flow->generation != generation)
@@ -93,10 +93,9 @@ load_gtpu_flow_info (flowtable_main_t *fm, vlib_buffer_t *b,
       upf_buffer_opaque (b)->gtpu.pdr_idx = ~0;
     }
   else
-    upf_buffer_opaque (b)->gtpu.pdr_idx =
-      flow_pdr_idx (flow, pkt_direction, r);
+    upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, r);
 
-  return flow_side (flow, pkt_direction)->next;
+  return flow_side (flow, direction)->next;
 }
 
 #define FLOW_DEBUG(fm, flow)                                                  \

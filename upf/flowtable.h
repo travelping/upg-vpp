@@ -82,7 +82,8 @@ typedef enum
   FTK_EL_DST = 1, // select dst field of pkt in direction
 } __clib_packed flow_key_el_t;
 
-/* key */
+// Flowtable hashmap key. Fields can be reversed and because of this key access
+// usually should use flow_key_direction_t
 typedef struct
 {
   union
@@ -97,6 +98,24 @@ typedef struct
     u64 key[6];
   };
 } flow_key_t;
+
+// Key like flow_key_t, but elements are ordered and can be accessed directly
+// with flow_direction_t, without accounting for flow_key_direction_t
+typedef flow_key_t flow_key_directioned_t;
+
+__always_inline void
+flow_key_apply_direction (flow_key_t *dst_key, const flow_key_t *src_key,
+                          flow_key_direction_t direction)
+{
+  dst_key->up_seid = src_key->up_seid;
+  ip46_address_copy (&dst_key->ip[FT_FORWARD ^ direction],
+                     &src_key->ip[FT_FORWARD]);
+  ip46_address_copy (&dst_key->ip[FT_REVERSE ^ direction],
+                     &src_key->ip[FT_REVERSE]);
+  dst_key->port[FT_FORWARD ^ direction] = src_key->port[FT_FORWARD];
+  dst_key->port[FT_REVERSE ^ direction] = src_key->port[FT_REVERSE];
+  dst_key->proto = src_key->proto;
+}
 
 typedef struct
 {
@@ -153,12 +172,11 @@ typedef struct flow_entry
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
 
   /* flow signature */
-  flow_key_t key;
+  // key elements can be addressed directily with flow_direction_t
+  flow_key_directioned_t key;
   u32 session_index;
 
-  // Used to store initiator fields in first element of key
-  u8 flow_key_direction : 1;
-
+  u8 flow_key_direction : 1; // is bihash flow_key_t reversed
   u8 is_redirect : 1;
   u8 is_l3_proxy : 1;
   u8 is_spliced : 1;
@@ -175,6 +193,7 @@ typedef struct flow_entry
   u16 timer_slot; /* timer list index in the timer lists pool */
   flow_timeout_list_anchor_t timer_anchor;
 
+  // elements addressed directily with flow_direction_t
   flow_side_t side[FT_DIRECTION_MAX];
 
   /* UPF data */
@@ -202,7 +221,7 @@ __clib_unused always_inline flow_side_t *
 flow_side (flow_entry_t *f, flow_direction_t direction)
 {
   ASSERT (direction >= 0 && direction < FT_DIRECTION_MAX);
-  return &f->side[direction ^ f->flow_key_direction];
+  return &f->side[direction];
 }
 
 #define foreach_upf_flowtable_timer_error                                     \
@@ -485,15 +504,14 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
    */
   u16 len = vlib_buffer_length_in_chain (vm, b);
 
-  u8 pkt_direction = upf_buffer_opaque (b)->gtpu.pkt_key_direction;
+  flow_direction_t direction = upf_buffer_opaque (b)->gtpu.direction;
 
   u8 *iph = vlib_buffer_get_current (b);
   u8 *l4h = (is_ip4 ? ip4_next_header ((ip4_header_t *) iph) :
                       ip6_next_header ((ip6_header_t *) iph));
   u16 l4_len = len - (l4h - iph);
-  u16 diff;
+  u16 diff = 0;
 
-  flow_direction_t direction = f->flow_key_direction ^ pkt_direction;
   switch (f->key.proto)
     {
     case IP_PROTOCOL_TCP:
@@ -505,7 +523,7 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
     }
   l4_len = l4_len > diff ? l4_len - diff : 0;
 
-  flow_side_stats_t *stats = &f->side[pkt_direction].stats;
+  flow_side_stats_t *stats = &flow_side (f, direction)->stats;
   stats->pkts++;
   stats->pkts_unreported++;
   stats->bytes += len;

@@ -210,6 +210,7 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
           upf_buffer_opaque (b)->gtpu.flow_id = flow_id;
           upf_buffer_opaque (b)->gtpu.pkt_key_direction =
             output_direction ^ flow->flow_key_direction;
+          upf_buffer_opaque (b)->gtpu.direction = output_direction;
           upf_buffer_opaque (b)->gtpu.is_proxied = 1;
 
           /* mostly borrowed from vnet/interface_output.c calc_checksums */

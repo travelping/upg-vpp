@@ -97,23 +97,19 @@ static u8
 tcp_flow_is_valid (tcp_connection_t *tc, flow_entry_t *f,
                    flow_direction_t direction)
 {
-  flow_key_direction_t pkt_key_direction = direction ^ f->flow_key_direction;
-
   if (!tc)
     return 1;
 
-  if (!ip46_address_is_equal (&f->key.ip[FTK_EL_SRC ^ pkt_key_direction],
+  if (!ip46_address_is_equal (&f->key.ip[FTK_EL_SRC ^ direction],
                               &tc->connection.rmt_ip))
     return 0;
 
-  if (!ip46_address_is_equal (&f->key.ip[FTK_EL_DST ^ pkt_key_direction],
+  if (!ip46_address_is_equal (&f->key.ip[FTK_EL_DST ^ direction],
                               &tc->connection.lcl_ip))
     return 0;
 
-  return (f->key.port[FTK_EL_SRC ^ pkt_key_direction] ==
-          tc->connection.rmt_port) &&
-         (f->key.port[FTK_EL_DST ^ pkt_key_direction] ==
-          tc->connection.lcl_port);
+  return (f->key.port[FTK_EL_SRC ^ direction] == tc->connection.rmt_port) &&
+         (f->key.port[FTK_EL_DST ^ direction] == tc->connection.lcl_port);
 }
 
 void
@@ -377,8 +373,7 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
             pool_elt_at_index (fm->flows, upf_buffer_opaque (b)->gtpu.flow_id);
           ASSERT (flow);
 
-          direction = flow->flow_key_direction ^
-                      upf_buffer_opaque (b)->gtpu.pkt_key_direction;
+          direction = upf_buffer_opaque (b)->gtpu.direction;
 
           upf_debug ("direction: %u, buffer: %u, flow: %u", direction,
                      upf_buffer_opaque (b)->gtpu.pkt_key_direction,

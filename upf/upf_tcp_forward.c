@@ -260,8 +260,7 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
             }
 
           flow = pool_elt_at_index (fm->flows, flow_id);
-          direction = flow->flow_key_direction ^
-                      upf_buffer_opaque (b)->gtpu.pkt_key_direction;
+          direction = upf_buffer_opaque (b)->gtpu.direction;
 
           /* mostly borrowed from vnet/interface_output.c calc_checksums */
           if (is_ip4)

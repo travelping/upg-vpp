@@ -377,8 +377,8 @@ proxy_start_connect_fn (const u32 *session_index)
     }
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
-  src = &flow->key.ip[FTK_EL_SRC ^ FT_INITIATOR ^ flow->flow_key_direction];
-  dst = &flow->key.ip[FTK_EL_DST ^ FT_INITIATOR ^ flow->flow_key_direction];
+  src = &flow->key.ip[FTK_EL_SRC ^ FT_INITIATOR];
+  dst = &flow->key.ip[FTK_EL_DST ^ FT_INITIATOR];
   is_ip4 = ip46_address_is_ip4 (dst);
 
   ASSERT (flow_side (flow, FT_INITIATOR)->pdr_id != ~0);
@@ -399,8 +399,7 @@ proxy_start_connect_fn (const u32 *session_index)
   a->sep_ext.mss = pm->mss;
   a->sep_ext.is_ip4 = is_ip4;
   a->sep_ext.ip = *dst;
-  a->sep_ext.port =
-    flow->key.port[FTK_EL_DST ^ FT_INITIATOR ^ flow->flow_key_direction];
+  a->sep_ext.port = flow->key.port[FTK_EL_DST ^ FT_INITIATOR];
   a->sep_ext.next_node_index = is_ip4 ? pm->tcp4_server_output_next_active :
                                         pm->tcp6_server_output_next_active;
   a->sep_ext.next_node_opaque = ps->flow_index + 1;
@@ -408,8 +407,7 @@ proxy_start_connect_fn (const u32 *session_index)
   a->sep_ext.peer.sw_if_index = a->sep_ext.sw_if_index;
   a->sep_ext.peer.is_ip4 = is_ip4;
   a->sep_ext.peer.ip = *src;
-  a->sep_ext.peer.port =
-    flow->key.port[FTK_EL_SRC ^ FT_INITIATOR ^ flow->flow_key_direction];
+  a->sep_ext.peer.port = flow->key.port[FTK_EL_SRC ^ FT_INITIATOR];
 
   if ((rv = vnet_connect (a)) != 0)
     {

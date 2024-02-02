@@ -499,11 +499,12 @@ upf_format_buffer_opaque_helper (const vlib_buffer_t *b, u8 *s)
     s,
     "gtpu.teid: 0x%08x, gtpu.session_index: 0x%x, gtpu.ext_hdr_len: %u, "
     "gtpu.data_offset: %u, gtpu.flags: 0x%02x, gtpu.pkt_key_direction: %u, "
-    "gtpu.pdr_idx: 0x%x, gtpu.flow_id: 0x%x",
+    "gtpu.direction: %u, gtpu.pdr_idx: 0x%x, gtpu.flow_id: 0x%x",
     (u32) (o->gtpu.teid), (u32) (o->gtpu.session_index),
     (u32) (o->gtpu.ext_hdr_len), (u32) (o->gtpu.data_offset),
     (u32) (o->gtpu.flags), (u32) (o->gtpu.pkt_key_direction),
-    (u32) (o->gtpu.pdr_idx), (u32) (o->gtpu.flow_id));
+    (u32) (o->gtpu.direction), (u32) (o->gtpu.pdr_idx),
+    (u32) (o->gtpu.flow_id));
   vec_add1 (s, '\n');
 
   return s;

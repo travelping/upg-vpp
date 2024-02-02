@@ -299,8 +299,7 @@ app_scan_for_uri (u8 *uri, flow_entry_t *flow, struct rules *active,
           flow_key_direction_t pdi_direction =
             (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD) ? FT_REVERSE :
                                                                FT_FORWARD;
-          addr = &flow->key
-                    .ip[direction ^ flow->flow_key_direction ^ pdi_direction];
+          addr = &flow->key.ip[direction ^ pdi_direction];
           upf_debug ("Using %U as UE IP, S/D: %u", format_ip46_address, addr,
                      IP46_TYPE_ANY,
                      !!(pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD));
@@ -405,12 +404,11 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
     {
       ASSERT (p);
 
-      server_port = clib_net_to_host_u16 (
-        flow->key.port[FTK_EL_DST ^ FT_INITIATOR ^ flow->flow_key_direction]);
+      server_port =
+        clib_net_to_host_u16 (flow->key.port[FTK_EL_DST ^ FT_INITIATOR]);
       upf_debug (
         "Using port %u, instead of %u", port,
-        clib_net_to_host_u16 (flow->key.port[FT_INITIATOR ^ FTK_EL_SRC ^
-                                             flow->flow_key_direction]));
+        clib_net_to_host_u16 (flow->key.port[FT_INITIATOR ^ FTK_EL_SRC]));
 
       if (*p == TLS_HANDSHAKE)
         r = upf_adr_try_tls (server_port, p, &uri);

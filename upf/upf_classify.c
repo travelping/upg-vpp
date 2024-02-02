@@ -135,9 +135,6 @@ upf_acl_classify_one (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
                       flow_direction_t direction, u8 is_ip4, upf_acl_t *acl,
                       struct rules *active)
 {
-  flow_key_direction_t pkt_key_direction =
-    direction ^ flow->flow_key_direction;
-
   u32 pf_len = is_ip4 ? 32 : 64;
 
   if (!!is_ip4 != !!acl->is_ip4)
@@ -153,18 +150,18 @@ upf_acl_classify_one (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
     case UPF_ACL_UL:
       upf_debug ("UL: UE %U, Src: %U\n", format_ip46_address, &acl->ue_ip,
                  IP46_TYPE_ANY, format_ip46_address,
-                 &flow->key.ip[FTK_EL_SRC ^ pkt_key_direction], IP46_TYPE_ANY);
+                 &flow->key.ip[FTK_EL_SRC ^ direction], IP46_TYPE_ANY);
       if (!ip46_address_is_equal_masked (
-            &acl->ue_ip, &flow->key.ip[FTK_EL_SRC ^ pkt_key_direction],
+            &acl->ue_ip, &flow->key.ip[FTK_EL_SRC ^ direction],
             (ip46_address_t *) &ip6_main.fib_masks[pf_len]))
         return 0;
       break;
     case UPF_ACL_DL:
       upf_debug ("DL: UE %U, Dst: %U\n", format_ip46_address, &acl->ue_ip,
                  IP46_TYPE_ANY, format_ip46_address,
-                 &flow->key.ip[FTK_EL_DST ^ pkt_key_direction], IP46_TYPE_ANY);
+                 &flow->key.ip[FTK_EL_DST ^ direction], IP46_TYPE_ANY);
       if (!ip46_address_is_equal_masked (
-            &acl->ue_ip, &flow->key.ip[FTK_EL_DST ^ pkt_key_direction],
+            &acl->ue_ip, &flow->key.ip[FTK_EL_DST ^ direction],
             (ip46_address_t *) &ip6_main.fib_masks[pf_len]))
         return 0;
       break;
@@ -193,18 +190,18 @@ upf_acl_classify_one (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
       (acl->match.protocol & acl->mask.protocol))
     return 0;
 
-  if (!acl_ip46_is_equal_masked (&flow->key.ip[FTK_EL_SRC ^ pkt_key_direction],
-                                 acl, UPF_ACL_FIELD_SRC) ||
-      !acl_ip46_is_equal_masked (&flow->key.ip[FTK_EL_DST ^ pkt_key_direction],
-                                 acl, UPF_ACL_FIELD_DST))
+  if (!acl_ip46_is_equal_masked (&flow->key.ip[FTK_EL_SRC ^ direction], acl,
+                                 UPF_ACL_FIELD_SRC) ||
+      !acl_ip46_is_equal_masked (&flow->key.ip[FTK_EL_DST ^ direction], acl,
+                                 UPF_ACL_FIELD_DST))
     return 0;
 
   if (!acl_port_in_range (
-        clib_net_to_host_u16 (flow->key.port[FTK_EL_SRC ^ pkt_key_direction]),
-        acl, UPF_ACL_FIELD_SRC) ||
+        clib_net_to_host_u16 (flow->key.port[FTK_EL_SRC ^ direction]), acl,
+        UPF_ACL_FIELD_SRC) ||
       !acl_port_in_range (
-        clib_net_to_host_u16 (flow->key.port[FTK_EL_DST ^ pkt_key_direction]),
-        acl, UPF_ACL_FIELD_DST))
+        clib_net_to_host_u16 (flow->key.port[FTK_EL_DST ^ direction]), acl,
+        UPF_ACL_FIELD_DST))
     return 0;
 
   return 1;
@@ -441,7 +438,6 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       u32 n_left_to_next;
       vlib_buffer_t *b;
       flow_entry_t *flow;
-      flow_key_direction_t pkt_key_direction;
       flow_direction_t direction;
       u32 bi;
       u8 reclassify_proxy_flow;
@@ -475,8 +471,7 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
           flow =
             pool_elt_at_index (fm->flows, upf_buffer_opaque (b)->gtpu.flow_id);
 
-          pkt_key_direction = upf_buffer_opaque (b)->gtpu.pkt_key_direction;
-          direction = pkt_key_direction ^ flow->flow_key_direction;
+          direction = upf_buffer_opaque (b)->gtpu.direction;
           /*
            * In case of a proxy flow surviving session modification,
            * we need to classify both ends of the flow to re-run the
@@ -485,7 +480,9 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
           reclassify_proxy_flow = flow->is_l3_proxy;
           upf_debug (
             "pkt_direction %s, dir %s\n",
-            pkt_key_direction == FT_FORWARD ? "FT_FORWARD" : "FT_REVERSE",
+            upf_buffer_opaque (b)->gtpu.pkt_key_direction == FT_FORWARD ?
+              "FT_FORWARD" :
+              "FT_REVERSE",
             direction == FT_INITIATOR ? "FT_INITIATOR" : "FT_RESPONDER");
 
           if (flow_side (flow, direction)->next != FT_NEXT_CLASSIFY)

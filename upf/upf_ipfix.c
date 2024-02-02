@@ -961,8 +961,7 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
     info_key.sw_if_index = far->forward.dst_sw_if_index;
   else
     info_key.sw_if_index = upf_ip46_get_resolving_interface (
-      info_key.egress_fib_index,
-      &f->key.ip[FTK_EL_DST ^ direction ^ f->flow_key_direction],
+      info_key.egress_fib_index, &f->key.ip[FTK_EL_DST ^ direction],
       info_key.is_ip4);
 
   iidx = upf_ensure_ref_ipfix_info (&info_key);

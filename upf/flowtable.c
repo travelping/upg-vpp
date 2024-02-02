@@ -60,8 +60,6 @@ flowtable_entry_remove_internal (flowtable_main_t *fm,
                                  flowtable_main_per_cpu_t *fmt,
                                  flow_entry_t *f, u32 now)
 {
-  clib_bihash_kv_48_8_t kv;
-
   upf_debug ("Flow Remove %d", f - fm->flows);
 
   upf_ipfix_flow_remove_handler (f, now);
@@ -75,7 +73,9 @@ flowtable_entry_remove_internal (flowtable_main_t *fm,
   flowtable_timeout_stop_entry (fm, fmt, f);
 
   /* hashtable unlink */
-  clib_memcpy (kv.key, f->key.key, sizeof (kv.key));
+  clib_bihash_kv_48_8_t kv = { 0 };
+  flow_key_t *hash_key = (flow_key_t *) &kv.key;
+  flow_key_apply_direction (hash_key, &f->key, f->flow_key_direction);
   clib_bihash_add_del_48_8 (&fmt->flows_ht, &kv, 0 /* is_add */);
 
   flow_entry_free (fm, fmt, f);
@@ -241,7 +241,7 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
                                flowtable_main_per_cpu_t *fmt,
                                clib_bihash_kv_48_8_t *kv, u64 timestamp_ns,
                                u32 const now,
-                               flow_key_direction_t flow_key_direction,
+                               flow_key_direction_t pkt_key_direction,
                                u16 generation, u32 session_index, int *created)
 {
   flow_entry_t *f;
@@ -262,8 +262,11 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
 
   pool_get_zero (fm->flows, f);
 
-  clib_memcpy (f->key.key, kv->key, sizeof (f->key.key));
-  f->flow_key_direction = flow_key_direction;
+  flow_key_apply_direction (&f->key, (flow_key_t *) kv->key,
+                            pkt_key_direction);
+
+  // make it so FT_INITIATOR corresponds to first packet
+  f->flow_key_direction = pkt_key_direction;
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
   f->flow_start_time = timestamp_ns;
