@@ -418,6 +418,7 @@ VLIB_NODE_FN (upf_ip4_session_dpo_node)
             {
               upf_debug ("Proxy output loop detected: %U", format_ip4_header,
                          ip0, b->current_length);
+              ip4_ttl_and_checksum_check (b, ip0, &next, &error0);
               error0 = UPF_SESSION_DPO_ERROR_PROXY_LOOP;
               next = UPF_SESSION_DPO_NEXT_FLOW_PROCESS;
               goto trace;
@@ -546,6 +547,7 @@ VLIB_NODE_FN (upf_ip6_session_dpo_node)
           if ((b->flags & VNET_BUFFER_F_LOCALLY_ORIGINATED) &&
               ip0->protocol == IP_PROTOCOL_TCP)
             {
+              ip6_hop_limit_check (b, ip0, &next, &error0);
               upf_debug ("Proxy output loop detected: %U", format_ip4_header,
                          ip0, b->current_length);
               error0 = UPF_SESSION_DPO_ERROR_PROXY_LOOP;
