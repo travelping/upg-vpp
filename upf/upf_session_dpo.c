@@ -599,7 +599,7 @@ VLIB_REGISTER_NODE (upf_ip4_session_dpo_node) = {
   .next_nodes = {
     [UPF_SESSION_DPO_NEXT_DROP]         = "error-drop",
     [UPF_SESSION_DPO_NEXT_ICMP_ERROR]   = "ip4-icmp-error",
-    [UPF_SESSION_DPO_NEXT_FLOW_PROCESS] = "upf-ip4-flow-process",
+    [UPF_SESSION_DPO_NEXT_FLOW_PROCESS] = "upf-nat-test",
   },
 };
 
