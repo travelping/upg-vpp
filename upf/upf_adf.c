@@ -296,9 +296,9 @@ app_scan_for_uri (u8 *uri, flow_entry_t *flow, struct rules *active,
         {
           const ip46_address_t *addr;
 
-          flow_direction_op_t pdi_dir_op =
-            (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD) ? FTD_OP_FLIP :
-                                                               FTD_OP_SAME;
+          flow_key_el_t pdi_dir_op =
+            (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD) ? FTK_EL_DST :
+                                                               FTK_EL_SRC;
           addr = &flow->key.ip[direction ^ pdi_dir_op];
           upf_debug ("Using %U as UE IP, S/D: %u", format_ip46_address, addr,
                      IP46_TYPE_ANY,
