@@ -126,8 +126,8 @@ static_always_inline u32
 splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
                        flow_direction_t direction)
 {
-  flow_side_tcp_t *ftc = &flow_side (flow, FT_FORWARD ^ direction)->tcp;
-  flow_side_tcp_t *rev = &flow_side (flow, FT_REVERSE ^ direction)->tcp;
+  flow_side_tcp_t *ftc = &flow_side (flow, FTD_OP_SAME ^ direction)->tcp;
+  flow_side_tcp_t *rev = &flow_side (flow, FTD_OP_FLIP ^ direction)->tcp;
   transport_connection_t *tc;
   tcp_connection_t *tcpRx, *tcpTx;
   session_t *s;
@@ -153,8 +153,8 @@ splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
   tcpTx = tcp_get_connection_from_transport (transport_get_connection (
     TRANSPORT_PROTO_TCP, rev->conn_index, rev->thread_index));
 
-  ASSERT (tcp_flow_is_valid (tcpRx, flow, FT_FORWARD ^ direction));
-  ASSERT (tcp_flow_is_valid (tcpTx, flow, FT_REVERSE ^ direction));
+  ASSERT (tcp_flow_is_valid (tcpRx, flow, FTD_OP_SAME ^ direction));
+  ASSERT (tcp_flow_is_valid (tcpTx, flow, FTD_OP_FLIP ^ direction));
 
   if (!tcpRx || !tcpTx)
     return UPF_PROXY_INPUT_NEXT_TCP_INPUT;
@@ -193,12 +193,14 @@ splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
     }
 
   if (ftc->seq_offs == 0)
-    ftc->seq_offs = direction == FT_FORWARD ? tcpTx->snd_nxt - tcpRx->rcv_nxt :
-                                              tcpRx->rcv_nxt - tcpTx->snd_nxt;
+    ftc->seq_offs = direction == FT_INITIATOR ?
+                      tcpTx->snd_nxt - tcpRx->rcv_nxt :
+                      tcpRx->rcv_nxt - tcpTx->snd_nxt;
 
   if (rev->seq_offs == 0)
-    rev->seq_offs = direction == FT_FORWARD ? tcpTx->rcv_nxt - tcpRx->snd_nxt :
-                                              tcpRx->snd_nxt - tcpTx->rcv_nxt;
+    rev->seq_offs = direction == FT_INITIATOR ?
+                      tcpTx->rcv_nxt - tcpRx->snd_nxt :
+                      tcpRx->snd_nxt - tcpTx->rcv_nxt;
 
   /* check fifo, proxy Tx/Rx are connected... */
   if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
@@ -376,8 +378,8 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
           direction = upf_buffer_opaque (b)->gtpu.direction;
 
           upf_debug ("direction: %u, buffer: %u, flow: %u", direction,
-                     upf_buffer_opaque (b)->gtpu.pkt_key_direction,
-                     flow->flow_key_direction);
+                     upf_buffer_opaque (b)->gtpu.flow_key_direction,
+                     flow->key_direction);
 
           vnet_buffer (b)->ip.rx_sw_if_index =
             vnet_buffer (b)->sw_if_index[VLIB_RX];

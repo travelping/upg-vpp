@@ -495,10 +495,10 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
            */
           reclassify_proxy_flow = flow->is_l3_proxy;
           upf_debug (
-            "pkt_direction %s, dir %s\n",
-            upf_buffer_opaque (b)->gtpu.pkt_key_direction == FT_FORWARD ?
-              "FT_FORWARD" :
-              "FT_REVERSE",
+            "flow_key_direction %s, direction %s\n",
+            upf_buffer_opaque (b)->gtpu.flow_key_direction == FTD_OP_SAME ?
+              "FTD_OP_SAME" :
+              "FTD_OP_FLIP",
             direction == FT_INITIATOR ? "FT_INITIATOR" : "FT_RESPONDER");
 
           if (flow_side (flow, direction)->next != FT_NEXT_CLASSIFY)

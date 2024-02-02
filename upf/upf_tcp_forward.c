@@ -151,13 +151,13 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
               /* tsval */
               net_sub (
                 (u32 *) (data + 2),
-                flow_side (flow, FT_FORWARD ^ direction)->tcp.tsval_offs);
+                flow_side (flow, FTD_OP_SAME ^ direction)->tcp.tsval_offs);
 
               if (tcp_ack (th))
                 /* tsecr */
                 net_add (
                   (u32 *) (data + 6),
-                  flow_side (flow, FT_REVERSE ^ direction)->tcp.tsval_offs);
+                  flow_side (flow, FTD_OP_FLIP ^ direction)->tcp.tsval_offs);
             }
           break;
 
@@ -174,7 +174,7 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
           for (j = 0; j < blocks; j++)
             {
               // TODO: can get rid of this "if" by replacing flow_side with
-              // direction ^ FT_REVERSE
+              // direction ^ FTD_OP_FLIP
 
               if (direction == FT_INITIATOR)
                 {
@@ -203,8 +203,7 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
 
 static uword
 upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
-                 vlib_frame_t *from_frame, flow_key_direction_t direction,
-                 int is_ip4)
+                 vlib_frame_t *from_frame, int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -349,13 +348,13 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
 VLIB_NODE_FN (upf_tcp4_forward_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_tcp_forward (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 1);
+  return upf_tcp_forward (vm, node, from_frame, /* is_ip4 */ 1);
 }
 
 VLIB_NODE_FN (upf_tcp6_forward_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_tcp_forward (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 0);
+  return upf_tcp_forward (vm, node, from_frame, /* is_ip4 */ 0);
 }
 
 /* clang-format off */

@@ -427,7 +427,7 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
   info = pool_elt_at_index (fm->infos, iidx);
   context = pool_elt_at_index (fm->contexts, info->context_index);
 
-  ASSERT (!!ip46_address_is_ip4 (&f->key.ip[0]) == context->key.is_ip4);
+  ASSERT (f->key.is_ip4 == context->key.is_ip4);
 
   offset = context->next_record_offset_per_worker[my_cpu_number];
   template = upf_ipfix_templates + context->key.policy;
@@ -923,7 +923,7 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
 
   ingress_nwi = pool_elt_at_index (gtm->nwis, pdr->pdi.nwi_index);
 
-  info_key.is_ip4 = ip46_address_is_ip4 (&f->key.ip[FTK_EL_SRC ^ FT_FORWARD]);
+  info_key.is_ip4 = f->key.is_ip4;
   fproto = info_key.is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
   info_key.ingress_fib_index = ingress_nwi->fib_index[fproto];
   info_key.egress_fib_index = egress_nwi->fib_index[fproto];

@@ -296,10 +296,10 @@ app_scan_for_uri (u8 *uri, flow_entry_t *flow, struct rules *active,
         {
           const ip46_address_t *addr;
 
-          flow_key_direction_t pdi_direction =
-            (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD) ? FT_REVERSE :
-                                                               FT_FORWARD;
-          addr = &flow->key.ip[direction ^ pdi_direction];
+          flow_direction_op_t pdi_dir_op =
+            (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD) ? FTD_OP_FLIP :
+                                                               FTD_OP_SAME;
+          addr = &flow->key.ip[direction ^ pdi_dir_op];
           upf_debug ("Using %U as UE IP, S/D: %u", format_ip46_address, addr,
                      IP46_TYPE_ANY,
                      !!(pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_SD));

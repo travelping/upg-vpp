@@ -208,8 +208,8 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
 
           UPF_ENTER_SUBGRAPH (b, flow->session_index, is_ip4);
           upf_buffer_opaque (b)->gtpu.flow_id = flow_id;
-          upf_buffer_opaque (b)->gtpu.pkt_key_direction =
-            output_direction ^ flow->flow_key_direction;
+          upf_buffer_opaque (b)->gtpu.flow_key_direction =
+            output_direction ^ flow->key_direction;
           upf_buffer_opaque (b)->gtpu.direction = output_direction;
           upf_buffer_opaque (b)->gtpu.is_proxied = 1;
 

@@ -379,7 +379,7 @@ proxy_start_connect_fn (const u32 *session_index)
 
   src = &flow->key.ip[FTK_EL_SRC ^ FT_INITIATOR];
   dst = &flow->key.ip[FTK_EL_DST ^ FT_INITIATOR];
-  is_ip4 = ip46_address_is_ip4 (dst);
+  is_ip4 = flow->key.is_ip4;
 
   ASSERT (flow_side (flow, FT_INITIATOR)->pdr_id != ~0);
   pdr = pfcp_get_pdr_by_id (active, flow_side (flow, FT_INITIATOR)->pdr_id);

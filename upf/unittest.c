@@ -153,36 +153,36 @@ ip_app_test_v4 (void)
 
   flow_entry_t flow;
   memset (&flow, 0, sizeof(flow));
-  flow.key.ip[FT_FORWARD].ip4.as_u32 = ip_ue_172_17_0_5.ip4.as_u32;
-  flow.key.port[FT_FORWARD] = clib_host_to_net_u16(12345);
-  flow.key.ip[FT_REVERSE].ip4.as_u32 = ip_10_20_20_20.ip4.as_u32;
-  flow.key.port[FT_REVERSE] = clib_host_to_net_u16(80);
+  flow.key.ip[FT_INITIATOR].ip4.as_u32 = ip_ue_172_17_0_5.ip4.as_u32;
+  flow.key.port[FT_INITIATOR] = clib_host_to_net_u16(12345);
+  flow.key.ip[FT_RESPONDER].ip4.as_u32 = ip_10_20_20_20.ip4.as_u32;
+  flow.key.port[FT_RESPONDER] = clib_host_to_net_u16(80);
 
   UPF_TEST (!upf_app_ip_rule_match (app_id, &flow, &ip_ue_172_17_0_5),
             "rule mismatch (IPAPP): 172.17.0.5:12345 -> 10.20.20.20:80");
   UPF_TEST (upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_172_17_0_5),
             "rule match (IPANY): 172.17.0.5:12345 -> 10.20.20.20:80");
 
-  flow.key.ip[FT_REVERSE].ip4.as_u32 = ip_10_10_10_10.ip4.as_u32;
+  flow.key.ip[FT_RESPONDER].ip4.as_u32 = ip_10_10_10_10.ip4.as_u32;
   UPF_TEST (upf_app_ip_rule_match (app_id, &flow, &ip_ue_172_17_0_5),
             "rule match (IPAPP): 172.17.0.5:12345 -> 10.10.10.10:80");
   UPF_TEST (upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_172_17_0_5),
             "rule match (IPANY): 172.17.0.5:12345 -> 10.10.10.10:80");
 
-  flow.key.ip[FT_REVERSE].ip4.as_u32 = ip_192_168_0_5.ip4.as_u32;
+  flow.key.ip[FT_RESPONDER].ip4.as_u32 = ip_192_168_0_5.ip4.as_u32;
   UPF_TEST (upf_app_ip_rule_match (app_id, &flow, &ip_ue_172_17_0_5),
             "rule match (IPAPP): 172.17.0.5:12345 -> 192.168.0.5:80");
   UPF_TEST (upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_172_17_0_5),
             "rule match (IPANY): 172.17.0.5:12345 -> 192.168.0.5:80");
 
-  flow.key.port[FT_REVERSE] = clib_host_to_net_u16(9999);
+  flow.key.port[FT_RESPONDER] = clib_host_to_net_u16(9999);
   UPF_TEST (!upf_app_ip_rule_match (app_id, &flow, &ip_ue_172_17_0_5),
             "rule mismatch (IPAPP): 172.17.0.5:12345 -> 192.168.0.5:9999");
   UPF_TEST (upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_172_17_0_5),
             "rule match (IPANY): 172.17.0.5:12345 -> 192.168.0.5:9999");
 
-  flow.key.ip[FT_FORWARD].ip4.as_u32 = ip_10_20_20_20.ip4.as_u32;
-  flow.key.port[FT_REVERSE] = clib_host_to_net_u16(80);
+  flow.key.ip[FT_INITIATOR].ip4.as_u32 = ip_10_20_20_20.ip4.as_u32;
+  flow.key.port[FT_RESPONDER] = clib_host_to_net_u16(80);
   UPF_TEST (!upf_app_ip_rule_match (app_id, &flow, &ip_ue_172_17_0_5),
             "rule mismatch (IPAPP): 10.20.20.20:12345 -> 192.168.0.5:80");
   UPF_TEST (!upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_172_17_0_5),
@@ -228,41 +228,41 @@ ip_app_test_v6 (void)
 
   flow_entry_t flow;
   memset (&flow, 0, sizeof(flow));
-  flow.key.ip[FT_FORWARD].ip6.as_u64[0] = ip_ue_2001_db8_11__3.ip6.as_u64[0];
-  flow.key.ip[FT_FORWARD].ip6.as_u64[1] = ip_ue_2001_db8_11__3.ip6.as_u64[1];
-  flow.key.port[FT_FORWARD] = clib_host_to_net_u16(12345);
-  flow.key.ip[FT_REVERSE].ip6.as_u64[0] = ip_2001_db8_12__3.ip6.as_u64[0];
-  flow.key.ip[FT_REVERSE].ip6.as_u64[1] = ip_2001_db8_12__3.ip6.as_u64[1];
-  flow.key.port[FT_REVERSE] = clib_host_to_net_u16(80);
+  flow.key.ip[FT_INITIATOR].ip6.as_u64[0] = ip_ue_2001_db8_11__3.ip6.as_u64[0];
+  flow.key.ip[FT_INITIATOR].ip6.as_u64[1] = ip_ue_2001_db8_11__3.ip6.as_u64[1];
+  flow.key.port[FT_INITIATOR] = clib_host_to_net_u16(12345);
+  flow.key.ip[FT_RESPONDER].ip6.as_u64[0] = ip_2001_db8_12__3.ip6.as_u64[0];
+  flow.key.ip[FT_RESPONDER].ip6.as_u64[1] = ip_2001_db8_12__3.ip6.as_u64[1];
+  flow.key.port[FT_RESPONDER] = clib_host_to_net_u16(80);
 
   UPF_TEST (!upf_app_ip_rule_match (app_id, &flow, &ip_ue_2001_db8_11__3),
             "rule mismatch (IPAPP): [2001:db8:11::3]:12345 -> [2001:db8:12::3]:80");
   UPF_TEST (upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_2001_db8_11__3),
             "rule match (IPANY): [2001:db8:11::3]:12345 -> [2001:db8:12::3]:80");
 
-  flow.key.ip[FT_REVERSE].ip6.as_u64[0] = ip_2001_db8_12__2.ip6.as_u64[0];
-  flow.key.ip[FT_REVERSE].ip6.as_u64[1] = ip_2001_db8_12__2.ip6.as_u64[1];
+  flow.key.ip[FT_RESPONDER].ip6.as_u64[0] = ip_2001_db8_12__2.ip6.as_u64[0];
+  flow.key.ip[FT_RESPONDER].ip6.as_u64[1] = ip_2001_db8_12__2.ip6.as_u64[1];
   UPF_TEST (upf_app_ip_rule_match (app_id, &flow, &ip_ue_2001_db8_11__3),
             "rule match (IPAPP): [2001:db8:11::3]:12345 -> [2001:db8:12::2]:80");
   UPF_TEST (upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_2001_db8_11__3),
             "rule match (IPANY): [2001:db8:11::3]:12345 -> [2001:db8:12::2]:80");
 
-  flow.key.ip[FT_REVERSE].ip6.as_u64[0] = ip_2001_db8_13__5.ip6.as_u64[0];
-  flow.key.ip[FT_REVERSE].ip6.as_u64[1] = ip_2001_db8_13__5.ip6.as_u64[1];
+  flow.key.ip[FT_RESPONDER].ip6.as_u64[0] = ip_2001_db8_13__5.ip6.as_u64[0];
+  flow.key.ip[FT_RESPONDER].ip6.as_u64[1] = ip_2001_db8_13__5.ip6.as_u64[1];
   UPF_TEST (upf_app_ip_rule_match (app_id, &flow, &ip_ue_2001_db8_11__3),
             "rule match (IPAPP): [2001:db8:11::3]:12345 -> [2001:db8:13::5]:80");
   UPF_TEST (upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_2001_db8_11__3),
             "rule match (IPANY): [2001:db8:11::3]:12345 -> [2001:db8:13::5]:80");
 
-  flow.key.port[FT_REVERSE] = clib_host_to_net_u16(9999);
+  flow.key.port[FT_RESPONDER] = clib_host_to_net_u16(9999);
   UPF_TEST (!upf_app_ip_rule_match (app_id, &flow, &ip_ue_2001_db8_11__3),
             "rule mismatch (IPAPP): [2001:db8:11::3]:12345 -> [2001:db8:13::5]:9999");
   UPF_TEST (upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_2001_db8_11__3),
             "rule match (IPANY): [2001:db8:11::3]:12345 -> [2001:db8:13::5]:9999");
 
-  flow.key.ip[FT_FORWARD].ip6.as_u64[0] = ip_2001_db8_12__3.ip6.as_u64[0];
-  flow.key.ip[FT_FORWARD].ip6.as_u64[1] = ip_2001_db8_12__3.ip6.as_u64[1];
-  flow.key.port[FT_REVERSE] = clib_host_to_net_u16(80);
+  flow.key.ip[FT_INITIATOR].ip6.as_u64[0] = ip_2001_db8_12__3.ip6.as_u64[0];
+  flow.key.ip[FT_INITIATOR].ip6.as_u64[1] = ip_2001_db8_12__3.ip6.as_u64[1];
+  flow.key.port[FT_RESPONDER] = clib_host_to_net_u16(80);
   UPF_TEST (!upf_app_ip_rule_match (app_id, &flow, &ip_ue_2001_db8_11__3),
             "rule mismatch (IPAPP): [2001:db8:12::3]:12345 -> [2001:db8:13::5]:80");
   UPF_TEST (!upf_app_ip_rule_match (app_id_any, &flow, &ip_ue_2001_db8_11__3),

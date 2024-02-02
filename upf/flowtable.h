@@ -56,13 +56,6 @@ typedef enum
   FT_NEXT_N_NEXT
 } flowtable_next_t;
 
-// Flowtable direction based on 3 values which can be xored:
-// - packet key direction - if key is reversed for packet
-// - flow key direction - convert key to index in flow key elements
-// - packet flow direction (or just direction) - direction of packet in flow
-// Good rule of thumb is to use pkt/flow/key in variable names and on every XOR
-// operation "XOR" this names as well. Example:
-//   pkt_key_direction ^ flow_key_direction = pkt_flow_direction
 typedef enum
 {
   FT_INITIATOR = 0, // direction in which flow was created
@@ -72,9 +65,9 @@ typedef enum
 
 typedef enum
 {
-  FT_FORWARD = 0, // original key direction
-  FT_REVERSE,     // reversed key direction
-} __clib_packed flow_key_direction_t;
+  FTD_OP_SAME = 0, // original key direction
+  FTD_OP_FLIP,     // reversed key direction
+} __clib_packed flow_direction_op_t;
 
 typedef enum
 {
@@ -82,8 +75,9 @@ typedef enum
   FTK_EL_DST = 1, // select dst field of pkt in direction
 } __clib_packed flow_key_el_t;
 
-// Flowtable hashmap key. Fields can be reversed and because of this key access
-// usually should use flow_key_direction_t
+// Flowtable hashmap key.
+// Fields can be reversed and because of this key access usually should use
+// flow_direction_op_t determined from packet ip addresses
 typedef struct
 {
   union
@@ -94,27 +88,29 @@ typedef struct
       ip46_address_t ip[FT_DIRECTION_MAX];
       u16 port[FT_DIRECTION_MAX];
       u8 proto;
+      u8 is_ip4 : 1;
     };
     u64 key[6];
   };
 } flow_key_t;
 
-// Key like flow_key_t, but elements are ordered and can be accessed directly
-// with flow_direction_t, without accounting for flow_key_direction_t
-typedef flow_key_t flow_key_directioned_t;
+// Like flow_key_t, but elements are ordered and can be accessed directly with
+// flow_direction_t, without accounting for ip address comparison
+typedef flow_key_t key_directioned_t;
 
 __always_inline void
 flow_key_apply_direction (flow_key_t *dst_key, const flow_key_t *src_key,
-                          flow_key_direction_t direction)
+                          flow_direction_op_t direction)
 {
   dst_key->up_seid = src_key->up_seid;
-  ip46_address_copy (&dst_key->ip[FT_FORWARD ^ direction],
-                     &src_key->ip[FT_FORWARD]);
-  ip46_address_copy (&dst_key->ip[FT_REVERSE ^ direction],
-                     &src_key->ip[FT_REVERSE]);
-  dst_key->port[FT_FORWARD ^ direction] = src_key->port[FT_FORWARD];
-  dst_key->port[FT_REVERSE ^ direction] = src_key->port[FT_REVERSE];
+  ip46_address_copy (&dst_key->ip[FTK_EL_SRC ^ direction],
+                     &src_key->ip[FTK_EL_SRC]);
+  ip46_address_copy (&dst_key->ip[FTK_EL_DST ^ direction],
+                     &src_key->ip[FTK_EL_DST]);
+  dst_key->port[FTK_EL_SRC ^ direction] = src_key->port[FTK_EL_SRC];
+  dst_key->port[FTK_EL_DST ^ direction] = src_key->port[FTK_EL_DST];
   dst_key->proto = src_key->proto;
+  dst_key->is_ip4 = src_key->is_ip4;
 }
 
 typedef struct
@@ -173,10 +169,10 @@ typedef struct flow_entry
 
   /* flow signature */
   // key elements can be addressed directily with flow_direction_t
-  flow_key_directioned_t key;
+  key_directioned_t key;
   u32 session_index;
 
-  u8 flow_key_direction : 1; // is bihash flow_key_t reversed
+  u8 key_direction : 1; // flow_direction_op_t of bihash key
   u8 is_redirect : 1;
   u8 is_l3_proxy : 1;
   u8 is_spliced : 1;
@@ -311,7 +307,7 @@ u32 flowtable_entry_lookup_create (flowtable_main_t *fm,
                                    flowtable_main_per_cpu_t *fmt,
                                    clib_bihash_kv_48_8_t *kv, u64 timestamp_ns,
                                    u32 const now,
-                                   flow_key_direction_t flow_key_direction,
+                                   flow_direction_op_t key_direction,
                                    u16 generation, u32 session_index,
                                    int *created);
 
@@ -362,74 +358,75 @@ flowtable_timeout_start_entry (flowtable_main_t *fm,
 }
 
 static inline void
-parse_packet_protocol (udp_header_t *udp, flow_key_direction_t key_direction,
+parse_packet_protocol (udp_header_t *udp, flow_direction_op_t key_direction,
                        flow_key_t *key)
 {
   if (key->proto == IP_PROTOCOL_UDP || key->proto == IP_PROTOCOL_TCP)
     {
       /* tcp and udp ports have the same offset */
-      key->port[FT_FORWARD ^ key_direction] = udp->src_port;
-      key->port[FT_REVERSE ^ key_direction] = udp->dst_port;
+      key->port[FTK_EL_SRC ^ key_direction] = udp->src_port;
+      key->port[FTK_EL_DST ^ key_direction] = udp->dst_port;
     }
   else
     {
-      key->port[FT_FORWARD] = key->port[FT_REVERSE] = 0;
+      key->port[FTK_EL_SRC] = 0;
+      key->port[FTK_EL_DST] = 0;
     }
 }
 
-static inline flow_key_direction_t
+static inline flow_direction_op_t
 ip4_packet_is_reverse (ip4_header_t *ip4)
 {
   return (ip4_address_compare (&ip4->src_address, &ip4->dst_address) < 0) ?
-           FT_REVERSE :
-           FT_FORWARD;
+           FTD_OP_FLIP :
+           FTD_OP_SAME;
 }
 
 static inline void
-parse_ip4_packet (ip4_header_t *ip4, flow_key_direction_t *pkt_key_direction,
+parse_ip4_packet (ip4_header_t *ip4, flow_direction_op_t *key_direction,
                   flow_key_t *key)
 {
   key->proto = ip4->protocol;
 
-  *pkt_key_direction = ip4_packet_is_reverse (ip4);
+  *key_direction = ip4_packet_is_reverse (ip4);
 
-  ip46_address_set_ip4 (&key->ip[FTK_EL_SRC ^ *pkt_key_direction],
+  ip46_address_set_ip4 (&key->ip[FTK_EL_SRC ^ *key_direction],
                         &ip4->src_address);
-  ip46_address_set_ip4 (&key->ip[FTK_EL_DST ^ *pkt_key_direction],
+  ip46_address_set_ip4 (&key->ip[FTK_EL_DST ^ *key_direction],
                         &ip4->dst_address);
 
   parse_packet_protocol ((udp_header_t *) ip4_next_header (ip4),
-                         *pkt_key_direction, key);
+                         *key_direction, key);
 }
 
-static inline flow_key_direction_t
+static inline flow_direction_op_t
 ip6_packet_is_reverse (ip6_header_t *ip6)
 {
   return (ip6_address_compare (&ip6->src_address, &ip6->dst_address) < 0) ?
-           FT_REVERSE :
-           FT_FORWARD;
+           FTD_OP_FLIP :
+           FTD_OP_SAME;
 }
 
 static inline void
-parse_ip6_packet (ip6_header_t *ip6, flow_key_direction_t *pkt_key_direction,
+parse_ip6_packet (ip6_header_t *ip6, flow_direction_op_t *key_direction,
                   flow_key_t *key)
 {
   key->proto = ip6->protocol;
 
-  *pkt_key_direction = ip6_packet_is_reverse (ip6);
+  *key_direction = ip6_packet_is_reverse (ip6);
 
-  ip46_address_set_ip6 (&key->ip[FTK_EL_SRC ^ *pkt_key_direction],
+  ip46_address_set_ip6 (&key->ip[FTK_EL_SRC ^ *key_direction],
                         &ip6->src_address);
-  ip46_address_set_ip6 (&key->ip[FTK_EL_DST ^ *pkt_key_direction],
+  ip46_address_set_ip6 (&key->ip[FTK_EL_DST ^ *key_direction],
                         &ip6->dst_address);
 
   parse_packet_protocol ((udp_header_t *) ip6_next_header (ip6),
-                         *pkt_key_direction, key);
+                         *key_direction, key);
 }
 
 __clib_unused static inline void
 flow_mk_key (u64 up_seid, u8 *header, u8 is_ip4,
-             flow_key_direction_t *pkt_key_direction,
+             flow_direction_op_t *flow_key_direction,
              clib_bihash_kv_48_8_t *kv)
 {
   flow_key_t *key = (flow_key_t *) &kv->key;
@@ -437,16 +434,17 @@ flow_mk_key (u64 up_seid, u8 *header, u8 is_ip4,
   memset (key, 0, sizeof (*key));
 
   key->up_seid = up_seid;
+  key->is_ip4 = is_ip4;
 
   /* compute 5 tuple key so that 2 half connections
    * get into the same flow */
   if (is_ip4)
     {
-      parse_ip4_packet ((ip4_header_t *) header, pkt_key_direction, key);
+      parse_ip4_packet ((ip4_header_t *) header, flow_key_direction, key);
     }
   else
     {
-      parse_ip6_packet ((ip6_header_t *) header, pkt_key_direction, key);
+      parse_ip6_packet ((ip6_header_t *) header, flow_key_direction, key);
     }
 }
 

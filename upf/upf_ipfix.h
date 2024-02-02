@@ -29,7 +29,7 @@ typedef struct
        * the NWI used to populate observationDomain{Id,Name}
        * and observationPointId
        */
-      u32 info_nwi_index; // initator->far->nwi_index
+      u32 info_nwi_index; // initiator->far->nwi_index
       u32 sw_if_index;
       u32 forwarding_policy_index;
       upf_ipfix_policy_t policy;

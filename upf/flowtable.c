@@ -75,7 +75,7 @@ flowtable_entry_remove_internal (flowtable_main_t *fm,
   /* hashtable unlink */
   clib_bihash_kv_48_8_t kv = { 0 };
   flow_key_t *hash_key = (flow_key_t *) &kv.key;
-  flow_key_apply_direction (hash_key, &f->key, f->flow_key_direction);
+  flow_key_apply_direction (hash_key, &f->key, f->key_direction);
   clib_bihash_add_del_48_8 (&fmt->flows_ht, &kv, 0 /* is_add */);
 
   flow_entry_free (fm, fmt, f);
@@ -206,9 +206,8 @@ flowtable_lifetime_calculate (flowtable_main_t *fm, flow_key_t const *key)
       return fm->timer_lifetime[FT_TIMEOUT_TYPE_TCP];
 
     default:
-      return ip46_address_is_ip4 (&key->ip[FT_FORWARD]) ?
-               fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV4] :
-               fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV6];
+      return key->is_ip4 ? fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV4] :
+                           fm->timer_lifetime[FT_TIMEOUT_TYPE_IPV6];
     }
 
   return fm->timer_lifetime[FT_TIMEOUT_TYPE_UNKNOWN];
@@ -241,7 +240,7 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
                                flowtable_main_per_cpu_t *fmt,
                                clib_bihash_kv_48_8_t *kv, u64 timestamp_ns,
                                u32 const now,
-                               flow_key_direction_t pkt_key_direction,
+                               flow_direction_op_t key_direction,
                                u16 generation, u32 session_index, int *created)
 {
   flow_entry_t *f;
@@ -262,11 +261,10 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
 
   pool_get_zero (fm->flows, f);
 
-  flow_key_apply_direction (&f->key, (flow_key_t *) kv->key,
-                            pkt_key_direction);
+  flow_key_apply_direction (&f->key, (flow_key_t *) kv->key, key_direction);
 
   // make it so FT_INITIATOR corresponds to first packet
-  f->flow_key_direction = pkt_key_direction;
+  f->key_direction = key_direction;
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
   f->flow_start_time = timestamp_ns;
@@ -313,10 +311,10 @@ format_flow_key (u8 *s, va_list *args)
   flow_key_t *key = va_arg (*args, flow_key_t *);
 
   return format (s, "proto 0x%x, %U:%u <-> %U:%u, seid 0x%016llx", key->proto,
-                 format_ip46_address, &key->ip[FT_FORWARD], IP46_TYPE_ANY,
-                 clib_net_to_host_u16 (key->port[FT_FORWARD]),
-                 format_ip46_address, &key->ip[FT_REVERSE], IP46_TYPE_ANY,
-                 clib_net_to_host_u16 (key->port[FT_REVERSE]), key->up_seid);
+                 format_ip46_address, &key->ip[FTK_EL_SRC], IP46_TYPE_ANY,
+                 clib_net_to_host_u16 (key->port[FTK_EL_SRC]),
+                 format_ip46_address, &key->ip[FTK_EL_DST], IP46_TYPE_ANY,
+                 clib_net_to_host_u16 (key->port[FTK_EL_DST]), key->up_seid);
 }
 
 u8 *
