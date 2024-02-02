@@ -168,10 +168,9 @@ typedef struct flow_entry
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
 
   /* flow signature */
-  // key elements can be addressed directily with flow_direction_t
+  // key elements indexes are flow_direction_t
   key_directioned_t key;
   u32 session_index;
-
   u8 key_direction : 1; // flow_direction_op_t of bihash key
   u8 is_redirect : 1;
   u8 is_l3_proxy : 1;
@@ -189,10 +188,9 @@ typedef struct flow_entry
   u16 timer_slot; /* timer list index in the timer lists pool */
   flow_timeout_list_anchor_t timer_anchor;
 
-  // elements addressed directily with flow_direction_t
+  // elements indexes are flow_direction_t
   flow_side_t side[FT_DIRECTION_MAX];
 
-  /* UPF data */
   u32 application_id; /* L7 app index */
 
   u8 *app_uri;

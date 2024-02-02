@@ -408,7 +408,7 @@ upf_application_detection (vlib_main_t *vm, u8 *p, flow_entry_t *flow,
         clib_net_to_host_u16 (flow->key.port[FTK_EL_DST ^ FT_INITIATOR]);
       upf_debug (
         "Using port %u, instead of %u", port,
-        clib_net_to_host_u16 (flow->key.port[FT_INITIATOR ^ FTK_EL_SRC]));
+        clib_net_to_host_u16 (flow->key.port[FTK_EL_SRC ^ FT_INITIATOR]));
 
       if (*p == TLS_HANDSHAKE)
         r = upf_adr_try_tls (server_port, p, &uri);

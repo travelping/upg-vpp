@@ -262,9 +262,8 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   pool_get_zero (fm->flows, f);
 
   flow_key_apply_direction (&f->key, (flow_key_t *) kv->key, key_direction);
-
-  // make it so FT_INITIATOR corresponds to first packet
   f->key_direction = key_direction;
+
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
   f->flow_start_time = timestamp_ns;

@@ -106,7 +106,7 @@ static uword
 upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
                   vlib_frame_t *from_frame,
                   const flow_direction_t output_direction, int is_ip4,
-                  int no_opaque, int far_only)
+                  int far_only)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -306,28 +306,28 @@ VLIB_NODE_FN (upf_ip4_proxy_server_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_RESPONDER, /* is_ip4 */ 1,
-                           /* no_opaque */ 0, /* far_only */ 0);
+                           /* far_only */ 0);
 }
 
 VLIB_NODE_FN (upf_ip6_proxy_server_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_RESPONDER, /* is_ip4 */ 0,
-                           /* no_opaque */ 0, /* far_only */ 0);
+                           /* far_only */ 0);
 }
 
 VLIB_NODE_FN (upf_ip4_proxy_server_far_only_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_INITIATOR, /* is_ip4 */ 1,
-                           /* no_opaque */ 0, /* far_only */ 1);
+                           /* far_only */ 1);
 }
 
 VLIB_NODE_FN (upf_ip6_proxy_server_far_only_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   return upf_proxy_output (vm, node, from_frame, FT_INITIATOR, /* is_ip4 */ 0,
-                           /* no_opaque */ 0, /* far_only */ 1);
+                           /* far_only */ 1);
 }
 
 /* clang-format off */
