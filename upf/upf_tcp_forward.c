@@ -149,8 +149,9 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
           if (opt_len == TCP_OPTION_LEN_TIMESTAMP)
             {
               /* tsval */
-              net_sub ((u32 *) (data + 2),
-                       flow_side (flow, direction)->tcp.tsval_offs);
+              net_sub (
+                (u32 *) (data + 2),
+                flow_side (flow, FT_FORWARD ^ direction)->tcp.tsval_offs);
 
               if (tcp_ack (th))
                 /* tsecr */

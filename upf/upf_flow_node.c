@@ -383,8 +383,10 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           flow->session_index = upf_buffer_opaque (b0)->gtpu.session_index;
           FLOW_DEBUG (fm, flow);
 
-          flow_debug ("pkt_key_direction: %u, flow_key_direction: %u, c: %u",
-                      pkt_key_direction, flow->flow_key_direction, created);
+          flow_debug ("pkt_key_direction: %u, flow_key_direction: %u, "
+                      "direction: %u c: %u",
+                      pkt_key_direction, flow->flow_key_direction,
+                      pkt_key_direction ^ flow->flow_key_direction, created);
 
           /* update activity timer */
           flow_update (vm, flow, p, is_ip4,
