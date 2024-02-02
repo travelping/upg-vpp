@@ -193,14 +193,12 @@ splice_tcp_connection (upf_main_t *gtm, flow_entry_t *flow,
     }
 
   if (ftc->seq_offs == 0)
-    ftc->seq_offs = direction == FT_INITIATOR ?
-                      tcpTx->snd_nxt - tcpRx->rcv_nxt :
-                      tcpRx->rcv_nxt - tcpTx->snd_nxt;
+    ftc->seq_offs = direction == FT_ORIGIN ? tcpTx->snd_nxt - tcpRx->rcv_nxt :
+                                             tcpRx->rcv_nxt - tcpTx->snd_nxt;
 
   if (rev->seq_offs == 0)
-    rev->seq_offs = direction == FT_INITIATOR ?
-                      tcpTx->rcv_nxt - tcpRx->snd_nxt :
-                      tcpRx->snd_nxt - tcpTx->rcv_nxt;
+    rev->seq_offs = direction == FT_ORIGIN ? tcpTx->rcv_nxt - tcpRx->snd_nxt :
+                                             tcpRx->snd_nxt - tcpTx->rcv_nxt;
 
   /* check fifo, proxy Tx/Rx are connected... */
   if (svm_fifo_max_dequeue (s->rx_fifo) != 0 ||
@@ -414,13 +412,13 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
                   upf_debug ("LATE TCP FRAGMENT");
                   next = UPF_FORWARD_NEXT_DROP;
                 }
-              else if (direction == FT_INITIATOR)
+              else if (direction == FT_ORIGIN)
                 {
                   upf_debug ("PROXY_ACCEPT");
                   load_tstamp_offset (b, direction, flow, thread_index);
                   next = UPF_PROXY_INPUT_NEXT_PROXY_ACCEPT;
                 }
-              else if (direction == FT_RESPONDER)
+              else if (direction == FT_REVERSE)
                 {
                   upf_debug ("INPUT_LOOKUP");
                   load_tstamp_offset (b, direction, flow, thread_index);
@@ -430,10 +428,10 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
                 goto trace;
             }
 
-          // FT_RESPONDER direction (DL) and stitched traffic
+          // FT_REVERSE direction (DL) and stitched traffic
           // (upf-ip[46]-tcp-forward) is accounted for on the
           // upf-ip[46]-forward node
-          if (direction == FT_INITIATOR &&
+          if (direction == FT_ORIGIN &&
               next != UPF_PROXY_INPUT_NEXT_TCP_FORWARD)
             {
               /* Get next node index and adj index from tunnel next_dpo */

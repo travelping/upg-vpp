@@ -176,19 +176,19 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
               // TODO: can get rid of this "if" by replacing flow_side with
               // direction ^ FTD_OP_FLIP
 
-              if (direction == FT_INITIATOR)
+              if (direction == FT_ORIGIN)
                 {
                   net_add ((u32 *) (data + 2 + 8 * j),
-                           flow_side (flow, FT_RESPONDER)->tcp.seq_offs);
+                           flow_side (flow, FT_REVERSE)->tcp.seq_offs);
                   net_add ((u32 *) (data + 6 + 8 * j),
-                           flow_side (flow, FT_RESPONDER)->tcp.seq_offs);
+                           flow_side (flow, FT_REVERSE)->tcp.seq_offs);
                 }
               else
                 {
                   net_sub ((u32 *) (data + 2 + 8 * j),
-                           flow_side (flow, FT_INITIATOR)->tcp.seq_offs);
+                           flow_side (flow, FT_ORIGIN)->tcp.seq_offs);
                   net_sub ((u32 *) (data + 6 + 8 * j),
-                           flow_side (flow, FT_INITIATOR)->tcp.seq_offs);
+                           flow_side (flow, FT_ORIGIN)->tcp.seq_offs);
                 }
             }
           break;
@@ -277,15 +277,15 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
           seq = clib_net_to_host_u32 (th->seq_number);
           ack = clib_net_to_host_u32 (th->ack_number);
 
-          if (direction == FT_INITIATOR)
+          if (direction == FT_ORIGIN)
             {
-              seq += flow_side (flow, FT_INITIATOR)->tcp.seq_offs;
-              ack += flow_side (flow, FT_RESPONDER)->tcp.seq_offs;
+              seq += flow_side (flow, FT_ORIGIN)->tcp.seq_offs;
+              ack += flow_side (flow, FT_REVERSE)->tcp.seq_offs;
             }
           else
             {
-              seq -= flow_side (flow, FT_RESPONDER)->tcp.seq_offs;
-              ack -= flow_side (flow, FT_INITIATOR)->tcp.seq_offs;
+              seq -= flow_side (flow, FT_REVERSE)->tcp.seq_offs;
+              ack -= flow_side (flow, FT_ORIGIN)->tcp.seq_offs;
             }
 
           th->seq_number = clib_host_to_net_u32 (seq);

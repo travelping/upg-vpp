@@ -499,19 +499,19 @@ upf_ipfix_flow_remove_handler (flow_entry_t *f, u32 now)
   if (fm->disabled)
     return 0;
 
-  u32 origin_iidx = flow_side (f, FT_INITIATOR)->ipfix.info_index;
-  u32 reverse_iidx = flow_side (f, FT_RESPONDER)->ipfix.info_index;
+  u32 origin_iidx = flow_side (f, FT_ORIGIN)->ipfix.info_index;
+  u32 reverse_iidx = flow_side (f, FT_REVERSE)->ipfix.info_index;
 
   if (origin_iidx != ~0)
     {
       bool last = reverse_iidx == ~0;
-      upf_ipfix_export_entry (vm, f, FT_INITIATOR, now, last);
+      upf_ipfix_export_entry (vm, f, FT_ORIGIN, now, last);
       upf_unref_ipfix_info (origin_iidx);
     }
 
   if (reverse_iidx != ~0)
     {
-      upf_ipfix_export_entry (vm, f, FT_RESPONDER, now, true);
+      upf_ipfix_export_entry (vm, f, FT_REVERSE, now, true);
       upf_unref_ipfix_info (reverse_iidx);
     }
 
@@ -897,16 +897,16 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
    * the forward direction, except for the policy if it's specified
    * for the reverse direction, too
    */
-  if (direction == FT_RESPONDER)
+  if (direction == FT_REVERSE)
     {
       /*
        * If this is the reverse flow direction, use IPFIX settings for the
        * forward direction;
        */
-      if (flow_side (f, FT_INITIATOR)->ipfix.info_index != ~0)
+      if (flow_side (f, FT_ORIGIN)->ipfix.info_index != ~0)
         {
           other_info = pool_elt_at_index (
-            fm->infos, flow_side (f, FT_INITIATOR)->ipfix.info_index);
+            fm->infos, flow_side (f, FT_ORIGIN)->ipfix.info_index);
           if (info_key.policy == UPF_IPFIX_POLICY_NONE)
             info_key.policy = other_info->key.policy;
           info_key.info_nwi_index = other_info->key.info_nwi_index;
@@ -934,7 +934,7 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
    * If there's a forwarding policy specified in FAR, try to find the
    * proper fib_index from it
    */
-  if (direction == FT_INITIATOR)
+  if (direction == FT_ORIGIN)
     {
       if ((far->forward.flags & FAR_F_FORWARDING_POLICY))
         {

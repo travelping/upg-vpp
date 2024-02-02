@@ -58,8 +58,8 @@ typedef enum
 
 typedef enum
 {
-  FT_INITIATOR = 0, // direction in which flow was created
-  FT_RESPONDER = 1,
+  FT_ORIGIN = 0, // direction in which flow was created
+  FT_REVERSE = 1,
   FT_DIRECTION_MAX
 } __clib_packed flow_direction_t;
 

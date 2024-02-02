@@ -330,11 +330,10 @@ upf_app_dpo_match (upf_adf_entry_t *appentry, flow_entry_t *flow,
   if (appentry->fib_index_ip4 == ~0)
     return 0;
   return upf_do_ip_rule_match (
-    appentry, &flow->key.ip[FTK_EL_SRC ^ FT_RESPONDER],
-    clib_net_to_host_u16 (flow->key.port[FTK_EL_SRC ^ FT_RESPONDER]),
-    &flow->key.ip[FTK_EL_SRC ^ FT_INITIATOR],
-    clib_net_to_host_u16 (flow->key.port[FTK_EL_SRC ^ FT_INITIATOR]),
-    assigned);
+    appentry, &flow->key.ip[FTK_EL_SRC ^ FT_REVERSE],
+    clib_net_to_host_u16 (flow->key.port[FTK_EL_SRC ^ FT_REVERSE]),
+    &flow->key.ip[FTK_EL_SRC ^ FT_ORIGIN],
+    clib_net_to_host_u16 (flow->key.port[FTK_EL_SRC ^ FT_ORIGIN]), assigned);
 }
 
 const static char *const upf_app_dpo_ip4_nodes[] = {

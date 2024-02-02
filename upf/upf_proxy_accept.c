@@ -297,8 +297,8 @@ upf_proxy_accept_inline (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       vnet_buffer (b)->tcp.connection_index = child->c_c_index;
 
-      flow_side (flow, FT_INITIATOR)->tcp.conn_index = child->c_c_index;
-      flow_side (flow, FT_INITIATOR)->tcp.thread_index = thread_index;
+      flow_side (flow, FT_ORIGIN)->tcp.conn_index = child->c_c_index;
+      flow_side (flow, FT_ORIGIN)->tcp.thread_index = thread_index;
 
       child->tx_fifo_size = transport_tx_fifo_size (&child->connection);
 

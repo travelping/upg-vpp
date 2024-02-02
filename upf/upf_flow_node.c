@@ -86,10 +86,10 @@ load_gtpu_flow_info (flowtable_main_t *fm, vlib_buffer_t *b,
                   &flow->key);
       flow->application_id = ~0;
       flow->generation = generation;
-      flow_side (flow, FT_INITIATOR)->pdr_id = ~0;
-      flow_side (flow, FT_RESPONDER)->pdr_id = ~0;
-      flow_side (flow, FT_INITIATOR)->next = FT_NEXT_CLASSIFY;
-      flow_side (flow, FT_RESPONDER)->next = FT_NEXT_CLASSIFY;
+      flow_side (flow, FT_ORIGIN)->pdr_id = ~0;
+      flow_side (flow, FT_REVERSE)->pdr_id = ~0;
+      flow_side (flow, FT_ORIGIN)->next = FT_NEXT_CLASSIFY;
+      flow_side (flow, FT_REVERSE)->next = FT_NEXT_CLASSIFY;
       upf_buffer_opaque (b)->gtpu.pdr_idx = ~0;
     }
   else
@@ -397,8 +397,8 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           next0 = load_gtpu_flow_info (fm, b0, flow, active0, key_direction,
                                        sx0->generation);
           flow_debug ("flow next: %u, origin: %u, reverse: %u", next0,
-                      flow_side (flow, FT_INITIATOR)->next,
-                      flow_side (flow, FT_RESPONDER)->next);
+                      flow_side (flow, FT_ORIGIN)->next,
+                      flow_side (flow, FT_REVERSE)->next);
 
           /* flowtable counters */
           CPT_THRU++;

@@ -190,10 +190,10 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
           upf_debug ("IP hdr: %U", format_ip4_header,
                      vlib_buffer_get_current (b), b->current_length);
           upf_debug ("Flow INITIATOR/RESPONDER Pdr Id: %u/%u, FT Next %u/%u",
-                     flow_side (flow, FT_INITIATOR)->pdr_id,
-                     flow_side (flow, FT_RESPONDER)->pdr_id,
-                     flow_side (flow, FT_INITIATOR)->next,
-                     flow_side (flow, FT_RESPONDER)->next);
+                     flow_side (flow, FT_ORIGIN)->pdr_id,
+                     flow_side (flow, FT_REVERSE)->pdr_id,
+                     flow_side (flow, FT_ORIGIN)->next,
+                     flow_side (flow, FT_REVERSE)->next);
 
           if (pool_is_free (gtm->sessions,
                             gtm->sessions + flow->session_index))
@@ -305,28 +305,28 @@ upf_proxy_output (vlib_main_t *vm, vlib_node_runtime_t *node,
 VLIB_NODE_FN (upf_ip4_proxy_server_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_RESPONDER, /* is_ip4 */ 1,
+  return upf_proxy_output (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 1,
                            /* far_only */ 0);
 }
 
 VLIB_NODE_FN (upf_ip6_proxy_server_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_RESPONDER, /* is_ip4 */ 0,
+  return upf_proxy_output (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 0,
                            /* far_only */ 0);
 }
 
 VLIB_NODE_FN (upf_ip4_proxy_server_far_only_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_INITIATOR, /* is_ip4 */ 1,
+  return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 1,
                            /* far_only */ 1);
 }
 
 VLIB_NODE_FN (upf_ip6_proxy_server_far_only_output_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_proxy_output (vm, node, from_frame, FT_INITIATOR, /* is_ip4 */ 0,
+  return upf_proxy_output (vm, node, from_frame, FT_ORIGIN, /* is_ip4 */ 0,
                            /* far_only */ 1);
 }
 

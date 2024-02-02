@@ -274,8 +274,8 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   f->ps_index = ~0;
   f->timer_slot = ~0;
 
-  flowtable_entry_init_side (flow_side (f, FT_INITIATOR), now);
-  flowtable_entry_init_side (flow_side (f, FT_RESPONDER), now);
+  flowtable_entry_init_side (flow_side (f, FT_ORIGIN), now);
+  flowtable_entry_init_side (flow_side (f, FT_REVERSE), now);
 
   session_flows_list_anchor_init (f);
   flow_timeout_list_anchor_init (f);
@@ -342,10 +342,10 @@ format_flow (u8 *s, va_list *args)
               "Forward PDR %u, Reverse PDR %u, "
               "app %v, lifetime %u, proxy %d, spliced %d nat port %d",
               format_flow_key, &flow->key,
-              flow_side (flow, FT_INITIATOR)->stats.pkts,
-              flow_side (flow, FT_RESPONDER)->stats.pkts,
-              flow_side (flow, FT_INITIATOR)->pdr_id,
-              flow_side (flow, FT_RESPONDER)->pdr_id, app_name, flow->lifetime,
+              flow_side (flow, FT_ORIGIN)->stats.pkts,
+              flow_side (flow, FT_REVERSE)->stats.pkts,
+              flow_side (flow, FT_ORIGIN)->pdr_id,
+              flow_side (flow, FT_REVERSE)->pdr_id, app_name, flow->lifetime,
               flow->is_l3_proxy, flow->is_spliced, flow->nat_sport);
 #if CLIB_DEBUG > 0
   s = format (s, ", dont_splice %d", flow->dont_splice);
