@@ -149,12 +149,15 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
           if (opt_len == TCP_OPTION_LEN_TIMESTAMP)
             {
               /* tsval */
-              net_sub ((u32 *) (data + 2), flow_tsval_offs (flow, direction));
+              net_sub (
+                (u32 *) (data + 2),
+                flow_side (flow, FTD_OP_SAME ^ direction)->tcp.tsval_offs);
 
               if (tcp_ack (th))
                 /* tsecr */
-                net_add ((u32 *) (data + 6),
-                         flow_tsval_offs (flow, FT_REVERSE ^ direction));
+                net_add (
+                  (u32 *) (data + 6),
+                  flow_side (flow, FTD_OP_FLIP ^ direction)->tcp.tsval_offs);
             }
           break;
 
@@ -170,19 +173,22 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
           blocks = (opt_len - 2) / TCP_OPTION_LEN_SACK_BLOCK;
           for (j = 0; j < blocks; j++)
             {
+              // TODO: can get rid of this "if" by replacing flow_side with
+              // direction ^ FTD_OP_FLIP
+
               if (direction == FT_ORIGIN)
                 {
                   net_add ((u32 *) (data + 2 + 8 * j),
-                           flow_seq_offs (flow, FT_REVERSE));
+                           flow_side (flow, FT_REVERSE)->tcp.seq_offs);
                   net_add ((u32 *) (data + 6 + 8 * j),
-                           flow_seq_offs (flow, FT_REVERSE));
+                           flow_side (flow, FT_REVERSE)->tcp.seq_offs);
                 }
               else
                 {
                   net_sub ((u32 *) (data + 2 + 8 * j),
-                           flow_seq_offs (flow, FT_ORIGIN));
+                           flow_side (flow, FT_ORIGIN)->tcp.seq_offs);
                   net_sub ((u32 *) (data + 6 + 8 * j),
-                           flow_seq_offs (flow, FT_ORIGIN));
+                           flow_side (flow, FT_ORIGIN)->tcp.seq_offs);
                 }
             }
           break;
@@ -197,8 +203,7 @@ upf_tcp_tstamp_mod (tcp_header_t *th, flow_direction_t direction,
 
 static uword
 upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
-                 vlib_frame_t *from_frame, flow_direction_t direction,
-                 int is_ip4)
+                 vlib_frame_t *from_frame, int is_ip4)
 {
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
@@ -255,10 +260,7 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
             }
 
           flow = pool_elt_at_index (fm->flows, flow_id);
-          direction =
-            (flow->is_reverse == upf_buffer_opaque (b)->gtpu.is_reverse) ?
-              FT_ORIGIN :
-              FT_REVERSE;
+          direction = upf_buffer_opaque (b)->gtpu.direction;
 
           /* mostly borrowed from vnet/interface_output.c calc_checksums */
           if (is_ip4)
@@ -277,13 +279,13 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
 
           if (direction == FT_ORIGIN)
             {
-              seq += flow_seq_offs (flow, FT_ORIGIN);
-              ack += flow_seq_offs (flow, FT_REVERSE);
+              seq += flow_side (flow, FT_ORIGIN)->tcp.seq_offs;
+              ack += flow_side (flow, FT_REVERSE)->tcp.seq_offs;
             }
           else
             {
-              seq -= flow_seq_offs (flow, FT_REVERSE);
-              ack -= flow_seq_offs (flow, FT_ORIGIN);
+              seq -= flow_side (flow, FT_REVERSE)->tcp.seq_offs;
+              ack -= flow_side (flow, FT_ORIGIN)->tcp.seq_offs;
             }
 
           th->seq_number = clib_host_to_net_u32 (seq);
@@ -346,13 +348,13 @@ upf_tcp_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
 VLIB_NODE_FN (upf_tcp4_forward_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_tcp_forward (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 1);
+  return upf_tcp_forward (vm, node, from_frame, /* is_ip4 */ 1);
 }
 
 VLIB_NODE_FN (upf_tcp6_forward_node)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
-  return upf_tcp_forward (vm, node, from_frame, FT_REVERSE, /* is_ip4 */ 0);
+  return upf_tcp_forward (vm, node, from_frame, /* is_ip4 */ 0);
 }
 
 /* clang-format off */

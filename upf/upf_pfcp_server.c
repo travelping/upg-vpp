@@ -307,7 +307,7 @@ upf_pfcp_server_rx_msg (pfcp_msg_t *msg)
   if (len < 4)
     return -1;
 
-  upf_debug ("%U", format_pfcp_msg_hdr, (pfcp_msg_header_t *) msg->data);
+  upf_debug ("%U", format_pfcp_msg_header, (pfcp_msg_header_t *) msg->data);
 
   if (!pfcp_msg_version_valid (msg->data))
     {

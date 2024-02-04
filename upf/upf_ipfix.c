@@ -419,15 +419,15 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
   u16 offset;
   upf_ipfix_template_t *template;
   upf_session_t *sx;
-  u32 iidx = flow_ipfix_info (f, direction);
+  u32 iidx = flow_side (f, direction)->ipfix.info_index;
 
   if (iidx == (u32) ~0)
     return;
 
   info = pool_elt_at_index (fm->infos, iidx);
   context = pool_elt_at_index (fm->contexts, info->context_index);
-  ASSERT (!!ip46_address_is_ip4 (&f->key.ip[FT_ORIGIN]) ==
-          context->key.is_ip4);
+
+  ASSERT (f->key.is_ip4 == context->key.is_ip4);
 
   offset = context->next_record_offset_per_worker[my_cpu_number];
   template = upf_ipfix_templates + context->key.policy;
@@ -454,7 +454,7 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
       template->add_ip6_values (b0, f, direction, offset, sx, info, last);
 
   /* Reset per flow-export counters */
-  flow_last_exported (f, direction) = now;
+  flow_side (f, direction)->ipfix.last_exported = now;
   f->exported = 1;
 
   b0->current_length = offset;
@@ -466,8 +466,8 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f,
   upf_ipfix_export_send (vm, b0, context, now);
 }
 
-static int
-upf_ipfix_flow_stats_update_handler (flowtable_main_t *_fm, flow_entry_t *f,
+int
+upf_ipfix_flow_stats_update_handler (flow_entry_t *f,
                                      flow_direction_t direction, u32 now)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
@@ -483,16 +483,15 @@ upf_ipfix_flow_stats_update_handler (flowtable_main_t *_fm, flow_entry_t *f,
 
   info = pool_elt_at_index (fm->infos, iidx);
   if (info->report_interval)
-    if (PREDICT_FALSE (now > flow_last_exported (f, direction) +
+    if (PREDICT_FALSE (now > flow_side (f, direction)->ipfix.last_exported +
                                info->report_interval))
       upf_ipfix_export_entry (vm, f, direction, now, false);
 
   return 0;
 }
 
-static int
-upf_ipfix_flow_remove_handler (flowtable_main_t *_fm, flow_entry_t *f,
-                               flow_direction_t direction, u32 now)
+int
+upf_ipfix_flow_remove_handler (flow_entry_t *f, u32 now)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   vlib_main_t *vm = fm->vlib_main;
@@ -500,18 +499,23 @@ upf_ipfix_flow_remove_handler (flowtable_main_t *_fm, flow_entry_t *f,
   if (fm->disabled)
     return 0;
 
-  if (flow_ipfix_info (f, FT_ORIGIN) != ~0)
+  u32 origin_iidx = flow_side (f, FT_ORIGIN)->ipfix.info_index;
+  u32 reverse_iidx = flow_side (f, FT_REVERSE)->ipfix.info_index;
+
+  if (origin_iidx != ~0)
     {
-      bool last = flow_ipfix_info (f, FT_REVERSE) == ~0;
+      bool last = reverse_iidx == ~0;
       upf_ipfix_export_entry (vm, f, FT_ORIGIN, now, last);
-      upf_unref_ipfix_info (flow_ipfix_info (f, FT_ORIGIN));
+      upf_unref_ipfix_info (origin_iidx);
     }
 
-  if (flow_ipfix_info (f, FT_REVERSE) != ~0)
+  if (reverse_iidx != ~0)
     {
       upf_ipfix_export_entry (vm, f, FT_REVERSE, now, true);
-      upf_unref_ipfix_info (flow_ipfix_info (f, FT_REVERSE));
+      upf_unref_ipfix_info (reverse_iidx);
     }
+
+  return 0;
 }
 
 u32
@@ -755,7 +759,6 @@ clib_error_t *
 upf_ipfix_init (vlib_main_t *vm)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
-  flowtable_main_t *_fm = &flowtable_main;
   clib_error_t *error = 0;
 
   clib_spinlock_init (&fm->lock);
@@ -777,11 +780,6 @@ upf_ipfix_init (vlib_main_t *vm)
                          UPF_IPFIX_MAPPING_MEMORY_SIZE);
   /* clib_bihash_set_kvp_format_fn_24_8 (&fm->info_by_key, */
   /* 				      format_ipfix_info_key); */
-
-  flowtable_add_event_handler (_fm, FLOW_EVENT_STATS_UPDATE,
-                               upf_ipfix_flow_stats_update_handler);
-  flowtable_add_event_handler (_fm, FLOW_EVENT_REMOVE,
-                               upf_ipfix_flow_remove_handler);
 
   return error;
 }
@@ -864,13 +862,13 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
   upf_ipfix_info_t *other_info = 0;
   u32 iidx;
 
-  if ((iidx = flow_ipfix_info (f, direction)) != ~0)
+  if ((iidx = flow_side (f, direction)->ipfix.info_index) != ~0)
     return iidx;
 
   sx = pool_elt_at_index (gtm->sessions, f->session_index);
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
-  pdr_id = flow_pdr_id (f, direction);
+  pdr_id = flow_side (f, direction)->pdr_id;
   if (pdr_id == ~0)
     return ~0;
 
@@ -905,10 +903,10 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
        * If this is the reverse flow direction, use IPFIX settings for the
        * forward direction;
        */
-      if (flow_ipfix_info (f, FT_ORIGIN) != ~0)
+      if (flow_side (f, FT_ORIGIN)->ipfix.info_index != ~0)
         {
-          other_info =
-            pool_elt_at_index (fm->infos, flow_ipfix_info (f, FT_ORIGIN));
+          other_info = pool_elt_at_index (
+            fm->infos, flow_side (f, FT_ORIGIN)->ipfix.info_index);
           if (info_key.policy == UPF_IPFIX_POLICY_NONE)
             info_key.policy = other_info->key.policy;
           info_key.info_nwi_index = other_info->key.info_nwi_index;
@@ -925,7 +923,7 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
 
   ingress_nwi = pool_elt_at_index (gtm->nwis, pdr->pdi.nwi_index);
 
-  info_key.is_ip4 = ip46_address_is_ip4 (&f->key.ip[FT_ORIGIN]);
+  info_key.is_ip4 = f->key.is_ip4;
   fproto = info_key.is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
   info_key.ingress_fib_index = ingress_nwi->fib_index[fproto];
   info_key.egress_fib_index = egress_nwi->fib_index[fproto];
@@ -963,12 +961,12 @@ upf_ipfix_ensure_flow_ipfix_info (flow_entry_t *f, flow_direction_t direction)
     info_key.sw_if_index = far->forward.dst_sw_if_index;
   else
     info_key.sw_if_index = upf_ip46_get_resolving_interface (
-      info_key.egress_fib_index,
-      &f->key.ip[FT_REVERSE ^ f->is_reverse ^ direction], info_key.is_ip4);
+      info_key.egress_fib_index, &f->key.ip[FTK_EL_DST ^ direction],
+      info_key.is_ip4);
 
   iidx = upf_ensure_ref_ipfix_info (&info_key);
   if (iidx != ~0)
-    flow_ipfix_info (f, direction) = iidx;
+    flow_side (f, direction)->ipfix.info_index = iidx;
 
   return iidx;
 }

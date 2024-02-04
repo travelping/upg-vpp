@@ -377,12 +377,12 @@ proxy_start_connect_fn (const u32 *session_index)
     }
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
-  src = &flow->key.ip[FT_ORIGIN ^ flow->is_reverse];
-  dst = &flow->key.ip[FT_REVERSE ^ flow->is_reverse];
-  is_ip4 = ip46_address_is_ip4 (dst);
+  src = &flow->key.ip[FTK_EL_SRC ^ FT_ORIGIN];
+  dst = &flow->key.ip[FTK_EL_DST ^ FT_ORIGIN];
+  is_ip4 = flow->key.is_ip4;
 
-  ASSERT (flow_pdr_id (flow, FT_ORIGIN) != ~0);
-  pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
+  ASSERT (flow_side (flow, FT_ORIGIN)->pdr_id != ~0);
+  pdr = pfcp_get_pdr_by_id (active, flow_side (flow, FT_ORIGIN)->pdr_id);
   ASSERT (pdr);
   far = pfcp_get_far_by_id (active, pdr->far_id);
 
@@ -390,14 +390,16 @@ proxy_start_connect_fn (const u32 *session_index)
   a->api_context = *session_index;
   a->app_index = pm->active_open_app_index;
   a->sep_ext = (session_endpoint_cfg_t) SESSION_ENDPOINT_CFG_NULL;
+
   upf_nwi_if_and_fib_index (gtm, is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,
                             far->forward.nwi_index, &a->sep_ext.sw_if_index,
                             &a->sep_ext.fib_index);
+
   a->sep_ext.transport_proto = TRANSPORT_PROTO_TCP;
   a->sep_ext.mss = pm->mss;
   a->sep_ext.is_ip4 = is_ip4;
   a->sep_ext.ip = *dst;
-  a->sep_ext.port = flow->key.port[FT_REVERSE ^ flow->is_reverse];
+  a->sep_ext.port = flow->key.port[FTK_EL_DST ^ FT_ORIGIN];
   a->sep_ext.next_node_index = is_ip4 ? pm->tcp4_server_output_next_active :
                                         pm->tcp6_server_output_next_active;
   a->sep_ext.next_node_opaque = ps->flow_index + 1;
@@ -405,7 +407,7 @@ proxy_start_connect_fn (const u32 *session_index)
   a->sep_ext.peer.sw_if_index = a->sep_ext.sw_if_index;
   a->sep_ext.peer.is_ip4 = is_ip4;
   a->sep_ext.peer.ip = *src;
-  a->sep_ext.peer.port = flow->key.port[FT_ORIGIN ^ flow->is_reverse];
+  a->sep_ext.peer.port = flow->key.port[FTK_EL_SRC ^ FT_ORIGIN];
 
   if ((rv = vnet_connect (a)) != 0)
     {
@@ -613,7 +615,7 @@ session_cleanup (session_t *s, session_cleanup_ntf_t ntf, int is_active_open)
   flowtable_main_t *fm = &flowtable_main;
   upf_proxy_session_t *ps;
   flow_entry_t *flow;
-  flow_tc_t *ftc;
+  flow_side_tcp_t *ftc;
   u32 flow_index;
 
   proxy_server_sessions_writer_lock ();
@@ -647,7 +649,7 @@ session_cleanup (session_t *s, session_cleanup_ntf_t ntf, int is_active_open)
     goto out_unlock;
   flow = pool_elt_at_index (fm->flows, flow_index);
 
-  ftc = &flow_tc (flow, is_active_open ? FT_REVERSE : FT_ORIGIN);
+  ftc = &flow_side (flow, is_active_open ? FT_REVERSE : FT_ORIGIN)->tcp;
   ftc->conn_index = ~0;
 
 out_unlock:
@@ -809,7 +811,7 @@ proxy_send_redir (session_t *s, upf_proxy_session_t *ps, flow_entry_t *flow,
   u8 *wispr, *html, *http, *url;
   int i;
 
-  pdr = pfcp_get_pdr_by_id (active, flow_pdr_id (flow, FT_ORIGIN));
+  pdr = pfcp_get_pdr_by_id (active, flow_side (flow, FT_ORIGIN)->pdr_id);
   far = pfcp_get_far_by_id (active, pdr->far_id);
 
   /* Edge case: session modified, redirect no longer applicable */
@@ -913,8 +915,8 @@ proxy_rx_callback_static (session_t *s, upf_proxy_session_t *ps)
        */
       upf_debug ("connect outgoing session");
 
-      flow_next (flow, FT_ORIGIN) = flow_next (flow, FT_REVERSE) =
-        FT_NEXT_PROXY;
+      flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROXY;
+      flow_side (flow, FT_REVERSE)->next = FT_NEXT_PROXY;
 
       /* start outgoing connect to server */
       proxy_start_connect (ps);
@@ -946,8 +948,8 @@ proxy_rx_callback_static (session_t *s, upf_proxy_session_t *ps)
       upf_debug ("connect outgoing session");
 
       /* we are done with scanning for PDRs */
-      flow_next (flow, FT_ORIGIN) = flow_next (flow, FT_REVERSE) =
-        FT_NEXT_PROXY;
+      flow_side (flow, FT_ORIGIN)->next = FT_NEXT_PROXY;
+      flow_side (flow, FT_REVERSE)->next = FT_NEXT_PROXY;
 
       /* start outgoing connect to server */
       proxy_start_connect (ps);
@@ -1105,7 +1107,7 @@ active_open_connected_callback (u32 app_index, u32 opaque, session_t *s,
 
   transport_connection_t *tc;
   flow_entry_t *flow;
-  flow_tc_t *ftc;
+  flow_side_tcp_t *ftc;
 
   flow = pool_elt_at_index (fm->flows, ps->flow_index);
   ASSERT (flow->ps_index == opaque);
@@ -1113,7 +1115,7 @@ active_open_connected_callback (u32 app_index, u32 opaque, session_t *s,
 
   ASSERT (tc->thread_index == thread_index);
 
-  ftc = &flow_tc (flow, FT_REVERSE);
+  ftc = &flow_side (flow, FT_REVERSE)->tcp;
   ftc->conn_index = tc->c_index;
   ftc->thread_index = tc->thread_index;
 
@@ -1367,29 +1369,18 @@ static void
 upf_proxy_create (vlib_main_t *vm, u32 fib_index, int is_ip4)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
-  tcp_main_t *tm = vnet_get_tcp_main ();
   int rv;
 
   if (pm->server_client_index == (u32) ~0)
     vnet_session_enable_disable (vm, 1 /* turn on TCP, etc. */);
-
-  /* Set next nodes for non-connection-bound packets */
-  /* TODO: this is broken in VPP 22.02, these values are ignored */
-  tm->ipl_next_node[0] =
-    vlib_node_add_next (vm, session_queue_node.index,
-                        upf_ip4_proxy_server_no_conn_output_node.index);
-  tm->ipl_next_node[1] =
-    vlib_node_add_next (vm, session_queue_node.index,
-                        upf_ip6_proxy_server_no_conn_output_node.index);
 
   rv = proxy_create (vm, fib_index, is_ip4);
   if (rv != 0)
     clib_error ("UPF http redirect server create returned %d", rv);
 }
 
-static int
-upf_proxy_flow_expire_event_handler (flowtable_main_t *fm, flow_entry_t *flow,
-                                     flow_direction_t direction, u32 now)
+int
+upf_proxy_flow_expire_event_handler (flow_entry_t *flow)
 {
   upf_proxy_session_t *ps;
   if (flow->ps_index == ~0)
@@ -1407,9 +1398,8 @@ upf_proxy_flow_expire_event_handler (flowtable_main_t *fm, flow_entry_t *flow,
   return -1;
 }
 
-static int
-upf_proxy_flow_remove_handler (flowtable_main_t *fm, flow_entry_t *flow,
-                               flow_direction_t direction, u32 now)
+int
+upf_proxy_flow_remove_handler (flow_entry_t *flow)
 {
   int is_active_open;
   session_t *sess;
@@ -1459,7 +1449,6 @@ upf_proxy_main_init (vlib_main_t *vm)
 {
   upf_proxy_main_t *pm = &upf_proxy_main;
   tcp_main_t *tm = vnet_get_tcp_main ();
-  flowtable_main_t *fm = &flowtable_main;
 
   pm->mss = 1350;
   pm->fifo_size = 64 << 10;
@@ -1496,11 +1485,6 @@ upf_proxy_main_init (vlib_main_t *vm)
   pm->tcp6_server_output_next_active =
     vlib_node_add_next (vm, tcp6_output_node.index,
                         upf_ip6_proxy_server_far_only_output_node.index);
-
-  flowtable_add_event_handler (fm, FLOW_EVENT_EXPIRE,
-                               upf_proxy_flow_expire_event_handler);
-  flowtable_add_event_handler (fm, FLOW_EVENT_REMOVE,
-                               upf_proxy_flow_remove_handler);
 
   return 0;
 }

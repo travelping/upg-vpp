@@ -144,6 +144,8 @@ proxy_session_stream_accept_notify (transport_connection_t *tc, u32 flow_id)
 
 /**
  * Lookup transport connection
+ * is_reverse - in this context means that buffer source adress is local
+ * address instead of destination
  */
 tcp_connection_t *
 upf_tcp_lookup_connection (u32 fib_index, vlib_buffer_t *b, u8 thread_index,
@@ -295,8 +297,8 @@ upf_proxy_accept_inline (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       vnet_buffer (b)->tcp.connection_index = child->c_c_index;
 
-      flow_tc (flow, FT_ORIGIN).conn_index = child->c_c_index;
-      flow_tc (flow, FT_ORIGIN).thread_index = thread_index;
+      flow_side (flow, FT_ORIGIN)->tcp.conn_index = child->c_c_index;
+      flow_side (flow, FT_ORIGIN)->tcp.thread_index = thread_index;
 
       child->tx_fifo_size = transport_tx_fifo_size (&child->connection);
 

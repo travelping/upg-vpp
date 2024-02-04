@@ -22,8 +22,6 @@
 #include "upf_pfcp.h"
 #include "upf_pfcp_api.h"
 #include "upf_pfcp_server.h"
-/* for vnet_upf_pfcp_set_polling() */
-#include "flowtable.h"
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -445,29 +443,6 @@ pfcp_session_server_main_init (vlib_main_t *vm)
                        VLIB_NODE_STATE_POLLING);
 
   return 0;
-}
-
-void
-vnet_upf_pfcp_set_polling (vlib_main_t *vm, u8 polling)
-{
-  if (!polling)
-    {
-      clib_warning (
-        "Using interrupt mode for the PFCP server. This mode is not "
-        "recommended for production.");
-      vlib_node_set_state (vm, pfcp_session_server_process_node.index,
-                           VLIB_NODE_STATE_INTERRUPT);
-      vlib_node_set_state (vm, flowtable_process_node.index,
-                           VLIB_NODE_STATE_POLLING);
-    }
-  else
-    {
-      vlib_node_set_state (vm, pfcp_session_server_process_node.index,
-                           VLIB_NODE_STATE_POLLING);
-      /* no need to expire the flows on timer when there's enough traffic */
-      vlib_node_set_state (vm, flowtable_process_node.index,
-                           VLIB_NODE_STATE_DISABLED);
-    }
 }
 
 VLIB_INIT_FUNCTION (pfcp_session_server_main_init);

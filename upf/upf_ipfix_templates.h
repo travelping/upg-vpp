@@ -114,22 +114,22 @@
 #define IPFIX_FIELD_SOURCE_IPV4_ADDRESS(F)			\
   F(sourceIPv4Address, 4,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.ip[FT_ORIGIN ^ f->is_reverse ^ direction].ip4,	\
+    &f->key.ip[FTK_EL_SRC ^ direction].ip4,	\
     sizeof(ip4_address_t), 1)
 #define IPFIX_FIELD_SOURCE_IPV6_ADDRESS(F)			\
   F(sourceIPv6Address, 16,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.ip[FT_ORIGIN ^ f->is_reverse ^ direction].ip6,	\
+    &f->key.ip[FTK_EL_SRC ^ direction].ip6,	\
     sizeof(ip6_address_t), 1)
 #define IPFIX_FIELD_DESTINATION_IPV4_ADDRESS(F)			\
   F(destinationIPv4Address, 4,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.ip[FT_REVERSE ^ f->is_reverse ^ direction].ip4,	\
+    &f->key.ip[FTK_EL_DST ^ direction].ip4,	\
     sizeof(ip4_address_t), 1)
 #define IPFIX_FIELD_DESTINATION_IPV6_ADDRESS(F)			\
   F(destinationIPv6Address, 16,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.ip[FT_REVERSE ^ f->is_reverse ^ direction].ip6,	\
+    &f->key.ip[FTK_EL_DST ^ direction].ip6,	\
     sizeof(ip6_address_t), 1)
 #define IPFIX_FIELD_PROTOCOL_IDENTIFIER(F)			\
   F(protocolIdentifier, 1,					\
@@ -141,42 +141,42 @@
 #define IPFIX_FIELD_INITIATOR_PACKETS(F)			\
   F(initiatorPackets, 8,					\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_stats(f, FT_ORIGIN).pkts_unreported,			\
+    flow_side(f, FT_ORIGIN)->stats.pkts_unreported,			\
     sizeof(u64), 1)
 #define IPFIX_FIELD_RESPONDER_PACKETS(F)			\
   F(responderPackets, 8,					\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_stats(f, FT_REVERSE).pkts_unreported,			\
+    flow_side(f, FT_REVERSE)->stats.pkts_unreported,			\
     sizeof(u64), 1)
 #define IPFIX_FIELD_INITIATOR_OCTETS(F)				\
   F(initiatorOctets, 8,						\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_stats(f, FT_ORIGIN).l4_bytes_unreported,		\
+    flow_side(f, FT_ORIGIN)->stats.l4_bytes_unreported,		\
     sizeof(u64), 1)
 #define IPFIX_FIELD_RESPONDER_OCTETS(F)				\
   F(responderOctets, 8,						\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_stats(f, FT_REVERSE).l4_bytes_unreported,		\
+    flow_side(f, FT_REVERSE)->stats.l4_bytes_unreported,		\
     sizeof(u64), 1)
 #define IPFIX_FIELD_PACKET_DELTA_COUNT(F)			\
   F(packetDeltaCount, 8,					\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_stats(f, direction).pkts_unreported,			\
+    flow_side(f, direction)->stats.pkts_unreported,			\
     sizeof(u64), 1)
 #define IPFIX_FIELD_OCTET_DELTA_COUNT(F)			\
   F(octetDeltaCount, 8,						\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_stats(f, direction).bytes_unreported,			\
+    flow_side(f, direction)->stats.bytes_unreported,			\
     sizeof(u64), 1)
 #define IPFIX_FIELD_PACKET_TOTAL_COUNT(F)		       	\
   F(packetTotalCount, 8,					\
     IPFIX_VALUE_U64,						\
-    flow_stats(f, direction).pkts,				\
+    flow_side(f, direction)->stats.pkts,				\
     sizeof(u64), 1)
 #define IPFIX_FIELD_OCTET_TOTAL_COUNT(F)			\
   F(octetTotalCount, 8,						\
     IPFIX_VALUE_U64,						\
-    flow_stats(f, direction).bytes,				\
+    flow_side(f, direction)->stats.bytes,				\
     sizeof (u64), 1)
 #define IPFIX_FIELD_FLOW_START_MILLISECONDS(F)			\
   F(flowStartMilliseconds, 8,					\
@@ -191,17 +191,17 @@
 #define IPFIX_FIELD_FLOW_DIRECTION(F)				\
   F(flowDirection, 1,						\
     IPFIX_VALUE_DIRECT,						\
-    direction == FT_ORIGIN ? 1 : 0,				\
+    direction == FT_ORIGIN ? 1 /* egress */ : 0 /* ingress */,				\
     1, 1)
 #define IPFIX_FIELD_SOURCE_TRANSPORT_PORT(F)			\
   F(sourceTransportPort, 2,					\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.port[FT_ORIGIN ^ f->is_reverse ^ direction],	\
+    &f->key.port[FTK_EL_SRC ^ direction],	\
     2, 1)
 #define IPFIX_FIELD_DESTINATION_TRANSPORT_PORT(F)		\
   F(destinationTransportPort, 2,				\
     IPFIX_VALUE_MEMCPY_DIRECT,					\
-    &f->key.port[FT_REVERSE ^ f->is_reverse ^ direction],	\
+    &f->key.port[FTK_EL_DST ^ direction],	\
     2, 1)
 #define IPFIX_FIELD_POST_NAT_IPV4_ADDRESS(F)			\
   F(postNATSourceIPv4Address, 4,				\

@@ -28,6 +28,7 @@
 
 #include "flowtable_tcp.h"
 #include "llist.h"
+#include "upf_buffer_opaque.h"
 
 #define foreach_flowtable_error                                               \
   _ (HIT, "packets with an existing flow")                                    \
@@ -57,12 +58,26 @@ typedef enum
 
 typedef enum
 {
-  FT_ORIGIN = 0,
-  FT_REVERSE,
-  FT_ORDER_MAX
-} flow_direction_t;
+  FT_ORIGIN = 0, // direction in which flow was created
+  FT_REVERSE = 1,
+  FT_DIRECTION_MAX
+} __clib_packed flow_direction_t;
 
-/* key */
+typedef enum
+{
+  FTD_OP_SAME = 0, // original key direction
+  FTD_OP_FLIP,     // reversed key direction
+} __clib_packed flow_direction_op_t;
+
+typedef enum
+{
+  FTK_EL_SRC = 0, // select src field of pkt in direction
+  FTK_EL_DST = 1, // select dst field of pkt in direction
+} __clib_packed flow_key_el_t;
+
+// Flowtable hashmap key.
+// Fields can be reversed and because of this key access usually should use
+// flow_direction_op_t determined from packet ip addresses
 typedef struct
 {
   union
@@ -70,13 +85,33 @@ typedef struct
     struct
     {
       u64 up_seid;
-      ip46_address_t ip[FT_ORDER_MAX];
-      u16 port[FT_ORDER_MAX];
+      ip46_address_t ip[FT_DIRECTION_MAX];
+      u16 port[FT_DIRECTION_MAX];
       u8 proto;
+      u8 is_ip4 : 1;
     };
     u64 key[6];
   };
 } flow_key_t;
+
+// Like flow_key_t, but elements are ordered and can be accessed directly with
+// flow_direction_t, without accounting for ip address comparison
+typedef flow_key_t key_directioned_t;
+
+__always_inline void
+flow_key_apply_direction (flow_key_t *dst_key, const flow_key_t *src_key,
+                          flow_direction_op_t direction)
+{
+  dst_key->up_seid = src_key->up_seid;
+  ip46_address_copy (&dst_key->ip[FTK_EL_SRC ^ direction],
+                     &src_key->ip[FTK_EL_SRC]);
+  ip46_address_copy (&dst_key->ip[FTK_EL_DST ^ direction],
+                     &src_key->ip[FTK_EL_DST]);
+  dst_key->port[FTK_EL_SRC ^ direction] = src_key->port[FTK_EL_SRC];
+  dst_key->port[FTK_EL_DST ^ direction] = src_key->port[FTK_EL_DST];
+  dst_key->proto = src_key->proto;
+  dst_key->is_ip4 = src_key->is_ip4;
+}
 
 typedef struct
 {
@@ -86,7 +121,7 @@ typedef struct
   u64 bytes_unreported;
   u64 l4_bytes;
   u64 l4_bytes_unreported;
-} flow_stats_t;
+} flow_side_stats_t;
 
 typedef enum
 {
@@ -99,11 +134,30 @@ typedef enum
   FT_TIMEOUT_TYPE_MAX
 } flowtable_timeout_type_t;
 
-typedef struct flow_tc
+typedef struct flow_side_tcp_t_
 {
-  u32 conn_index;
+  u32 conn_index; // vpp transport_connection_t->c_index
   u32 thread_index;
-} flow_tc_t;
+  u32 seq_offs;
+  u32 tsval_offs;
+} flow_side_tcp_t;
+
+typedef struct flow_side_ipfix_t_
+{
+  u32 last_exported;
+  u32 info_index;
+} flow_side_ipfix_t;
+
+typedef struct flow_side_t_
+{
+  flow_side_stats_t stats;
+  flow_side_ipfix_t ipfix;
+  flow_side_tcp_t tcp;
+
+  u32 pdr_id;
+  u32 teid;
+  u32 next;
+} flow_side_t;
 
 UPF_LLIST_TEMPLATE_TYPES (session_flows_list);
 UPF_LLIST_TEMPLATE_TYPES (flow_timeout_list);
@@ -114,9 +168,10 @@ typedef struct flow_entry
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
 
   /* flow signature */
-  flow_key_t key;
+  // key elements indexes are flow_direction_t
+  key_directioned_t key;
   u32 session_index;
-  u8 is_reverse : 1;
+  u8 key_direction : 1; // flow_direction_op_t of bihash key
   u8 is_redirect : 1;
   u8 is_l3_proxy : 1;
   u8 is_spliced : 1;
@@ -127,33 +182,21 @@ typedef struct flow_entry
   u8 tcp_state;
   u32 ps_index;
 
-  /* stats */
-  flow_stats_t stats[FT_ORDER_MAX];
-
   /* timers */
   u32 active;     /* last activity ts */
   u16 lifetime;   /* in seconds */
   u16 timer_slot; /* timer list index in the timer lists pool */
   flow_timeout_list_anchor_t timer_anchor;
 
-  /* UPF data */
-  u32 application_id;        /* L7 app index */
-  u32 _pdr_id[FT_ORDER_MAX]; /* PDRs */
-  u32 _teid[FT_ORDER_MAX];
-  u32 _next[FT_ORDER_MAX];
+  // elements indexes are flow_direction_t
+  flow_side_t side[FT_DIRECTION_MAX];
 
-  flow_tc_t _tc[FT_ORDER_MAX];
-
-  u32 _seq_offs[FT_ORDER_MAX];
-  u32 _tsval_offs[FT_ORDER_MAX];
+  u32 application_id; /* L7 app index */
 
   u8 *app_uri;
 
   u64 flow_start_time; /* unix nanoseconds */
   u64 flow_end_time;   /* unix nanoseconds */
-
-  u32 last_exported[FT_ORDER_MAX];
-  u32 ipfix_info_index[FT_ORDER_MAX];
 
   session_flows_list_anchor_t session_list_anchor;
 
@@ -168,16 +211,29 @@ UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t,
 UPF_LLIST_TEMPLATE_DEFINITIONS (flow_timeout_list, flow_entry_t, timer_anchor);
 
 /* accessor helper */
-#define flow_member(F, M, D)     (F)->M[(D) ^ (F)->is_reverse]
-#define flow_next(F, D)          flow_member ((F), _next, (D))
-#define flow_teid(F, D)          flow_member ((F), _teid, (D))
-#define flow_pdr_id(F, D)        flow_member ((F), _pdr_id, (D))
-#define flow_tc(F, D)            flow_member ((F), _tc, (D))
-#define flow_seq_offs(F, D)      flow_member ((F), _seq_offs, (D))
-#define flow_tsval_offs(F, D)    flow_member ((F), _tsval_offs, (D))
-#define flow_stats(F, D)         flow_member ((F), stats, (D))
-#define flow_last_exported(F, D) flow_member ((F), last_exported, (D))
-#define flow_ipfix_info(F, D)    flow_member ((F), ipfix_info_index, (D))
+__clib_unused always_inline flow_side_t *
+flow_side (flow_entry_t *f, flow_direction_t direction)
+{
+  ASSERT (direction >= 0 && direction < FT_DIRECTION_MAX);
+  return &f->side[direction];
+}
+
+#define foreach_upf_flowtable_timer_error                                     \
+  _ (TIMER_EXPIRE, "flows that have expired")
+
+typedef enum
+{
+#define _(sym, str) FLOWTABLE_TIMER_ERROR_##sym,
+  foreach_upf_flowtable_timer_error
+#undef _
+    FLOWTABLE_TIMER_N_ERROR
+} upf_flowtable_timer_node_error_t;
+
+// TODO: Currently flowtable timer input node is just backup in case if there
+// is low amount of traffic on interface and events need to be flushed. In
+// future make it primary way and tie it to target SLO like
+// FLOWTABLE_TIMER_FREQUENCY = (UPF_SLO_PER_THREAD_FLOWS_PER_SECOND / 512.0)
+#define FLOWTABLE_TIMER_FREQUENCY (32.0)
 
 /* Timers (in seconds) */
 #define FLOW_TIMER_DEFAULT_LIFETIME (60)
@@ -222,68 +278,6 @@ typedef struct
 
 extern flowtable_main_t flowtable_main;
 
-typedef enum
-{
-  /*
-   * FLOW_EVENT_EXPIRE happens when a flow is about to expire.
-   * If all of the handlers return 0, the flow expires and is removed
-   * after invoking the FLOW_EVENT_REMOVE and FLOW_EVENT_UNLINK event
-   * handlers. Otherwise, the flow is retained for the number of
-   * seconds stored in its 'lifetime' field, after which the
-   * expiration is re-attempted, starting from handling this event
-   * again. This is used to block flow removal while other UPG
-   * structures still reference it, for example, the ADF proxy.
-   */
-  FLOW_EVENT_EXPIRE,
-  /*
-   * FLOW_EVENT_STATS_UPDATE event happens when flow stats are updated.
-   * It is used for flow reporting
-   */
-  FLOW_EVENT_STATS_UPDATE,
-  /*
-   * FLOW_EVENT_REMOVE event happens when the flow is being removed, so
-   * additional tasks such as flow reporting can be done on it.
-   */
-  FLOW_EVENT_REMOVE,
-  /*
-   * FLOW_EVENT_UNLINK event happens when removing a flow, after all
-   * FLOW_EVENT_REMOVE event handlers are called.
-   */
-  FLOW_EVENT_UNLINK,
-  /* Number of possible flow events */
-  FLOW_NUM_EVENTS
-} flow_event_t;
-
-#define FLOWTABLE_MAX_EVENT_HANDLERS_LOG2 2
-#define FLOWTABLE_MAX_EVENT_HANDLERS      (1 << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2)
-
-typedef int (*flow_event_handler_t) (flowtable_main_t *fm, flow_entry_t *flow,
-                                     flow_direction_t direction, u32 now);
-extern flow_event_handler_t
-  flowtable_handlers[FLOW_NUM_EVENTS << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2];
-
-void flowtable_add_event_handler (flowtable_main_t *fm, flow_event_t event,
-                                  flow_event_handler_t handler);
-static_always_inline int
-flowtable_handle_event (flowtable_main_t *fm, flow_entry_t *flow,
-                        flow_event_t event, flow_direction_t direction,
-                        u32 now)
-{
-  int rv = 0;
-  u32 index, max_index;
-  ASSERT (event >= 0 && event < FLOW_NUM_EVENTS);
-  index = event << FLOWTABLE_MAX_EVENT_HANDLERS_LOG2;
-  max_index = index + FLOWTABLE_MAX_EVENT_HANDLERS - 1;
-  for (; index <= max_index && flowtable_handlers[index]; index++)
-    {
-      int cur_rv = flowtable_handlers[index](fm, flow, direction, now);
-      if (!rv && cur_rv)
-        rv = cur_rv;
-    }
-
-  return rv;
-}
-
 u8 *format_flow_key (u8 *, va_list *);
 u8 *format_flow (u8 *, va_list *);
 
@@ -291,7 +285,7 @@ clib_error_t *flowtable_lifetime_update (flowtable_timeout_type_t type,
                                          u16 value);
 clib_error_t *flowtable_init (vlib_main_t *vm);
 
-static inline u16
+__clib_unused static inline u16
 flowtable_lifetime_get (flowtable_timeout_type_t type)
 {
   flowtable_main_t *fm = &flowtable_main;
@@ -299,7 +293,7 @@ flowtable_lifetime_get (flowtable_timeout_type_t type)
   return (type >= FT_TIMEOUT_TYPE_MAX) ? ~0 : fm->timer_lifetime[type];
 }
 
-static inline flow_entry_t *
+__clib_unused static inline flow_entry_t *
 flowtable_get_flow (flowtable_main_t *fm, u32 flow_index)
 {
   return pool_elt_at_index (fm->flows, flow_index);
@@ -310,12 +304,14 @@ void flowtable_entry_remove (flowtable_main_t *fm, flow_entry_t *f, u32 now);
 u32 flowtable_entry_lookup_create (flowtable_main_t *fm,
                                    flowtable_main_per_cpu_t *fmt,
                                    clib_bihash_kv_48_8_t *kv, u64 timestamp_ns,
-                                   u32 const now, u8 is_reverse,
+                                   u32 const now,
+                                   flow_direction_op_t key_direction,
                                    u16 generation, u32 session_index,
                                    int *created);
 
-void timer_wheel_index_update (flowtable_main_t *fm,
-                               flowtable_main_per_cpu_t *fmt, u32 now);
+void flowtable_timer_wheel_index_update (flowtable_main_t *fm,
+                                         flowtable_main_per_cpu_t *fmt,
+                                         u32 now);
 
 u64 flowtable_timer_expire (flowtable_main_t *fm,
                             flowtable_main_per_cpu_t *fmt, u32 now);
@@ -360,66 +356,75 @@ flowtable_timeout_start_entry (flowtable_main_t *fm,
 }
 
 static inline void
-parse_packet_protocol (udp_header_t *udp, uword is_reverse, flow_key_t *key)
+parse_packet_protocol (udp_header_t *udp, flow_direction_op_t key_direction,
+                       flow_key_t *key)
 {
   if (key->proto == IP_PROTOCOL_UDP || key->proto == IP_PROTOCOL_TCP)
     {
       /* tcp and udp ports have the same offset */
-      key->port[FT_ORIGIN ^ is_reverse] = udp->src_port;
-      key->port[FT_REVERSE ^ is_reverse] = udp->dst_port;
+      key->port[FTK_EL_SRC ^ key_direction] = udp->src_port;
+      key->port[FTK_EL_DST ^ key_direction] = udp->dst_port;
     }
   else
     {
-      key->port[FT_ORIGIN] = key->port[FT_REVERSE] = 0;
+      key->port[FTK_EL_SRC] = 0;
+      key->port[FTK_EL_DST] = 0;
     }
 }
 
-static inline flow_direction_t
+static inline flow_direction_op_t
 ip4_packet_is_reverse (ip4_header_t *ip4)
 {
   return (ip4_address_compare (&ip4->src_address, &ip4->dst_address) < 0) ?
-           FT_REVERSE :
-           FT_ORIGIN;
+           FTD_OP_FLIP :
+           FTD_OP_SAME;
 }
 
 static inline void
-parse_ip4_packet (ip4_header_t *ip4, uword *is_reverse, flow_key_t *key)
+parse_ip4_packet (ip4_header_t *ip4, flow_direction_op_t *key_direction,
+                  flow_key_t *key)
 {
   key->proto = ip4->protocol;
 
-  *is_reverse = ip4_packet_is_reverse (ip4);
+  *key_direction = ip4_packet_is_reverse (ip4);
 
-  ip46_address_set_ip4 (&key->ip[FT_ORIGIN ^ *is_reverse], &ip4->src_address);
-  ip46_address_set_ip4 (&key->ip[FT_REVERSE ^ *is_reverse], &ip4->dst_address);
+  ip46_address_set_ip4 (&key->ip[FTK_EL_SRC ^ *key_direction],
+                        &ip4->src_address);
+  ip46_address_set_ip4 (&key->ip[FTK_EL_DST ^ *key_direction],
+                        &ip4->dst_address);
 
-  parse_packet_protocol ((udp_header_t *) ip4_next_header (ip4), *is_reverse,
-                         key);
+  parse_packet_protocol ((udp_header_t *) ip4_next_header (ip4),
+                         *key_direction, key);
 }
 
-static inline flow_direction_t
+static inline flow_direction_op_t
 ip6_packet_is_reverse (ip6_header_t *ip6)
 {
   return (ip6_address_compare (&ip6->src_address, &ip6->dst_address) < 0) ?
-           FT_REVERSE :
-           FT_ORIGIN;
+           FTD_OP_FLIP :
+           FTD_OP_SAME;
 }
 
 static inline void
-parse_ip6_packet (ip6_header_t *ip6, uword *is_reverse, flow_key_t *key)
+parse_ip6_packet (ip6_header_t *ip6, flow_direction_op_t *key_direction,
+                  flow_key_t *key)
 {
   key->proto = ip6->protocol;
 
-  *is_reverse = ip6_packet_is_reverse (ip6);
+  *key_direction = ip6_packet_is_reverse (ip6);
 
-  ip46_address_set_ip6 (&key->ip[FT_ORIGIN ^ *is_reverse], &ip6->src_address);
-  ip46_address_set_ip6 (&key->ip[FT_REVERSE ^ *is_reverse], &ip6->dst_address);
+  ip46_address_set_ip6 (&key->ip[FTK_EL_SRC ^ *key_direction],
+                        &ip6->src_address);
+  ip46_address_set_ip6 (&key->ip[FTK_EL_DST ^ *key_direction],
+                        &ip6->dst_address);
 
-  parse_packet_protocol ((udp_header_t *) ip6_next_header (ip6), *is_reverse,
-                         key);
+  parse_packet_protocol ((udp_header_t *) ip6_next_header (ip6),
+                         *key_direction, key);
 }
 
-static inline void
-flow_mk_key (u64 up_seid, u8 *header, u8 is_ip4, uword *is_reverse,
+__clib_unused static inline void
+flow_mk_key (u64 up_seid, u8 *header, u8 is_ip4,
+             flow_direction_op_t *flow_key_direction,
              clib_bihash_kv_48_8_t *kv)
 {
   flow_key_t *key = (flow_key_t *) &kv->key;
@@ -427,16 +432,17 @@ flow_mk_key (u64 up_seid, u8 *header, u8 is_ip4, uword *is_reverse,
   memset (key, 0, sizeof (*key));
 
   key->up_seid = up_seid;
+  key->is_ip4 = is_ip4;
 
   /* compute 5 tuple key so that 2 half connections
    * get into the same flow */
   if (is_ip4)
     {
-      parse_ip4_packet ((ip4_header_t *) header, is_reverse, key);
+      parse_ip4_packet ((ip4_header_t *) header, flow_key_direction, key);
     }
   else
     {
-      parse_ip6_packet ((ip6_header_t *) header, is_reverse, key);
+      parse_ip6_packet ((ip6_header_t *) header, flow_key_direction, key);
     }
 }
 
@@ -465,7 +471,7 @@ flow_tcp_update_lifetime (flow_entry_t *f, tcp_header_t *hdr, u32 now)
     }
 }
 
-always_inline void
+__clib_unused always_inline void
 flow_update (vlib_main_t *vm, flow_entry_t *f, u8 *iph, u8 is_ip4, u16 len,
              u32 now)
 {
@@ -481,26 +487,27 @@ flow_update (vlib_main_t *vm, flow_entry_t *f, u8 *iph, u8 is_ip4, u16 len,
     }
 }
 
-always_inline void
+int upf_ipfix_flow_stats_update_handler (flow_entry_t *f,
+                                         flow_direction_t direction, u32 now);
+
+__clib_unused always_inline void
 flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
                    u8 is_ip4, u64 timestamp_ns, u32 now)
 {
-  flowtable_main_t *fm = &flowtable_main;
   /*
    * Performance note:
    * vlib_buffer_length_in_chain() caches its result for the buffer
    */
   u16 len = vlib_buffer_length_in_chain (vm, b);
+
+  flow_direction_t direction = upf_buffer_opaque (b)->gtpu.direction;
+
   u8 *iph = vlib_buffer_get_current (b);
   u8 *l4h = (is_ip4 ? ip4_next_header ((ip4_header_t *) iph) :
                       ip6_next_header ((ip6_header_t *) iph));
   u16 l4_len = len - (l4h - iph);
-  u16 diff;
-  flow_direction_t is_reverse =
-    is_ip4 ? ip4_packet_is_reverse ((ip4_header_t *) iph) :
-             ip6_packet_is_reverse ((ip6_header_t *) iph);
+  u16 diff = 0;
 
-  flow_direction_t direction = f->is_reverse ^ is_reverse;
   switch (f->key.proto)
     {
     case IP_PROTOCOL_TCP:
@@ -512,17 +519,17 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
     }
   l4_len = l4_len > diff ? l4_len - diff : 0;
 
-  f->stats[is_reverse].pkts++;
-  f->stats[is_reverse].pkts_unreported++;
-  f->stats[is_reverse].bytes += len;
-  f->stats[is_reverse].bytes_unreported += len;
-  f->stats[is_reverse].l4_bytes += l4_len;
-  f->stats[is_reverse].l4_bytes_unreported += l4_len;
+  flow_side_stats_t *stats = &flow_side (f, direction)->stats;
+  stats->pkts++;
+  stats->pkts_unreported++;
+  stats->bytes += len;
+  stats->bytes_unreported += len;
+  stats->l4_bytes += l4_len;
+  stats->l4_bytes_unreported += l4_len;
+
   f->flow_end_time = timestamp_ns;
 
-  flowtable_handle_event (fm, f, FLOW_EVENT_STATS_UPDATE, direction, now);
+  upf_ipfix_flow_stats_update_handler (f, direction, now);
 }
-
-extern vlib_node_registration_t flowtable_process_node;
 
 #endif /* __flowtable_h__ */

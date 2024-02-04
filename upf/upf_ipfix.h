@@ -12,6 +12,7 @@
 #include <vnet/ipfix-export/flow_report_classify.h>
 #include <vppinfra/tw_timer_2t_1w_2048sl.h>
 
+#include "upf.h"
 #include "flowtable.h"
 
 #define FLOW_MAXIMUM_EXPORT_ENTRIES (1024)
@@ -28,7 +29,7 @@ typedef struct
        * the NWI used to populate observationDomain{Id,Name}
        * and observationPointId
        */
-      u32 info_nwi_index;
+      u32 info_nwi_index; // initiator->far->nwi_index
       u32 sw_if_index;
       u32 forwarding_policy_index;
       upf_ipfix_policy_t policy;
@@ -38,8 +39,7 @@ typedef struct
   };
 } upf_ipfix_info_key_t;
 
-STATIC_ASSERT (sizeof (upf_ipfix_info_key_t) == 24,
-               "size of ipfix_info_key_t must be 24");
+STATIC_ASSERT_SIZEOF (upf_ipfix_info_key_t, 24);
 
 typedef struct
 {
@@ -56,8 +56,7 @@ typedef struct
   };
 } upf_ipfix_context_key_t;
 
-STATIC_ASSERT (sizeof (upf_ipfix_context_key_t) == 24,
-               "size of ipfix_context_key_t must be 24");
+STATIC_ASSERT_SIZEOF (upf_ipfix_context_key_t, 24);
 
 typedef struct
 {

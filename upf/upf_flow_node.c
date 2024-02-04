@@ -71,13 +71,13 @@ format_get_flowinfo (u8 *s, va_list *args)
 
 always_inline u32
 load_gtpu_flow_info (flowtable_main_t *fm, vlib_buffer_t *b,
-                     flow_entry_t *flow, struct rules *r, uword is_reverse,
-                     u16 generation)
+                     flow_entry_t *flow, struct rules *r,
+                     flow_direction_op_t key_direction, u16 generation)
 {
-  flow_direction_t direction =
-    flow->is_reverse == is_reverse ? FT_ORIGIN : FT_REVERSE;
+  flow_direction_t direction = flow->key_direction ^ key_direction;
 
-  upf_buffer_opaque (b)->gtpu.is_reverse = is_reverse;
+  upf_buffer_opaque (b)->gtpu.flow_key_direction = key_direction;
+  upf_buffer_opaque (b)->gtpu.direction = direction;
   upf_buffer_opaque (b)->gtpu.flow_id = flow - fm->flows;
 
   if (flow->generation != generation)
@@ -86,16 +86,16 @@ load_gtpu_flow_info (flowtable_main_t *fm, vlib_buffer_t *b,
                   &flow->key);
       flow->application_id = ~0;
       flow->generation = generation;
-      flow_pdr_id (flow, FT_ORIGIN) = ~0;
-      flow_pdr_id (flow, FT_REVERSE) = ~0;
-      flow_next (flow, FT_ORIGIN) = FT_NEXT_CLASSIFY;
-      flow_next (flow, FT_REVERSE) = FT_NEXT_CLASSIFY;
+      flow_side (flow, FT_ORIGIN)->pdr_id = ~0;
+      flow_side (flow, FT_REVERSE)->pdr_id = ~0;
+      flow_side (flow, FT_ORIGIN)->next = FT_NEXT_CLASSIFY;
+      flow_side (flow, FT_REVERSE)->next = FT_NEXT_CLASSIFY;
       upf_buffer_opaque (b)->gtpu.pdr_idx = ~0;
     }
   else
     upf_buffer_opaque (b)->gtpu.pdr_idx = flow_pdr_idx (flow, direction, r);
 
-  return flow_next (flow, direction);
+  return flow_side (flow, direction)->next;
 }
 
 #define FLOW_DEBUG(fm, flow)                                                  \
@@ -121,7 +121,7 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
   next_index = node->cached_next_index;
 
   u32 current_time = (u32) vlib_time_now (vm);
-  timer_wheel_index_update (fm, fmt, current_time);
+  flowtable_timer_wheel_index_update (fm, fmt, current_time);
   timestamp_ns = unix_time_now_nsec ();
 
   while (n_left_from > 0)
@@ -138,7 +138,7 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           u32 next0, next1;
           clib_bihash_kv_48_8_t kv0, kv1;
           int created0, created1;
-          uword is_reverse0, is_reverse1;
+          flow_direction_op_t key_direction0, key_direction1;
           u32 flow_idx0, flow_idx1;
           flow_entry_t *flow0, *flow1;
           u8 *p0, *p1;
@@ -169,7 +169,7 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           UPF_CHECK_INNER_NODE (b1);
 
           created0 = created1 = 0;
-          is_reverse0 = is_reverse1 = 0;
+          key_direction0 = key_direction1 = 0;
 
           if (PREDICT_FALSE (
                 pool_is_free_index (
@@ -213,12 +213,12 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
           active1 = pfcp_get_rules (sx1, PFCP_ACTIVE);
 
-          flow_mk_key (sx0->up_seid, p0, is_ip4, &is_reverse0, &kv0);
-          flow_mk_key (sx1->up_seid, p1, is_ip4, &is_reverse1, &kv1);
+          flow_mk_key (sx0->up_seid, p0, is_ip4, &key_direction0, &kv0);
+          flow_mk_key (sx1->up_seid, p1, is_ip4, &key_direction1, &kv1);
 
           /* lookup/create flow */
           flow_idx0 = flowtable_entry_lookup_create (
-            fm, fmt, &kv0, timestamp_ns, current_time, is_reverse0,
+            fm, fmt, &kv0, timestamp_ns, current_time, key_direction0,
             sx0->generation, sx0 - gtm->sessions, &created0);
           if (created0)
             {
@@ -228,7 +228,7 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
             }
 
           flow_idx1 = flowtable_entry_lookup_create (
-            fm, fmt, &kv1, timestamp_ns, current_time, is_reverse1,
+            fm, fmt, &kv1, timestamp_ns, current_time, key_direction1,
             sx1->generation, sx1 - gtm->sessions, &created1);
           if (created1)
             {
@@ -255,7 +255,7 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           FLOW_DEBUG (fm, flow0);
           FLOW_DEBUG (fm, flow1);
 
-          /* handle flow stats / timer / activity / ipfix */
+          /* update activity timer */
           flow_update (vm, flow0, p0, is_ip4,
                        len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
                        current_time);
@@ -264,9 +264,9 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
                        current_time);
 
           /* fill buffer with flow data */
-          next0 = load_gtpu_flow_info (fm, b0, flow0, active0, is_reverse0,
+          next0 = load_gtpu_flow_info (fm, b0, flow0, active0, key_direction0,
                                        sx0->generation);
-          next1 = load_gtpu_flow_info (fm, b1, flow1, active1, is_reverse1,
+          next1 = load_gtpu_flow_info (fm, b1, flow1, active1, key_direction1,
                                        sx1->generation);
 
           /* flowtable counters */
@@ -325,7 +325,7 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           int created = 0;
           u32 flow_idx;
           flow_entry_t *flow = NULL;
-          uword is_reverse = 0;
+          flow_direction_op_t key_direction = 0;
           clib_bihash_kv_48_8_t kv;
           u8 *p;
           uword len0;
@@ -360,9 +360,9 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           active0 = pfcp_get_rules (sx0, PFCP_ACTIVE);
 
           /* lookup/create flow */
-          flow_mk_key (sx0->up_seid, p, is_ip4, &is_reverse, &kv);
+          flow_mk_key (sx0->up_seid, p, is_ip4, &key_direction, &kv);
           flow_idx = flowtable_entry_lookup_create (
-            fm, fmt, &kv, timestamp_ns, current_time, is_reverse,
+            fm, fmt, &kv, timestamp_ns, current_time, key_direction,
             sx0->generation, sx0 - gtm->sessions, &created);
           if (created)
             {
@@ -383,20 +383,22 @@ upf_flow_process (vlib_main_t *vm, vlib_node_runtime_t *node,
           flow->session_index = upf_buffer_opaque (b0)->gtpu.session_index;
           FLOW_DEBUG (fm, flow);
 
-          flow_debug ("is_rev: %u, flow: %u, c: %u", is_reverse,
-                      flow->is_reverse, created);
+          flow_debug ("key_direction: %u, key_direction: %u, "
+                      "direction: %u c: %u",
+                      key_direction, flow->key_direction,
+                      key_direction ^ flow->key_direction, created);
 
-          /* handle flow stats / timer / activity / ipfix */
+          /* update activity timer */
           flow_update (vm, flow, p, is_ip4,
                        len0 - upf_buffer_opaque (b0)->gtpu.data_offset,
                        current_time);
 
           /* fill opaque buffer with flow data */
-          next0 = load_gtpu_flow_info (fm, b0, flow, active0, is_reverse,
+          next0 = load_gtpu_flow_info (fm, b0, flow, active0, key_direction,
                                        sx0->generation);
           flow_debug ("flow next: %u, origin: %u, reverse: %u", next0,
-                      flow_next (flow, FT_ORIGIN),
-                      flow_next (flow, FT_REVERSE));
+                      flow_side (flow, FT_ORIGIN)->next,
+                      flow_side (flow, FT_REVERSE)->next);
 
           /* flowtable counters */
           CPT_THRU++;

@@ -498,20 +498,20 @@ upf_format_buffer_opaque_helper (const vlib_buffer_t *b, u8 *s)
   s = format (
     s,
     "gtpu.teid: 0x%08x, gtpu.session_index: 0x%x, gtpu.ext_hdr_len: %u, "
-    "gtpu.data_offset: %u, gtpu.flags: 0x%02x, gtpu.is_reverse: %u, "
-    "gtpu.pdr_idx: 0x%x, gtpu.flow_id: 0x%x",
+    "gtpu.data_offset: %u, gtpu.flags: 0x%02x, gtpu.flow_key_direction: %u, "
+    "gtpu.direction: %u, gtpu.pdr_idx: 0x%x, gtpu.flow_id: 0x%x",
     (u32) (o->gtpu.teid), (u32) (o->gtpu.session_index),
     (u32) (o->gtpu.ext_hdr_len), (u32) (o->gtpu.data_offset),
-    (u32) (o->gtpu.flags), (u32) (o->gtpu.is_reverse), (u32) (o->gtpu.pdr_idx),
+    (u32) (o->gtpu.flags), (u32) (o->gtpu.flow_key_direction),
+    (u32) (o->gtpu.direction), (u32) (o->gtpu.pdr_idx),
     (u32) (o->gtpu.flow_id));
   vec_add1 (s, '\n');
 
   return s;
 }
 
-static int
-flow_remove_counter_handler (flowtable_main_t *fm, flow_entry_t *flow,
-                             flow_direction_t direction, u32 now)
+int
+flow_remove_counter_handler (flowtable_main_t *fm, flow_entry_t *flow)
 {
   upf_main_t *gtm = &upf_main;
 
@@ -539,10 +539,11 @@ upf_config_fn (vlib_main_t *vm, unformat_input_t *input)
     {
       if (unformat (input, "pfcp-server-mode"))
         {
+          clib_warning ("pfcp-server-mode is deprecated and ignored");
           if (unformat (input, "polling"))
             ;
           else if (unformat (input, "interrupt"))
-            vnet_upf_pfcp_set_polling (vm, 0);
+            ;
         }
       else
         return clib_error_return (0, "unknown input `%U'",
@@ -557,7 +558,6 @@ static clib_error_t *
 upf_init (vlib_main_t *vm)
 {
   upf_main_t *sm = &upf_main;
-  flowtable_main_t *fm = &flowtable_main;
   clib_error_t *error;
 
   sm->vnet_main = vnet_get_main ();
@@ -652,11 +652,6 @@ upf_init (vlib_main_t *vm)
     error = pfcp_server_main_init (vm);
   if (!error)
     upf_pfcp_policer_config_init (sm);
-
-  flowtable_add_event_handler (fm, FLOW_EVENT_REMOVE,
-                               flow_remove_counter_handler);
-  flowtable_add_event_handler (fm, FLOW_EVENT_UNLINK,
-                               session_flow_unlink_handler);
 
   return error;
 }

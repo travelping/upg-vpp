@@ -84,8 +84,8 @@ logging {
 }
 
 {{- if .InterruptMode }}
-upf {
-  pfcp-server-mode interrupt
+session {
+  use-private-rx-mqs
 }
 {{- end }}
 `
