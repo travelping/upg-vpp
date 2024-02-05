@@ -480,10 +480,15 @@ request_t1_expired (u32 seq_no)
   msg = pfcp_msg_pool_elt_at_index (psm, p[0]);
   upf_debug ("Msg Seq No: %u, %p, n1 %u\n", msg->seq_no, msg, msg->n1);
 
+  // handle edge case: timer expired in this iteration
+  // TODO: this should not be needed after multithreading
+  if (!msg->data)
+    return;
+
+  u8 type = pfcp_msg_type (msg->data);
+
   if (--msg->n1 != 0)
     {
-      u8 type = pfcp_msg_type (msg->data);
-
       if (type == PFCP_HEARTBEAT_REQUEST
 	  && !pool_is_free_index (gtm->nodes, msg->node))
 	{
@@ -504,7 +509,6 @@ request_t1_expired (u32 seq_no)
     }
   else
     {
-      u8 type = pfcp_msg_type (msg->data);
       u32 node = msg->node;
 
       upf_debug ("abort...\n");
