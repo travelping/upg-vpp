@@ -802,35 +802,41 @@ upf_alloc_and_assign_nat_binding (
   upf_nat_pool_t *np, upf_nat_addr_t *addr, ip4_address_t user_ip,
   upf_session_t *sx, pfcp_ie_tp_created_binding_t *created_binding)
 {
-  u16 port_start, port_end;
-  u16 (*upf_nat_create_binding) (ip4_address_t user_addr,
-                                 ip4_address_t ext_addr, u16 min_port,
-                                 u16 block_size);
+  // u16 port_start, port_end;
+  // u16 (*upf_nat_create_binding) (ip4_address_t user_addr,
+  //                                ip4_address_t ext_addr, u16 min_port,
+  //                                u16 block_size);
+  //
+  // upf_nat_create_binding =
+  //   vlib_get_plugin_symbol ("nat_plugin.so", "nat_ed_create_binding");
+  //
+  // port_start = upf_nat_create_binding (user_ip, addr->ext_addr,
+  // np->min_port,
+  //                                      np->port_block_size);
+  // if (port_start)
+  //   {
+  //     port_end = port_start + np->port_block_size - 1;
+  //     addr->used_blocks += 1;
+  //     sx->nat_addr = addr;
+  //     created_binding->block = vec_dup (np->name);
+  //     created_binding->outside_addr.as_u32 = addr->ext_addr.as_u32;
+  //     created_binding->port_range.start_port = port_start;
+  //     created_binding->port_range.end_port = port_end;
+  //     UPF_SET_BIT (created_binding->grp.fields,
+  //                  TP_CREATED_BINDING_NAT_PORT_BLOCK);
+  //     UPF_SET_BIT (created_binding->grp.fields,
+  //                  TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS);
+  //     UPF_SET_BIT (created_binding->grp.fields,
+  //                  TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE);
+  //     return 0;
+  //   }
+  //
+  // return 1;
 
-  upf_nat_create_binding =
-    vlib_get_plugin_symbol ("nat_plugin.so", "nat_ed_create_binding");
+  addr->used_blocks += 1;
+  sx->nat_addr = addr;
 
-  port_start = upf_nat_create_binding (user_ip, addr->ext_addr, np->min_port,
-                                       np->port_block_size);
-  if (port_start)
-    {
-      port_end = port_start + np->port_block_size - 1;
-      addr->used_blocks += 1;
-      sx->nat_addr = addr;
-      created_binding->block = vec_dup (np->name);
-      created_binding->outside_addr.as_u32 = addr->ext_addr.as_u32;
-      created_binding->port_range.start_port = port_start;
-      created_binding->port_range.end_port = port_end;
-      UPF_SET_BIT (created_binding->grp.fields,
-                   TP_CREATED_BINDING_NAT_PORT_BLOCK);
-      UPF_SET_BIT (created_binding->grp.fields,
-                   TP_CREATED_BINDING_NAT_OUTSIDE_ADDRESS);
-      UPF_SET_BIT (created_binding->grp.fields,
-                   TP_CREATED_BINDING_NAT_EXTERNAL_PORT_RANGE);
-      return 0;
-    }
-
-  return 1;
+  return 0;
 }
 
 static int

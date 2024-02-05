@@ -2404,7 +2404,7 @@ func describeGTPProxy(title string, ipMode framework.UPGIPMode) {
 func describeNAT(f *framework.Framework) {
 	ginkgo.Describe("NAT translations", func() {
 		ginkgo.BeforeEach(func() {
-			// setupNAT(f)
+			setupNAT(f)
 			f.VPP.Ctl("clear trace")
 			out, _ := f.VPP.Ctl("trace add virtio-input 10")
 			fmt.Println("QQQQQQ ", out)
@@ -2420,7 +2420,7 @@ func describeNAT(f *framework.Framework) {
 		})
 
 		verify := func(sessionCfg framework.SessionConfig) {
-			// sessionCfg.NatPoolName = "testing"
+			sessionCfg.NatPoolName = "testing"
 			seid := startMeasurementSession(f, &sessionCfg)
 			trafficCfg := smallVolumeHTTPConfig(nil)
 			trafficRec := &traffic.PreciseTrafficRec{}
@@ -2846,10 +2846,10 @@ func verifyPSDBU(m message.Message, numUsageReports int) {
 }
 
 func setupNAT(f *framework.Framework) {
-	f.VPP.Ctl("nat44 plugin enable sessions 1000")
-	f.VPP.Ctl("set interface nat44 out sgi0 output-feature")
+	// f.VPP.Ctl("nat44 plugin enable sessions 1000")
+	// f.VPP.Ctl("set interface nat44 out sgi0 output-feature")
 	f.VPP.Ctl("upf nat pool 144.0.0.20 - 144.0.0.120 block_size 512 nwi sgi name testing min_port 10128")
-	f.VPP.Ctl("nat44 controlled enable")
+	// f.VPP.Ctl("nat44 controlled enable")
 }
 
 func verifyPFCPError(err error, cause uint8, seid pfcp.SEID, failedRuleID uint32, message string) {
