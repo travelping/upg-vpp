@@ -1513,8 +1513,8 @@ pfcp_add_del_ue_ip (const void *ip, void *si, int is_add)
 
   u32 *ip2 = &ue_ip->addr.ip4.as_u32;
   // this seems to be the one
-
-  clib_warning ("QQQQQ XD2 : ip = 0x%08x", *ip2);
+  clib_warning ("QQQQQ XD2 : ip = 0x%08x, fib_index=%d, sw_if_index=%d", *ip2,
+                ue_ip->fib_index, ue_ip->sw_if_index);
   if (*ip2 == 0x300010a)
     {
       *ip2 = 0x14000090;
@@ -1598,15 +1598,6 @@ pfcp_add_del_tdf (const void *tdf, void *si, int is_ip4, int is_add)
   upf_main_t *gtm = &upf_main;
   upf_acl_t *acl = (upf_acl_t *) tdf;
   upf_session_t *sx = si;
-
-  u32 *ip = &acl->match.address[UPF_ACL_FIELD_SRC].ip4.as_u32;
-
-  clib_warning ("QQQQQ XD : ip = 0x%08x", *ip);
-  if (*ip == 0x300010a)
-    {
-      // *ip = 0x14000090;
-      clib_warning ("QQQQQCD = 0x%08x", *ip);
-    }
 
   fib_prefix_t pfx = {
     .fp_proto = is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6,

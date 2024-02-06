@@ -23,9 +23,11 @@
 #include <vnet/dpo/drop_dpo.h>
 #include <vnet/dpo/load_balance.h>
 #include <vnet/interface_output.h>
+#include <vppinfra/bihash_16_8.h>
 
 #include <upf/upf.h>
 #include <upf/upf_pfcp.h>
+#include <upf/upf_nat.h>
 
 #if CLIB_DEBUG > 2
 #define upf_debug clib_warning
@@ -102,6 +104,24 @@ format_upf_session_dpo_trace (u8 *s, va_list *args)
               format_white_space, indent, format_ip4_header, t->packet_data,
               sizeof (t->packet_data));
   return s;
+}
+
+always_inline void
+init_ed_k (clib_bihash_kv_16_8_t *kv, u32 l_addr, u16 l_port, u32 r_addr,
+           u16 r_port, u32 fib_index, ip_protocol_t proto)
+{
+  kv->key[0] = (u64) r_addr << 32 | l_addr;
+  kv->key[1] =
+    (u64) r_port << 48 | (u64) l_port << 32 | fib_index << 8 | proto;
+}
+
+always_inline void
+init_ed_kv (clib_bihash_kv_16_8_t *kv, u32 l_addr, u16 l_port, u32 r_addr,
+            u16 r_port, u32 fib_index, u8 proto, u32 thread_index,
+            u32 session_index)
+{
+  init_ed_k (kv, l_addr, l_port, r_addr, r_port, fib_index, proto);
+  kv->value = (u64) thread_index << 32 | session_index;
 }
 
 VLIB_NODE_FN (upf_nat_o2i)
@@ -235,6 +255,20 @@ VLIB_NODE_FN (upf_nat_i2o)
           upf_session_t *sx0;
           sx0 = pool_elt_at_index (gtm->sessions,
                                    upf_buffer_opaque (b)->gtpu.session_index);
+
+          nat_6t_t lookup;
+          clib_bihash_kv_16_8_t kv0 = { 0 }, value0;
+          init_ed_k (&kv0, lookup.saddr.as_u32, lookup.sport,
+                     lookup.daddr.as_u32, lookup.dport, lookup.fib_index,
+                     lookup.proto);
+
+          // lookup flow
+          if (clib_bihash_search_16_8 (&gtm->flow_hash, &kv0, &value0))
+            {
+              // flow does not exist go slow path
+              // next[0] = def_slow;
+              // goto trace0;
+            }
 
           bool is_outgoing = sx0->user_addr.as_u32 == ip4->src_address.as_u32;
 
