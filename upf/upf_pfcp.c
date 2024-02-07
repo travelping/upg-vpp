@@ -1541,6 +1541,11 @@ pfcp_add_del_ue_ip (const void *ip, void *si, int is_add)
 
       upf_session_dpo_add_or_lock (fib_proto_to_dpo (pfx.fp_proto), sx, &sxd);
 
+      clib_warning ("XXXXX: fib_index=%d, sw_if_index=%d, dpo_index=%d",
+                    ue_ip->fib_index, ue_ip->sw_if_index, sxd.dpoi_index);
+
+      // sxd.dpoi_index = ~0;
+
       /* add reverse route for client ip through special DPO */
       fib_table_entry_special_dpo_add (
         ue_ip->fib_index, &pfx, FIB_SOURCE_SPECIAL,

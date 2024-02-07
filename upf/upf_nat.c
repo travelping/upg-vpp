@@ -171,8 +171,14 @@ VLIB_NODE_FN (upf_nat_o2i)
           sx0 = pool_elt_at_index (gtm->sessions,
                                    upf_buffer_opaque (b)->gtpu.session_index);
 
-          bool is_incoming =
-            sx0->nat_addr->ext_addr.as_u32 == ip4->dst_address.as_u32;
+          // clib_warning ("WWWWWWWWWWW2: session_index 0x%08x, sw index %d ->
+          // "
+          //               "%d, condition %d",
+          // vnet_buffer (b)->ip.adj_index[VLIB_TX],
+          // vnet_buffer (b)->sw_if_index[VLIB_RX],
+          // vnet_buffer (b)->sw_if_index[VLIB_TX],
+          // vnet_buffer (b)->sw_if_index[VLIB_TX] == ~0);
+          bool is_incoming = vnet_buffer (b)->sw_if_index[VLIB_TX] == ~0;
 
           if (is_incoming)
             {
@@ -255,6 +261,13 @@ VLIB_NODE_FN (upf_nat_i2o)
           upf_session_t *sx0;
           sx0 = pool_elt_at_index (gtm->sessions,
                                    upf_buffer_opaque (b)->gtpu.session_index);
+          // clib_warning ("WWWWWWWWWWW: session_index 0x%08x, sw index %d -> "
+          //               "%d, condition %d",
+          // vnet_buffer (b)->ip.adj_index[VLIB_TX],
+          // vnet_buffer (b)->sw_if_index[VLIB_RX],
+          // vnet_buffer (b)->sw_if_index[VLIB_TX],
+          // gtm->nat_output_sw_if_index ==
+          //   vnet_buffer (b)->sw_if_index[VLIB_RX]);
 
           nat_6t_t lookup;
           clib_bihash_kv_16_8_t kv0 = { 0 }, value0;
@@ -270,7 +283,11 @@ VLIB_NODE_FN (upf_nat_i2o)
               // goto trace0;
             }
 
-          bool is_outgoing = sx0->user_addr.as_u32 == ip4->src_address.as_u32;
+          // bool is_outgoing = sx0->user_addr.as_u32 ==
+          // ip4->src_address.as_u32;
+
+          bool is_outgoing = gtm->nat_output_sw_if_index ==
+                             vnet_buffer (b)->sw_if_index[VLIB_RX];
 
           if (is_outgoing)
             {

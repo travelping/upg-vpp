@@ -2405,6 +2405,7 @@ func describeNAT(f *framework.Framework) {
 	ginkgo.Describe("NAT translations", func() {
 		ginkgo.BeforeEach(func() {
 			setupNAT(f)
+			f.VPP.Ctl("upf nat config upf-nwi-sgi")
 			f.VPP.Ctl("clear trace")
 			out, _ := f.VPP.Ctl("trace add virtio-input 10")
 			fmt.Println("QQQQQQ ", out)
@@ -2412,10 +2413,12 @@ func describeNAT(f *framework.Framework) {
 		})
 		ginkgo.AfterEach(func() {
 			f.VPP.Ctl("show trace")
-			f.VPP.Ctl("sh ip fib table 100")
-			f.VPP.Ctl("sh ip fib table 200")
+			f.VPP.Ctl("sh ip fib")
+			// f.VPP.Ctl("sh ip fib table 200")
 			f.VPP.Ctl("sh fib paths")
 			// fmt.Println("QQQQQQ ", out)
+
+			f.VPP.Ctl("sh interface")
 
 		})
 

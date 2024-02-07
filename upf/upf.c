@@ -653,6 +653,11 @@ upf_init (vlib_main_t *vm)
   if (!error)
     upf_pfcp_policer_config_init (sm);
 
+  clib_bihash_init_16_8 (&sm->flow_hash, "nat-flow-hash", 1024,
+                         0); // TODO: real number of buckets
+
+  sm->nat_output_sw_if_index = ~0;
+
   return error;
 }
 
@@ -960,4 +965,14 @@ upf_nat_get_src_port (vlib_buffer_t *b, u16 port)
   if (!flow)
     return;
   flow->nat_sport = clib_net_to_host_u16 (port);
+}
+
+int
+upf_nat_config (u32 output_sw_interface)
+{
+  upf_main_t *um = &upf_main;
+
+  um->nat_output_sw_if_index = output_sw_interface;
+
+  return 0;
 }

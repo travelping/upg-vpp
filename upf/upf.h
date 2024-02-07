@@ -24,6 +24,7 @@
 #include <vppinfra/hash.h>
 #include <vppinfra/bihash_8_8.h>
 #include <vppinfra/bihash_24_8.h>
+#include <vppinfra/bihash_16_8.h>
 
 #include <vnet/vnet.h>
 #include <vnet/ip/ip.h>
@@ -1029,6 +1030,12 @@ typedef struct
   policer_t *pfcp_policers;
 
   vlib_log_class_t log_class;
+
+  /* CG-NAT */
+  u32 nat_output_sw_if_index;
+
+  /* Endpoint dependent lookup table */
+  clib_bihash_16_8_t flow_hash;
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;
