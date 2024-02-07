@@ -462,9 +462,9 @@ upf_proxy_input (vlib_main_t *vm, vlib_node_runtime_t *node,
                                  IS_DL (pdr, far), IS_UL (pdr, far)))
                 next = UPF_FORWARD_NEXT_DROP;
 
-              flow_update_stats (vm, b, flow, is_ip4, timestamp_ns,
-                                 current_time);
+              flow_update_stats (vm, b, flow, is_ip4, timestamp_ns);
 
+              upf_ipfix_flow_stats_update_handler (flow, current_time);
 #undef IS_DL
 #undef IS_UL
             }

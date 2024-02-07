@@ -459,11 +459,6 @@ typedef struct
    * We maintain this path as we need to remove old path while policy update
    */
   fib_route_path_t *rpaths;
-  /**
-   * Next node index (ip4-rewrite here)
-   *
-   */
-  u32 forward_index;
 } upf_forwarding_policy_t;
 
 typedef enum
@@ -824,8 +819,6 @@ typedef struct
   u32 observation_domain_id;
   u64 observation_point_id;
   u8 *observation_domain_name;
-
-  u32 *ipfix_context_indices;
 } upf_nwi_t;
 
 typedef struct
@@ -930,7 +923,7 @@ typedef struct
 {
   mhash_t pfcp_endpoint_index;
 
-  /* vector of network instances */
+  /* pool of network instances */
   upf_nwi_t *nwis;
   uword *nwi_index_by_name;
 

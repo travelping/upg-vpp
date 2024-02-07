@@ -155,16 +155,21 @@ upf_nwi_fib_index (fib_protocol_t proto, u32 nwi_index)
     return ~0;
 }
 
-static_always_inline u32
-flow_pdr_idx (flow_entry_t *flow, flow_direction_t direction, struct rules *r)
+static_always_inline upf_pdr_t *
+flow_pdr (flow_entry_t *flow, flow_direction_t direction, struct rules *r)
 {
-  upf_pdr_t *pdr;
   u32 pdr_id = flow_side (flow, direction)->pdr_id;
 
   if (pdr_id == ~0)
-    return ~0;
+    return NULL;
 
-  pdr = pfcp_get_pdr_by_id (r, pdr_id);
+  return pfcp_get_pdr_by_id (r, pdr_id);
+}
+
+static_always_inline u32
+flow_pdr_idx (flow_entry_t *flow, flow_direction_t direction, struct rules *r)
+{
+  upf_pdr_t *pdr = flow_pdr (flow, direction, r);
   return pdr ? pdr - r->pdr : ~0;
 }
 

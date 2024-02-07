@@ -271,12 +271,6 @@ vnet_upf_delete_nwi_if (u8 *name)
   hash_unset_mem (gtm->nwi_index_by_name, nwi->name);
   vec_free (nwi->observation_domain_name);
   vec_free (nwi->name);
-
-  vec_foreach (ipfix_ctx_index, nwi->ipfix_context_indices)
-    {
-      upf_unref_ipfix_context_by_index (*ipfix_ctx_index);
-    }
-
   pool_put (gtm->nwis, nwi);
 
   return 0;

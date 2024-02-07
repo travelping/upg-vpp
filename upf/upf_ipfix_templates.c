@@ -46,12 +46,15 @@
 
 #define IPFIX_TEMPLATE_DEFAULT_COMMON(F)                                      \
   IPFIX_FIELD_MOBILE_IMSI (F)                                                 \
-  IPFIX_FIELD_PACKET_DELTA_COUNT (F)                                          \
-  IPFIX_FIELD_OCTET_DELTA_COUNT (F)                                           \
+  IPFIX_FIELD_INITIATOR_OCTETS (F)                                            \
+  IPFIX_FIELD_RESPONDER_OCTETS (F)                                            \
+  IPFIX_FIELD_INITIATOR_PACKETS (F)                                           \
+  IPFIX_FIELD_RESPONDER_PACKETS (F)                                           \
   IPFIX_FIELD_FLOW_START_MILLISECONDS (F)                                     \
   IPFIX_FIELD_FLOW_END_MILLISECONDS (F)                                       \
   IPFIX_FIELD_SOURCE_TRANSPORT_PORT (F)                                       \
-  IPFIX_FIELD_DESTINATION_TRANSPORT_PORT (F)
+  IPFIX_FIELD_DESTINATION_TRANSPORT_PORT (F)                                  \
+  IPFIX_FIELD_BIFLOW_DIRECTION (F)
 
 static ipfix_field_specifier_t *
 upf_ipfix_template_default_ip4_fields (ipfix_field_specifier_t *f)
@@ -68,20 +71,24 @@ upf_ipfix_template_default_ip6_fields (ipfix_field_specifier_t *f)
 }
 
 static u32
-upf_ipfix_template_default_ip4_values (vlib_buffer_t *to_b, flow_entry_t *f,
-                                       flow_direction_t direction, u16 offset,
-                                       upf_session_t *sx,
-                                       upf_ipfix_info_t *info, bool last)
+upf_ipfix_template_default_ip4_values (vlib_buffer_t *to_b, u16 offset,
+                                       upf_session_t *sx, flow_entry_t *f,
+                                       flow_direction_t uplink_direction,
+                                       upf_nwi_t *uplink_nwi,
+                                       upf_ipfix_report_info_t *info,
+                                       bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV4,
                          IPFIX_TEMPLATE_DEFAULT_COMMON);
 }
 
 static u32
-upf_ipfix_template_default_ip6_values (vlib_buffer_t *to_b, flow_entry_t *f,
-                                       flow_direction_t direction, u16 offset,
-                                       upf_session_t *sx,
-                                       upf_ipfix_info_t *info, bool last)
+upf_ipfix_template_default_ip6_values (vlib_buffer_t *to_b, u16 offset,
+                                       upf_session_t *sx, flow_entry_t *f,
+                                       flow_direction_t uplink_direction,
+                                       upf_nwi_t *uplink_nwi,
+                                       upf_ipfix_report_info_t *info,
+                                       bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV6,
                          IPFIX_TEMPLATE_DEFAULT_COMMON);
@@ -96,15 +103,17 @@ upf_ipfix_template_default_ip6_values (vlib_buffer_t *to_b, flow_entry_t *f,
   IPFIX_FIELD_DESTINATION_IPV6_ADDRESS (F)
 
 #define IPFIX_TEMPLATE_DEST_COMMON(F)                                         \
-  IPFIX_FIELD_OCTET_DELTA_COUNT (F)                                           \
+  IPFIX_FIELD_INITIATOR_OCTETS (F)                                            \
+  IPFIX_FIELD_RESPONDER_OCTETS (F)                                            \
+  IPFIX_FIELD_INITIATOR_PACKETS (F)                                           \
+  IPFIX_FIELD_RESPONDER_PACKETS (F)                                           \
+  IPFIX_FIELD_FLOW_START_MILLISECONDS (F)                                     \
   IPFIX_FIELD_FLOW_END_MILLISECONDS (F)                                       \
-  IPFIX_FIELD_FLOW_DIRECTION (F)                                              \
-  IPFIX_FIELD_INGRESS_VRF_ID (F)                                              \
-  IPFIX_FIELD_EGRESS_VRF_ID (F)                                               \
   IPFIX_FIELD_VRF_NAME (F)                                                    \
   IPFIX_FIELD_INTERFACE_NAME (F)                                              \
   IPFIX_FIELD_OBSERVATION_DOMAIN_NAME (F)                                     \
-  IPFIX_FIELD_OBSERVATION_POINT_ID (F)
+  IPFIX_FIELD_OBSERVATION_POINT_ID (F)                                        \
+  IPFIX_FIELD_BIFLOW_DIRECTION (F)
 
 static ipfix_field_specifier_t *
 upf_ipfix_template_dest_ip4_fields (ipfix_field_specifier_t *f)
@@ -119,19 +128,21 @@ upf_ipfix_template_dest_ip6_fields (ipfix_field_specifier_t *f)
 }
 
 static u32
-upf_ipfix_template_dest_ip4_values (vlib_buffer_t *to_b, flow_entry_t *f,
-                                    flow_direction_t direction, u16 offset,
-                                    upf_session_t *sx, upf_ipfix_info_t *info,
-                                    bool last)
+upf_ipfix_template_dest_ip4_values (vlib_buffer_t *to_b, u16 offset,
+                                    upf_session_t *sx, flow_entry_t *f,
+                                    flow_direction_t uplink_direction,
+                                    upf_nwi_t *uplink_nwi,
+                                    upf_ipfix_report_info_t *info, bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV4, IPFIX_TEMPLATE_DEST_COMMON);
 }
 
 static u32
-upf_ipfix_template_dest_ip6_values (vlib_buffer_t *to_b, flow_entry_t *f,
-                                    flow_direction_t direction, u16 offset,
-                                    upf_session_t *sx, upf_ipfix_info_t *info,
-                                    bool last)
+upf_ipfix_template_dest_ip6_values (vlib_buffer_t *to_b, u16 offset,
+                                    upf_session_t *sx, flow_entry_t *f,
+                                    flow_direction_t uplink_direction,
+                                    upf_nwi_t *uplink_nwi,
+                                    upf_ipfix_report_info_t *info, bool last)
 {
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV6, IPFIX_TEMPLATE_DEST_COMMON);
 }

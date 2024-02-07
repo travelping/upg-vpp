@@ -32,6 +32,7 @@
 #include <upf/upf_app_dpo.h>
 #include <upf/upf_ipfix.h>
 
+#define CLIB_DEBUG 100
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -428,6 +429,65 @@ upf_acl_classify_return (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
   return next;
 }
 
+always_inline flow_direction_t
+upf_classify_detect_flow_direction (vlib_buffer_t *b, struct rules *r,
+                                    flow_direction_t direction, bool *found)
+{
+  // Here we rely on the fact that interface of type ACCESS is one which
+  // directed to UE
+  // TODO: it should be possible save this value per PDR since it has this
+  // values available
+
+  *found = false;
+
+  u32 pdr_idx = upf_buffer_opaque (b)->gtpu.pdr_idx;
+  if (pdr_idx == ~0)
+    {
+      upf_debug ("failed to detect flow direction since pdr is missed");
+      return FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED;
+    }
+
+  upf_pdr_t *pdr = pfcp_get_pdr_by_id (r, pdr_idx);
+  if (!pdr)
+    {
+      upf_debug ("failed to detect flow direction since pdr is not found");
+      return FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED;
+    }
+
+  if (pdr->pdi.src_intf == PFCP_SRC_INTF_ACCESS)
+    {
+      upf_debug ("detected uplink direction from pdr: %d",
+                 FTD_OP_SAME ^ direction);
+      *found = true;
+      return FTD_OP_SAME ^ direction;
+    }
+
+  if (pdr->far_id == (u16) ~0)
+    {
+      upf_debug ("failed to detect flow direction since far is missed");
+      return FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED;
+    }
+
+  upf_far_t *far = pfcp_get_far_by_id (r, pdr->far_id);
+  if (!far)
+    {
+      upf_debug ("failed to detect flow direction since far is not found");
+      return FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED;
+    }
+
+  if (far->forward.dst_intf == PFCP_SRC_INTF_ACCESS)
+    {
+      upf_debug ("detected uplink direction from far: %d",
+                 FTD_OP_FLIP ^ direction);
+      *found = true;
+      return FTD_OP_FLIP ^ direction;
+    }
+
+  upf_debug (
+    "failed to detect flow direction since access interface is not used");
+  return FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED;
+}
+
 always_inline uword
 upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
                  vlib_frame_t *from_frame, int is_ip4)
@@ -521,6 +581,7 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
               next = upf_acl_classify_forward (
                 vm, upf_buffer_opaque (b)->gtpu.teid, flow, active, is_ip4,
                 &upf_buffer_opaque (b)->gtpu.pdr_idx);
+
               if (reclassify_proxy_flow) /* for app detection */
                 {
                   if (upf_buffer_opaque (b)->gtpu.is_proxied)
@@ -551,6 +612,16 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
               ASSERT (ar == ADR_OK);
               upf_buffer_opaque (b)->gtpu.pdr_idx =
                 flow_pdr_idx (flow, direction, active);
+            }
+
+          if (flow->uplink_direction == FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED)
+            {
+              bool found;
+              flow_direction_t uplink_direction =
+                upf_classify_detect_flow_direction (b, active, direction,
+                                                    &found);
+              if (found)
+                flow->uplink_direction = uplink_direction;
             }
 
           upf_debug ("Next: %u", next);
