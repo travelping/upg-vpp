@@ -863,6 +863,7 @@ handle_create_pdr (upf_session_t *sx, pfcp_ie_create_pdr_t *create_pdr,
       create->pdi.nwi_index = ~0;
       create->pdi.adr.application_id = ~0;
       create->pdi.adr.db_id = ~0;
+      create->ipfix_cached_context_id = ~0;
 
       create->id = pdr->pdr_id;
       create->precedence = pdr->precedence;
@@ -1570,9 +1571,14 @@ handle_create_far (upf_session_t *sx, pfcp_ie_create_far_t *create_far,
         }
 
       if (ISSET_BIT (far->grp.fields, CREATE_FAR_TP_IPFIX_POLICY))
-        create->ipfix_policy = upf_ipfix_lookup_policy (far->ipfix_policy, 0);
+        {
+          create->ipfix_policy =
+            upf_ipfix_lookup_policy (far->ipfix_policy, 0);
+        }
       else
-        create->ipfix_policy = UPF_IPFIX_POLICY_UNSPECIFIED;
+        {
+          create->ipfix_policy = UPF_IPFIX_POLICY_UNSPECIFIED;
+        }
     }
 
   pfcp_sort_fars (rules);

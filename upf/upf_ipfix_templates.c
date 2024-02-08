@@ -34,17 +34,16 @@
 #define IPFIX_TEMPLATE_DEFAULT_IPV4(F)                                        \
   IPFIX_FIELD_SOURCE_IPV4_ADDRESS (F)                                         \
   IPFIX_FIELD_DESTINATION_IPV4_ADDRESS (F)                                    \
-  IPFIX_FIELD_PROTOCOL_IDENTIFIER (F)                                         \
   IPFIX_FIELD_POST_NAT_SOURCE_IPV4_ADDRESS (F)                                \
   IPFIX_FIELD_POST_NAPT_SOURCE_TRANSPORT_PORT (F)                             \
   IPFIX_FIELD_NAT_EVENT (F)
 
 #define IPFIX_TEMPLATE_DEFAULT_IPV6(F)                                        \
   IPFIX_FIELD_SOURCE_IPV6_ADDRESS (F)                                         \
-  IPFIX_FIELD_DESTINATION_IPV6_ADDRESS (F)                                    \
-  IPFIX_FIELD_PROTOCOL_IDENTIFIER (F)
+  IPFIX_FIELD_DESTINATION_IPV6_ADDRESS (F)
 
 #define IPFIX_TEMPLATE_DEFAULT_COMMON(F)                                      \
+  IPFIX_FIELD_PROTOCOL_IDENTIFIER (F)                                         \
   IPFIX_FIELD_MOBILE_IMSI (F)                                                 \
   IPFIX_FIELD_INITIATOR_OCTETS (F)                                            \
   IPFIX_FIELD_RESPONDER_OCTETS (F)                                            \
@@ -105,6 +104,7 @@ upf_ipfix_template_default_ip6_values (vlib_buffer_t *to_b, u16 offset,
   IPFIX_FIELD_DESTINATION_IPV6_ADDRESS (F)
 
 #define IPFIX_TEMPLATE_DEST_COMMON(F)                                         \
+  IPFIX_FIELD_PROTOCOL_IDENTIFIER (F)                                         \
   IPFIX_FIELD_INITIATOR_OCTETS (F)                                            \
   IPFIX_FIELD_RESPONDER_OCTETS (F)                                            \
   IPFIX_FIELD_INITIATOR_PACKETS (F)                                           \

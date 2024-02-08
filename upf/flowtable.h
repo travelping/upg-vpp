@@ -537,9 +537,9 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
   stats->l4_bytes += l4_len;
   stats->l4_bytes_unreported += l4_len;
 
-  clib_warning ("new sats (dir %d): pkts %d (%d) bytes %d (%d)", direction,
-                stats->pkts_unreported, stats->pkts, stats->bytes_unreported,
-                stats->bytes);
+  // clib_warning ("new sats (dir %d): pkts %d (%d) bytes %d (%d)", direction,
+  //               stats->pkts_unreported, stats->pkts,
+  //               stats->bytes_unreported, stats->bytes);
 
   f->flow_end_time = timestamp_ns;
 }

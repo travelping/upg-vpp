@@ -56,6 +56,13 @@ typedef struct
 
 typedef struct
 {
+  u32 protocol_context_id[FIB_PROTOCOL_IP_MAX];
+  u32 refcnt;
+  upf_ipfix_context_key_t key;
+} upf_ipfix_context_t;
+
+typedef struct
+{
   u8 *vrf_name;
   u8 *sw_if_name;
 } upf_ipfix_report_info_t;
@@ -67,9 +74,11 @@ typedef struct
 typedef struct
 {
   clib_spinlock_t lock;
-  clib_bihash_24_8_t context_by_key;
+  clib_bihash_24_8_t proto_context_by_key;
+  clib_bihash_24_8_t cached_context_by_key;
   clib_bihash_24_8_t info_by_key;
-  upf_ipfix_protocol_context_t *contexts;
+  upf_ipfix_protocol_context_t *proto_contexts;
+  upf_ipfix_context_t *cached_contexts;
   u16 template_id;
   upf_ipfix_policy_t policy;
 
@@ -112,9 +121,12 @@ typedef struct
 
 extern upf_ipfix_template_t upf_ipfix_templates[];
 
-u32 upf_ref_ipfix_context (upf_ipfix_context_key_t *key);
-void upf_ref_ipfix_context_by_index (u32 cidx);
-void upf_unref_ipfix_context_by_index (u32 cidx);
+u32 upf_ref_ipfix_proto_context (const upf_ipfix_context_key_t *key);
+void upf_ref_ipfix_proto_context_by_index (u32 cidx);
+void upf_unref_ipfix_proto_context_by_index (u32 cidx);
+
+u32 upf_ref_ipfix_cached_context (const upf_ipfix_context_key_t *key);
+void upf_unref_ipfix_cached_context_by_index (u32 cidx);
 
 upf_ipfix_policy_t upf_ipfix_lookup_policy (u8 *name, bool *ok);
 uword unformat_ipfix_policy (unformat_input_t *i, va_list *args);

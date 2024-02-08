@@ -39,7 +39,7 @@
 #define UPF_IPFIX_MAPPING_BUCKETS     64
 #define UPF_IPFIX_MAPPING_MEMORY_SIZE 16384
 
-#define CLIB_DEBUG 111
+// #define CLIB_DEBUG 111
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -117,7 +117,7 @@ upf_ipfix_template_rewrite (ipfix_exporter_t *exp, flow_report_t *fr,
   u32 field_count = 0;
   flow_report_stream_t *stream;
   upf_ipfix_protocol_context_t *context =
-    pool_elt_at_index (fm->contexts, fr->opaque.as_uword);
+    pool_elt_at_index (fm->proto_contexts, fr->opaque.as_uword);
   upf_ipfix_template_t *template = upf_ipfix_templates + context->key.policy;
 
   ASSERT (context);
@@ -218,7 +218,7 @@ upf_ipfix_data_callback (flow_report_main_t *frm, ipfix_exporter_t *exp,
   vlib_main_t *vm = vlib_get_main ();
   u32 now = (u32) vlib_time_now (vm);
   upf_ipfix_protocol_context_t *context =
-    pool_elt_at_index (fm->contexts, fr->opaque.as_uword);
+    pool_elt_at_index (fm->proto_contexts, fr->opaque.as_uword);
   vlib_buffer_t *b = upf_ipfix_get_buffer (vm, context);
   if (b)
     upf_ipfix_export_send (vm, b, context, now);
@@ -231,7 +231,7 @@ upf_ipfix_report_add_del (upf_ipfix_main_t *fm, u32 domain_id,
                           u32 context_index, u16 *template_id, bool is_ip4,
                           bool is_add)
 {
-  upf_ipfix_protocol_context_t *context = fm->contexts + context_index;
+  upf_ipfix_protocol_context_t *context = fm->proto_contexts + context_index;
   ipfix_exporter_t *exp = upf_ipfix_get_exporter (context);
   if (!exp)
     return VNET_API_ERROR_INVALID_VALUE;
@@ -281,7 +281,7 @@ upf_ipfix_export_send (vlib_main_t *vm, vlib_buffer_t *b0,
       upf_ipfix_get_headersize ())
     return;
 
-  upf_debug ("export send, context %u", context - fm->contexts);
+  upf_debug ("export send, context %u", context - fm->proto_contexts);
 
   u32 i, index = vec_len (exp->streams);
   for (i = 0; i < index; i++)
@@ -430,6 +430,12 @@ upf_ipfix_flow_init (flow_entry_t *f)
   clib_warning ("IPFIX FLOW UP PDR MATCHES ON %v",
                 pool_elt_at_index (gtm->nwis, up_pdr->pdi.nwi_index)->name);
 
+  if (up_pdr->ipfix_cached_context_id == (u16) ~0)
+    return false;
+
+  upf_ipfix_context_t *cached_ctx =
+    pool_elt_at_index (fm->cached_contexts, up_pdr->ipfix_cached_context_id);
+
   up_far = pfcp_get_far_by_id (active, up_pdr->far_id);
   if (!up_far)
     return false;
@@ -440,22 +446,6 @@ upf_ipfix_flow_init (flow_entry_t *f)
   up_dst_nwi = pool_elt_at_index (gtm->nwis, up_far->forward.nwi_index);
 
   clib_warning ("IPFIX FLOW UP PDR FORWARDED TO %v", up_dst_nwi->name);
-
-  /*
-   * IPFIX policy specified in the FAR itself, if any, takes
-   * precedence over the policy specified in the egress NWI. Note that
-   * it can be UPF_IPFIX_POLICY_NONE which is specified as an empty
-   * string on the PFCP level.
-   */
-  if (up_far->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED)
-    ipfix_policy = up_far->ipfix_policy;
-  else if (up_dst_nwi->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED)
-    ipfix_policy = up_dst_nwi->ipfix_policy;
-  else
-    return false;
-
-  if (ipfix_policy == UPF_IPFIX_POLICY_NONE)
-    return false;
 
   bool is_ip4 = f->key.is_ip4 != 0;
   fib_protocol_t fproto = is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
@@ -497,17 +487,23 @@ upf_ipfix_flow_init (flow_entry_t *f)
   f->ipfix.up_dst_sw_if_index = up_sw_if_index;
   f->ipfix.up_dst_fib_index = up_fib_index;
 
-  upf_ipfix_context_key_t context_key;
-  ip_address_to_46 (&up_dst_nwi->ipfix_collector_ip,
-                    &context_key.collector_ip);
-  clib_warning ("creating key to nwi %v and odi %d", up_dst_nwi->name,
-                up_dst_nwi->observation_domain_id);
-  context_key.observation_domain_id = up_dst_nwi->observation_domain_id;
-  context_key.policy = ipfix_policy;
-  context_key.is_ip4 = is_ip4;
-  f->ipfix.context_index = upf_ref_ipfix_context (&context_key);
+  f->ipfix.context_index = cached_ctx->protocol_context_id[fproto];
+  if (f->ipfix.context_index != (u16) ~0)
+    {
+      upf_ipfix_protocol_context_t *context =
+        pool_elt_at_index (fm->proto_contexts, f->ipfix.context_index);
 
-  return f->ipfix.context_index != (u16) ~0;
+      ASSERT (!ip46_address_cmp (&context->key.collector_ip,
+                                 &up_dst_nwi->ipfix_collector_ip.ip));
+      ASSERT (context->key.observation_domain_id ==
+              up_dst_nwi->observation_domain_id);
+      ASSERT (context->key.is_ip4 == is_ip4);
+
+      upf_ref_ipfix_proto_context_by_index (f->ipfix.context_index);
+      return true;
+    }
+
+  return false;
 }
 
 static void
@@ -526,7 +522,7 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
     if (!upf_ipfix_flow_init (f))
       return;
 
-  context = pool_elt_at_index (fm->contexts, f->ipfix.context_index);
+  context = pool_elt_at_index (fm->proto_contexts, f->ipfix.context_index);
   offset = context->next_record_offset_per_worker[my_cpu_number];
   template = upf_ipfix_templates + context->key.policy;
 
@@ -577,13 +573,13 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
       }
   }
 
-  for (upf_direction_t dir = 0; dir < 2; dir++)
-    {
-      flow_side_stats_t *stats = &flow_side (f, dir)->stats;
-      clib_warning ("IPFIX reporting sats (%d): pkts %d (%d) bytes %d (%d)",
-                    dir, stats->pkts_unreported, stats->pkts,
-                    stats->bytes_unreported, stats->bytes);
-    }
+  // for (upf_direction_t dir = 0; dir < 2; dir++)
+  //  {
+  //    flow_side_stats_t *stats = &flow_side (f, dir)->stats;
+  //    clib_warning ("IPFIX reporting sats (%d): pkts %d (%d) bytes %d (%d)",
+  //                  dir, stats->pkts_unreported, stats->pkts,
+  //                  stats->bytes_unreported, stats->bytes);
+  //  }
 
   if (context->key.is_ip4)
     offset += template->add_ip4_values (b0, offset, sx, f, f->uplink_direction,
@@ -624,7 +620,7 @@ static void
 upf_ipfix_free_flow (flow_entry_t *f)
 {
   if (f->ipfix.context_index != (u16) ~0)
-    upf_unref_ipfix_context_by_index (f->ipfix.context_index);
+    upf_unref_ipfix_proto_context_by_index (f->ipfix.context_index);
 }
 
 void
@@ -641,7 +637,75 @@ upf_ipfix_flow_remove_handler (flow_entry_t *f, u32 now)
 }
 
 u32
-upf_ref_ipfix_context (upf_ipfix_context_key_t *key)
+upf_ref_ipfix_cached_context (const upf_ipfix_context_key_t *key)
+{
+  clib_bihash_kv_24_8_t kv, value;
+  upf_ipfix_main_t *fm = &upf_ipfix_main;
+  upf_ipfix_context_t *cached_ctx;
+
+  upf_ipfix_context_key_t key_copy = *key;
+  key_copy.is_ip4 = ~0;
+
+  clib_memcpy_fast (&kv.key, &key_copy, sizeof (kv.key));
+
+  clib_warning ("REFFING NEW CACHED CONTEXT %x %x %x", kv.key[0], kv.key[1],
+                kv.key[2]);
+
+  if (PREDICT_TRUE (
+        !clib_bihash_search_24_8 (&fm->cached_context_by_key, &kv, &value)))
+    {
+      cached_ctx = pool_elt_at_index (fm->cached_contexts, value.value);
+      clib_atomic_add_fetch (&cached_ctx->refcnt, 1);
+      return value.value;
+    }
+
+  pool_get_zero (fm->cached_contexts, cached_ctx);
+  u32 idx = cached_ctx - fm->cached_contexts;
+  cached_ctx->refcnt = 1;
+  key_copy.is_ip4 = 1;
+  cached_ctx->protocol_context_id[FIB_PROTOCOL_IP4] =
+    upf_ref_ipfix_proto_context (&key_copy);
+
+  key_copy.is_ip4 = 0;
+  cached_ctx->protocol_context_id[FIB_PROTOCOL_IP6] =
+    upf_ref_ipfix_proto_context (&key_copy);
+
+  clib_memcpy_fast (&cached_ctx->key, &kv.key, sizeof (cached_ctx->key));
+
+  kv.value = idx;
+  clib_bihash_add_del_24_8 (&fm->cached_context_by_key, &kv, 1);
+  return idx;
+}
+
+void
+upf_unref_ipfix_cached_context_by_index (u32 idx)
+{
+  upf_ipfix_main_t *fm = &upf_ipfix_main;
+  clib_bihash_kv_24_8_t kv;
+  upf_ipfix_context_t *cached_ctx;
+
+  cached_ctx = pool_elt_at_index (fm->cached_contexts, idx);
+  if (clib_atomic_sub_fetch (&cached_ctx->refcnt, 1))
+    return;
+
+  clib_warning ("REMOVING IPFIX CACHED CONTEXT SINCE UNREFED BY EVERYONE");
+
+  clib_memcpy_fast (&kv.key, &cached_ctx->key, sizeof (kv.key));
+  clib_bihash_add_del_24_8 (&fm->cached_context_by_key, &kv, 0 /* is_add */);
+
+  if (cached_ctx->protocol_context_id[FIB_PROTOCOL_IP4] != ~0)
+    upf_unref_ipfix_proto_context_by_index (
+      cached_ctx->protocol_context_id[FIB_PROTOCOL_IP4]);
+
+  if (cached_ctx->protocol_context_id[FIB_PROTOCOL_IP6] != ~0)
+    upf_unref_ipfix_proto_context_by_index (
+      cached_ctx->protocol_context_id[FIB_PROTOCOL_IP6]);
+
+  pool_put (fm->cached_contexts, cached_ctx);
+}
+
+u32
+upf_ref_ipfix_proto_context (const upf_ipfix_context_key_t *key)
 {
   int rv;
   vlib_thread_main_t *tm = &vlib_thread_main;
@@ -654,15 +718,18 @@ upf_ref_ipfix_context (upf_ipfix_context_key_t *key)
 
   clib_memcpy_fast (&kv.key, key, sizeof (kv.key));
 
+  clib_warning ("REFFING NEW CONTEXT %x %x %x", kv.key[0], kv.key[1],
+                kv.key[2]);
+
   if (PREDICT_TRUE (
-        !clib_bihash_search_24_8 (&fm->context_by_key, &kv, &value)))
+        !clib_bihash_search_24_8 (&fm->proto_context_by_key, &kv, &value)))
     {
-      context = pool_elt_at_index (fm->contexts, value.value);
+      context = pool_elt_at_index (fm->proto_contexts, value.value);
       clib_atomic_add_fetch (&context->refcnt, 1);
       return value.value;
     }
 
-  pool_get_zero (fm->contexts, context);
+  pool_get_zero (fm->proto_contexts, context);
 
   vec_validate (context->buffers_per_worker, num_threads - 1);
   vec_validate (context->frames_per_worker, num_threads - 1);
@@ -674,47 +741,55 @@ upf_ref_ipfix_context (upf_ipfix_context_key_t *key)
   context->exporter_index = (u32) ~0;
   context->refcnt = 1;
 
-  idx = context - fm->contexts;
+  idx = context - fm->proto_contexts;
   rv = upf_ipfix_report_add_del (fm, key->observation_domain_id, idx,
                                  &context->template_id, key->is_ip4, true);
   if (rv)
     {
       clib_warning ("couldn't add IPFIX report, perhaps "
                     "the exporter has been deleted?");
-      pool_put (fm->contexts, context);
+      pool_put (fm->proto_contexts, context);
       return ~0;
     }
 
   kv.value = idx;
-  clib_bihash_add_del_24_8 (&fm->context_by_key, &kv, 1);
+  clib_bihash_add_del_24_8 (&fm->proto_context_by_key, &kv, 1);
 
   return idx;
 }
 
 void
-upf_ref_ipfix_context_by_index (u32 cidx)
+upf_ref_ipfix_proto_context_by_index (u32 cidx)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   upf_ipfix_protocol_context_t *context;
 
-  context = pool_elt_at_index (fm->contexts, cidx);
+  context = pool_elt_at_index (fm->proto_contexts, cidx);
   clib_atomic_add_fetch (&context->refcnt, 1);
 }
 
 void
-upf_unref_ipfix_context_by_index (u32 cidx)
+upf_unref_ipfix_proto_context_by_index (u32 cidx)
 {
   int rv;
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   clib_bihash_kv_24_8_t kv;
   upf_ipfix_protocol_context_t *context;
 
-  context = pool_elt_at_index (fm->contexts, cidx);
+  context = pool_elt_at_index (fm->proto_contexts, cidx);
+
+  clib_atomic_sub_fetch (&context->refcnt, 1);
+  // Do not remove context since it will use different FlowSet Id on
+  // possible future recreation.
+  return;
+
   if (clib_atomic_sub_fetch (&context->refcnt, 1))
     return;
 
+  clib_warning ("REMOVING IPFIX CONTEXT SINCE UNREFED BY EVERYONE");
+
   clib_memcpy_fast (&kv.key, &context->key, sizeof (kv.key));
-  clib_bihash_add_del_24_8 (&fm->context_by_key, &kv, 0 /* is_add */);
+  clib_bihash_add_del_24_8 (&fm->proto_context_by_key, &kv, 0 /* is_add */);
 
   rv = upf_ipfix_report_add_del (fm, context->key.observation_domain_id, cidx,
                                  &context->template_id, context->key.is_ip4,
@@ -726,7 +801,7 @@ upf_unref_ipfix_context_by_index (u32 cidx)
   vec_free (context->buffers_per_worker);
   vec_free (context->frames_per_worker);
   vec_free (context->next_record_offset_per_worker);
-  pool_put (fm->contexts, context);
+  pool_put (fm->proto_contexts, context);
 }
 
 /**
@@ -749,11 +824,16 @@ upf_ipfix_init (vlib_main_t *vm)
   fm->vlib_time_0 = (u32) vlib_time_now (vm);
 
   /* initialize the IP/TEID hash's */
-  clib_bihash_init_24_8 (&fm->context_by_key, "context_by_key",
+  clib_bihash_init_24_8 (&fm->proto_context_by_key, "proto_context_by_key",
                          UPF_IPFIX_MAPPING_BUCKETS,
                          UPF_IPFIX_MAPPING_MEMORY_SIZE);
   /* clib_bihash_set_kvp_format_fn_24_8 (&fm->context_by_key, */
   /* 				      format_ipfix_context_key); */
+
+  clib_bihash_init_24_8 (&fm->cached_context_by_key, "cached_context_by_key",
+                         UPF_IPFIX_MAPPING_BUCKETS,
+                         UPF_IPFIX_MAPPING_MEMORY_SIZE);
+
   clib_bihash_init_24_8 (&fm->info_by_key, "info_by_key",
                          UPF_IPFIX_MAPPING_BUCKETS,
                          UPF_IPFIX_MAPPING_MEMORY_SIZE);

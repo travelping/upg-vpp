@@ -845,7 +845,7 @@ vnet_upf_policy_fn (fib_route_path_t *rpaths, u8 *policy_id, u8 action)
           pool_get (gtm->upf_forwarding_policies, fp_entry);
           fib_node_init (&fp_entry->fib_node, upf_policy_fib_node_type);
           fp_entry->policy_id = vec_dup (policy_id);
-          fp_entry->rpaths = clib_mem_alloc (sizeof (*fp_entry->rpaths));
+          fp_entry->rpaths = 0;
 
           fib_path_list_create_and_child_add (fp_entry, rpaths);
           hash_set_mem (gtm->forwarding_policy_by_id, fp_entry->policy_id,

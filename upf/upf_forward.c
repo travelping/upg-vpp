@@ -230,7 +230,11 @@ upf_forward (vlib_main_t *vm, vlib_node_runtime_t *node, const char *node_name,
                         &vnet_buffer (b)->sw_if_index[VLIB_RX],
                         &vnet_buffer (b)->sw_if_index[VLIB_TX]);
                     }
-                  next = UPF_FORWARD_NEXT_IP_INPUT;
+                  vnet_buffer (b)->sw_if_index[VLIB_TX] =
+                    (upf_main.nwis + far->forward.nwi_index)
+                      ->fib_index[is_ip4 ? FIB_PROTOCOL_IP4 :
+                                           FIB_PROTOCOL_IP6];
+                  next = UPF_FORWARD_NEXT_IP_LOOKUP;
 
                   /*
                    * Forwarding Policy can override the normal FAR processing
