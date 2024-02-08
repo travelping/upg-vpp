@@ -39,7 +39,6 @@
 #define UPF_IPFIX_MAPPING_BUCKETS     64
 #define UPF_IPFIX_MAPPING_MEMORY_SIZE 16384
 
-// #define CLIB_DEBUG 111
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -426,9 +425,6 @@ upf_ipfix_flow_init (flow_entry_t *f)
   if (!up_pdr)
     return false;
 
-  clib_warning ("IPFIX FLOW UP PDR MATCHES ON %v",
-                pool_elt_at_index (gtm->nwis, up_pdr->pdi.nwi_index)->name);
-
   if (up_pdr->ipfix_cached_context_id == (u16) ~0)
     return false;
 
@@ -443,8 +439,6 @@ upf_ipfix_flow_init (flow_entry_t *f)
     return false;
 
   up_dst_nwi = pool_elt_at_index (gtm->nwis, up_far->forward.nwi_index);
-
-  clib_warning ("IPFIX FLOW UP PDR FORWARDED TO %v", up_dst_nwi->name);
 
   bool is_ip4 = f->key.is_ip4 != 0;
   fib_protocol_t fproto = is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
@@ -572,14 +566,6 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
       }
   }
 
-  // for (upf_direction_t dir = 0; dir < 2; dir++)
-  //  {
-  //    flow_side_stats_t *stats = &flow_side (f, dir)->stats;
-  //    clib_warning ("IPFIX reporting sats (%d): pkts %d (%d) bytes %d (%d)",
-  //                  dir, stats->pkts_unreported, stats->pkts,
-  //                  stats->bytes_unreported, stats->bytes);
-  //  }
-
   if (context->key.is_ip4)
     offset += template->add_ip4_values (b0, offset, sx, f, f->uplink_direction,
                                         nwi, &info, last);
@@ -614,10 +600,7 @@ upf_ipfix_flow_stats_update_handler (flow_entry_t *f, u32 now)
     return;
 
   if (PREDICT_FALSE (now >= f->ipfix.next_export_at))
-    {
-      clib_warning ("<<<<<<<<+++++++++++++++++++ CHECK SUCCEEDED");
-      upf_ipfix_export_entry (vm, f, now, false);
-    }
+    upf_ipfix_export_entry (vm, f, now, false);
 
   return;
 }
@@ -653,9 +636,6 @@ upf_ref_ipfix_cached_context (const upf_ipfix_context_key_t *key)
   key_copy.is_ip4 = ~0;
 
   clib_memcpy_fast (&kv.key, &key_copy, sizeof (kv.key));
-
-  clib_warning ("REFFING NEW CACHED CONTEXT %x %x %x", kv.key[0], kv.key[1],
-                kv.key[2]);
 
   if (PREDICT_TRUE (
         !clib_bihash_search_24_8 (&fm->cached_context_by_key, &kv, &value)))
@@ -694,8 +674,6 @@ upf_unref_ipfix_cached_context_by_index (u32 idx)
   if (clib_atomic_sub_fetch (&cached_ctx->refcnt, 1))
     return;
 
-  clib_warning ("REMOVING IPFIX CACHED CONTEXT SINCE UNREFED BY EVERYONE");
-
   clib_memcpy_fast (&kv.key, &cached_ctx->key, sizeof (kv.key));
   clib_bihash_add_del_24_8 (&fm->cached_context_by_key, &kv, 0 /* is_add */);
 
@@ -723,9 +701,6 @@ upf_ref_ipfix_proto_context (const upf_ipfix_context_key_t *key)
   u32 idx = ~0;
 
   clib_memcpy_fast (&kv.key, key, sizeof (kv.key));
-
-  clib_warning ("REFFING NEW CONTEXT %x %x %x", kv.key[0], kv.key[1],
-                kv.key[2]);
 
   if (PREDICT_TRUE (
         !clib_bihash_search_24_8 (&fm->proto_context_by_key, &kv, &value)))
@@ -789,25 +764,24 @@ upf_unref_ipfix_proto_context_by_index (u32 cidx)
   // possible future recreation.
   return;
 
-  if (clib_atomic_sub_fetch (&context->refcnt, 1))
-    return;
-
-  clib_warning ("REMOVING IPFIX CONTEXT SINCE UNREFED BY EVERYONE");
-
-  clib_memcpy_fast (&kv.key, &context->key, sizeof (kv.key));
-  clib_bihash_add_del_24_8 (&fm->proto_context_by_key, &kv, 0 /* is_add */);
-
-  rv = upf_ipfix_report_add_del (fm, context->key.observation_domain_id, cidx,
-                                 &context->template_id, context->key.is_ip4,
-                                 false);
-  if (rv)
-    clib_warning ("couldn't remove IPFIX report, perhaps "
-                  "the exporter has been deleted?");
-
-  vec_free (context->buffers_per_worker);
-  vec_free (context->frames_per_worker);
-  vec_free (context->next_record_offset_per_worker);
-  pool_put (fm->proto_contexts, context);
+  // if (clib_atomic_sub_fetch (&context->refcnt, 1))
+  //   return;
+  //
+  // clib_memcpy_fast (&kv.key, &context->key, sizeof (kv.key));
+  // clib_bihash_add_del_24_8 (&fm->proto_context_by_key, &kv, 0 /* is_add */);
+  //
+  // rv = upf_ipfix_report_add_del (fm, context->key.observation_domain_id,
+  // cidx,
+  //                                &context->template_id, context->key.is_ip4,
+  //                                false);
+  // if (rv)
+  //   clib_warning ("couldn't remove IPFIX report, perhaps "
+  //                 "the exporter has been deleted?");
+  //
+  // vec_free (context->buffers_per_worker);
+  // vec_free (context->frames_per_worker);
+  // vec_free (context->next_record_offset_per_worker);
+  // pool_put (fm->proto_contexts, context);
 }
 
 /**

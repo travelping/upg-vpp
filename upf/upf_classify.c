@@ -32,7 +32,6 @@
 #include <upf/upf_app_dpo.h>
 #include <upf/upf_ipfix.h>
 
-#define CLIB_DEBUG 100
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else

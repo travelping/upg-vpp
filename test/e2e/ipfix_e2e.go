@@ -17,7 +17,6 @@
 package exttest
 
 import (
-	"log"
 	"net"
 	"time"
 
@@ -534,9 +533,7 @@ func (v *ipfixVerifier) verifyIPFIXSharedRecords() {
 		serverIP = v.altServerIP.IP
 	}
 
-	for i, r := range v.recs {
-		log.Printf("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP after %d values %+#v", i, r)
-
+	for _, r := range v.recs {
 		gomega.Expect(r).To(gomega.HaveKeyWithValue("observationDomainId", uint32(42)))
 
 		gomega.Expect(r).To(gomega.HaveKey("flowStartMilliseconds"))
@@ -575,8 +572,6 @@ func (v *ipfixVerifier) verifyIPFIXSharedRecords() {
 		ulOctets += r["initiatorOctets"].(uint64)
 		dlPacketCount += r["responderPackets"].(uint64)
 		dlOctets += r["responderOctets"].(uint64)
-
-		log.Printf(">>>> new counters | ul %d p %d b | dl %d p %d b |", ulPacketCount, ulOctets, dlPacketCount, dlOctets)
 	}
 
 	gomega.Expect(ulPacketCount).To(gomega.Equal(*v.ms.Reports[1][0].UplinkPacketCount), "uplink packet count")
