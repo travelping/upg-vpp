@@ -52,6 +52,8 @@ typedef struct
   u32 exporter_index;
   /** Reference count */
   u32 refcnt;
+  /* Reporting inerval */
+  u32 reporting_interval;
 } upf_ipfix_protocol_context_t;
 
 typedef struct
@@ -59,7 +61,7 @@ typedef struct
   u32 protocol_context_id[FIB_PROTOCOL_IP_MAX];
   u32 refcnt;
   upf_ipfix_context_key_t key;
-} upf_ipfix_context_t;
+} upf_ipfix_cached_context_t;
 
 typedef struct
 {
@@ -78,7 +80,7 @@ typedef struct
   clib_bihash_24_8_t cached_context_by_key;
   clib_bihash_24_8_t info_by_key;
   upf_ipfix_protocol_context_t *proto_contexts;
-  upf_ipfix_context_t *cached_contexts;
+  upf_ipfix_cached_context_t *cached_contexts;
   u16 template_id;
   upf_ipfix_policy_t policy;
 

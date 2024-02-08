@@ -144,7 +144,7 @@ typedef struct flow_side_tcp_t_
 
 typedef struct flow_ipfix_t_
 {
-  u32 last_exported;
+  u32 next_export_at;
   u16 context_index;
   u16 forwarding_policy_index;
   // up_dst means "upload destination"

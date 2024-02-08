@@ -415,7 +415,6 @@ upf_ipfix_flow_init (flow_entry_t *f)
   upf_far_t *up_far;
   upf_nwi_t *up_dst_nwi;
   u32 up_forwarding_policy_index;
-  upf_ipfix_policy_t ipfix_policy;
 
   if (f->uplink_direction == FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED)
     return false;
@@ -433,7 +432,7 @@ upf_ipfix_flow_init (flow_entry_t *f)
   if (up_pdr->ipfix_cached_context_id == (u16) ~0)
     return false;
 
-  upf_ipfix_context_t *cached_ctx =
+  upf_ipfix_cached_context_t *cached_ctx =
     pool_elt_at_index (fm->cached_contexts, up_pdr->ipfix_cached_context_id);
 
   up_far = pfcp_get_far_by_id (active, up_pdr->far_id);
@@ -589,16 +588,20 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
                                         nwi, &info, last);
 
   /* Reset per flow-export counters */
-  f->ipfix.last_exported = now;
+  f->ipfix.next_export_at = now + nwi->ipfix_report_interval;
   f->exported = 1;
 
   b0->current_length = offset;
-
   context->next_record_offset_per_worker[my_cpu_number] = offset;
+
+  ipfix_exporter_t *exp = upf_ipfix_get_exporter (context);
+
+  if (!exp)
+    return;
+
   /* Time to flush the buffer? */
-  /* TODO uncomment! also: force upon removal */
-  /* if (offset + context->rec_size > exp->path_mtu) */
-  upf_ipfix_export_send (vm, b0, context, now);
+  if (offset + context->rec_size > exp->path_mtu)
+    upf_ipfix_export_send (vm, b0, context, now);
 }
 
 void
@@ -610,8 +613,11 @@ upf_ipfix_flow_stats_update_handler (flow_entry_t *f, u32 now)
   if (fm->disabled)
     return;
 
-  if (PREDICT_FALSE (now > f->ipfix.last_exported))
-    upf_ipfix_export_entry (vm, f, now, false);
+  if (PREDICT_FALSE (now >= f->ipfix.next_export_at))
+    {
+      clib_warning ("<<<<<<<<+++++++++++++++++++ CHECK SUCCEEDED");
+      upf_ipfix_export_entry (vm, f, now, false);
+    }
 
   return;
 }
@@ -641,7 +647,7 @@ upf_ref_ipfix_cached_context (const upf_ipfix_context_key_t *key)
 {
   clib_bihash_kv_24_8_t kv, value;
   upf_ipfix_main_t *fm = &upf_ipfix_main;
-  upf_ipfix_context_t *cached_ctx;
+  upf_ipfix_cached_context_t *cached_ctx;
 
   upf_ipfix_context_key_t key_copy = *key;
   key_copy.is_ip4 = ~0;
@@ -682,7 +688,7 @@ upf_unref_ipfix_cached_context_by_index (u32 idx)
 {
   upf_ipfix_main_t *fm = &upf_ipfix_main;
   clib_bihash_kv_24_8_t kv;
-  upf_ipfix_context_t *cached_ctx;
+  upf_ipfix_cached_context_t *cached_ctx;
 
   cached_ctx = pool_elt_at_index (fm->cached_contexts, idx);
   if (clib_atomic_sub_fetch (&cached_ctx->refcnt, 1))

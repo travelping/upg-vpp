@@ -86,7 +86,6 @@ bool process_qers (vlib_main_t *vm, upf_session_t *sess, struct rules *r,
                    upf_pdr_t *pdr, vlib_buffer_t *b, u8 is_dl, u8 is_ul);
 
 void upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error);
-void upf_ref_forwarding_policies (upf_far_t *far, u8 is_del);
 int pfcp_session_server_apply_config (u64 segment_size, u32 prealloc_fifos,
                                       u32 fifo_size);
 void pfcp_session_server_get_config (u64 *segment_size, u32 *prealloc_fifos,

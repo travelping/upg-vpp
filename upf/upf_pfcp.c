@@ -1251,8 +1251,8 @@ pfcp_free_rules (upf_session_t *sx, int rule)
   memset (rules, 0, sizeof (*rules));
 }
 
-void
-upf_ref_forwarding_policies (upf_far_t *far, u8 is_del)
+always_inline void
+upf_pfcp_far_ref_forwarding_policies (upf_far_t *far, u8 is_del)
 {
   upf_main_t *gtm = &upf_main;
   uword *hash_ptr;
@@ -1300,7 +1300,7 @@ pfcp_disable_session (upf_session_t *sx)
   /* derefer forwarding policies */
   vec_foreach (far, active->far)
     {
-      upf_ref_forwarding_policies (far, 1);
+      upf_pfcp_far_ref_forwarding_policies (far, 1);
     }
 
   node_assoc_detach_session (sx);
@@ -2169,7 +2169,7 @@ pfcp_update_apply (upf_session_t *sx)
                     far->forward.outer_header_creation.teid, far->id);
                 }
             }
-          upf_ref_forwarding_policies (far, 0);
+          upf_pfcp_far_ref_forwarding_policies (far, 0);
         }
     }
   else
@@ -2282,7 +2282,7 @@ pfcp_update_apply (upf_session_t *sx)
 
       vec_foreach (far, pending->far)
         {
-          upf_ref_forwarding_policies (far, 1);
+          upf_pfcp_far_ref_forwarding_policies (far, 1);
           if (far->forward.outer_header_creation.description != 0)
             peer_addr_unref (&far->forward);
         }
