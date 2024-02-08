@@ -146,10 +146,11 @@ typedef struct flow_ipfix_t_
 {
   u32 last_exported;
   u16 context_index;
-  u16 up_nwi_index;
-  u16 up_sw_if_index;
   u16 forwarding_policy_index;
-  u32 up_fib_index;
+  // up_dst means "upload destination"
+  u16 up_dst_nwi_index;
+  u16 up_dst_sw_if_index;
+  u32 up_dst_fib_index;
 } flow_ipfix_t;
 
 typedef struct flow_side_t_
@@ -535,6 +536,10 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
   stats->bytes_unreported += len;
   stats->l4_bytes += l4_len;
   stats->l4_bytes_unreported += l4_len;
+
+  clib_warning ("new sats (dir %d): pkts %d (%d) bytes %d (%d)", direction,
+                stats->pkts_unreported, stats->pkts, stats->bytes_unreported,
+                stats->bytes);
 
   f->flow_end_time = timestamp_ns;
 }

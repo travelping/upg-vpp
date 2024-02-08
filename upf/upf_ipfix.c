@@ -39,6 +39,7 @@
 #define UPF_IPFIX_MAPPING_BUCKETS     64
 #define UPF_IPFIX_MAPPING_MEMORY_SIZE 16384
 
+#define CLIB_DEBUG 111
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
 #else
@@ -412,7 +413,7 @@ upf_ipfix_flow_init (flow_entry_t *f)
   struct rules *active;
   upf_pdr_t *up_pdr;
   upf_far_t *up_far;
-  upf_nwi_t *up_nwi;
+  upf_nwi_t *up_dst_nwi;
   u32 up_forwarding_policy_index;
   upf_ipfix_policy_t ipfix_policy;
 
@@ -422,9 +423,12 @@ upf_ipfix_flow_init (flow_entry_t *f)
   sx = pool_elt_at_index (gtm->sessions, f->session_index);
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
 
-  up_pdr = flow_pdr (f, f->uplink_direction, active);
+  up_pdr = flow_pdr (f, FTK_EL_SRC ^ f->uplink_direction, active);
   if (!up_pdr)
     return false;
+
+  clib_warning ("IPFIX FLOW UP PDR MATCHES ON %v",
+                pool_elt_at_index (gtm->nwis, up_pdr->pdi.nwi_index)->name);
 
   up_far = pfcp_get_far_by_id (active, up_pdr->far_id);
   if (!up_far)
@@ -433,7 +437,9 @@ upf_ipfix_flow_init (flow_entry_t *f)
   if (pool_is_free_index (gtm->nwis, up_far->forward.nwi_index))
     return false;
 
-  up_nwi = pool_elt_at_index (gtm->nwis, up_far->forward.nwi_index);
+  up_dst_nwi = pool_elt_at_index (gtm->nwis, up_far->forward.nwi_index);
+
+  clib_warning ("IPFIX FLOW UP PDR FORWARDED TO %v", up_dst_nwi->name);
 
   /*
    * IPFIX policy specified in the FAR itself, if any, takes
@@ -443,8 +449,8 @@ upf_ipfix_flow_init (flow_entry_t *f)
    */
   if (up_far->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED)
     ipfix_policy = up_far->ipfix_policy;
-  else if (up_nwi->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED)
-    ipfix_policy = up_nwi->ipfix_policy;
+  else if (up_dst_nwi->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED)
+    ipfix_policy = up_dst_nwi->ipfix_policy;
   else
     return false;
 
@@ -460,7 +466,7 @@ upf_ipfix_flow_init (flow_entry_t *f)
     up_forwarding_policy_index = ~0;
 
   u32 up_sw_if_index;
-  u32 up_fib_index = up_nwi->fib_index[fproto];
+  u32 up_fib_index = up_dst_nwi->fib_index[fproto];
   if ((up_far->forward.flags & FAR_F_OUTER_HEADER_CREATION))
     {
       up_sw_if_index = up_far->forward.dst_sw_if_index;
@@ -487,13 +493,16 @@ upf_ipfix_flow_init (flow_entry_t *f)
     }
 
   f->ipfix.forwarding_policy_index = up_forwarding_policy_index;
-  f->ipfix.up_nwi_index = up_nwi - gtm->nwis;
-  f->ipfix.up_sw_if_index = up_sw_if_index;
-  f->ipfix.up_fib_index = up_fib_index;
+  f->ipfix.up_dst_nwi_index = up_dst_nwi - gtm->nwis;
+  f->ipfix.up_dst_sw_if_index = up_sw_if_index;
+  f->ipfix.up_dst_fib_index = up_fib_index;
 
   upf_ipfix_context_key_t context_key;
-  ip_address_to_46 (&up_nwi->ipfix_collector_ip, &context_key.collector_ip);
-  context_key.observation_domain_id = up_nwi->observation_domain_id;
+  ip_address_to_46 (&up_dst_nwi->ipfix_collector_ip,
+                    &context_key.collector_ip);
+  clib_warning ("creating key to nwi %v and odi %d", up_dst_nwi->name,
+                up_dst_nwi->observation_domain_id);
+  context_key.observation_domain_id = up_dst_nwi->observation_domain_id;
   context_key.policy = ipfix_policy;
   context_key.is_ip4 = is_ip4;
   f->ipfix.context_index = upf_ref_ipfix_context (&context_key);
@@ -540,8 +549,9 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
   fib_protocol_t fproto = is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
 
   upf_session_t *sx = pool_elt_at_index (gtm->sessions, f->session_index);
-  upf_nwi_t *nwi = pool_elt_at_index (upf_main.nwis, f->ipfix.up_nwi_index);
-  fib_table_t *up_table = fib_table_get (f->ipfix.up_fib_index, fproto);
+  upf_nwi_t *nwi =
+    pool_elt_at_index (upf_main.nwis, f->ipfix.up_dst_nwi_index);
+  fib_table_t *up_table = fib_table_get (f->ipfix.up_dst_fib_index, fproto);
 
   upf_ipfix_report_info_t info;
   if (f->ipfix.forwarding_policy_index != (u16) ~0)
@@ -556,7 +566,7 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
   info.sw_if_name = NULL;
   {
     vnet_sw_interface_t *si =
-      vnet_get_sw_interface_or_null (vnm, f->ipfix.up_sw_if_index);
+      vnet_get_sw_interface_or_null (vnm, f->ipfix.up_dst_sw_if_index);
     if (si)
       {
         vnet_sw_interface_t *si_sup =
@@ -566,6 +576,14 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
         info.sw_if_name = hi_sup->name;
       }
   }
+
+  for (upf_direction_t dir = 0; dir < 2; dir++)
+    {
+      flow_side_stats_t *stats = &flow_side (f, dir)->stats;
+      clib_warning ("IPFIX reporting sats (%d): pkts %d (%d) bytes %d (%d)",
+                    dir, stats->pkts_unreported, stats->pkts,
+                    stats->bytes_unreported, stats->bytes);
+    }
 
   if (context->key.is_ip4)
     offset += template->add_ip4_values (b0, offset, sx, f, f->uplink_direction,

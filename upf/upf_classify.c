@@ -429,6 +429,7 @@ upf_acl_classify_return (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
   return next;
 }
 
+// returns direction which has upload direction
 always_inline flow_direction_t
 upf_classify_detect_flow_direction (vlib_buffer_t *b, struct rules *r,
                                     flow_direction_t direction, bool *found)
@@ -447,7 +448,7 @@ upf_classify_detect_flow_direction (vlib_buffer_t *b, struct rules *r,
       return FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED;
     }
 
-  upf_pdr_t *pdr = pfcp_get_pdr_by_id (r, pdr_idx);
+  upf_pdr_t *pdr = vec_elt_at_index (r->pdr, pdr_idx);
   if (!pdr)
     {
       upf_debug ("failed to detect flow direction since pdr is not found");
@@ -456,8 +457,9 @@ upf_classify_detect_flow_direction (vlib_buffer_t *b, struct rules *r,
 
   if (pdr->pdi.src_intf == PFCP_SRC_INTF_ACCESS)
     {
-      upf_debug ("detected uplink direction from pdr: %d",
-                 FTD_OP_SAME ^ direction);
+      upf_debug ("detected uplink direction from pdr: %d matched on %v",
+                 FTD_OP_SAME ^ direction,
+                 pool_elt_at_index (upf_main.nwis, pdr->pdi.nwi_index)->name);
       *found = true;
       return FTD_OP_SAME ^ direction;
     }
@@ -477,8 +479,10 @@ upf_classify_detect_flow_direction (vlib_buffer_t *b, struct rules *r,
 
   if (far->forward.dst_intf == PFCP_SRC_INTF_ACCESS)
     {
-      upf_debug ("detected uplink direction from far: %d",
-                 FTD_OP_FLIP ^ direction);
+      upf_debug (
+        "detected uplink direction from far: %d forwarded to %v",
+        FTD_OP_FLIP ^ direction,
+        pool_elt_at_index (upf_main.nwis, far->forward.nwi_index)->name);
       *found = true;
       return FTD_OP_FLIP ^ direction;
     }

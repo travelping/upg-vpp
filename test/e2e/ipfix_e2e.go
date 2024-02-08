@@ -17,6 +17,7 @@
 package exttest
 
 import (
+	"log"
 	"net"
 	"time"
 
@@ -339,10 +340,8 @@ type ipfixVerifier struct {
 	f            *framework.Framework
 	ipfixHandler *ipfixHandler
 	beginTS      time.Time
-	ulStartTS    time.Time
-	ulEndTS      time.Time
-	dlStartTS    time.Time
-	dlEndTS      time.Time
+	startTS      time.Time
+	endTS        time.Time
 	seid         pfcp.SEID
 	ms           *pfcp.PFCPMeasurement
 	collectorIP  net.IP
@@ -401,10 +400,8 @@ func (v *ipfixVerifier) withIPFIXHandler() {
 		)
 		v.ipfixHandler = setupIPFIX(v.f, v.collectorIP)
 		v.beginTS = time.Now()
-		v.ulStartTS = time.Time{}
-		v.ulEndTS = v.beginTS
-		v.dlStartTS = time.Time{}
-		v.dlEndTS = v.beginTS
+		v.startTS = time.Time{}
+		v.endTS = v.beginTS
 	})
 
 	ginkgo.AfterEach(func() {
@@ -470,11 +467,15 @@ func (v *ipfixVerifier) runSession(cfg ipfixVerifierCfg) {
 	if cfg.forwardingPolicyID != "" {
 		cfg.trafficCfg.AddServerIP(v.altServerIP.IP)
 	}
-	runTrafficGen(v.f, cfg.trafficCfg, &traffic.PreciseTrafficRec{})
-	if !v.cfg.noTemplates {
-		gomega.Eventually(v.ipfixHandler.getTemplateIDs, 10*time.Second, time.Second).
+
+	if cfg.noTemplates {
+		// wait for templates
+		gomega.Eventually(v.ipfixHandler.getTemplateIDs, 33*time.Second, time.Second).
 			ShouldNot(gomega.BeEmpty())
 	}
+
+	runTrafficGen(v.f, cfg.trafficCfg, &traffic.PreciseTrafficRec{})
+
 	v.ms = deleteSession(v.f, v.seid, true)
 	// Wait a bit for all the reports to arrive
 	// FIXME: actually, we should check IPFIX report results
@@ -525,7 +526,8 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 	// var initiatorPackets, responderPackets uint64
 	// var initiatorOctets, responderOctets uint64
 	var clientPort uint16
-	for _, r := range v.recs {
+
+	for i, r := range v.recs {
 		// The record looks like:
 		// mobileIMSI: 313460000000001
 		// packetTotalCount: 80
@@ -537,6 +539,7 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 		// octetTotalCount: 4262
 		// sourceTransportPort: 36960
 		// destinationTransportPort: 80
+
 		gomega.Expect(r).To(gomega.HaveKeyWithValue("mobileIMSI", "313460000000001"))
 		// gomega.Expect(r).To(gomega.HaveKey("packetTotalCount"))
 		gomega.Expect(r).To(gomega.HaveKey("flowStartMilliseconds"))
@@ -555,78 +558,53 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 		gomega.Expect(r).To(gomega.HaveKey(srcAddressKey))
 		gomega.Expect(r).To(gomega.HaveKey(dstAddressKey))
 
-		// For now, we're using octetDeltaCount / packetDeltaCount
-		// values instead of initator.../responder... fields.
-		// Unlike initiator/responder, these depend on the
-		// direction of the flow
-		// gomega.Expect(r).To(gomega.HaveKey("initiatorPackets"))
-		// gomega.Expect(r).To(gomega.HaveKey("responderPackets"))
-		// gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
-		// gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
-		// initiatorPackets += r["initiatorPackets"].(uint64)
-		// responderPackets += r["responderPackets"].(uint64)
-		// initiatorOctets += r["initiatorOctets"].(uint64)
-		// responderOctets += r["responderOctets"].(uint64)
-		gomega.Expect(r).To(gomega.HaveKey("packetDeltaCount"))
-		gomega.Expect(r).To(gomega.HaveKey("octetDeltaCount"))
+		gomega.Expect(r).To(gomega.HaveKey("initiatorPackets"))
+		gomega.Expect(r).To(gomega.HaveKey("responderPackets"))
+		gomega.Expect(r).To(gomega.HaveKey("initiatorOctets"))
+		gomega.Expect(r).To(gomega.HaveKey("responderOctets"))
 
 		gomega.Expect(r).To(gomega.HaveKeyWithValue("observationDomainId", uint32(42)))
 
-		if r[srcAddressKey].(net.IP).Equal(v.f.UEIP()) {
-			// upload
-			if v.ulStartTS.IsZero() {
-				v.ulStartTS = r["flowStartMilliseconds"].(time.Time)
-				// FIXME: should be working (wrong time on the VPP side?)
-				// gomega.Expect(ulStartTS).To(gomega.BeTemporally(">=", beginTS))
-			} else {
-				gomega.Expect(r["flowStartMilliseconds"]).To(gomega.Equal(v.ulStartTS))
-			}
-			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.ulEndTS))
-			v.ulEndTS = r["flowEndMilliseconds"].(time.Time)
-			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
-			// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", ulPacketCount))
-			ulPacketCount += r["packetDeltaCount"].(uint64)
-			// gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", ulOctets))
-			ulOctets += r["octetDeltaCount"].(uint64)
-			gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(v.cfg.expectedTrafficPort))
-			if clientPort == 0 {
-				clientPort = r["sourceTransportPort"].(uint16)
-			} else {
-				gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(clientPort))
-			}
-			// gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(1))) // egress flow
-			if v.cfg.postNATSourceIPv4Address != nil {
-				gomega.Expect(r["postNATSourceIPv4Address"]).
-					To(gomega.Equal(v.cfg.postNATSourceIPv4Address))
-			}
-			if v.cfg.postNAPTSourceTransportPort != 0 {
-				gomega.Expect(r["postNAPTSourceTransportPort"]).
-					To(gomega.Equal(v.cfg.postNAPTSourceTransportPort))
-			}
+		if v.startTS.IsZero() {
+			v.startTS = r["flowStartMilliseconds"].(time.Time)
+			// FIXME: should be working (wrong time on the VPP side?)
+			// gomega.Expect(ulStartTS).To(gomega.BeTemporally(">=", beginTS))
 		} else {
-			// download
-			if v.dlStartTS.IsZero() {
-				v.dlStartTS = r["flowStartMilliseconds"].(time.Time)
-				// FIXME: should be working (wrong time on the VPP side?)
-				// gomega.Expect(dlStartTS).To(gomega.BeTemporally(">=", beginTS))
-			} else {
-				gomega.Expect(r["flowStartMilliseconds"]).To(gomega.Equal(v.dlStartTS))
-			}
-			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
-			v.dlEndTS = r["flowEndMilliseconds"].(time.Time)
-			gomega.Expect(r[srcAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
-			gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.UEIP())).To(gomega.BeTrue())
-			// gomega.Expect(r["packetTotalCount"]).To(gomega.BeNumerically(">=", dlPacketCount))
-			dlPacketCount += r["packetDeltaCount"].(uint64)
-			// gomega.Expect(r["octetTotalCount"]).To(gomega.BeNumerically(">=", dlOctets))
-			dlOctets += r["octetDeltaCount"].(uint64)
-			gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(v.cfg.expectedTrafficPort))
-			if clientPort == 0 {
-				clientPort = r["destinationTransportPort"].(uint16)
-			} else {
-				gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(clientPort))
-			}
-			// gomega.Expect(r["flowDirection"]).To(gomega.Equal(uint8(0))) // ingress flow
+			gomega.Expect(r["flowStartMilliseconds"]).To(gomega.Equal(v.startTS))
+		}
+
+		gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.endTS))
+		v.endTS = r["flowEndMilliseconds"].(time.Time)
+
+		// verify ips
+		gomega.Expect(r[srcAddressKey].(net.IP).Equal(v.f.UEIP())).To(gomega.BeTrue())
+		gomega.Expect(r[dstAddressKey].(net.IP).Equal(v.f.ServerIP())).To(gomega.BeTrue())
+
+		// collect stats
+		ulPacketCount += r["initiatorPackets"].(uint64)
+		ulOctets += r["initiatorOctets"].(uint64)
+		dlPacketCount += r["responderPackets"].(uint64)
+		dlOctets += r["responderOctets"].(uint64)
+
+		log.Printf("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP after %d values %+#v", i, r)
+		log.Printf(">>>> new counters | ul %d p %d b | dl %d p %d b |", ulPacketCount, ulOctets, dlPacketCount, dlOctets)
+
+		// verify ports
+		gomega.Expect(r["destinationTransportPort"]).To(gomega.Equal(v.cfg.expectedTrafficPort))
+		if clientPort == 0 {
+			clientPort = r["sourceTransportPort"].(uint16)
+		} else {
+			gomega.Expect(r["sourceTransportPort"]).To(gomega.Equal(clientPort))
+		}
+
+		// verify nat
+		if v.cfg.postNATSourceIPv4Address != nil {
+			gomega.Expect(r["postNATSourceIPv4Address"]).
+				To(gomega.Equal(v.cfg.postNATSourceIPv4Address))
+		}
+		if v.cfg.postNAPTSourceTransportPort != 0 {
+			gomega.Expect(r["postNAPTSourceTransportPort"]).
+				To(gomega.Equal(v.cfg.postNAPTSourceTransportPort))
 		}
 	}
 
@@ -690,8 +668,8 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 
 		if r[srcAddressKey].(net.IP).Equal(v.f.UEIP()) {
 			// upload
-			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.ulEndTS))
-			v.ulEndTS = r["flowEndMilliseconds"].(time.Time)
+			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.endTS))
+			v.endTS = r["flowEndMilliseconds"].(time.Time)
 			expectedEgressVRFID := uint32(200)
 			serverIP := v.f.ServerIP()
 			if v.altServerIP != nil {
@@ -710,8 +688,8 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 			ulOctets += r["octetDeltaCount"].(uint64)
 		} else {
 			// download
-			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.dlEndTS))
-			v.dlEndTS = r["flowEndMilliseconds"].(time.Time)
+			gomega.Expect(r["flowEndMilliseconds"]).To(gomega.BeTemporally(">=", v.endTS))
+			v.endTS = r["flowEndMilliseconds"].(time.Time)
 			serverIP := v.f.ServerIP()
 			if v.altServerIP != nil {
 				serverIP = v.altServerIP.IP

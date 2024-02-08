@@ -815,6 +815,7 @@ typedef struct
   upf_ipfix_policy_t ipfix_policy;
   ip_address_t ipfix_collector_ip;
   u32 ipfix_report_interval;
+  u32 ipfix_default_contexts_refs[FIB_PROTOCOL_IP_MAX];
 
   u32 observation_domain_id;
   u64 observation_point_id;

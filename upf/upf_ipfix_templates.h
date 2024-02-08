@@ -144,22 +144,22 @@
 #define IPFIX_FIELD_INITIATOR_PACKETS(F)			\
   F(initiatorPackets, 8,					\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_side(f, FTD_OP_FLIP ^ uplink_direction)->stats.pkts_unreported,			\
+    flow_side(f, FTK_EL_SRC ^ uplink_direction)->stats.pkts_unreported,			\
     sizeof(u64), 1)
 #define IPFIX_FIELD_RESPONDER_PACKETS(F)			\
   F(responderPackets, 8,					\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_side(f, FTD_OP_FLIP ^ uplink_direction)->stats.pkts_unreported,			\
+    flow_side(f, FTK_EL_DST ^ uplink_direction)->stats.pkts_unreported,			\
     sizeof(u64), 1)
 #define IPFIX_FIELD_INITIATOR_OCTETS(F)				\
   F(initiatorOctets, 8,						\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_side(f, FTD_OP_SAME ^ uplink_direction)->stats.l4_bytes_unreported,		\
+    flow_side(f, FTK_EL_SRC ^ uplink_direction)->stats.bytes_unreported,		\
     sizeof(u64), 1)
 #define IPFIX_FIELD_RESPONDER_OCTETS(F)				\
   F(responderOctets, 8,						\
     IPFIX_VALUE_DELTA_U64,					\
-    flow_side(f, FTD_OP_SAME ^ uplink_direction)->stats.l4_bytes_unreported,		\
+    flow_side(f, FTK_EL_DST ^ uplink_direction)->stats.bytes_unreported,		\
     sizeof(u64), 1)
 #define IPFIX_FIELD_FLOW_START_MILLISECONDS(F)			\
   F(flowStartMilliseconds, 8,					\

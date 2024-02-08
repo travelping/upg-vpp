@@ -236,6 +236,35 @@ vnet_upf_create_nwi_if (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
   nwi->observation_domain_name = vec_dup (observation_domain_name);
   nwi->observation_point_id = observation_point_id;
 
+  if (nwi->ipfix_policy != UPF_IPFIX_POLICY_NONE && ipfix_collector_ip)
+    {
+      upf_ipfix_context_key_t context_key;
+      ip_address_to_46 (&nwi->ipfix_collector_ip, &context_key.collector_ip);
+      context_key.observation_domain_id = nwi->observation_domain_id;
+      context_key.policy = ipfix_policy;
+
+      // keep same contexts alive from nwi creation
+      // so template is sent and context not recreated without need
+
+      clib_warning ("PRECACHED NWI IPFIX CONTEXT");
+
+      context_key.is_ip4 = 1;
+      nwi->ipfix_default_contexts_refs[FIB_PROTOCOL_IP4] =
+        upf_ref_ipfix_context (&context_key);
+
+      context_key.is_ip4 = 0;
+      nwi->ipfix_default_contexts_refs[FIB_PROTOCOL_IP6] =
+        upf_ref_ipfix_context (&context_key);
+    }
+  else
+    {
+      clib_warning ("CAN'T PRECACHE NWI IPFIX CONTEXT pol %U colipp %d",
+                    format_upf_ipfix_policy, nwi->ipfix_policy,
+                    ipfix_collector_ip);
+      nwi->ipfix_default_contexts_refs[FIB_PROTOCOL_IP4] = ~0;
+      nwi->ipfix_default_contexts_refs[FIB_PROTOCOL_IP6] = ~0;
+    }
+
   if (sw_if_idx)
     *sw_if_idx = nwi->sw_if_index;
 
@@ -256,6 +285,17 @@ vnet_upf_delete_nwi_if (u8 *name)
     return VNET_API_ERROR_NO_SUCH_ENTRY;
 
   nwi = pool_elt_at_index (gtm->nwis, p[0]);
+
+  if (nwi->ipfix_default_contexts_refs[FIB_PROTOCOL_IP4] != ~0)
+    {
+      upf_unref_ipfix_context_by_index (
+        nwi->ipfix_default_contexts_refs[FIB_PROTOCOL_IP4]);
+    }
+  if (nwi->ipfix_default_contexts_refs[FIB_PROTOCOL_IP6] != ~0)
+    {
+      upf_unref_ipfix_context_by_index (
+        nwi->ipfix_default_contexts_refs[FIB_PROTOCOL_IP6]);
+    }
 
   /* disable nwi if */
   vnet_sw_interface_set_flags (vnm, nwi->sw_if_index, 0 /* down */);

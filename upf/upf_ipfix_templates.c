@@ -78,6 +78,7 @@ upf_ipfix_template_default_ip4_values (vlib_buffer_t *to_b, u16 offset,
                                        upf_ipfix_report_info_t *info,
                                        bool last)
 {
+  ASSERT (uplink_direction == FT_ORIGIN || uplink_direction == FT_REVERSE);
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV4,
                          IPFIX_TEMPLATE_DEFAULT_COMMON);
 }
@@ -90,6 +91,7 @@ upf_ipfix_template_default_ip6_values (vlib_buffer_t *to_b, u16 offset,
                                        upf_ipfix_report_info_t *info,
                                        bool last)
 {
+  ASSERT (uplink_direction == FT_ORIGIN || uplink_direction == FT_REVERSE);
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV6,
                          IPFIX_TEMPLATE_DEFAULT_COMMON);
 }
@@ -134,6 +136,7 @@ upf_ipfix_template_dest_ip4_values (vlib_buffer_t *to_b, u16 offset,
                                     upf_nwi_t *uplink_nwi,
                                     upf_ipfix_report_info_t *info, bool last)
 {
+  ASSERT (uplink_direction == FT_ORIGIN || uplink_direction == FT_REVERSE);
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV4, IPFIX_TEMPLATE_DEST_COMMON);
 }
 
@@ -144,6 +147,7 @@ upf_ipfix_template_dest_ip6_values (vlib_buffer_t *to_b, u16 offset,
                                     upf_nwi_t *uplink_nwi,
                                     upf_ipfix_report_info_t *info, bool last)
 {
+  ASSERT (uplink_direction == FT_ORIGIN || uplink_direction == FT_REVERSE);
   IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV6, IPFIX_TEMPLATE_DEST_COMMON);
 }
 
