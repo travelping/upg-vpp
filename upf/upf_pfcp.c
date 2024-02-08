@@ -236,30 +236,23 @@ vnet_upf_create_nwi_if (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
   nwi->observation_domain_name = vec_dup (observation_domain_name);
   nwi->observation_point_id = observation_point_id;
 
-  if (nwi->ipfix_policy != UPF_IPFIX_POLICY_NONE && ipfix_collector_ip)
+  if (sw_if_idx)
+    *sw_if_idx = nwi->sw_if_index;
+
+  // Try to precreate configured ipfix context to start sending ipfix templates
+  if (nwi->ipfix_policy != UPF_IPFIX_POLICY_NONE &&
+      nwi->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED && ipfix_collector_ip)
     {
       upf_ipfix_context_key_t context_key = { 0 };
       ip_address_to_46 (&nwi->ipfix_collector_ip, &context_key.collector_ip);
       context_key.observation_domain_id = nwi->observation_domain_id;
       context_key.policy = ipfix_policy;
 
-      // keep same contexts alive from nwi creation
-      // so template is sent and context not recreated without need
-
-      clib_warning ("PRECACHED NWI IPFIX CONTEXT");
       nwi->ipfix_cached_context_id =
         upf_ref_ipfix_cached_context (&context_key);
     }
   else
-    {
-      clib_warning ("CAN'T PRECACHE NWI IPFIX CONTEXT pol %U colipp %d",
-                    format_upf_ipfix_policy, nwi->ipfix_policy,
-                    ipfix_collector_ip);
-      nwi->ipfix_cached_context_id = ~0;
-    }
-
-  if (sw_if_idx)
-    *sw_if_idx = nwi->sw_if_index;
+    nwi->ipfix_cached_context_id = ~0;
 
   return 0;
 }
@@ -2251,10 +2244,13 @@ pfcp_update_apply (upf_session_t *sx)
               upf_nwi_t *nwi =
                 pool_elt_at_index (gtm->nwis, far->forward.nwi_index);
 
-              upf_ipfix_policy_t policy = nwi->ipfix_policy;
+              upf_ipfix_policy_t policy;
 
+              // FAR has priority for policiy
               if (far->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED)
                 policy = far->ipfix_policy;
+              else
+                policy = nwi->ipfix_policy;
 
               if (policy != UPF_IPFIX_POLICY_NONE &&
                   policy != UPF_IPFIX_POLICY_UNSPECIFIED)
