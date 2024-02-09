@@ -1033,9 +1033,9 @@ typedef struct
 
   /* CG-NAT */
   u32 nat_output_sw_if_index;
-
-  /* Endpoint dependent lookup table */
-  clib_bihash_16_8_t flow_hash;
+  //
+  // /* Endpoint dependent lookup table */
+  // clib_bihash_16_8_t flow_hash;
 } upf_main_t;
 
 extern const fib_node_vft_t upf_vft;

@@ -45,6 +45,7 @@
 #include "upf_pfcp_server.h"
 #include "upf_ipfilter.h"
 #include "upf_ipfix.h"
+#include "upf_nat.h"
 
 #if CLIB_DEBUG > 1
 #define upf_debug clib_warning
@@ -57,6 +58,7 @@
 #endif
 
 upf_main_t upf_main;
+
 qos_pol_cfg_params_st pfcp_rate_cfg_main;
 
 static void node_assoc_attach_session (upf_node_assoc_t *n, upf_session_t *sx);

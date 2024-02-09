@@ -125,6 +125,9 @@ set(UPF_PLUGIN_HEADER_FILES
   upf/upf_app_dpo.h
   upf/upf_app_db.h
   upf/upf_nat.h
+  upf/upf_nat_inlines.h
+  upf/upf_nat_lib.h
+  upf/upf_nat_lib_inlines.h
   upf/flowtable.h
   upf/flowtable_tcp.h
   upf/upf_buffer_opaque.h

@@ -49,6 +49,7 @@
 #include <upf/flowtable.h>
 #include <upf/upf_app_db.h>
 #include <upf/upf_ipfix.h>
+#include <upf/upf_nat.h>
 
 #include <vppinfra/tw_timer_1t_3w_1024sl_ov.h>
 
@@ -554,6 +555,8 @@ upf_config_fn (vlib_main_t *vm, unformat_input_t *input)
 
 VLIB_CONFIG_FUNCTION (upf_config_fn, "upf");
 
+static clib_error_t *nat_init (vlib_main_t *vm);
+
 static clib_error_t *
 upf_init (vlib_main_t *vm)
 {
@@ -653,10 +656,7 @@ upf_init (vlib_main_t *vm)
   if (!error)
     upf_pfcp_policer_config_init (sm);
 
-  clib_bihash_init_16_8 (&sm->flow_hash, "nat-flow-hash", 1024,
-                         0); // TODO: real number of buckets
-
-  sm->nat_output_sw_if_index = ~0;
+  nat_init (vm);
 
   return error;
 }
@@ -975,4 +975,105 @@ upf_nat_config (u32 output_sw_interface)
   um->nat_output_sw_if_index = output_sw_interface;
 
   return 0;
+}
+
+static clib_error_t *
+nat_init (vlib_main_t *vm)
+{
+
+  upf_main_t *um = &upf_main;
+  snat_main_t *sm = &snat_main;
+  um->nat_output_sw_if_index = ~0;
+
+  clib_bihash_init_16_8 (&sm->flow_hash, "nat-flow-hash", 1024,
+                         0); // TODO: real number of buckets
+
+  //   vlib_thread_main_t *tm = vlib_get_thread_main ();
+  //   vlib_thread_registration_t *tr;
+  //   ip4_add_del_interface_address_callback_t cbi = { 0 };
+  //   ip4_table_bind_callback_t cbt = { 0 };
+  //   u32 i, num_threads = 0;
+  //   uword *p, *bitmap = 0;
+  //
+  //   clib_memset (sm, 0, sizeof (*sm));
+  //
+  //   // convenience
+  //   sm->ip4_main = &ip4_main;
+  //
+  //   // frame queue indices used for handoff
+  //   sm->fq_out2in_index = ~0;
+  //   sm->fq_in2out_index = ~0;
+  //   sm->fq_in2out_output_index = ~0;
+  //
+  //   sm->log_level = NAT_LOG_ERROR;
+  //
+  //   sm->log_class = vlib_log_register_class_rate_limit ("nat", 0, 1);
+  //   nat_ipfix_logging_init (vm);
+  //
+  //   nat_init_simple_counter (sm->total_sessions, "total-sessions",
+  //                            "/nat44-ed/total-sessions");
+  //   sm->max_cfg_sessions_gauge =
+  //     vlib_stats_add_gauge ("/nat44-ed/max-cfg-sessions");
+  //
+  // #define _(x) \
+//   nat_init_simple_counter (sm->counters.fastpath.in2out.x, #x, \
+//                            "/nat44-ed/in2out/fastpath/" #x); \
+//   nat_init_simple_counter (sm->counters.fastpath.out2in.x, #x, \
+//                            "/nat44-ed/out2in/fastpath/" #x); \
+//   nat_init_simple_counter (sm->counters.slowpath.in2out.x, #x, \
+//                            "/nat44-ed/in2out/slowpath/" #x); \
+//   nat_init_simple_counter (sm->counters.slowpath.out2in.x, #x, \
+//                            "/nat44-ed/out2in/slowpath/" #x);
+  //   foreach_nat_counter;
+  // #undef _
+  //   nat_init_simple_counter (sm->counters.hairpinning, "hairpinning",
+  //                            "/nat44-ed/hairpinning");
+  //
+  //   p = hash_get_mem (tm->thread_registrations_by_name, "workers");
+  //   if (p)
+  //     {
+  //       tr = (vlib_thread_registration_t *) p[0];
+  //       if (tr)
+  //         {
+  //           sm->num_workers = tr->count;
+  //           sm->first_worker_index = tr->first_index;
+  //         }
+  //     }
+  //   num_threads = tm->n_vlib_mains - 1;
+  //   sm->port_per_thread = 65536 - ED_USER_PORT_OFFSET;
+  //   vec_validate (sm->per_thread_data, num_threads);
+  //
+  //   /* Use all available workers by default */
+  //   if (sm->num_workers > 1)
+  //     {
+  //       for (i = 0; i < sm->num_workers; i++)
+  //         bitmap = clib_bitmap_set (bitmap, i, 1);
+  //       snat_set_workers (bitmap);
+  //       clib_bitmap_free (bitmap);
+  //     }
+  //   else
+  //     {
+  //       sm->per_thread_data[0].snat_thread_index = 0;
+  //     }
+  //
+  //   /* callbacks to call when interface address changes. */
+  //   cbi.function = nat44_ed_add_del_interface_address_cb;
+  //   vec_add1 (sm->ip4_main->add_del_interface_address_callbacks, cbi);
+  //   cbi.function = nat44_ed_add_del_static_mapping_cb;
+  //   vec_add1 (sm->ip4_main->add_del_interface_address_callbacks, cbi);
+  //
+  //   /* callbacks to call when interface to table biding changes */
+  //   cbt.function = nat44_ed_update_outside_fib_cb;
+  //   vec_add1 (sm->ip4_main->table_bind_callbacks, cbt);
+  //
+  //   sm->fib_src_low = fib_source_allocate ("nat-low",
+  //   FIB_SOURCE_PRIORITY_LOW,
+  //                                          FIB_SOURCE_BH_SIMPLE);
+  //   sm->fib_src_hi = fib_source_allocate ("nat-hi", FIB_SOURCE_PRIORITY_HI,
+  //                                         FIB_SOURCE_BH_SIMPLE);
+  //
+  //   nat_affinity_init (vm);
+  //   test_key_calc_split ();
+  //
+  //   return nat44_api_hookup (vm);
 }
