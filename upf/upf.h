@@ -402,10 +402,19 @@ typedef struct
   upf_pdi_t pdi;
   u8 outer_header_removal;
   u16 far_id;
-  u16 ipfix_cached_context_id;
   u16 *urr_ids;
   u32 *qer_ids;
 } upf_pdr_t;
+
+typedef enum
+{
+  UPF_IPFIX_POLICY_NONE,
+  UPF_IPFIX_POLICY_DEFAULT,
+  UPF_IPFIX_POLICY_DEST,
+  UPF_IPFIX_N_POLICIES,
+  // used only in FAR to indicate "do not override"
+  UPF_IPFIX_POLICY_UNSPECIFIED = UPF_IPFIX_N_POLICIES
+} __clib_packed upf_ipfix_policy_t;
 
 /* Forward Action Rules - Forwarding Parameters */
 typedef struct
@@ -461,15 +470,6 @@ typedef struct
    */
   fib_route_path_t *rpaths;
 } upf_forwarding_policy_t;
-
-typedef enum
-{
-  UPF_IPFIX_POLICY_NONE,
-  UPF_IPFIX_POLICY_DEFAULT,
-  UPF_IPFIX_POLICY_DEST,
-  UPF_IPFIX_N_POLICIES,
-  UPF_IPFIX_POLICY_UNSPECIFIED = UPF_IPFIX_N_POLICIES
-} __clib_packed upf_ipfix_policy_t;
 
 /* Forward Action Rules */
 typedef struct
@@ -807,6 +807,21 @@ typedef struct
 
 typedef struct
 {
+  /* TODO: this contexts can be used in far instead of
+  own bihash lookup */
+  u32 contexts[FIB_PROTOCOL_IP_MAX][UPF_IPFIX_N_POLICIES];
+
+  upf_ipfix_policy_t default_policy;
+  ip_address_t collector_ip;
+  u32 report_interval;
+
+  u32 observation_domain_id;
+  u64 observation_point_id;
+  u8 *observation_domain_name;
+} upf_nwi_ipfix_t;
+
+typedef struct
+{
   u8 *name;
   u32 fib_index[FIB_PROTOCOL_IP_MAX];
 
@@ -814,14 +829,7 @@ typedef struct
   u32 sw_if_index;
   u32 hw_if_index;
 
-  upf_ipfix_policy_t ipfix_policy;
-  ip_address_t ipfix_collector_ip;
-  u32 ipfix_report_interval;
-  u32 ipfix_cached_context_id;
-
-  u32 observation_domain_id;
-  u64 observation_point_id;
-  u8 *observation_domain_name;
+  upf_nwi_ipfix_t ipfix;
 } upf_nwi_t;
 
 typedef struct

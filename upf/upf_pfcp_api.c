@@ -863,7 +863,6 @@ handle_create_pdr (upf_session_t *sx, pfcp_ie_create_pdr_t *create_pdr,
       create->pdi.nwi_index = ~0;
       create->pdi.adr.application_id = ~0;
       create->pdi.adr.db_id = ~0;
-      create->ipfix_cached_context_id = ~0;
 
       create->id = pdr->pdr_id;
       create->precedence = pdr->precedence;

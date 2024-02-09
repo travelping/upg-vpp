@@ -156,11 +156,12 @@ vnet_upf_create_nwi_if (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
   memset (&nwi->fib_index, ~0, sizeof (nwi->fib_index));
 
   nwi->name = vec_dup (name);
-  nwi->ipfix_policy = ipfix_policy;
+  nwi->ipfix.default_policy = ipfix_policy;
+
   if (ipfix_collector_ip)
-    ip_address_copy (&nwi->ipfix_collector_ip, ipfix_collector_ip);
+    ip_address_copy (&nwi->ipfix.collector_ip, ipfix_collector_ip);
   else
-    ip_address_reset (&nwi->ipfix_collector_ip);
+    ip_address_reset (&nwi->ipfix.collector_ip);
 
   if_index = nwi - gtm->nwis;
 
@@ -231,28 +232,34 @@ vnet_upf_create_nwi_if (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
 
   hash_set_mem (gtm->nwi_index_by_name, nwi->name, if_index);
 
-  nwi->ipfix_report_interval = ipfix_report_interval;
-  nwi->observation_domain_id = observation_domain_id;
-  nwi->observation_domain_name = vec_dup (observation_domain_name);
-  nwi->observation_point_id = observation_point_id;
+  nwi->ipfix.report_interval = ipfix_report_interval;
+  nwi->ipfix.observation_domain_id = observation_domain_id;
+  nwi->ipfix.observation_domain_name = vec_dup (observation_domain_name);
+  nwi->ipfix.observation_point_id = observation_point_id;
 
   if (sw_if_idx)
     *sw_if_idx = nwi->sw_if_index;
 
+  for (fib_protocol_t fproto = 0; fproto < FIB_PROTOCOL_IP_MAX; fproto++)
+    for (upf_ipfix_policy_t pol = 0; pol < UPF_IPFIX_N_POLICIES; pol++)
+      nwi->ipfix.contexts[fproto][pol] = ~0;
+
   // Try to precreate configured ipfix context to start sending ipfix templates
-  if (nwi->ipfix_policy != UPF_IPFIX_POLICY_NONE &&
-      nwi->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED && ipfix_collector_ip)
+  if (ipfix_collector_ip && ipfix_policy != UPF_IPFIX_POLICY_NONE)
     {
       upf_ipfix_context_key_t context_key = { 0 };
-      ip_address_to_46 (&nwi->ipfix_collector_ip, &context_key.collector_ip);
-      context_key.observation_domain_id = nwi->observation_domain_id;
+      ip_address_copy (&context_key.collector_ip, &nwi->ipfix.collector_ip);
+      context_key.observation_domain_id = nwi->ipfix.observation_domain_id;
       context_key.policy = ipfix_policy;
 
-      nwi->ipfix_cached_context_id =
-        upf_ref_ipfix_cached_context (&context_key);
+      context_key.is_ip4 = true;
+      nwi->ipfix.contexts[FIB_PROTOCOL_IP4][ipfix_policy] =
+        upf_ipfix_ensure_context (&context_key);
+
+      context_key.is_ip4 = false;
+      nwi->ipfix.contexts[FIB_PROTOCOL_IP6][ipfix_policy] =
+        upf_ipfix_ensure_context (&context_key);
     }
-  else
-    nwi->ipfix_cached_context_id = ~0;
 
   return 0;
 }
@@ -271,9 +278,6 @@ vnet_upf_delete_nwi_if (u8 *name)
 
   nwi = pool_elt_at_index (gtm->nwis, p[0]);
 
-  if (nwi->ipfix_cached_context_id != ~0)
-    upf_unref_ipfix_cached_context_by_index (nwi->ipfix_cached_context_id);
-
   /* disable nwi if */
   vnet_sw_interface_set_flags (vnm, nwi->sw_if_index, 0 /* down */);
   vnet_sw_interface_t *si = vnet_get_sw_interface (vnm, nwi->sw_if_index);
@@ -286,7 +290,7 @@ vnet_upf_delete_nwi_if (u8 *name)
   vec_add1 (gtm->free_nwi_hw_if_indices, nwi->hw_if_index);
 
   hash_unset_mem (gtm->nwi_index_by_name, nwi->name);
-  vec_free (nwi->observation_domain_name);
+  vec_free (nwi->ipfix.observation_domain_name);
   vec_free (nwi->name);
   pool_put (gtm->nwis, nwi);
 
@@ -974,11 +978,6 @@ pfcp_free_pdr (upf_pdr_t *pdr)
   vec_free (pdr->pdi.acl);
   vec_free (pdr->urr_ids);
   vec_free (pdr->qer_ids);
-  if (pdr->ipfix_cached_context_id != (u16) ~0)
-    {
-      upf_unref_ipfix_cached_context_by_index (pdr->ipfix_cached_context_id);
-      pdr->ipfix_cached_context_id = ~0;
-    }
 }
 
 int
@@ -999,7 +998,6 @@ pfcp_make_pending_pdr (upf_session_t *sx)
         {
           upf_pdr_t *pdr = vec_elt_at_index (pending->pdr, i);
 
-          pdr->ipfix_cached_context_id = ~0;
           pdr->pdi.acl = vec_dup (vec_elt (active->pdr, i).pdi.acl);
           pdr->urr_ids = vec_dup (vec_elt (active->pdr, i).urr_ids);
           pdr->qer_ids = vec_dup (vec_elt (active->pdr, i).qer_ids);
@@ -2230,8 +2228,6 @@ pfcp_update_apply (upf_session_t *sx)
       upf_pdr_t *pdr;
       vec_foreach (pdr, active->pdr)
         {
-          ASSERT (pdr->ipfix_cached_context_id == (u16) ~0);
-
           if (pdr->far_id == (u16) ~0)
             continue;
 
@@ -2245,29 +2241,32 @@ pfcp_update_apply (upf_session_t *sx)
                 pool_elt_at_index (gtm->nwis, far->forward.nwi_index);
 
               upf_ipfix_policy_t policy;
-
-              // FAR has priority for policiy
+              // FAR has priority for policy
               if (far->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED)
                 policy = far->ipfix_policy;
               else
-                policy = nwi->ipfix_policy;
+                policy = nwi->ipfix.default_policy;
 
-              if (policy != UPF_IPFIX_POLICY_NONE &&
-                  policy != UPF_IPFIX_POLICY_UNSPECIFIED)
+              // Force creation of ipfix contexts to send templates early
+              if (policy != UPF_IPFIX_POLICY_NONE)
                 {
                   upf_ipfix_context_key_t context_key = { 0 };
-                  ip_address_to_46 (&nwi->ipfix_collector_ip,
-                                    &context_key.collector_ip);
+                  ip_address_copy (&context_key.collector_ip,
+                                   &nwi->ipfix.collector_ip);
                   context_key.observation_domain_id =
-                    nwi->observation_domain_id;
+                    nwi->ipfix.observation_domain_id;
                   context_key.policy = policy;
-
-                  pdr->ipfix_cached_context_id =
-                    upf_ref_ipfix_cached_context (&context_key);
+                  if (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
+                    {
+                      context_key.is_ip4 = true;
+                      upf_ipfix_ensure_context (&context_key);
+                    }
+                  if (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V6)
+                    {
+                      context_key.is_ip4 = false;
+                      upf_ipfix_ensure_context (&context_key);
+                    }
                 }
-              else
-                // explicitly disable ipfix
-                pdr->ipfix_cached_context_id = ~0;
             }
         }
     }

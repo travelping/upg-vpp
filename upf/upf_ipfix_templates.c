@@ -154,33 +154,47 @@ upf_ipfix_template_dest_ip6_values (vlib_buffer_t *to_b, u16 offset,
 upf_ipfix_template_t upf_ipfix_templates[UPF_IPFIX_N_POLICIES] = {
   [UPF_IPFIX_POLICY_NONE] = {
     .name = "none",
-    .field_count_ipv4 = 0,
-    .field_count_ipv6 = 0,
+    .per_ip={
+      [FIB_PROTOCOL_IP4] = {
+        .field_count = 0,
+      },
+      [FIB_PROTOCOL_IP6] = {
+        .field_count = 0,
+      },
+    },
   },
   [UPF_IPFIX_POLICY_DEFAULT] = {
     .name = "default",
-    .field_count_ipv4 =
-    IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEFAULT_IPV4,
+    .per_ip={
+      [FIB_PROTOCOL_IP4] = {
+        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEFAULT_IPV4,
 			  IPFIX_TEMPLATE_DEFAULT_COMMON),
-    .field_count_ipv6 =
-    IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEFAULT_IPV6,
+        .add_fields = upf_ipfix_template_default_ip4_fields,
+        .add_values = upf_ipfix_template_default_ip4_values,
+      },
+      [FIB_PROTOCOL_IP6] = {
+        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEFAULT_IPV6,
 			  IPFIX_TEMPLATE_DEFAULT_COMMON),
-    .add_ip4_fields = upf_ipfix_template_default_ip4_fields,
-    .add_ip6_fields = upf_ipfix_template_default_ip6_fields,
-    .add_ip4_values = upf_ipfix_template_default_ip4_values,
-    .add_ip6_values = upf_ipfix_template_default_ip6_values,
+        .add_fields = upf_ipfix_template_default_ip6_fields,
+        .add_values = upf_ipfix_template_default_ip6_values,
+      },
+    },
   },
   [UPF_IPFIX_POLICY_DEST] = {
     .name = "dest",
-    .field_count_ipv4 =
-    IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEST_IPV4,
+    .per_ip={
+      [FIB_PROTOCOL_IP4] = {
+        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEST_IPV4,
 			  IPFIX_TEMPLATE_DEST_COMMON),
-    .field_count_ipv6 =
-    IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEST_IPV6,
+        .add_fields = upf_ipfix_template_dest_ip4_fields,
+        .add_values = upf_ipfix_template_dest_ip4_values,
+      },
+      [FIB_PROTOCOL_IP6] = {
+        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEST_IPV6,
 			  IPFIX_TEMPLATE_DEST_COMMON),
-    .add_ip4_fields = upf_ipfix_template_dest_ip4_fields,
-    .add_ip6_fields = upf_ipfix_template_dest_ip6_fields,
-    .add_ip4_values = upf_ipfix_template_dest_ip4_values,
-    .add_ip6_values = upf_ipfix_template_dest_ip6_values,
+        .add_fields = upf_ipfix_template_dest_ip6_fields,
+        .add_values = upf_ipfix_template_dest_ip6_values,
+      },
+    },
   },
 };

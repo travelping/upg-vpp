@@ -209,12 +209,12 @@
 #define IPFIX_FIELD_OBSERVATION_DOMAIN_NAME(F)			\
   F(observationDomainName, 65535,				\
     IPFIX_VALUE_STRING,						\
-    uplink_nwi->observation_domain_name, 				\
-    vec_len (nwi->observation_domain_name), 1)
+    uplink_nwi->ipfix.observation_domain_name, 				\
+    vec_len (nwi->ipfix.bservation_domain_name), 1)
 #define IPFIX_FIELD_OBSERVATION_POINT_ID(F)			\
   F(observationPointId, 8,					\
     IPFIX_VALUE_U64,						\
-    uplink_nwi->observation_point_id,					\
+    uplink_nwi->ipfix.observation_point_id,					\
     sizeof(u64), 1)
 #define IPFIX_FIELD_BIFLOW_DIRECTION(F) \
   F(biflowDirection, 1,\
@@ -227,7 +227,7 @@
 #define IPFIX_FIELD_NAT_EVENT(F)				\
   F(natEvent, 1,						\
     IPFIX_VALUE_U8_COND,					\
-    !f->exported ? UPF_NAT_EVENT_NAT44_SESSION_CREATE :		\
+    !f->ipfix_exported ? UPF_NAT_EVENT_NAT44_SESSION_CREATE :		\
     last ? UPF_NAT_EVENT_NAT44_SESSION_DELETE : 0,		\
     sizeof (u8), 1)
 
