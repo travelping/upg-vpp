@@ -481,6 +481,7 @@ typedef struct
 #define FAR_BUFFER    0x0004
 #define FAR_NOTIFY_CP 0x0008
 #define FAR_DUPLICATE 0x0010
+#define FAR_NAT       0x8000
 
   union
   {

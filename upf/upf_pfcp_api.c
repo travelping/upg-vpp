@@ -1494,6 +1494,7 @@ handle_create_far (upf_session_t *sx, pfcp_ie_create_far_t *create_far,
                 vec_dup (far->forwarding_parameters.nat_port_block);
               rc = handle_nat_binding_creation (sx, pool_name, response);
               vec_free (pool_name);
+              create->apply_action |= FAR_NAT;
               if (rc)
                 {
                   far_error (response, far,
@@ -1571,14 +1572,9 @@ handle_create_far (upf_session_t *sx, pfcp_ie_create_far_t *create_far,
         }
 
       if (ISSET_BIT (far->grp.fields, CREATE_FAR_TP_IPFIX_POLICY))
-        {
-          create->ipfix_policy =
-            upf_ipfix_lookup_policy (far->ipfix_policy, 0);
-        }
+        create->ipfix_policy = upf_ipfix_lookup_policy (far->ipfix_policy, 0);
       else
-        {
-          create->ipfix_policy = UPF_IPFIX_POLICY_UNSPECIFIED;
-        }
+        create->ipfix_policy = UPF_IPFIX_POLICY_UNSPECIFIED;
     }
 
   pfcp_sort_fars (rules);

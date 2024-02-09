@@ -428,15 +428,16 @@ upf_acl_classify_return (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
   return next;
 }
 
-// returns direction which has upload direction
+// returns uplink traffic direction, or FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED
+// if impossible to detect
 always_inline flow_direction_t
 upf_classify_detect_flow_direction (vlib_buffer_t *b, struct rules *r,
                                     flow_direction_t direction, bool *found)
 {
   // Here we rely on the fact that interface of type ACCESS is one which
   // directed to UE
-  // TODO: it should be possible save this value per PDR since it has this
-  // values available
+  // TODO: it should be possible to calculate and save this value per PDR
+  // during session creation/modification
 
   *found = false;
 
@@ -584,7 +585,6 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
               next = upf_acl_classify_forward (
                 vm, upf_buffer_opaque (b)->gtpu.teid, flow, active, is_ip4,
                 &upf_buffer_opaque (b)->gtpu.pdr_idx);
-
               if (reclassify_proxy_flow) /* for app detection */
                 {
                   if (upf_buffer_opaque (b)->gtpu.is_proxied)

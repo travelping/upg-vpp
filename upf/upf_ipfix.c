@@ -435,6 +435,9 @@ upf_ipfix_flow_init (flow_entry_t *f)
   if (!up_far)
     return false;
 
+  if (up_far->apply_action & FAR_NAT && f->nat_sport == 0)
+    return false;
+
   if (pool_is_free_index (gtm->nwis, up_far->forward.nwi_index))
     return false;
 
