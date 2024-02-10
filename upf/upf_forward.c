@@ -382,7 +382,7 @@ VLIB_REGISTER_NODE (upf_ip4_forward_node) = {
     [UPF_FORWARD_NEXT_DROP]          = "error-drop",
     [UPF_FORWARD_NEXT_GTP_IP4_ENCAP] = "upf4-encap",
     [UPF_FORWARD_NEXT_GTP_IP6_ENCAP] = "upf6-encap",
-    [UPF_FORWARD_NEXT_IP_INPUT]      = "upf-nat-i2o",
+    [UPF_FORWARD_NEXT_IP_INPUT]      = "upf-nat-post",
     [UPF_FORWARD_NEXT_IP_REWRITE]    = "ip4-rewrite", // unused
     [UPF_FORWARD_NEXT_IP_LOOKUP]     = "ip4-lookup" // TODO: nat ??
   },

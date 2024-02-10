@@ -15,6 +15,7 @@
  */
 
 #include <inttypes.h>
+#include <vnet/ip/ip_packet.h>
 #include <vppinfra/error.h>
 #include <vppinfra/hash.h>
 #include <vnet/vnet.h>
@@ -110,13 +111,14 @@ format_upf_session_dpo_trace (u8 *s, va_list *args)
   return s;
 }
 
-VLIB_NODE_FN (upf_nat_o2i)
+VLIB_NODE_FN (upf_nat_pre)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   vlib_node_runtime_t *error_node =
     vlib_node_get_runtime (vm, ip4_input_node.index);
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
+  snat_main_t *sm = &snat_main;
 
   from = vlib_frame_vector_args (from_frame);
   n_left_from = from_frame->n_vectors;
@@ -157,19 +159,45 @@ VLIB_NODE_FN (upf_nat_o2i)
           sx0 = pool_elt_at_index (gtm->sessions,
                                    upf_buffer_opaque (b)->gtpu.session_index);
 
-          clib_warning ("WWWWWWWWWWW2: session_index 0x%08x, sw index %d -> "
-                        "%d, condition %d",
-                        vnet_buffer (b)->ip.adj_index[VLIB_TX],
-                        vnet_buffer (b)->sw_if_index[VLIB_RX],
-                        vnet_buffer (b)->sw_if_index[VLIB_TX],
-                        vnet_buffer (b)->sw_if_index[VLIB_TX] == ~0);
-          bool is_incoming = vnet_buffer (b)->sw_if_index[VLIB_TX] == ~0;
+          bool is_outgoing = vnet_buffer (b)->sw_if_index[VLIB_TX] != ~0;
 
-          if (is_incoming)
+          if (is_outgoing)
             {
-              ip4->dst_address.as_u32 = sx0->user_addr.as_u32;
+              goto trace;
             }
 
+          nat_6t_t lookup;
+          lookup.saddr.as_u32 = ip4->src_address.as_u32;
+          lookup.sport = tcp->src_port;
+          // ((tcp->src_port & 0xff) << 8) | ((tcp->src_port & 0xff00) >> 8);
+          lookup.daddr.as_u32 = ip4->dst_address.as_u32;
+          lookup.dport = tcp->dst_port;
+          lookup.fib_index = 0;
+          lookup.proto = 0;
+
+          clib_warning ("QQQQQQQ: %d %d %d %d %d %d", lookup.saddr.as_u32,
+                        lookup.sport, lookup.daddr.as_u32, lookup.dport,
+                        lookup.fib_index, lookup.proto);
+
+          clib_bihash_kv_16_8_t kv0 = { 0 }, value0;
+          init_ed_k (&kv0, lookup.saddr.as_u32, lookup.sport,
+                     lookup.daddr.as_u32, lookup.dport, lookup.fib_index,
+                     lookup.proto);
+          // lookup flow
+          if (clib_bihash_search_16_8 (&sm->flow_hash, &kv0, &value0))
+            {
+              // flow does not exist go slow path
+              clib_warning ("pre NOT FOUND??");
+            }
+          else
+            {
+              clib_warning ("pre FOUND: %d", value0.value);
+            }
+
+          ip4->dst_address.as_u32 = sx0->user_addr.as_u32;
+          tcp->dst_port = value0.value;
+          // ((value0.value & 0xff00) >> 8) | ((value0.value & 0x00ff) << 8);
+          clib_warning ("FOUND: %d", tcp->dst_port);
           // TODO: checksum delta magic
           tcp->checksum = 0;
           tcp->checksum = ip4_tcp_udp_compute_checksum (vm, b, ip4);
@@ -200,13 +228,14 @@ VLIB_NODE_FN (upf_nat_o2i)
   return from_frame->n_vectors;
 }
 
-VLIB_NODE_FN (upf_nat_i2o)
+VLIB_NODE_FN (upf_nat_post)
 (vlib_main_t *vm, vlib_node_runtime_t *node, vlib_frame_t *from_frame)
 {
   vlib_node_runtime_t *error_node =
     vlib_node_get_runtime (vm, ip4_input_node.index);
   u32 n_left_from, next_index, *from, *to_next;
   upf_main_t *gtm = &upf_main;
+  snat_main_t *sm = &snat_main;
 
   from = vlib_frame_vector_args (from_frame);
   n_left_from = from_frame->n_vectors;
@@ -246,40 +275,61 @@ VLIB_NODE_FN (upf_nat_i2o)
           upf_session_t *sx0;
           sx0 = pool_elt_at_index (gtm->sessions,
                                    upf_buffer_opaque (b)->gtpu.session_index);
-          clib_warning ("WWWWWWWWWWW: session_index 0x%08x, sw index %d -> "
-                        "%d, condition %d",
-                        vnet_buffer (b)->ip.adj_index[VLIB_TX],
-                        vnet_buffer (b)->sw_if_index[VLIB_RX],
-                        vnet_buffer (b)->sw_if_index[VLIB_TX],
-                        gtm->nat_output_sw_if_index ==
-                          vnet_buffer (b)->sw_if_index[VLIB_RX]);
-
-          nat_6t_t lookup;
-          clib_bihash_kv_16_8_t kv0 = { 0 }, value0;
-          init_ed_k (&kv0, lookup.saddr.as_u32, lookup.sport,
-                     lookup.daddr.as_u32, lookup.dport, lookup.fib_index,
-                     lookup.proto);
-
-          bool is_outgoing = gtm->nat_output_sw_if_index ==
-                             vnet_buffer (b)->sw_if_index[VLIB_RX];
+          // clib_warning ("WWWWWWWWWWWi2o: session_index 0x%08x, sw index %d
+          // -> "
+          //               "%d, condition %d",
+          //               vnet_buffer (b)->ip.adj_index[VLIB_TX],
+          //               vnet_buffer (b)->sw_if_index[VLIB_RX],
+          //               vnet_buffer (b)->sw_if_index[VLIB_TX],
+          //               gtm->nat_output_sw_if_index ==
+          //                 vnet_buffer (b)->sw_if_index[VLIB_RX]);
+          //
+          bool is_outgoing = vnet_buffer (b)->sw_if_index[VLIB_RX] ==
+                             gtm->nat_output_sw_if_index;
 
           if (!is_outgoing)
             {
               goto trace;
             }
 
-          // lookup flow
-          // if (clib_bihash_search_16_8 (&gtm->flow_hash, &kv0, &value0))
-          //   {
-          //     // flow does not exist go slow path
-          //     next = UPF_NAT_NEXT_CLASSIFY;
-          //     goto trace;
-          //   }
+          nat_6t_t lookup;
+          lookup.saddr.as_u32 = ip4->src_address.as_u32;
+          lookup.sport = tcp->src_port;
+          lookup.daddr.as_u32 = ip4->dst_address.as_u32;
+          lookup.dport = tcp->dst_port;
+          lookup.fib_index = 0;
+          lookup.proto = 0;
 
-          if (is_outgoing)
+          clib_bihash_kv_16_8_t kv0 = { 0 }, value0;
+          init_ed_k (&kv0, lookup.saddr.as_u32, lookup.sport,
+                     lookup.daddr.as_u32, lookup.dport, lookup.fib_index,
+                     lookup.proto);
+          // lookup flow
+          if (clib_bihash_search_16_8 (&sm->flow_hash, &kv0, &value0))
             {
-              ip4->src_address.as_u32 = sx0->nat_addr->ext_addr.as_u32;
+              // flow does not exist go slow path
+
+              clib_warning ("ADDING");
+
+              // init_ed_kv (&kv0, lookup.saddr.as_u32, lookup.sport,
+              //             lookup.daddr.as_u32, lookup.dport,
+              //             lookup.fib_index, lookup.proto, 0, 10128);
+              // clib_bihash_add_del_16_8 (&sm->flow_hash, &kv0, 1);
+
+              // rev
+              init_ed_kv (&kv0, lookup.daddr.as_u32, lookup.dport,
+                          sx0->nat_addr->ext_addr.as_u32, 10128,
+                          lookup.fib_index, lookup.proto, 0, lookup.sport);
+              clib_bihash_add_del_16_8 (&sm->flow_hash, &kv0, 1);
+
+              clib_warning ("QQQQQQQpost: %d %d %d %d %d %d",
+                            lookup.daddr.as_u32, lookup.dport,
+                            sx0->nat_addr->ext_addr.as_u32, 0x9027,
+                            lookup.fib_index, lookup.proto);
             }
+
+          ip4->src_address.as_u32 = sx0->nat_addr->ext_addr.as_u32;
+          tcp->src_port = 0x9027;
 
           // TODO: checksum delta magic
           tcp->checksum = 0;
@@ -358,46 +408,38 @@ VLIB_NODE_FN (upf_nat_classify)
           upf_session_t *sx0;
           sx0 = pool_elt_at_index (gtm->sessions,
                                    upf_buffer_opaque (b)->gtpu.session_index);
-          clib_warning ("WWWWWWWWWWW: session_index 0x%08x, sw index %d -> "
-                        "%d, condition %d",
-                        vnet_buffer (b)->ip.adj_index[VLIB_TX],
-                        vnet_buffer (b)->sw_if_index[VLIB_RX],
-                        vnet_buffer (b)->sw_if_index[VLIB_TX],
-                        gtm->nat_output_sw_if_index ==
-                          vnet_buffer (b)->sw_if_index[VLIB_RX]);
 
-          nat_6t_t lookup;
-          clib_bihash_kv_16_8_t kv0 = { 0 }, value0;
-          init_ed_k (&kv0, lookup.saddr.as_u32, lookup.sport,
-                     lookup.daddr.as_u32, lookup.dport, lookup.fib_index,
-                     lookup.proto);
+          // clib_warning (
+          //   "WWWWWWWWWWW22222: session_index 0x%08x, sw index %d -> %d"
+          //   " condition %d",
+          //   vnet_buffer (b)->ip.adj_index[VLIB_TX],
+          //   vnet_buffer (b)->sw_if_index[VLIB_RX],
+          //   vnet_buffer (b)->sw_if_index[VLIB_TX],
+          //   vnet_buffer (b)->sw_if_index[VLIB_TX] == ~0);
+
+          // nat_6t_t lookup;
+          // clib_bihash_kv_16_8_t kv0 = { 0 }, value0;
+          // init_ed_kv (&kv0, lookup.saddr.as_u32, lookup.sport,
+          //             lookup.daddr.as_u32, lookup.dport, lookup.fib_index,
+          //             lookup.proto, 0, 0);
 
           // lookup flow
-          if (clib_bihash_search_16_8 (&sm->flow_hash, &kv0, &value0))
-            {
-              // flow does not exist go slow path
-              // next[0] = def_slow;
-              // goto trace0;
-            }
-
-          // bool is_outgoing = sx0->user_addr.as_u32 ==
-          // ip4->src_address.as_u32;
-
-          // bool is_outgoing = gtm->nat_output_sw_if_index ==
-          //                    vnet_buffer (b)->sw_if_index[VLIB_RX];
-          //
-          // if (is_outgoing)
+          // if (clib_bihash_search_16_8 (&sm->flow_hash, &kv0, &value0))
           //   {
-          //     ip4->src_address.as_u32 = sx0->nat_addr->ext_addr.as_u32;
+          //     // flow does not exist go slow path
+          //     next = UPF_NAT_NEXT_CLASSIFY;
+          //     goto trace;
           //   }
 
+          ip4->dst_address.as_u32 = sx0->user_addr.as_u32;
+          // tcp->dst_port =
           // TODO: checksum delta magic
           tcp->checksum = 0;
           tcp->checksum = ip4_tcp_udp_compute_checksum (vm, b, ip4);
 
           ip4->checksum = 0;
           ip4->checksum = ip4_header_checksum (ip4);
-
+          //
         trace:
           b->error = error_node->errors[error0];
           if (PREDICT_FALSE (b->flags & VLIB_BUFFER_IS_TRACED))
@@ -441,27 +483,8 @@ VLIB_REGISTER_NODE (upf_nat_classify) = {
 };
 
 /* clang-format off */
-VLIB_REGISTER_NODE (upf_nat_o2i) = {
-  .name = "upf-nat-o2i",
-  .vector_size = sizeof (u32),
-  .format_trace = format_upf_session_dpo_trace,
-  .type = VLIB_NODE_TYPE_INTERNAL,
-
-  .n_errors = ARRAY_LEN(upf_session_dpo_error_strings),
-  .error_strings = upf_session_dpo_error_strings,
-
-  .n_next_nodes = UPF_NAT_N_NEXT,
-  .next_nodes = {
-    [UPF_NAT_NEXT_DROP]         = "error-drop",
-    [UPF_NAT_NEXT_ICMP_ERROR]   = "ip4-icmp-error",
-    [UPF_NAT_NEXT_FLOW_PROCESS] = "upf-ip4-flow-process",
-    [UPF_NAT_NEXT_CLASSIFY] = "upf-nat-classify",
-  },
-};
-
-/* clang-format off */
-VLIB_REGISTER_NODE (upf_nat_i2o) = {
-  .name = "upf-nat-i2o",
+VLIB_REGISTER_NODE (upf_nat_post) = {
+  .name = "upf-nat-post",
   .vector_size = sizeof (u32),
   .format_trace = format_upf_session_dpo_trace,
   .type = VLIB_NODE_TYPE_INTERNAL,
@@ -474,6 +497,25 @@ VLIB_REGISTER_NODE (upf_nat_i2o) = {
     [UPF_NAT_NEXT_DROP]         = "error-drop",
     [UPF_NAT_NEXT_ICMP_ERROR]   = "ip4-icmp-error",
     [UPF_NAT_NEXT_FLOW_PROCESS] = "ip4-input",
+    [UPF_NAT_NEXT_CLASSIFY] = "upf-nat-classify",
+  },
+};
+
+/* clang-format off */
+VLIB_REGISTER_NODE (upf_nat_pre) = {
+  .name = "upf-nat-pre",
+  .vector_size = sizeof (u32),
+  .format_trace = format_upf_session_dpo_trace,
+  .type = VLIB_NODE_TYPE_INTERNAL,
+
+  .n_errors = ARRAY_LEN(upf_session_dpo_error_strings),
+  .error_strings = upf_session_dpo_error_strings,
+
+  .n_next_nodes = UPF_NAT_N_NEXT,
+  .next_nodes = {
+    [UPF_NAT_NEXT_DROP]         = "error-drop",
+    [UPF_NAT_NEXT_ICMP_ERROR]   = "ip4-icmp-error",
+    [UPF_NAT_NEXT_FLOW_PROCESS] = "upf-ip4-flow-process",
     [UPF_NAT_NEXT_CLASSIFY] = "upf-nat-classify",
   },
 };
