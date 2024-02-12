@@ -31,18 +31,18 @@
 #include "upf_ipfix_templates.h"
 #include "upf_pfcp.h"
 
-#define IPFIX_TEMPLATE_DEFAULT_IPV4(F)                                        \
+#define IPFIX_TEMPLATE_NAT_EVENT_IPV4(F)                                      \
   IPFIX_FIELD_SOURCE_IPV4_ADDRESS (F)                                         \
   IPFIX_FIELD_DESTINATION_IPV4_ADDRESS (F)                                    \
   IPFIX_FIELD_POST_NAT_SOURCE_IPV4_ADDRESS (F)                                \
   IPFIX_FIELD_POST_NAPT_SOURCE_TRANSPORT_PORT (F)                             \
   IPFIX_FIELD_NAT_EVENT (F)
 
-#define IPFIX_TEMPLATE_DEFAULT_IPV6(F)                                        \
+#define IPFIX_TEMPLATE_NAT_EVENT_IPV6(F)                                      \
   IPFIX_FIELD_SOURCE_IPV6_ADDRESS (F)                                         \
   IPFIX_FIELD_DESTINATION_IPV6_ADDRESS (F)
 
-#define IPFIX_TEMPLATE_DEFAULT_COMMON(F)                                      \
+#define IPFIX_TEMPLATE_NAT_EVENT_COMMON(F)                                    \
   IPFIX_FIELD_PROTOCOL_IDENTIFIER (F)                                         \
   IPFIX_FIELD_MOBILE_IMSI (F)                                                 \
   IPFIX_FIELD_INITIATOR_OCTETS (F)                                            \
@@ -56,54 +56,54 @@
   IPFIX_FIELD_BIFLOW_DIRECTION (F)
 
 static ipfix_field_specifier_t *
-upf_ipfix_template_default_ip4_fields (ipfix_field_specifier_t *f)
+upf_ipfix_template_nat_event_ip4_fields (ipfix_field_specifier_t *f)
 {
-  IPFIX_TEMPLATE_FIELDS (IPFIX_TEMPLATE_DEFAULT_IPV4,
-                         IPFIX_TEMPLATE_DEFAULT_COMMON);
+  IPFIX_TEMPLATE_FIELDS (IPFIX_TEMPLATE_NAT_EVENT_IPV4,
+                         IPFIX_TEMPLATE_NAT_EVENT_COMMON);
 }
 
 static ipfix_field_specifier_t *
-upf_ipfix_template_default_ip6_fields (ipfix_field_specifier_t *f)
+upf_ipfix_template_nat_event_ip6_fields (ipfix_field_specifier_t *f)
 {
-  IPFIX_TEMPLATE_FIELDS (IPFIX_TEMPLATE_DEFAULT_IPV6,
-                         IPFIX_TEMPLATE_DEFAULT_COMMON);
+  IPFIX_TEMPLATE_FIELDS (IPFIX_TEMPLATE_NAT_EVENT_IPV6,
+                         IPFIX_TEMPLATE_NAT_EVENT_COMMON);
 }
 
 static u32
-upf_ipfix_template_default_ip4_values (vlib_buffer_t *to_b, u16 offset,
-                                       upf_session_t *sx, flow_entry_t *f,
-                                       flow_direction_t uplink_direction,
-                                       upf_nwi_t *uplink_nwi,
-                                       upf_ipfix_report_info_t *info,
-                                       bool last)
+upf_ipfix_template_nat_event_ip4_values (vlib_buffer_t *to_b, u16 offset,
+                                         upf_session_t *sx, flow_entry_t *f,
+                                         flow_direction_t uplink_direction,
+                                         upf_nwi_t *uplink_nwi,
+                                         upf_ipfix_report_info_t *info,
+                                         bool last)
 {
   ASSERT (uplink_direction == FT_ORIGIN || uplink_direction == FT_REVERSE);
-  IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV4,
-                         IPFIX_TEMPLATE_DEFAULT_COMMON);
+  IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_NAT_EVENT_IPV4,
+                         IPFIX_TEMPLATE_NAT_EVENT_COMMON);
 }
 
 static u32
-upf_ipfix_template_default_ip6_values (vlib_buffer_t *to_b, u16 offset,
-                                       upf_session_t *sx, flow_entry_t *f,
-                                       flow_direction_t uplink_direction,
-                                       upf_nwi_t *uplink_nwi,
-                                       upf_ipfix_report_info_t *info,
-                                       bool last)
+upf_ipfix_template_nat_event_ip6_values (vlib_buffer_t *to_b, u16 offset,
+                                         upf_session_t *sx, flow_entry_t *f,
+                                         flow_direction_t uplink_direction,
+                                         upf_nwi_t *uplink_nwi,
+                                         upf_ipfix_report_info_t *info,
+                                         bool last)
 {
   ASSERT (uplink_direction == FT_ORIGIN || uplink_direction == FT_REVERSE);
-  IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEFAULT_IPV6,
-                         IPFIX_TEMPLATE_DEFAULT_COMMON);
+  IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_NAT_EVENT_IPV6,
+                         IPFIX_TEMPLATE_NAT_EVENT_COMMON);
 }
 
-#define IPFIX_TEMPLATE_DEST_IPV4(F)                                           \
+#define IPFIX_TEMPLATE_FLOW_USAGE_IPV4(F)                                     \
   IPFIX_FIELD_SOURCE_IPV4_ADDRESS (F)                                         \
   IPFIX_FIELD_DESTINATION_IPV4_ADDRESS (F)
 
-#define IPFIX_TEMPLATE_DEST_IPV6(F)                                           \
+#define IPFIX_TEMPLATE_FLOW_USAGE_IPV6(F)                                     \
   IPFIX_FIELD_SOURCE_IPV6_ADDRESS (F)                                         \
   IPFIX_FIELD_DESTINATION_IPV6_ADDRESS (F)
 
-#define IPFIX_TEMPLATE_DEST_COMMON(F)                                         \
+#define IPFIX_TEMPLATE_FLOW_USAGE_COMMON(F)                                   \
   IPFIX_FIELD_PROTOCOL_IDENTIFIER (F)                                         \
   IPFIX_FIELD_INITIATOR_OCTETS (F)                                            \
   IPFIX_FIELD_RESPONDER_OCTETS (F)                                            \
@@ -118,37 +118,43 @@ upf_ipfix_template_default_ip6_values (vlib_buffer_t *to_b, u16 offset,
   IPFIX_FIELD_BIFLOW_DIRECTION (F)
 
 static ipfix_field_specifier_t *
-upf_ipfix_template_dest_ip4_fields (ipfix_field_specifier_t *f)
+upf_ipfix_template_flow_usage_ip4_fields (ipfix_field_specifier_t *f)
 {
-  IPFIX_TEMPLATE_FIELDS (IPFIX_TEMPLATE_DEST_IPV4, IPFIX_TEMPLATE_DEST_COMMON);
+  IPFIX_TEMPLATE_FIELDS (IPFIX_TEMPLATE_FLOW_USAGE_IPV4,
+                         IPFIX_TEMPLATE_FLOW_USAGE_COMMON);
 }
 
 static ipfix_field_specifier_t *
-upf_ipfix_template_dest_ip6_fields (ipfix_field_specifier_t *f)
+upf_ipfix_template_flow_usage_ip6_fields (ipfix_field_specifier_t *f)
 {
-  IPFIX_TEMPLATE_FIELDS (IPFIX_TEMPLATE_DEST_IPV6, IPFIX_TEMPLATE_DEST_COMMON);
+  IPFIX_TEMPLATE_FIELDS (IPFIX_TEMPLATE_FLOW_USAGE_IPV6,
+                         IPFIX_TEMPLATE_FLOW_USAGE_COMMON);
 }
 
 static u32
-upf_ipfix_template_dest_ip4_values (vlib_buffer_t *to_b, u16 offset,
-                                    upf_session_t *sx, flow_entry_t *f,
-                                    flow_direction_t uplink_direction,
-                                    upf_nwi_t *uplink_nwi,
-                                    upf_ipfix_report_info_t *info, bool last)
+upf_ipfix_template_flow_usage_ip4_values (vlib_buffer_t *to_b, u16 offset,
+                                          upf_session_t *sx, flow_entry_t *f,
+                                          flow_direction_t uplink_direction,
+                                          upf_nwi_t *uplink_nwi,
+                                          upf_ipfix_report_info_t *info,
+                                          bool last)
 {
   ASSERT (uplink_direction == FT_ORIGIN || uplink_direction == FT_REVERSE);
-  IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV4, IPFIX_TEMPLATE_DEST_COMMON);
+  IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_FLOW_USAGE_IPV4,
+                         IPFIX_TEMPLATE_FLOW_USAGE_COMMON);
 }
 
 static u32
-upf_ipfix_template_dest_ip6_values (vlib_buffer_t *to_b, u16 offset,
-                                    upf_session_t *sx, flow_entry_t *f,
-                                    flow_direction_t uplink_direction,
-                                    upf_nwi_t *uplink_nwi,
-                                    upf_ipfix_report_info_t *info, bool last)
+upf_ipfix_template_flow_usage_ip6_values (vlib_buffer_t *to_b, u16 offset,
+                                          upf_session_t *sx, flow_entry_t *f,
+                                          flow_direction_t uplink_direction,
+                                          upf_nwi_t *uplink_nwi,
+                                          upf_ipfix_report_info_t *info,
+                                          bool last)
 {
   ASSERT (uplink_direction == FT_ORIGIN || uplink_direction == FT_REVERSE);
-  IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_DEST_IPV6, IPFIX_TEMPLATE_DEST_COMMON);
+  IPFIX_TEMPLATE_VALUES (IPFIX_TEMPLATE_FLOW_USAGE_IPV6,
+                         IPFIX_TEMPLATE_FLOW_USAGE_COMMON);
 }
 
 upf_ipfix_template_t upf_ipfix_templates[UPF_IPFIX_N_POLICIES] = {
@@ -163,37 +169,37 @@ upf_ipfix_template_t upf_ipfix_templates[UPF_IPFIX_N_POLICIES] = {
       },
     },
   },
-  [UPF_IPFIX_POLICY_DEFAULT] = {
-    .name = "default",
+  [UPF_IPFIX_POLICY_NAT_EVENT] = {
+    .name = "NatEvent",
     .per_ip={
       [FIB_PROTOCOL_IP4] = {
-        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEFAULT_IPV4,
-			  IPFIX_TEMPLATE_DEFAULT_COMMON),
-        .add_fields = upf_ipfix_template_default_ip4_fields,
-        .add_values = upf_ipfix_template_default_ip4_values,
+        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_NAT_EVENT_IPV4,
+			  IPFIX_TEMPLATE_NAT_EVENT_COMMON),
+        .add_fields = upf_ipfix_template_nat_event_ip4_fields,
+        .add_values = upf_ipfix_template_nat_event_ip4_values,
       },
       [FIB_PROTOCOL_IP6] = {
-        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEFAULT_IPV6,
-			  IPFIX_TEMPLATE_DEFAULT_COMMON),
-        .add_fields = upf_ipfix_template_default_ip6_fields,
-        .add_values = upf_ipfix_template_default_ip6_values,
+        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_NAT_EVENT_IPV6,
+			  IPFIX_TEMPLATE_NAT_EVENT_COMMON),
+        .add_fields = upf_ipfix_template_nat_event_ip6_fields,
+        .add_values = upf_ipfix_template_nat_event_ip6_values,
       },
     },
   },
-  [UPF_IPFIX_POLICY_DEST] = {
-    .name = "dest",
+  [UPF_IPFIX_POLICY_FLOW_USAGE] = {
+    .name = "FlowUsage",
     .per_ip={
       [FIB_PROTOCOL_IP4] = {
-        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEST_IPV4,
-			  IPFIX_TEMPLATE_DEST_COMMON),
-        .add_fields = upf_ipfix_template_dest_ip4_fields,
-        .add_values = upf_ipfix_template_dest_ip4_values,
+        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_FLOW_USAGE_IPV4,
+			  IPFIX_TEMPLATE_FLOW_USAGE_COMMON),
+        .add_fields = upf_ipfix_template_flow_usage_ip4_fields,
+        .add_values = upf_ipfix_template_flow_usage_ip4_values,
       },
       [FIB_PROTOCOL_IP6] = {
-        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_DEST_IPV6,
-			  IPFIX_TEMPLATE_DEST_COMMON),
-        .add_fields = upf_ipfix_template_dest_ip6_fields,
-        .add_values = upf_ipfix_template_dest_ip6_values,
+        .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_FLOW_USAGE_IPV6,
+			  IPFIX_TEMPLATE_FLOW_USAGE_COMMON),
+        .add_fields = upf_ipfix_template_flow_usage_ip6_fields,
+        .add_values = upf_ipfix_template_flow_usage_ip6_values,
       },
     },
   },

@@ -609,14 +609,14 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
   b0->current_length = offset;
   context->next_record_offset_per_worker[my_cpu_number] = offset;
 
+  vlib_increment_simple_counter (
+    &gtm->upf_simple_counters[UPF_IPFIX_RECORDS_SENT],
+    vlib_get_thread_index (), 0, 1);
+
   ipfix_exporter_t *exp = upf_ipfix_get_exporter (context);
 
   if (!exp)
     return;
-
-  vlib_increment_simple_counter (
-    &gtm->upf_simple_counters[UPF_IPFIX_RECORDS_SENT],
-    vlib_get_thread_index (), 0, 1);
 
   /* Time to flush the buffer? */
   if (offset + context->rec_size > exp->path_mtu)

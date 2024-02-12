@@ -49,33 +49,33 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				})
 			})
 
-			ginkgo.Context("default template", func() {
+			ginkgo.Context("NatEvent template", func() {
 				v.withIPFIXHandler()
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate:         "default",
+						farTemplate:         "NatEvent",
 						trafficCfg:          smallVolumeHTTPConfig(nil),
 						protocol:            layers.IPProtocolTCP,
 						expectedTrafficPort: 80,
 					})
-					v.verifyIPFIXDefaultRecords()
+					v.verifyIPFIXNatEventRecords()
 				})
 
 				ginkgo.It("sends IPFIX reports as requested [TCP] [proxy]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate:         "default",
+						farTemplate:         "NatEvent",
 						trafficCfg:          smallVolumeHTTPConfig(nil),
 						protocol:            layers.IPProtocolTCP,
 						expectedTrafficPort: 80,
 						adf:                 true,
 					})
-					v.verifyIPFIXDefaultRecords()
+					v.verifyIPFIXNatEventRecords()
 				})
 
 				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate: "default",
+						farTemplate: "defaNatEventult",
 						trafficCfg: &traffic.UDPPingConfig{
 							// have it span at several IPFIX reports
 							PacketCount: 55,
@@ -84,20 +84,20 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 						protocol:            layers.IPProtocolUDP,
 						expectedTrafficPort: 12345,
 					})
-					v.verifyIPFIXDefaultRecords()
+					v.verifyIPFIXNatEventRecords()
 				})
 
 				ginkgo.It("doesn't recreate templates with different IDs unnecessarily", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate:         "default",
+						farTemplate:         "NatEvent",
 						trafficCfg:          smallVolumeHTTPConfig(nil),
 						protocol:            layers.IPProtocolTCP,
 						expectedTrafficPort: 80,
 					})
-					v.verifyIPFIXDefaultRecords()
+					v.verifyIPFIXNatEventRecords()
 					ids := v.ipfixHandler.getTemplateIDs()
 					v.runSession(ipfixVerifierCfg{
-						farTemplate:         "default",
+						farTemplate:         "NatEvent",
 						trafficCfg:          smallVolumeHTTPConfig(nil),
 						protocol:            layers.IPProtocolTCP,
 						expectedTrafficPort: 80,
@@ -108,27 +108,27 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				})
 			})
 
-			ginkgo.Context("dest template", func() {
+			ginkgo.Context("FlowUsage template", func() {
 				v.withIPFIXHandler()
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate:         "dest",
+						farTemplate:         "FlowUsage",
 						trafficCfg:          smallVolumeHTTPConfig(nil),
 						protocol:            layers.IPProtocolTCP,
 						expectedTrafficPort: 80,
 					})
-					v.verifyIPFIXDestRecords()
+					v.verifyIPFIXFlowUsageRecords()
 				})
 
 				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate:         "dest",
+						farTemplate:         "FlowUsage",
 						trafficCfg:          &traffic.UDPPingConfig{},
 						protocol:            layers.IPProtocolUDP,
 						expectedTrafficPort: 12345,
 					})
-					v.verifyIPFIXDestRecords()
+					v.verifyIPFIXFlowUsageRecords()
 				})
 
 			})
@@ -150,7 +150,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 			ginkgo.Context("FAR override", func() {
 				f := framework.NewDefaultFramework(mode, ipMode)
 				v := &ipfixVerifier{f: f}
-				v.withNWIIPFIXPolicy("default")
+				v.withNWIIPFIXPolicy("NatEvent")
 				// Templates 256 and 257 are expected early because IPFIX policy
 				// is specified per NWI
 				v.withIPFIXHandler()
@@ -166,41 +166,41 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 				})
 			})
 
-			ginkgo.Context("default template", func() {
+			ginkgo.Context("NatEvent template", func() {
 				f := framework.NewDefaultFramework(mode, ipMode)
 				v := &ipfixVerifier{f: f}
-				v.withNWIIPFIXPolicy("default")
+				v.withNWIIPFIXPolicy("NatEvent")
 				// Templates 256 and 257 are expected early because IPFIX policy
 				// is specified per NWI
 				v.withIPFIXHandler()
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					v.verifyIPFIX(tcpCfg)
-					v.verifyIPFIXDefaultRecords()
+					v.verifyIPFIXNatEventRecords()
 				})
 
 				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
 					v.verifyIPFIX(udpCfg)
-					v.verifyIPFIXDefaultRecords()
+					v.verifyIPFIXNatEventRecords()
 				})
 			})
 
-			ginkgo.Context("dest template", func() {
+			ginkgo.Context("FlowUsage template", func() {
 				f := framework.NewDefaultFramework(mode, ipMode)
 				v := &ipfixVerifier{f: f}
-				v.withNWIIPFIXPolicy("dest")
+				v.withNWIIPFIXPolicy("FlowUsage")
 				// Templates 256 and 257 are expected early because IPFIX policy
 				// is specified per NWI
 				v.withIPFIXHandler()
 
 				ginkgo.It("sends IPFIX reports as requested [TCP]", func() {
 					v.verifyIPFIX(tcpCfg)
-					v.verifyIPFIXDestRecords()
+					v.verifyIPFIXFlowUsageRecords()
 				})
 
 				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
 					v.verifyIPFIX(udpCfg)
-					v.verifyIPFIXDestRecords()
+					v.verifyIPFIXFlowUsageRecords()
 				})
 
 			})
@@ -210,7 +210,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 			ginkgo.Context("[NAT fields]", func() {
 				f := framework.NewDefaultFramework(mode, ipMode)
 				v := &ipfixVerifier{f: f}
-				v.withNWIIPFIXPolicy("default")
+				v.withNWIIPFIXPolicy("NatEvent")
 				v.withReportingInterval(5)
 				v.withIPFIXHandler()
 
@@ -233,7 +233,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 						postNATSourceIPv4Address:    framework.MustParseIP("144.0.0.20").To4(),
 						postNAPTSourceTransportPort: 10128,
 					})
-					v.verifyIPFIXDefaultRecords()
+					v.verifyIPFIXNatEventRecords()
 					v.verifyNAT()
 				})
 			})
@@ -255,7 +255,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 					protocol:            layers.IPProtocolTCP,
 					expectedTrafficPort: 80,
 				})
-				v.verifyIPFIXDefaultRecords()
+				v.verifyIPFIXNatEventRecords()
 			})
 		})
 
@@ -281,7 +281,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 			f := framework.NewDefaultFramework(mode, ipMode)
 			v := &ipfixVerifier{f: f}
 			v.withForwardingPolicy("altIP")
-			v.withNWIIPFIXPolicy("dest")
+			v.withNWIIPFIXPolicy("FlowUsage")
 			v.withIPFIXHandler()
 			ginkgo.It("records forwarding policy name in VRFname", func() {
 				v.verifyIPFIX(ipfixVerifierCfg{
@@ -291,14 +291,14 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 					forwardingPolicyID:    "altIP",
 					expectedUplinkVRFName: "altIP",
 				})
-				v.verifyIPFIXDestRecords()
+				v.verifyIPFIXFlowUsageRecords()
 			})
 		})
 
 		ginkgo.Context("reporting interval", func() {
 			f := framework.NewDefaultFramework(mode, ipMode)
 			v := &ipfixVerifier{f: f}
-			v.withNWIIPFIXPolicy("dest")
+			v.withNWIIPFIXPolicy("FlowUsage")
 			v.withIPFIXHandler()
 			const INTERVAL = 3
 			const MIN_REPORTS_FOR_CHECK = 5
@@ -313,7 +313,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 					protocol:            layers.IPProtocolTCP,
 					expectedTrafficPort: 80,
 				})
-				v.verifyIPFIXDestRecords()
+				v.verifyIPFIXFlowUsageRecords()
 				v.verifyReportingInterval(INTERVAL)
 			})
 		})
@@ -441,7 +441,7 @@ func (v *ipfixVerifier) withExtraExporter() {
 
 func (v *ipfixVerifier) withAltCollector() {
 	v.modifySGi(func(nwiCfg *vpp.NWIConfig) {
-		nwiCfg.IPFIXPolicy = "default"
+		nwiCfg.IPFIXPolicy = "NatEvent"
 		nwiCfg.GetIPFIXCollectorIP = v.getCollectorIP
 	})
 }
@@ -467,9 +467,9 @@ func (v *ipfixVerifier) runSession(cfg ipfixVerifierCfg) {
 	}
 
 	if !cfg.noTemplates {
-		// "flow-report-process" has loop which executes every 5 seconds,
+		// VPP ipfix plugin has loop which executes every 5 seconds,
 		// only after at least once this loop iterates - new template interval will be used
-		const VPP_IPFIX_TEMPLATE_REACTION_TIME = 10 * time.Second
+		const VPP_IPFIX_TEMPLATE_REACTION_TIME = 20 * time.Second
 
 		// After session creation vpp detects that far has template id
 		// and should start broadcast corresponding template
@@ -581,7 +581,7 @@ func (v *ipfixVerifier) verifyIPFIXSharedRecords() {
 	gomega.Expect(dlOctets).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkVolume), "downlink volume")
 }
 
-func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
+func (v *ipfixVerifier) verifyIPFIXNatEventRecords() {
 	var clientPort uint16
 
 	for _, r := range v.recs {
@@ -614,7 +614,7 @@ func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {
 	v.verifyIPFIXSharedRecords()
 }
 
-func (v *ipfixVerifier) verifyIPFIXDestRecords() {
+func (v *ipfixVerifier) verifyIPFIXFlowUsageRecords() {
 	uplinkVRFName := "ipv4-VRF:200"
 	if v.f.IPMode == framework.UPGIPModeV6 {
 		uplinkVRFName = "ipv6-VRF:200"
