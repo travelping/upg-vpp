@@ -265,7 +265,7 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
   f->flow_start_time = timestamp_ns;
-  f->flow_end_time = timestamp_ns;
+  f->flow_last_time = timestamp_ns;
   f->application_id = ~0;
   f->cpu_index = os_get_thread_index ();
   f->generation = generation;

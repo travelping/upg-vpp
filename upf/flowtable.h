@@ -119,8 +119,6 @@ typedef struct
   u32 pkts_unreported;
   u64 bytes;
   u64 bytes_unreported;
-  u64 l4_bytes;
-  u64 l4_bytes_unreported;
 } flow_side_stats_t;
 
 typedef enum
@@ -212,7 +210,7 @@ typedef struct flow_entry
   u8 *app_uri;
 
   u64 flow_start_time; /* unix nanoseconds */
-  u64 flow_end_time;   /* unix nanoseconds */
+  u64 flow_last_time;  /* unix nanoseconds */
 
   session_flows_list_anchor_t session_list_anchor;
 
@@ -221,6 +219,9 @@ typedef struct flow_entry
   u32 cpu_index;
   u16 nat_sport;
 } flow_entry_t;
+
+// statically track entry size to prevent increase
+STATIC_ASSERT_SIZEOF (flow_entry_t, 5 * 64);
 
 UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t,
                                 session_list_anchor);
@@ -515,32 +516,13 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
 
   flow_direction_t direction = upf_buffer_opaque (b)->gtpu.direction;
 
-  u8 *iph = vlib_buffer_get_current (b);
-  u8 *l4h = (is_ip4 ? ip4_next_header ((ip4_header_t *) iph) :
-                      ip6_next_header ((ip6_header_t *) iph));
-  u16 l4_len = len - (l4h - iph);
-  u16 diff = 0;
-
-  switch (f->key.proto)
-    {
-    case IP_PROTOCOL_TCP:
-      diff = tcp_header_bytes ((tcp_header_t *) l4h);
-      break;
-    case IP_PROTOCOL_UDP:
-      diff = sizeof (udp_header_t);
-      break;
-    }
-  l4_len = l4_len > diff ? l4_len - diff : 0;
-
   flow_side_stats_t *stats = &flow_side (f, direction)->stats;
   stats->pkts++;
   stats->pkts_unreported++;
   stats->bytes += len;
   stats->bytes_unreported += len;
-  stats->l4_bytes += l4_len;
-  stats->l4_bytes_unreported += l4_len;
 
-  f->flow_end_time = timestamp_ns;
+  f->flow_last_time = timestamp_ns;
 }
 
 void upf_ipfix_flow_stats_update_handler (flow_entry_t *f, u32 now);

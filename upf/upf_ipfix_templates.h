@@ -169,7 +169,7 @@
 #define IPFIX_FIELD_FLOW_END_MILLISECONDS(F)			\
   F(flowEndMilliseconds, 8,					\
     IPFIX_VALUE_DATETIME_MILLISECONDS,				\
-    f->flow_end_time,						\
+    f->flow_last_time,						\
     sizeof(u64), 1)
 #define IPFIX_FIELD_SOURCE_TRANSPORT_PORT(F)			\
   F(sourceTransportPort, 2,					\
