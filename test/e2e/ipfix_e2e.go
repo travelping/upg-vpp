@@ -75,7 +75,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 
 				ginkgo.It("sends IPFIX reports as requested [UDP]", func() {
 					v.verifyIPFIX(ipfixVerifierCfg{
-						farTemplate: "defaNatEventult",
+						farTemplate: "NatEvent",
 						trafficCfg: &traffic.UDPPingConfig{
 							// have it span at several IPFIX reports
 							PacketCount: 55,
