@@ -144,7 +144,7 @@ typedef struct flow_side_tcp_t_
 
 typedef struct flow_ipfix_t_
 {
-  u32 next_export_at; // in seconds
+  u32 next_export_at; // in seconds, zero means no intermediate reporting
   u16 context_index;
   u16 forwarding_policy_index;
   // up_dst means "upload destination"
@@ -175,18 +175,17 @@ typedef struct flow_entry
   // key elements indexes are flow_direction_t
   key_directioned_t key;
   u32 session_index;
+
   u8 key_direction : 1; // flow_direction_op_t of bihash key
   u8 is_redirect : 1;
   u8 is_l3_proxy : 1;
   u8 is_spliced : 1;
-
   u8 spliced_dirty : 1;
   u8 dont_splice : 1;
   u8 app_detection_done : 1;
   u8 ipfix_exported : 1; // exported at least once
 
   u8 tcp_state : 4; // TODO: needs only 3 bits?
-
   // should be updated in classify and based on PDR during flow creation
   u8 uplink_direction : 2;
   // do not need to perform ipfix operations for this flow anymore

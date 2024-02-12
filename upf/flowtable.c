@@ -272,7 +272,7 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   f->ps_index = ~0;
   f->timer_slot = ~0;
   f->uplink_direction = FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED;
-  f->ipfix.next_export_at = 0; // do export immediately
+  f->ipfix.next_export_at = 1; // do export immediately
   f->ipfix.context_index = ~0;
 
   flowtable_entry_init_side (flow_side (f, FT_ORIGIN), now);

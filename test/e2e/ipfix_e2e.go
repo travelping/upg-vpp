@@ -102,6 +102,7 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 						protocol:            layers.IPProtocolTCP,
 						expectedTrafficPort: 80,
 					})
+					time.Sleep(2 * time.Second) // just in case wait for flushing and interval
 					framework.ExpectEqual(v.ipfixHandler.getTemplateIDs(), ids,
 						"registered template IDs")
 				})
@@ -466,9 +467,9 @@ func (v *ipfixVerifier) runSession(cfg ipfixVerifierCfg) {
 	}
 
 	if !cfg.noTemplates {
-		// VPP IPFix plugin has loop which executes every 20 seconds,
-		// only after at least once this loop iterates new template interval will be used
-		const VPP_IPFIX_TEMPLATE_REACTION_TIME = 25 * time.Second
+		// "flow-report-process" has loop which executes every 5 seconds,
+		// only after at least once this loop iterates - new template interval will be used
+		const VPP_IPFIX_TEMPLATE_REACTION_TIME = 10 * time.Second
 
 		// After session creation vpp detects that far has template id
 		// and should start broadcast corresponding template
@@ -578,7 +579,6 @@ func (v *ipfixVerifier) verifyIPFIXSharedRecords() {
 	// gomega.Expect(responderPackets).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkPacketCount), "responderPackets")
 	gomega.Expect(ulOctets).To(gomega.Equal(*v.ms.Reports[1][0].UplinkVolume), "uplink volume")
 	gomega.Expect(dlOctets).To(gomega.Equal(*v.ms.Reports[1][0].DownlinkVolume), "downlink volume")
-
 }
 
 func (v *ipfixVerifier) verifyIPFIXDefaultRecords() {

@@ -258,6 +258,7 @@ upf_ipfix_export_send (vlib_main_t *vm, vlib_buffer_t *b0,
 {
   flow_report_main_t *frm = &flow_report_main;
   upf_ipfix_main_t *fm = &upf_ipfix_main;
+  upf_main_t *gtm = &upf_main;
   ipfix_exporter_t *exp = upf_ipfix_get_exporter (context);
   vlib_frame_t *f;
   ip4_ipfix_template_packet_t *tp;
@@ -275,7 +276,7 @@ upf_ipfix_export_send (vlib_main_t *vm, vlib_buffer_t *b0,
       upf_ipfix_get_headersize ())
     return;
 
-  upf_debug ("export send, context %u", context - fm->contexts);
+  upf_debug ("ipfix export send, context %u", context - fm->contexts);
 
   /* TODO: WHAT WE DO HERE? */
   u32 i, index = vec_len (exp->streams);
@@ -362,6 +363,10 @@ upf_ipfix_export_send (vlib_main_t *vm, vlib_buffer_t *b0,
   context->buffers_per_worker[my_cpu_number] = 0;
   context->next_record_offset_per_worker[my_cpu_number] =
     upf_ipfix_get_headersize ();
+
+  vlib_increment_simple_counter (
+    &gtm->upf_simple_counters[UPF_IPFIX_PACKETS_SENT],
+    vlib_get_thread_index (), 0, 1);
 }
 
 static vlib_buffer_t *
@@ -452,7 +457,8 @@ upf_ipfix_flow_init (flow_entry_t *f)
 
   /* Get IPFIX context for this flow */
 
-  /* TODO: possible to use cached contexts from nwi to avoid bihash lookup*/
+  /* TODO: possible to use cached contexts from nwi to avoid bihash lookup, but
+   * such approach has cache invalidation issues on reconfiguration */
   upf_ipfix_context_key_t context_key = { 0 };
   ip_address_copy (&context_key.collector_ip, &up_dst_nwi->ipfix.collector_ip);
   context_key.observation_domain_id = up_dst_nwi->ipfix.observation_domain_id;
@@ -534,7 +540,10 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
 
   if (f->ipfix.context_index == (u16) ~0)
     if (!upf_ipfix_flow_init (f))
-      return;
+      {
+        // more info needed, or ipfix is not needed for this flow
+        return;
+      }
 
   context = pool_elt_at_index (fm->contexts, f->ipfix.context_index);
   offset = context->next_record_offset_per_worker[my_cpu_number];
@@ -591,7 +600,10 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
     b0, offset, sx, f, f->uplink_direction, nwi, &info, last);
 
   /* Reset per flow-export counters */
-  f->ipfix.next_export_at = now + nwi->ipfix.report_interval;
+  if (nwi->ipfix.report_interval)
+    f->ipfix.next_export_at = now + nwi->ipfix.report_interval;
+  else
+    f->ipfix.next_export_at = 0;
   f->ipfix_exported = 1;
 
   b0->current_length = offset;
@@ -601,6 +613,10 @@ upf_ipfix_export_entry (vlib_main_t *vm, flow_entry_t *f, u32 now, bool last)
 
   if (!exp)
     return;
+
+  vlib_increment_simple_counter (
+    &gtm->upf_simple_counters[UPF_IPFIX_RECORDS_SENT],
+    vlib_get_thread_index (), 0, 1);
 
   /* Time to flush the buffer? */
   if (offset + context->rec_size > exp->path_mtu)
@@ -614,6 +630,9 @@ upf_ipfix_flow_stats_update_handler (flow_entry_t *f, u32 now)
   vlib_main_t *vm = fm->vlib_main;
 
   if (f->ipfix_disabled)
+    return;
+
+  if (f->ipfix.next_export_at == 0)
     return;
 
   if (PREDICT_FALSE (now >= f->ipfix.next_export_at))

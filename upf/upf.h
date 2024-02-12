@@ -517,7 +517,9 @@ typedef enum
   UPF_FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT = 6,
   UPF_FLOWS_STITCHED_DIRTY_FIFOS = 7,
   UPF_TIMERS_MISSED = 8,
-  UPF_N_COUNTERS = 9,
+  UPF_IPFIX_RECORDS_SENT = 9,
+  UPF_IPFIX_PACKETS_SENT = 10,
+  UPF_N_COUNTERS = 11,
 } upf_counters_type_t;
 
 #define foreach_upf_counter_name                                              \
@@ -529,7 +531,9 @@ typedef enum
   _ (FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP, tcp_ops_tstamp, upf)               \
   _ (FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT, tcp_ops_sack_permit, upf)        \
   _ (FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)                   \
-  _ (TIMERS_MISSED, timers_missed, upf)
+  _ (TIMERS_MISSED, timers_missed, upf)                                       \
+  _ (IPFIX_RECORDS_SENT, ipfix_records_sent, upf)                             \
+  _ (IPFIX_PACKETS_SENT, ipfix_packets_sent, upf)
 
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */
@@ -813,7 +817,7 @@ typedef struct
 
   upf_ipfix_policy_t default_policy;
   ip_address_t collector_ip;
-  u32 report_interval;
+  u32 report_interval; // zero means no intermediate reports
 
   u32 observation_domain_id;
   u64 observation_point_id;
