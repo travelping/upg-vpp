@@ -284,12 +284,11 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 			v.withIPFIXHandler()
 			ginkgo.It("records forwarding policy name in VRFname", func() {
 				v.verifyIPFIX(ipfixVerifierCfg{
-					trafficCfg:          smallVolumeHTTPConfig(nil),
-					protocol:            layers.IPProtocolTCP,
-					expectedTrafficPort: 80,
-					forwardingPolicyID:  "altIP",
-					// expectedOriginVRFName:  "altIP",
-					expectedReverseVRFName: "altIP",
+					trafficCfg:            smallVolumeHTTPConfig(nil),
+					protocol:              layers.IPProtocolTCP,
+					expectedTrafficPort:   80,
+					forwardingPolicyID:    "altIP",
+					expectedUplinkVRFName: "altIP",
 				})
 				v.verifyIPFIXDestRecords()
 			})
@@ -300,8 +299,8 @@ func describeIPFIX(title string, mode framework.UPGMode, ipMode framework.UPGIPM
 			v := &ipfixVerifier{f: f}
 			v.withNWIIPFIXPolicy("dest")
 			v.withIPFIXHandler()
-			const INTERVAL = 7 // 7 seconds so we receive ipfix flow description
-			const MIN_REPORTS_FOR_CHECK = 4
+			const INTERVAL = 3
+			const MIN_REPORTS_FOR_CHECK = 5
 			v.withReportingInterval(INTERVAL)
 			ginkgo.It("can be set via NWI", func() {
 				trafficCfg := smallVolumeHTTPConfig(nil)
@@ -330,9 +329,8 @@ type ipfixVerifierCfg struct {
 	postNAPTSourceTransportPort uint16
 	adf                         bool
 	forwardingPolicyID          string
-	// expectedOriginVRFName       string
-	expectedReverseVRFName string
-	noTemplates            bool
+	expectedUplinkVRFName       string
+	noTemplates                 bool
 }
 
 type ipfixVerifier struct {
@@ -621,8 +619,8 @@ func (v *ipfixVerifier) verifyIPFIXDestRecords() {
 	if v.f.IPMode == framework.UPGIPModeV6 {
 		uplinkVRFName = "ipv6-VRF:200"
 	}
-	if v.cfg.expectedReverseVRFName != "" {
-		uplinkVRFName = v.cfg.expectedReverseVRFName
+	if v.cfg.expectedUplinkVRFName != "" {
+		uplinkVRFName = v.cfg.expectedUplinkVRFName
 	}
 
 	for _, r := range v.recs {
