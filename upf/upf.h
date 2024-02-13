@@ -518,7 +518,7 @@ typedef enum
   UPF_FLOWS_STITCHED_DIRTY_FIFOS = 7,
   UPF_TIMERS_MISSED = 8,
   UPF_IPFIX_RECORDS_SENT = 9,
-  UPF_IPFIX_PACKETS_SENT = 10,
+  UPF_IPFIX_MESSAGES_SENT = 10,
   UPF_N_COUNTERS = 11,
 } upf_counters_type_t;
 
@@ -533,7 +533,7 @@ typedef enum
   _ (FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)                   \
   _ (TIMERS_MISSED, timers_missed, upf)                                       \
   _ (IPFIX_RECORDS_SENT, ipfix_records_sent, upf)                             \
-  _ (IPFIX_PACKETS_SENT, ipfix_packets_sent, upf)
+  _ (IPFIX_MESSAGES_SENT, ipfix_messages_sent, upf)
 
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */

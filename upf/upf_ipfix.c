@@ -365,7 +365,7 @@ upf_ipfix_export_send (vlib_main_t *vm, vlib_buffer_t *b0,
     upf_ipfix_get_headersize ();
 
   vlib_increment_simple_counter (
-    &gtm->upf_simple_counters[UPF_IPFIX_PACKETS_SENT],
+    &gtm->upf_simple_counters[UPF_IPFIX_MESSAGES_SENT],
     vlib_get_thread_index (), 0, 1);
 }
 
