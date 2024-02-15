@@ -186,7 +186,7 @@ typedef struct flow_entry
   u8 tcp_state : 4; // TODO: needs only 3 bits?
   // should be updated in classify and based on PDR during flow creation
   u8 uplink_direction : 2;
-  // do not need to perform ipfix operations for this flow anymore
+  // do not perform ipfix operations for this flow anymore
   u8 ipfix_disabled : 1;
 
   // use macro since unsigned will not expand to ~0

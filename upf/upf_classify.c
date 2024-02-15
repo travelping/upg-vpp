@@ -432,14 +432,12 @@ upf_acl_classify_return (vlib_main_t *vm, u32 teid, flow_entry_t *flow,
 // if impossible to detect
 always_inline flow_direction_t
 upf_classify_detect_flow_direction (vlib_buffer_t *b, struct rules *r,
-                                    flow_direction_t direction, bool *found)
+                                    flow_direction_t direction)
 {
   // Here we rely on the fact that interface of type ACCESS is one which
   // directed to UE
   // TODO: it should be possible to calculate and save this value per PDR
   // during session creation/modification
-
-  *found = false;
 
   u32 pdr_idx = upf_buffer_opaque (b)->gtpu.pdr_idx;
   if (pdr_idx == ~0)
@@ -460,7 +458,6 @@ upf_classify_detect_flow_direction (vlib_buffer_t *b, struct rules *r,
       upf_debug ("detected uplink direction from pdr: %d matched on %v",
                  FTD_OP_SAME ^ direction,
                  pool_elt_at_index (upf_main.nwis, pdr->pdi.nwi_index)->name);
-      *found = true;
       return FTD_OP_SAME ^ direction;
     }
 
@@ -483,7 +480,6 @@ upf_classify_detect_flow_direction (vlib_buffer_t *b, struct rules *r,
         "detected uplink direction from far: %d forwarded to %v",
         FTD_OP_FLIP ^ direction,
         pool_elt_at_index (upf_main.nwis, far->forward.nwi_index)->name);
-      *found = true;
       return FTD_OP_FLIP ^ direction;
     }
 
@@ -619,11 +615,9 @@ upf_classify_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
           if (flow->uplink_direction == FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED)
             {
-              bool found;
               flow_direction_t uplink_direction =
-                upf_classify_detect_flow_direction (b, active, direction,
-                                                    &found);
-              if (found)
+                upf_classify_detect_flow_direction (b, active, direction);
+              if (uplink_direction != FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED)
                 flow->uplink_direction = uplink_direction;
             }
 

@@ -117,16 +117,16 @@ upf_ipfix_template_rewrite (ipfix_exporter_t *exp, flow_report_t *fr,
   fib_protocol_t fproto =
     context->key.is_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
   upf_ipfix_template_t *template = &upf_ipfix_templates[context->key.policy];
-  upf_ipfix_template_proto_t *ptemplate = &template->per_ip[fproto];
+  upf_ipfix_template_proto_t *template_proto = &template->per_ip[fproto];
 
-  ASSERT (ptemplate->field_count);
+  ASSERT (template_proto->field_count);
 
   /* allocate rewrite space */
 
   vec_validate_aligned (
     rewrite,
     sizeof (ip4_ipfix_template_packet_t) +
-      ptemplate->field_count * sizeof (ipfix_field_specifier_t) - 1,
+      template_proto->field_count * sizeof (ipfix_field_specifier_t) - 1,
     CLIB_CACHE_LINE_BYTES);
 
   tp = (ip4_ipfix_template_packet_t *) rewrite;
@@ -150,7 +150,7 @@ upf_ipfix_template_rewrite (ipfix_exporter_t *exp, flow_report_t *fr,
   h->domain_id = clib_host_to_net_u32 (stream->domain_id);
 
   /* Add TLVs to the template */
-  f = ptemplate->add_fields (f);
+  f = template_proto->add_fields (f);
 
   /* Back to the template packet... */
   ip = (ip4_header_t *) &tp->ip4;
@@ -173,7 +173,7 @@ upf_ipfix_template_rewrite (ipfix_exporter_t *exp, flow_report_t *fr,
              vec_len (rewrite));
   upf_debug ("n of fields: %u, hdr size %u, part hdr size %u, "
              "single field spec len %u",
-             ptemplate->field_count, sizeof (ip4_ipfix_template_packet_t),
+             template_proto->field_count, sizeof (ip4_ipfix_template_packet_t),
              sizeof (ipfix_template_packet_t),
              sizeof (ipfix_field_specifier_t));
   ASSERT ((u8 *) f - (u8 *) ip == vec_len (rewrite));
