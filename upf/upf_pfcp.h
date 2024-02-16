@@ -86,7 +86,6 @@ bool process_qers (vlib_main_t *vm, upf_session_t *sess, struct rules *r,
                    upf_pdr_t *pdr, vlib_buffer_t *b, u8 is_dl, u8 is_ul);
 
 void upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error);
-void upf_ref_forwarding_policies (upf_far_t *far, u8 is_del);
 int pfcp_session_server_apply_config (u64 segment_size, u32 prealloc_fifos,
                                       u32 fifo_size);
 void pfcp_session_server_get_config (u64 *segment_size, u32 *prealloc_fifos,
@@ -155,16 +154,21 @@ upf_nwi_fib_index (fib_protocol_t proto, u32 nwi_index)
     return ~0;
 }
 
-static_always_inline u32
-flow_pdr_idx (flow_entry_t *flow, flow_direction_t direction, struct rules *r)
+static_always_inline upf_pdr_t *
+flow_pdr (flow_entry_t *flow, flow_direction_t direction, struct rules *r)
 {
-  upf_pdr_t *pdr;
   u32 pdr_id = flow_side (flow, direction)->pdr_id;
 
   if (pdr_id == ~0)
-    return ~0;
+    return NULL;
 
-  pdr = pfcp_get_pdr_by_id (r, pdr_id);
+  return pfcp_get_pdr_by_id (r, pdr_id);
+}
+
+static_always_inline u32
+flow_pdr_idx (flow_entry_t *flow, flow_direction_t direction, struct rules *r)
+{
+  upf_pdr_t *pdr = flow_pdr (flow, direction, r);
   return pdr ? pdr - r->pdr : ~0;
 }
 

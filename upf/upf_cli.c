@@ -551,8 +551,8 @@ upf_show_nwi_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
                        "%U, ipfix-collector-ip %U\n",
                        format_pfcp_dns_labels, nwi->name, fib4->hash.table_id,
                        fib6->table_id, format_upf_ipfix_policy,
-                       nwi->ipfix_policy, format_ip_address,
-                       &nwi->ipfix_collector_ip);
+                       nwi->ipfix.default_policy, format_ip_address,
+                       &nwi->ipfix.collector_ip);
     }
 
 done:

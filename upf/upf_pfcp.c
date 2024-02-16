@@ -156,11 +156,12 @@ vnet_upf_create_nwi_if (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
   memset (&nwi->fib_index, ~0, sizeof (nwi->fib_index));
 
   nwi->name = vec_dup (name);
-  nwi->ipfix_policy = ipfix_policy;
+  nwi->ipfix.default_policy = ipfix_policy;
+
   if (ipfix_collector_ip)
-    ip_address_copy (&nwi->ipfix_collector_ip, ipfix_collector_ip);
+    ip_address_copy (&nwi->ipfix.collector_ip, ipfix_collector_ip);
   else
-    ip_address_reset (&nwi->ipfix_collector_ip);
+    ip_address_reset (&nwi->ipfix.collector_ip);
 
   if_index = nwi - gtm->nwis;
 
@@ -231,13 +232,34 @@ vnet_upf_create_nwi_if (u8 *name, u32 ip4_table_id, u32 ip6_table_id,
 
   hash_set_mem (gtm->nwi_index_by_name, nwi->name, if_index);
 
-  nwi->ipfix_report_interval = ipfix_report_interval;
-  nwi->observation_domain_id = observation_domain_id;
-  nwi->observation_domain_name = vec_dup (observation_domain_name);
-  nwi->observation_point_id = observation_point_id;
+  nwi->ipfix.report_interval = ipfix_report_interval;
+  nwi->ipfix.observation_domain_id = observation_domain_id;
+  nwi->ipfix.observation_domain_name = vec_dup (observation_domain_name);
+  nwi->ipfix.observation_point_id = observation_point_id;
 
   if (sw_if_idx)
     *sw_if_idx = nwi->sw_if_index;
+
+  for (fib_protocol_t fproto = 0; fproto < FIB_PROTOCOL_IP_MAX; fproto++)
+    for (upf_ipfix_policy_t pol = 0; pol < UPF_IPFIX_N_POLICIES; pol++)
+      nwi->ipfix.contexts[fproto][pol] = ~0;
+
+  // Try to precreate configured ipfix context to start sending ipfix templates
+  if (ipfix_collector_ip && ipfix_policy != UPF_IPFIX_POLICY_NONE)
+    {
+      upf_ipfix_context_key_t context_key = { 0 };
+      ip_address_copy (&context_key.collector_ip, &nwi->ipfix.collector_ip);
+      context_key.observation_domain_id = nwi->ipfix.observation_domain_id;
+      context_key.policy = ipfix_policy;
+
+      context_key.is_ip4 = true;
+      nwi->ipfix.contexts[FIB_PROTOCOL_IP4][ipfix_policy] =
+        upf_ipfix_ensure_context (&context_key);
+
+      context_key.is_ip4 = false;
+      nwi->ipfix.contexts[FIB_PROTOCOL_IP6][ipfix_policy] =
+        upf_ipfix_ensure_context (&context_key);
+    }
 
   return 0;
 }
@@ -249,7 +271,6 @@ vnet_upf_delete_nwi_if (u8 *name)
   upf_main_t *gtm = &upf_main;
   upf_nwi_t *nwi;
   uword *p;
-  u32 *ipfix_ctx_index;
 
   p = hash_get_mem (gtm->nwi_index_by_name, name);
   if (!p)
@@ -269,14 +290,8 @@ vnet_upf_delete_nwi_if (u8 *name)
   vec_add1 (gtm->free_nwi_hw_if_indices, nwi->hw_if_index);
 
   hash_unset_mem (gtm->nwi_index_by_name, nwi->name);
-  vec_free (nwi->observation_domain_name);
+  vec_free (nwi->ipfix.observation_domain_name);
   vec_free (nwi->name);
-
-  vec_foreach (ipfix_ctx_index, nwi->ipfix_context_indices)
-    {
-      upf_unref_ipfix_context_by_index (*ipfix_ctx_index);
-    }
-
   pool_put (gtm->nwis, nwi);
 
   return 0;
@@ -1227,8 +1242,8 @@ pfcp_free_rules (upf_session_t *sx, int rule)
   memset (rules, 0, sizeof (*rules));
 }
 
-void
-upf_ref_forwarding_policies (upf_far_t *far, u8 is_del)
+always_inline void
+upf_pfcp_far_ref_forwarding_policies (upf_far_t *far, u8 is_del)
 {
   upf_main_t *gtm = &upf_main;
   uword *hash_ptr;
@@ -1276,7 +1291,7 @@ pfcp_disable_session (upf_session_t *sx)
   /* derefer forwarding policies */
   vec_foreach (far, active->far)
     {
-      upf_ref_forwarding_policies (far, 1);
+      upf_pfcp_far_ref_forwarding_policies (far, 1);
     }
 
   node_assoc_detach_session (sx);
@@ -2145,7 +2160,7 @@ pfcp_update_apply (upf_session_t *sx)
                     far->forward.outer_header_creation.teid, far->id);
                 }
             }
-          upf_ref_forwarding_policies (far, 0);
+          upf_pfcp_far_ref_forwarding_policies (far, 0);
         }
     }
   else
@@ -2208,13 +2223,61 @@ pfcp_update_apply (upf_session_t *sx)
   upf_pfcp_session_start_up_inactivity_timer (si, sx->last_ul_traffic,
                                               &active->inactivity_timer);
 
+  if (pending_pdr + pending_far)
+    {
+      upf_pdr_t *pdr;
+      vec_foreach (pdr, active->pdr)
+        {
+          if (pdr->far_id == (u16) ~0)
+            continue;
+
+          upf_far_t *far = pfcp_get_far_by_id (active, pdr->far_id);
+          if (!far)
+            continue;
+
+          if (far->forward.nwi_index != ~0)
+            {
+              upf_nwi_t *nwi =
+                pool_elt_at_index (gtm->nwis, far->forward.nwi_index);
+
+              upf_ipfix_policy_t policy;
+              // FAR has priority for policy
+              if (far->ipfix_policy != UPF_IPFIX_POLICY_UNSPECIFIED)
+                policy = far->ipfix_policy;
+              else
+                policy = nwi->ipfix.default_policy;
+
+              // Force creation of ipfix contexts to send templates early
+              if (policy != UPF_IPFIX_POLICY_NONE)
+                {
+                  upf_ipfix_context_key_t context_key = { 0 };
+                  ip_address_copy (&context_key.collector_ip,
+                                   &nwi->ipfix.collector_ip);
+                  context_key.observation_domain_id =
+                    nwi->ipfix.observation_domain_id;
+                  context_key.policy = policy;
+                  if (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V4)
+                    {
+                      context_key.is_ip4 = true;
+                      upf_ipfix_ensure_context (&context_key);
+                    }
+                  if (pdr->pdi.ue_addr.flags & PFCP_UE_IP_ADDRESS_V6)
+                    {
+                      context_key.is_ip4 = false;
+                      upf_ipfix_ensure_context (&context_key);
+                    }
+                }
+            }
+        }
+    }
+
   if (pending_far)
     {
       upf_far_t *far;
 
       vec_foreach (far, pending->far)
         {
-          upf_ref_forwarding_policies (far, 1);
+          upf_pfcp_far_ref_forwarding_policies (far, 1);
           if (far->forward.outer_header_creation.description != 0)
             peer_addr_unref (&far->forward);
         }

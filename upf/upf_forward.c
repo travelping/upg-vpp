@@ -321,8 +321,9 @@ upf_forward (vlib_main_t *vm, vlib_node_runtime_t *node, const char *node_name,
                 {
                   flow = pool_elt_at_index (
                     fm->flows, upf_buffer_opaque (b)->gtpu.flow_id);
-                  flow_update_stats (vm, b, flow, is_ip4, timestamp_ns,
-                                     current_time);
+                  flow_update_stats (vm, b, flow, is_ip4, timestamp_ns);
+
+                  upf_ipfix_flow_stats_update_handler (flow, current_time);
                 }
             }
 

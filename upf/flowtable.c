@@ -50,7 +50,7 @@ flow_entry_free (flowtable_main_t *fm, flowtable_main_per_cpu_t *fmt,
   pool_put (fm->flows, f);
 }
 
-int upf_ipfix_flow_remove_handler (flow_entry_t *f, u32 now);
+void upf_ipfix_flow_remove_handler (flow_entry_t *f, u32 now);
 int upf_proxy_flow_remove_handler (flow_entry_t *flow);
 int flow_remove_counter_handler (flowtable_main_t *fm, flow_entry_t *flow);
 int session_flow_unlink_handler (flowtable_main_t *fm, flow_entry_t *flow);
@@ -228,8 +228,6 @@ flowtable_entry_init_side (flow_side_t *side, u32 now)
   // valid teid, but not 0
   side->teid = ~0;
   side->next = FT_NEXT_CLASSIFY;
-  side->ipfix.last_exported = now;
-  side->ipfix.info_index = ~0;
   side->tcp.conn_index = ~0;
   side->tcp.thread_index = ~0;
 }
@@ -267,12 +265,15 @@ flowtable_entry_lookup_create (flowtable_main_t *fm,
   f->lifetime = flowtable_lifetime_calculate (fm, &f->key);
   f->active = now;
   f->flow_start_time = timestamp_ns;
-  f->flow_end_time = timestamp_ns;
+  f->flow_last_time = timestamp_ns;
   f->application_id = ~0;
   f->cpu_index = os_get_thread_index ();
   f->generation = generation;
   f->ps_index = ~0;
   f->timer_slot = ~0;
+  f->uplink_direction = FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED;
+  f->ipfix.next_export_at = 1; // do export immediately
+  f->ipfix.context_index = ~0;
 
   flowtable_entry_init_side (flow_side (f, FT_ORIGIN), now);
   flowtable_entry_init_side (flow_side (f, FT_REVERSE), now);

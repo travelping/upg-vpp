@@ -406,6 +406,16 @@ typedef struct
   u32 *qer_ids;
 } upf_pdr_t;
 
+typedef enum
+{
+  UPF_IPFIX_POLICY_NONE,
+  UPF_IPFIX_POLICY_NAT_EVENT,
+  UPF_IPFIX_POLICY_FLOW_USAGE,
+  UPF_IPFIX_N_POLICIES,
+  // used only in FAR to indicate "do not override"
+  UPF_IPFIX_POLICY_UNSPECIFIED = UPF_IPFIX_N_POLICIES
+} __clib_packed upf_ipfix_policy_t;
+
 /* Forward Action Rules - Forwarding Parameters */
 typedef struct
 {
@@ -459,21 +469,7 @@ typedef struct
    * We maintain this path as we need to remove old path while policy update
    */
   fib_route_path_t *rpaths;
-  /**
-   * Next node index (ip4-rewrite here)
-   *
-   */
-  u32 forward_index;
 } upf_forwarding_policy_t;
-
-typedef enum
-{
-  UPF_IPFIX_POLICY_NONE,
-  UPF_IPFIX_POLICY_DEFAULT,
-  UPF_IPFIX_POLICY_DEST,
-  UPF_IPFIX_N_POLICIES,
-  UPF_IPFIX_POLICY_UNSPECIFIED = UPF_IPFIX_N_POLICIES
-} __clib_packed upf_ipfix_policy_t;
 
 /* Forward Action Rules */
 typedef struct
@@ -485,6 +481,7 @@ typedef struct
 #define FAR_BUFFER    0x0004
 #define FAR_NOTIFY_CP 0x0008
 #define FAR_DUPLICATE 0x0010
+#define FAR_NAT       0x8000
 
   union
   {
@@ -520,7 +517,9 @@ typedef enum
   UPF_FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT = 6,
   UPF_FLOWS_STITCHED_DIRTY_FIFOS = 7,
   UPF_TIMERS_MISSED = 8,
-  UPF_N_COUNTERS = 9,
+  UPF_IPFIX_RECORDS_SENT = 9,
+  UPF_IPFIX_MESSAGES_SENT = 10,
+  UPF_N_COUNTERS = 11,
 } upf_counters_type_t;
 
 #define foreach_upf_counter_name                                              \
@@ -532,7 +531,9 @@ typedef enum
   _ (FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP, tcp_ops_tstamp, upf)               \
   _ (FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT, tcp_ops_sack_permit, upf)        \
   _ (FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)                   \
-  _ (TIMERS_MISSED, timers_missed, upf)
+  _ (TIMERS_MISSED, timers_missed, upf)                                       \
+  _ (IPFIX_RECORDS_SENT, ipfix_records_sent, upf)                             \
+  _ (IPFIX_MESSAGES_SENT, ipfix_messages_sent, upf)
 
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */
@@ -810,6 +811,21 @@ typedef struct
 
 typedef struct
 {
+  /* TODO: this contexts can be used in far instead of
+  own bihash lookup */
+  u32 contexts[FIB_PROTOCOL_IP_MAX][UPF_IPFIX_N_POLICIES];
+
+  upf_ipfix_policy_t default_policy;
+  ip_address_t collector_ip;
+  u32 report_interval; // zero means no intermediate reports
+
+  u32 observation_domain_id;
+  u64 observation_point_id;
+  u8 *observation_domain_name;
+} upf_nwi_ipfix_t;
+
+typedef struct
+{
   u8 *name;
   u32 fib_index[FIB_PROTOCOL_IP_MAX];
 
@@ -817,15 +833,7 @@ typedef struct
   u32 sw_if_index;
   u32 hw_if_index;
 
-  upf_ipfix_policy_t ipfix_policy;
-  ip_address_t ipfix_collector_ip;
-  u32 ipfix_report_interval;
-
-  u32 observation_domain_id;
-  u64 observation_point_id;
-  u8 *observation_domain_name;
-
-  u32 *ipfix_context_indices;
+  upf_nwi_ipfix_t ipfix;
 } upf_nwi_t;
 
 typedef struct
@@ -930,7 +938,7 @@ typedef struct
 {
   mhash_t pfcp_endpoint_index;
 
-  /* vector of network instances */
+  /* pool of network instances */
   upf_nwi_t *nwis;
   uword *nwi_index_by_name;
 

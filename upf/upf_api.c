@@ -576,7 +576,7 @@ send_upf_nwi_details (vl_api_registration_t *reg, upf_nwi_t *nwi, u32 context)
   upf_main_t *sm = &upf_main;
   u32 name_len, ipfix_policy_len, observation_domain_name_len;
   u8 *ipfix_policy =
-    format (0, "%U", format_upf_ipfix_policy, nwi->ipfix_policy);
+    format (0, "%U", format_upf_ipfix_policy, nwi->ipfix.default_policy);
 
   name_len = vec_len (nwi->name);
   mp = vl_msg_api_alloc (sizeof (*mp) + name_len * sizeof (u8));
@@ -595,21 +595,22 @@ send_upf_nwi_details (vl_api_registration_t *reg, upf_nwi_t *nwi, u32 context)
   mp->ipfix_policy[ipfix_policy_len] = 0;
 
   mp->ipfix_report_interval =
-    clib_host_to_net_u32 (nwi->ipfix_report_interval);
+    clib_host_to_net_u32 (nwi->ipfix.report_interval);
   mp->observation_domain_id =
-    clib_host_to_net_u32 (nwi->observation_domain_id);
+    clib_host_to_net_u32 (nwi->ipfix.observation_domain_id);
   observation_domain_name_len =
     clib_min (sizeof (mp->observation_domain_name) - 1,
-              vec_len (nwi->observation_domain_name));
-  memcpy (mp->observation_domain_name, nwi->observation_domain_name,
+              vec_len (nwi->ipfix.observation_domain_name));
+  memcpy (mp->observation_domain_name, nwi->ipfix.observation_domain_name,
           observation_domain_name_len);
   mp->observation_domain_name[observation_domain_name_len] = 0;
-  mp->observation_point_id = clib_host_to_net_u64 (nwi->observation_point_id);
+  mp->observation_point_id =
+    clib_host_to_net_u64 (nwi->ipfix.observation_point_id);
 
   memcpy (mp->nwi, nwi->name, name_len);
   mp->nwi_len = name_len;
 
-  ip_address_encode (&ip_addr_46 (&nwi->ipfix_collector_ip), IP46_TYPE_ANY,
+  ip_address_encode (&ip_addr_46 (&nwi->ipfix.collector_ip), IP46_TYPE_ANY,
                      &mp->ipfix_collector_ip);
 
   vl_api_send_msg (reg, (u8 *) mp);

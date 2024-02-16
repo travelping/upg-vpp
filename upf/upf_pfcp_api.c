@@ -1493,6 +1493,7 @@ handle_create_far (upf_session_t *sx, pfcp_ie_create_far_t *create_far,
                 vec_dup (far->forwarding_parameters.nat_port_block);
               rc = handle_nat_binding_creation (sx, pool_name, response);
               vec_free (pool_name);
+              create->apply_action |= FAR_NAT;
               if (rc)
                 {
                   far_error (response, far,

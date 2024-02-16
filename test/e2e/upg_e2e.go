@@ -1011,7 +1011,7 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 				Nwi:                   util.EncodeFQDN("testing"),
 				IP4TableID:            42000,
 				IP6TableID:            42001,
-				IpfixPolicy:           []byte("default"),
+				IpfixPolicy:           []byte("NatEvent"),
 				IpfixCollectorIP:      ip,
 				IpfixReportInterval:   uint32(7),
 				ObservationDomainID:   uint32(42),
@@ -1038,7 +1038,7 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 				gomega.Expect(msg.IP4TableID).To(gomega.Equal(uint32(42000)))
 				gomega.Expect(msg.IP6TableID).To(gomega.Equal(uint32(42001)))
 				ipfixPolicy := string(bytes.Trim(msg.IpfixPolicy, "\x00"))
-				gomega.Expect(ipfixPolicy).To(gomega.Equal("default"))
+				gomega.Expect(ipfixPolicy).To(gomega.Equal("NatEvent"))
 				gomega.Expect(msg.IpfixCollectorIP.String()).To(gomega.Equal("192.168.42.1"))
 				gomega.Expect(msg.IpfixReportInterval).To(gomega.Equal(uint32(7)))
 				gomega.Expect(msg.ObservationDomainID).To(gomega.Equal(uint32(42)))
@@ -1053,7 +1053,7 @@ var _ = ginkgo.Describe("UPG Binary API", func() {
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(out).To(gomega.ContainSubstring(
 				"testing, ip4-table-id 42000, ip6-table-id 42001, " +
-					"ipfix-policy default, ipfix-collector-ip 192.168.42.1"))
+					"ipfix-policy NatEvent, ipfix-collector-ip 192.168.42.1"))
 
 			req.Add = 0
 			reply = &upf.UpfNwiAddDelReply{}

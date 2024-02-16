@@ -119,8 +119,6 @@ typedef struct
   u32 pkts_unreported;
   u64 bytes;
   u64 bytes_unreported;
-  u64 l4_bytes;
-  u64 l4_bytes_unreported;
 } flow_side_stats_t;
 
 typedef enum
@@ -142,16 +140,20 @@ typedef struct flow_side_tcp_t_
   u32 tsval_offs;
 } flow_side_tcp_t;
 
-typedef struct flow_side_ipfix_t_
+typedef struct flow_ipfix_t_
 {
-  u32 last_exported;
-  u32 info_index;
-} flow_side_ipfix_t;
+  u32 next_export_at; // in seconds, zero means no intermediate reporting
+  u16 context_index;
+  u16 forwarding_policy_index;
+  // up_dst means "upload destination"
+  u16 up_dst_nwi_index;
+  u16 up_dst_sw_if_index;
+  u32 up_dst_fib_index;
+} flow_ipfix_t;
 
 typedef struct flow_side_t_
 {
   flow_side_stats_t stats;
-  flow_side_ipfix_t ipfix;
   flow_side_tcp_t tcp;
 
   u32 pdr_id;
@@ -171,6 +173,7 @@ typedef struct flow_entry
   // key elements indexes are flow_direction_t
   key_directioned_t key;
   u32 session_index;
+
   u8 key_direction : 1; // flow_direction_op_t of bihash key
   u8 is_redirect : 1;
   u8 is_l3_proxy : 1;
@@ -178,8 +181,18 @@ typedef struct flow_entry
   u8 spliced_dirty : 1;
   u8 dont_splice : 1;
   u8 app_detection_done : 1;
-  u8 exported : 1;
-  u8 tcp_state;
+  u8 ipfix_exported : 1; // exported at least once
+
+  u8 tcp_state : 4; // TODO: needs only 3 bits?
+  // should be updated in classify and based on PDR during flow creation
+  u8 uplink_direction : 2;
+  // do not perform ipfix operations for this flow anymore
+  u8 ipfix_disabled : 1;
+
+  // use macro since unsigned will not expand to ~0
+  // direction impossible to detect or not yet detected
+#define FLOW_ENTRY_UPLINK_DIRECTION_UNDEFINED (0b11)
+
   u32 ps_index;
 
   /* timers */
@@ -190,13 +203,14 @@ typedef struct flow_entry
 
   // elements indexes are flow_direction_t
   flow_side_t side[FT_DIRECTION_MAX];
+  flow_ipfix_t ipfix;
 
   u32 application_id; /* L7 app index */
 
   u8 *app_uri;
 
   u64 flow_start_time; /* unix nanoseconds */
-  u64 flow_end_time;   /* unix nanoseconds */
+  u64 flow_last_time;  /* unix nanoseconds */
 
   session_flows_list_anchor_t session_list_anchor;
 
@@ -205,6 +219,9 @@ typedef struct flow_entry
   u32 cpu_index;
   u16 nat_sport;
 } flow_entry_t;
+
+// statically track entry size to prevent increase
+STATIC_ASSERT_SIZEOF (flow_entry_t, 5 * 64);
 
 UPF_LLIST_TEMPLATE_DEFINITIONS (session_flows_list, flow_entry_t,
                                 session_list_anchor);
@@ -487,12 +504,9 @@ flow_update (vlib_main_t *vm, flow_entry_t *f, u8 *iph, u8 is_ip4, u16 len,
     }
 }
 
-int upf_ipfix_flow_stats_update_handler (flow_entry_t *f,
-                                         flow_direction_t direction, u32 now);
-
 __clib_unused always_inline void
 flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
-                   u8 is_ip4, u64 timestamp_ns, u32 now)
+                   u8 is_ip4, u64 timestamp_ns)
 {
   /*
    * Performance note:
@@ -502,34 +516,15 @@ flow_update_stats (vlib_main_t *vm, vlib_buffer_t *b, flow_entry_t *f,
 
   flow_direction_t direction = upf_buffer_opaque (b)->gtpu.direction;
 
-  u8 *iph = vlib_buffer_get_current (b);
-  u8 *l4h = (is_ip4 ? ip4_next_header ((ip4_header_t *) iph) :
-                      ip6_next_header ((ip6_header_t *) iph));
-  u16 l4_len = len - (l4h - iph);
-  u16 diff = 0;
-
-  switch (f->key.proto)
-    {
-    case IP_PROTOCOL_TCP:
-      diff = tcp_header_bytes ((tcp_header_t *) l4h);
-      break;
-    case IP_PROTOCOL_UDP:
-      diff = sizeof (udp_header_t);
-      break;
-    }
-  l4_len = l4_len > diff ? l4_len - diff : 0;
-
   flow_side_stats_t *stats = &flow_side (f, direction)->stats;
   stats->pkts++;
   stats->pkts_unreported++;
   stats->bytes += len;
   stats->bytes_unreported += len;
-  stats->l4_bytes += l4_len;
-  stats->l4_bytes_unreported += l4_len;
 
-  f->flow_end_time = timestamp_ns;
-
-  upf_ipfix_flow_stats_update_handler (f, direction, now);
+  f->flow_last_time = timestamp_ns;
 }
+
+void upf_ipfix_flow_stats_update_handler (flow_entry_t *f, u32 now);
 
 #endif /* __flowtable_h__ */

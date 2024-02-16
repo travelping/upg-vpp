@@ -106,6 +106,7 @@ func newVendorSpecificU8IE(itype uint16, eid uint16, val uint8) *ie.IE {
 }
 
 func (cfg SessionConfig) ipfixTemplateIEs() []*ie.IE {
+	// IEs should be created for uplink FARs only
 	if cfg.IPFIXTemplate == "" {
 		return nil
 	}
@@ -184,7 +185,7 @@ func (cfg SessionConfig) reverseFAR(farID uint32, flag uint8) *ie.IE {
 		ie.NewFARID(farID),
 		ie.NewApplyAction(flag),
 		ie.NewForwardingParameters(fwParams...),
-	}, cfg.ipfixTemplateIEs()...)
+	})
 	return ie.NewCreateFAR(ies...)
 }
 
