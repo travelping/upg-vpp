@@ -2790,6 +2790,14 @@ typedef struct
 } pfcp_decoded_msg_t;
 
 /* Quick message accessors for use without decoding */
+always_inline bool
+pfcp_msg_is_request (uint8_t msg_type)
+{
+  if (msg_type > 10)
+    return (msg_type % 2) == 0;
+  else
+    return (msg_type % 2) == 1;
+}
 
 #define pfcp_node_msg_seq(V)                                                  \
   ((((pfcp_msg_header_t *) (V))->node_hdr.sequence[0] << 16) +                \

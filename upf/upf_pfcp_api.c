@@ -3101,12 +3101,14 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
     {
       /* not enough info in the message to produce any meaningful reply */
       upf_debug ("PFCP: broken message");
+      upf_increment_counter (UPF_PFCP_RECEIVED_CORRUPTED, 0, 1);
       return -1;
     }
 
   if (r != 0) /* if cause != 0 */
     {
       upf_debug ("PFCP: error response %d", r);
+      upf_increment_counter (UPF_PFCP_RECEIVED_CORRUPTED, 0, 1);
       switch (dmsg.type)
         {
         case PFCP_MSG_HEARTBEAT_REQUEST:
@@ -3131,7 +3133,21 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
       return r;
     }
 
+  // handle message
   r = msg_handlers[type](msg, &dmsg);
+
+  bool is_request = pfcp_msg_is_request (type);
+  if (r == 0)
+    {
+      upf_increment_counter (
+        is_request ? UPF_PFCP_REQUEST_OK : UPF_PFCP_RESPONSE_OK, 0, 1);
+    }
+  else
+    {
+      upf_increment_counter (
+        is_request ? UPF_PFCP_REQUEST_ERROR : UPF_PFCP_RESPONSE_ERROR, 0, 1);
+    }
+
   pfcp_free_dmsg_contents (&dmsg);
 
   return r;

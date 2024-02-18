@@ -519,7 +519,15 @@ typedef enum
   UPF_TIMERS_MISSED = 8,
   UPF_IPFIX_RECORDS_SENT = 9,
   UPF_IPFIX_MESSAGES_SENT = 10,
-  UPF_N_COUNTERS = 11,
+  // total of PFCP messages received - corrupted
+  UPF_PFCP_RECEIVED_CORRUPTED = 11,
+  // PFCP request received - resulted with OK or ERROR
+  UPF_PFCP_REQUEST_OK = 12,
+  UPF_PFCP_REQUEST_ERROR = 13,
+  // PFCP response received - resulted with OK or ERROR
+  UPF_PFCP_RESPONSE_OK = 14,
+  UPF_PFCP_RESPONSE_ERROR = 15,
+  UPF_N_COUNTERS = 16,
 } upf_counters_type_t;
 
 #define foreach_upf_counter_name                                              \
@@ -533,7 +541,12 @@ typedef enum
   _ (FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)                   \
   _ (TIMERS_MISSED, timers_missed, upf)                                       \
   _ (IPFIX_RECORDS_SENT, ipfix_records_sent, upf)                             \
-  _ (IPFIX_MESSAGES_SENT, ipfix_messages_sent, upf)
+  _ (IPFIX_MESSAGES_SENT, ipfix_messages_sent, upf)                           \
+  _ (PFCP_RECEIVED_CORRUPTED, pfcp_received_incorrect, upf)                   \
+  _ (PFCP_REQUEST_OK, pfcp_request_ok, upf)                                   \
+  _ (PFCP_REQUEST_ERROR, pfcp_request_error, upf)                             \
+  _ (PFCP_RESPONSE_OK, pfcp_response_ok, upf)                                 \
+  _ (PFCP_RESPONSE_ERROR, pfcp_response_error, upf)
 
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */
@@ -1172,5 +1185,21 @@ u8 *format_upf_policy (u8 *s, va_list *args);
 u8 *upf_name_to_labels (u8 *name);
 
 __clib_export void upf_nat_get_src_port (vlib_buffer_t *b, u16 port);
+
+always_inline void
+upf_increment_counter (upf_counters_type_t counter, u32 index, u64 count)
+{
+  upf_main_t *um = &upf_main;
+  vlib_increment_simple_counter (&um->upf_simple_counters[counter],
+                                 vlib_get_thread_index (), index, count);
+}
+
+always_inline void
+upf_decrement_counter (upf_counters_type_t counter, u32 index, u64 count)
+{
+  upf_main_t *um = &upf_main;
+  vlib_decrement_simple_counter (&um->upf_simple_counters[counter],
+                                 vlib_get_thread_index (), index, count);
+}
 
 #endif /* __included_upf_h__ */

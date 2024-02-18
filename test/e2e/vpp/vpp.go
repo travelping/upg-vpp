@@ -465,6 +465,13 @@ func (vi *VPPInstance) Ctl(format string, args ...interface{}) (string, error) {
 	return reply.Reply, nil
 }
 
+func (vi *VPPInstance) DumpStats(stat string) (string, error) {
+	cmd := exec.Command("vpp_get_stats", "socket-name", vi.startupCfg.StatsSock, "dump", stat)
+	output, err := cmd.Output()
+
+	return string(output), err
+}
+
 func (vi *VPPInstance) setupLoopback() error {
 	_, ipNet, _ := net.ParseCIDR("127.0.0.1/8")
 
