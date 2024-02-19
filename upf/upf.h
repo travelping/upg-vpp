@@ -521,34 +521,116 @@ typedef enum
   UPF_IPFIX_MESSAGES_SENT = 10,
   // total of PFCP messages received - corrupted
   UPF_PFCP_RECEIVED_CORRUPTED = 11,
-  // PFCP request received - resulted with OK or ERROR
-  UPF_PFCP_REQUEST_OK = 12,
-  UPF_PFCP_REQUEST_ERROR = 13,
-  // PFCP response received - resulted with OK or ERROR
-  UPF_PFCP_RESPONSE_OK = 14,
-  UPF_PFCP_RESPONSE_ERROR = 15,
-  UPF_SESSION_REPORTS = 16,
-  UPF_N_COUNTERS = 17,
+  // PFCP request received
+  // parts of program depend on order - OK then ERROR for the same type
+  UPF_PFCP_HB_REQUEST_OK = 12,
+  UPF_PFCP_HB_REQUEST_ERROR = 13,
+  UPF_PFCP_HB_RESPONSE_OK = 14,
+  UPF_PFCP_HB_RESPONSE_ERROR = 15,
+  UPF_PFCP_PFD_MANAGEMENT_REQUEST_OK = 16,
+  UPF_PFCP_PFD_MANAGEMENT_REQUEST_ERROR = 17,
+  UPF_PFCP_PFD_MANAGEMENT_RESPONSE_OK = 18,
+  UPF_PFCP_PFD_MANAGEMENT_RESPONSE_ERROR = 19,
+  UPF_PFCP_ASSOCIATION_SETUP_REQUEST_OK = 20,
+  UPF_PFCP_ASSOCIATION_SETUP_REQUEST_ERROR = 21,
+  UPF_PFCP_ASSOCIATION_SETUP_RESPONSE_OK = 22,
+  UPF_PFCP_ASSOCIATION_SETUP_RESPONSE_ERROR = 23,
+  UPF_PFCP_ASSOCIATION_UPDATE_REQUEST_OK = 24,
+  UPF_PFCP_ASSOCIATION_UPDATE_REQUEST_ERROR = 25,
+  UPF_PFCP_ASSOCIATION_UPDATE_RESPONSE_OK = 26,
+  UPF_PFCP_ASSOCIATION_UPDATE_RESPONSE_ERROR = 27,
+  UPF_PFCP_ASSOCIATION_RELEASE_REQUEST_OK = 28,
+  UPF_PFCP_ASSOCIATION_RELEASE_REQUEST_ERROR = 29,
+  UPF_PFCP_ASSOCIATION_RELEASE_RESPONSE_OK = 30,
+  UPF_PFCP_ASSOCIATION_RELEASE_RESPONSE_ERROR = 31,
+  // PFCP but sent the other way
+  UPF_PFCP_NODE_REPORT_REQUEST_OK = 32,
+  UPF_PFCP_NODE_REPORT_REQUEST_ERROR = 33,
+  UPF_PFCP_NODE_REPORT_RESPONSE_OK = 34,
+  UPF_PFCP_NODE_REPORT_RESPONSE_ERROR = 35,
+  UPF_PFCP_SESSION_SET_DELETION_REQUEST_OK = 36,
+  UPF_PFCP_SESSION_SET_DELETION_REQUEST_ERROR = 37,
+  UPF_PFCP_SESSION_SET_DELETION_RESPONSE_OK = 38,
+  UPF_PFCP_SESSION_SET_DELETION_RESPONSE_ERROR = 39,
+  UPF_PFCP_SESSION_ESTABLISHMENT_REQUEST_OK = 40,
+  UPF_PFCP_SESSION_ESTABLISHMENT_REQUEST_ERROR = 41,
+  UPF_PFCP_SESSION_ESTABLISHMENT_RESPONSE_OK = 42,
+  UPF_PFCP_SESSION_ESTABLISHMENT_RESPONSE_ERROR = 43,
+  UPF_PFCP_SESSION_MODIFICATION_REQUEST_OK = 44,
+  UPF_PFCP_SESSION_MODIFICATION_REQUEST_ERROR = 45,
+  UPF_PFCP_SESSION_MODIFICATION_RESPONSE_OK = 46,
+  UPF_PFCP_SESSION_MODIFICATION_RESPONSE_ERROR = 47,
+  UPF_PFCP_SESSION_DELETION_REQUEST_OK = 48,
+  UPF_PFCP_SESSION_DELETION_REQUEST_ERROR = 49,
+  UPF_PFCP_SESSION_DELETION_RESPONSE_OK = 50,
+  UPF_PFCP_SESSION_DELETION_RESPONSE_ERROR = 51,
+  UPF_PFCP_SESSION_REPORT_REQUEST_OK = 52,
+  UPF_PFCP_SESSION_REPORT_REQUEST_ERROR = 53,
+  UPF_PFCP_SESSION_REPORT_RESPONSE_OK = 54,
+  UPF_PFCP_SESSION_REPORT_RESPONSE_ERROR = 55,
+
+  UPF_N_COUNTERS = 56,
 } upf_counters_type_t;
 
-#define foreach_upf_counter_name                                              \
-  _ (ASSOC_COUNTER, total_assoc, upf)                                         \
-  _ (SESSIONS_COUNTER, total_sessions, upf)                                   \
-  _ (FLOW_COUNTER, total_flows, upf)                                          \
-  _ (FLOWS_STITCHED, total_stitched, upf)                                     \
-  _ (FLOWS_NOT_STITCHED_MSS_MISMATCH, mss_mismatch, upf)                      \
-  _ (FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP, tcp_ops_tstamp, upf)               \
-  _ (FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT, tcp_ops_sack_permit, upf)        \
-  _ (FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)                   \
-  _ (TIMERS_MISSED, timers_missed, upf)                                       \
-  _ (IPFIX_RECORDS_SENT, ipfix_records_sent, upf)                             \
-  _ (IPFIX_MESSAGES_SENT, ipfix_messages_sent, upf)                           \
-  _ (PFCP_RECEIVED_CORRUPTED, pfcp_received_incorrect, upf)                   \
-  _ (PFCP_REQUEST_OK, pfcp_request_ok, upf)                                   \
-  _ (PFCP_REQUEST_ERROR, pfcp_request_error, upf)                             \
-  _ (PFCP_RESPONSE_OK, pfcp_response_ok, upf)                                 \
-  _ (PFCP_RESPONSE_ERROR, pfcp_response_error, upf)                           \
-  _ (SESSION_REPORTS, session_reports, upf)
+/* clang-format off */
+#define foreach_upf_counter_name                                                                \
+  _ (ASSOC_COUNTER, total_assoc, upf)                                                           \
+  _ (SESSIONS_COUNTER, total_sessions, upf)                                                     \
+  _ (FLOW_COUNTER, total_flows, upf)                                                            \
+  _ (FLOWS_STITCHED, total_stitched, upf)                                                       \
+  _ (FLOWS_NOT_STITCHED_MSS_MISMATCH, mss_mismatch, upf)                                        \
+  _ (FLOWS_NOT_STITCHED_TCP_OPS_TIMESTAMP, tcp_ops_tstamp, upf)                                 \
+  _ (FLOWS_NOT_STITCHED_TCP_OPS_SACK_PERMIT, tcp_ops_sack_permit, upf)                          \
+  _ (FLOWS_STITCHED_DIRTY_FIFOS, stitched_dirty_fifos, upf)                                     \
+  _ (TIMERS_MISSED, timers_missed, upf)                                                         \
+  _ (IPFIX_RECORDS_SENT, ipfix_records_sent, upf)                                               \
+  _ (IPFIX_MESSAGES_SENT, ipfix_messages_sent, upf)                                             \
+  _ (PFCP_RECEIVED_CORRUPTED, pfcp_received_incorrect, upf)                                     \
+  _ (PFCP_HB_REQUEST_OK, pfcp_heartbeat_request_ok, upf)                                        \
+  _ (PFCP_HB_REQUEST_ERROR, pfcp_heartbeat_request_error, upf)                                  \
+  _ (PFCP_HB_RESPONSE_OK, pfcp_heartbeat_response_ok, upf)                                      \
+  _ (PFCP_HB_RESPONSE_ERROR, pfcp_heartbeat_response_error, upf)                                \
+  _ (PFCP_PFD_MANAGEMENT_REQUEST_OK, pfcp_pfd_management_request_ok, upf)                       \
+  _ (PFCP_PFD_MANAGEMENT_REQUEST_ERROR, pfcp_pfd_management_request_error, upf)                 \
+  _ (PFCP_PFD_MANAGEMENT_RESPONSE_OK, pfcp_pfd_management_response_ok, upf)                     \
+  _ (PFCP_PFD_MANAGEMENT_RESPONSE_ERROR, pfcp_pfd_management_response_error, upf)               \
+  _ (PFCP_ASSOCIATION_SETUP_REQUEST_OK, pfcp_association_setup_request_ok, upf)                 \
+  _ (PFCP_ASSOCIATION_SETUP_REQUEST_ERROR, pfcp_association_setup_request_error, upf)           \
+  _ (PFCP_ASSOCIATION_SETUP_RESPONSE_OK, pfcp_association_setup_response_ok, upf)               \
+  _ (PFCP_ASSOCIATION_SETUP_RESPONSE_ERROR, pfcp_association_setup_response_error, upf)         \
+  _ (PFCP_ASSOCIATION_UPDATE_REQUEST_OK, pfcp_association_update_request_ok, upf)               \
+  _ (PFCP_ASSOCIATION_UPDATE_REQUEST_ERROR, pfcp_association_update_request_error, upf)         \
+  _ (PFCP_ASSOCIATION_UPDATE_RESPONSE_OK, pfcp_association_update_response_ok, upf)             \
+  _ (PFCP_ASSOCIATION_UPDATE_RESPONSE_ERROR, pfcp_association_update_response_error, upf)       \
+  _ (PFCP_ASSOCIATION_RELEASE_REQUEST_OK, pfcp_association_release_request_ok, upf)             \
+  _ (PFCP_ASSOCIATION_RELEASE_REQUEST_ERROR, pfcp_association_release_request_error, upf)       \
+  _ (PFCP_ASSOCIATION_RELEASE_RESPONSE_OK, pfcp_association_release_response_ok, upf)           \
+  _ (PFCP_ASSOCIATION_RELEASE_RESPONSE_ERROR, pfcp_association_release_response_error, upf)     \
+  _ (PFCP_NODE_REPORT_REQUEST_OK, pfcp_node_report_request_ok, upf)                             \
+  _ (PFCP_NODE_REPORT_REQUEST_ERROR, pfcp_node_report_request_error, upf)                       \
+  _ (PFCP_NODE_REPORT_RESPONSE_OK, pfcp_node_report_response_ok, upf)                           \
+  _ (PFCP_NODE_REPORT_RESPONSE_ERROR, pfcp_node_report_response_error, upf)                     \
+  _ (PFCP_SESSION_SET_DELETION_REQUEST_OK, pfcp_session_set_deletion_request_ok, upf)           \
+  _ (PFCP_SESSION_SET_DELETION_REQUEST_ERROR, pfcp_session_set_deletion_request_error, upf)     \
+  _ (PFCP_SESSION_SET_DELETION_RESPONSE_OK, pfcp_session_set_deletion_response_ok, upf)         \
+  _ (PFCP_SESSION_SET_DELETION_RESPONSE_ERROR, pfcp_session_set_deletion_response_error, upf)   \
+  _ (PFCP_SESSION_ESTABLISHMENT_REQUEST_OK, pfcp_session_establishment_request_ok, upf)         \
+  _ (PFCP_SESSION_ESTABLISHMENT_REQUEST_ERROR, pfcp_session_establishment_request_error, upf)   \
+  _ (PFCP_SESSION_ESTABLISHMENT_RESPONSE_OK, pfcp_session_establishment_response_ok, upf)       \
+  _ (PFCP_SESSION_ESTABLISHMENT_RESPONSE_ERROR, pfcp_session_establishment_response_error, upf) \
+  _ (PFCP_SESSION_MODIFICATION_REQUEST_OK, pfcp_session_modification_request_ok, upf)           \
+  _ (PFCP_SESSION_MODIFICATION_REQUEST_ERROR, pfcp_session_modification_request_error, upf)     \
+  _ (PFCP_SESSION_MODIFICATION_RESPONSE_OK, pfcp_session_modification_response_ok, upf)         \
+  _ (PFCP_SESSION_MODIFICATION_RESPONSE_ERROR, pfcp_session_modification_response_error, upf)   \
+  _ (PFCP_SESSION_DELETION_REQUEST_OK, pfcp_session_deletion_request_ok, upf)                   \
+  _ (PFCP_SESSION_DELETION_REQUEST_ERROR, pfcp_session_deletion_request_error, upf)             \
+  _ (PFCP_SESSION_DELETION_RESPONSE_OK, pfcp_session_deletion_response_ok, upf)                 \
+  _ (PFCP_SESSION_DELETION_RESPONSE_ERROR, pfcp_session_deletion_response_error, upf)           \
+  _ (PFCP_SESSION_REPORT_REQUEST_OK, pfcp_session_report_request_ok, upf)                       \
+  _ (PFCP_SESSION_REPORT_REQUEST_ERROR, pfcp_session_report_request_error, upf)                 \
+  _ (PFCP_SESSION_REPORT_RESPONSE_OK, pfcp_session_report_response_ok, upf)                     \
+  _ (PFCP_SESSION_REPORT_RESPONSE_ERROR, pfcp_session_report_response_error, upf)
+/* clang-format on */
 
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */
