@@ -2790,6 +2790,7 @@ typedef struct
 } pfcp_decoded_msg_t;
 
 /* Quick message accessors for use without decoding */
+
 #define pfcp_node_msg_seq(V)                                                  \
   ((((pfcp_msg_header_t *) (V))->node_hdr.sequence[0] << 16) +                \
    (((pfcp_msg_header_t *) (V))->node_hdr.sequence[1] << 8) +                 \

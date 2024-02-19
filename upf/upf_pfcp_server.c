@@ -811,7 +811,6 @@ upf_pfcp_session_up_deletion_report (upf_session_t *sx)
   memset (req, 0, sizeof (*req));
   UPF_SET_BIT (req->grp.fields, SESSION_REPORT_REQUEST_REPORT_TYPE);
 
-  bool has_report = false;
   active = pfcp_get_rules (sx, PFCP_ACTIVE);
   if (vec_len (active->urr) != 0)
     {
@@ -827,7 +826,6 @@ upf_pfcp_session_up_deletion_report (upf_session_t *sx)
         now);
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
                               &req->usage_report);
-      has_report = true;
       upf_usage_report_free (&report);
     }
   else

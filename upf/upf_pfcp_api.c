@@ -2838,10 +2838,8 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
     }
 
   if (has_report)
-    {
-      upf_usage_report_build (sess, NULL, active->urr, now, &report,
-                              &resp->usage_report);
-    }
+    upf_usage_report_build (sess, NULL, active->urr, now, &report,
+                            &resp->usage_report);
 
 out_update_finish:
   pfcp_update_finish (sess);
@@ -2854,9 +2852,7 @@ out_send_resp:
 
   upf_pfcp_send_response (msg, &resp_dmsg);
   if (has_report)
-    {
-      upf_usage_report_free (&report);
-    }
+    upf_usage_report_free (&report);
 
   return r;
 }
@@ -2900,7 +2896,6 @@ handle_session_deletion_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
   pfcp_disable_session (sess);
 
   active = pfcp_get_rules (sess, PFCP_ACTIVE);
-  bool has_report = false;
   if (vec_len (active->urr) != 0)
     {
       upf_usage_report_t report;
@@ -2912,7 +2907,6 @@ handle_session_deletion_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
                             PFCP_USAGE_REPORT_TRIGGER_TERMINATION_REPORT, now);
       upf_usage_report_build (sess, NULL, active->urr, now, &report,
                               &resp->usage_report);
-      has_report = true;
       upf_usage_report_free (&report);
     }
 
