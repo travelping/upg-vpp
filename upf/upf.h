@@ -527,7 +527,8 @@ typedef enum
   // PFCP response received - resulted with OK or ERROR
   UPF_PFCP_RESPONSE_OK = 14,
   UPF_PFCP_RESPONSE_ERROR = 15,
-  UPF_N_COUNTERS = 16,
+  UPF_SESSION_REPORTS = 16,
+  UPF_N_COUNTERS = 17,
 } upf_counters_type_t;
 
 #define foreach_upf_counter_name                                              \
@@ -546,7 +547,8 @@ typedef enum
   _ (PFCP_REQUEST_OK, pfcp_request_ok, upf)                                   \
   _ (PFCP_REQUEST_ERROR, pfcp_request_error, upf)                             \
   _ (PFCP_RESPONSE_OK, pfcp_response_ok, upf)                                 \
-  _ (PFCP_RESPONSE_ERROR, pfcp_response_error, upf)
+  _ (PFCP_RESPONSE_ERROR, pfcp_response_error, upf)                           \
+  _ (SESSION_REPORTS, session_reports, upf)
 
 /* TODO: measure if more optimize cache line aware layout
  *       of the counters and quotas has any performance impcat */

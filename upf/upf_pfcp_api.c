@@ -2664,7 +2664,7 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
   upf_usage_report_t report;
   pfcp_ie_query_urr_t *qry;
   pfcp_ie_remove_urr_t *rurr;
-  bool have_report = false;
+  bool has_report = false;
   struct rules *active;
   upf_session_t *sess;
   f64 now = psm->now;
@@ -2705,7 +2705,7 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
       vec_len (req->remove_urr) != 0)
     {
       upf_usage_report_init (&report, vec_len (active->urr));
-      have_report = true;
+      has_report = true;
       UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 
       vec_foreach (rurr, req->remove_urr)
@@ -2801,9 +2801,9 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
       vec_len (req->query_urr) != 0)
     {
       UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
-      if (!have_report)
+      if (!has_report)
         {
-          have_report = true;
+          has_report = true;
           upf_usage_report_init (&report, vec_len (active->urr));
         }
 
@@ -2823,9 +2823,9 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
                       SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS) &&
            req->pfcpsmreq_flags & PFCP_PFCPSMREQ_QAURR)
     {
-      if (!have_report)
+      if (!has_report)
         {
-          have_report = true;
+          has_report = true;
           upf_usage_report_init (&report, vec_len (active->urr));
         }
       if (vec_len (active->urr) != 0)
@@ -2837,9 +2837,11 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
         }
     }
 
-  if (have_report)
-    upf_usage_report_build (sess, NULL, active->urr, now, &report,
-                            &resp->usage_report);
+  if (has_report)
+    {
+      upf_usage_report_build (sess, NULL, active->urr, now, &report,
+                              &resp->usage_report);
+    }
 
 out_update_finish:
   pfcp_update_finish (sess);
@@ -2851,8 +2853,11 @@ out_send_resp:
     resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
   upf_pfcp_send_response (msg, &resp_dmsg);
-  if (have_report)
-    upf_usage_report_free (&report);
+  if (has_report)
+    {
+      upf_increment_counter (UPF_SESSION_REPORTS, 0, 1);
+      upf_usage_report_free (&report);
+    }
 
   return r;
 }
@@ -2896,6 +2901,7 @@ handle_session_deletion_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
   pfcp_disable_session (sess);
 
   active = pfcp_get_rules (sess, PFCP_ACTIVE);
+  bool has_report = false;
   if (vec_len (active->urr) != 0)
     {
       upf_usage_report_t report;
@@ -2907,6 +2913,7 @@ handle_session_deletion_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
                             PFCP_USAGE_REPORT_TRIGGER_TERMINATION_REPORT, now);
       upf_usage_report_build (sess, NULL, active->urr, now, &report,
                               &resp->usage_report);
+      has_report = true;
       upf_usage_report_free (&report);
     }
 
@@ -2918,6 +2925,8 @@ handle_session_deletion_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
 
 out_send_resp_no_session:
   upf_pfcp_send_response (msg, &resp_dmsg);
+  if (has_report)
+    upf_increment_counter (UPF_SESSION_REPORTS, 0, 1);
 
   return r;
 }
