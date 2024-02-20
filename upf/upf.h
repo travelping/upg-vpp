@@ -1278,11 +1278,11 @@ upf_increment_counter (upf_counters_type_t counter, u32 index, u64 increment)
 }
 
 always_inline void
-upf_decrement_counter (upf_counters_type_t counter, u32 index, u64 count)
+upf_decrement_counter (upf_counters_type_t counter, u32 index, u64 increment)
 {
   upf_main_t *um = &upf_main;
   vlib_decrement_simple_counter (&um->upf_simple_counters[counter],
-                                 vlib_get_thread_index (), index, count);
+                                 vlib_get_thread_index (), index, increment);
 }
 
 #endif /* __included_upf_h__ */
