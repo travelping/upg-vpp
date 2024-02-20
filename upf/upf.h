@@ -521,12 +521,12 @@ typedef enum
   UPF_IPFIX_MESSAGES_SENT = 10,
   // total of PFCP messages received - corrupted
   UPF_PFCP_RECEIVED_CORRUPTED = 11,
-  // PFCP request received
-  // parts of program depend on order - OK then ERROR for the same type
-  UPF_PFCP_HB_REQUEST_OK = 12,
-  UPF_PFCP_HB_REQUEST_ERROR = 13,
-  UPF_PFCP_HB_RESPONSE_OK = 14,
-  UPF_PFCP_HB_RESPONSE_ERROR = 15,
+  // PFCP messages received
+  // _ERROR counter should always follow _OK counter
+  UPF_PFCP_RX_HB_REQUEST_OK = 12,
+  UPF_PFCP_RX_HB_REQUEST_ERROR = 13,
+  UPF_PFCP_RX_HB_RESPONSE_OK = 14,
+  UPF_PFCP_RX_HB_RESPONSE_ERROR = 15,
   UPF_PFCP_PFD_MANAGEMENT_REQUEST_OK = 16,
   UPF_PFCP_PFD_MANAGEMENT_REQUEST_ERROR = 17,
   UPF_PFCP_PFD_MANAGEMENT_RESPONSE_OK = 18,
@@ -543,7 +543,6 @@ typedef enum
   UPF_PFCP_ASSOCIATION_RELEASE_REQUEST_ERROR = 29,
   UPF_PFCP_ASSOCIATION_RELEASE_RESPONSE_OK = 30,
   UPF_PFCP_ASSOCIATION_RELEASE_RESPONSE_ERROR = 31,
-  // PFCP but sent the other way
   UPF_PFCP_NODE_REPORT_REQUEST_OK = 32,
   UPF_PFCP_NODE_REPORT_REQUEST_ERROR = 33,
   UPF_PFCP_NODE_REPORT_RESPONSE_OK = 34,
@@ -586,10 +585,10 @@ typedef enum
   _ (IPFIX_RECORDS_SENT, ipfix_records_sent, upf)                                               \
   _ (IPFIX_MESSAGES_SENT, ipfix_messages_sent, upf)                                             \
   _ (PFCP_RECEIVED_CORRUPTED, pfcp_received_incorrect, upf)                                     \
-  _ (PFCP_HB_REQUEST_OK, pfcp_heartbeat_request_ok, upf)                                        \
-  _ (PFCP_HB_REQUEST_ERROR, pfcp_heartbeat_request_error, upf)                                  \
-  _ (PFCP_HB_RESPONSE_OK, pfcp_heartbeat_response_ok, upf)                                      \
-  _ (PFCP_HB_RESPONSE_ERROR, pfcp_heartbeat_response_error, upf)                                \
+  _ (PFCP_RX_HB_REQUEST_OK, pfcp_rx_heartbeat_request_ok, upf)                                        \
+  _ (PFCP_RX_HB_REQUEST_ERROR, pfcp_rx_heartbeat_request_error, upf)                                  \
+  _ (PFCP_RX_HB_RESPONSE_OK, pfcp_rx_heartbeat_response_ok, upf)                                      \
+  _ (PFCP_RX_HB_RESPONSE_ERROR, pfcp_rx_heartbeat_response_error, upf)                                \
   _ (PFCP_PFD_MANAGEMENT_REQUEST_OK, pfcp_pfd_management_request_ok, upf)                       \
   _ (PFCP_PFD_MANAGEMENT_REQUEST_ERROR, pfcp_pfd_management_request_error, upf)                 \
   _ (PFCP_PFD_MANAGEMENT_RESPONSE_OK, pfcp_pfd_management_response_ok, upf)                     \
@@ -1271,11 +1270,11 @@ u8 *upf_name_to_labels (u8 *name);
 __clib_export void upf_nat_get_src_port (vlib_buffer_t *b, u16 port);
 
 always_inline void
-upf_increment_counter (upf_counters_type_t counter, u32 index, u64 count)
+upf_increment_counter (upf_counters_type_t counter, u32 index, u64 increment)
 {
   upf_main_t *um = &upf_main;
   vlib_increment_simple_counter (&um->upf_simple_counters[counter],
-                                 vlib_get_thread_index (), index, count);
+                                 vlib_get_thread_index (), index, increment);
 }
 
 always_inline void

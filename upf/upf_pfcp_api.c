@@ -3044,8 +3044,8 @@ typedef struct
 
 /* clang-format off */
 static msg_handler_t msg_handlers[] = {
-  [PFCP_MSG_HEARTBEAT_REQUEST] = { handle_heartbeat_request, UPF_PFCP_HB_REQUEST_OK },
-  [PFCP_MSG_HEARTBEAT_RESPONSE] = { handle_heartbeat_response, UPF_PFCP_HB_RESPONSE_OK },
+  [PFCP_MSG_HEARTBEAT_REQUEST] = { handle_heartbeat_request, UPF_PFCP_RX_HB_REQUEST_OK },
+  [PFCP_MSG_HEARTBEAT_RESPONSE] = { handle_heartbeat_response, UPF_PFCP_RX_HB_RESPONSE_OK },
   [PFCP_MSG_PFD_MANAGEMENT_REQUEST] = { handle_pfd_management_request, UPF_PFCP_PFD_MANAGEMENT_REQUEST_OK },
   [PFCP_MSG_PFD_MANAGEMENT_RESPONSE] = { handle_pfd_management_response, UPF_PFCP_PFD_MANAGEMENT_RESPONSE_OK },
   [PFCP_MSG_ASSOCIATION_SETUP_REQUEST] = { handle_association_setup_request, UPF_PFCP_ASSOCIATION_SETUP_REQUEST_OK },
@@ -3098,6 +3098,10 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
     }
 
   r = pfcp_decode_msg (msg->data, vec_len (msg->data), &dmsg, &err);
+
+  upf_counters_type_t counter =
+    r == 0 ? handler->counter : handler->counter + 1;
+
   if (r < 0)
     {
       /* not enough info in the message to produce any meaningful reply */
@@ -3109,7 +3113,6 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
   if (r != 0) /* if cause != 0 */
     {
       upf_debug ("PFCP: error response %d", r);
-      upf_increment_counter (UPF_PFCP_RECEIVED_CORRUPTED, 0, 1);
       switch (dmsg.type)
         {
         case PFCP_MSG_HEARTBEAT_REQUEST:
@@ -3129,16 +3132,14 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
           break;
         }
 
-      pfcp_free_dmsg_contents (&dmsg);
       vec_free (err);
-      return r;
+      goto count;
     }
 
   // handle message
   r = handler->fun (msg, &dmsg);
 
-  upf_counters_type_t counter =
-    r == 0 ? handler->counter : handler->counter + 1;
+count:
   upf_increment_counter (counter, 0, 1);
 
   pfcp_free_dmsg_contents (&dmsg);
