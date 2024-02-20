@@ -523,10 +523,10 @@ typedef enum
   UPF_PFCP_RECEIVED_CORRUPTED = 11,
   // PFCP messages received
   // _ERROR counter should always follow _OK counter
-  UPF_PFCP_RX_HB_REQUEST_OK = 12,
-  UPF_PFCP_RX_HB_REQUEST_ERROR = 13,
-  UPF_PFCP_RX_HB_RESPONSE_OK = 14,
-  UPF_PFCP_RX_HB_RESPONSE_ERROR = 15,
+  UPF_PFCP_HB_REQUEST_OK = 12,
+  UPF_PFCP_HB_REQUEST_ERROR = 13,
+  UPF_PFCP_HB_RESPONSE_OK = 14,
+  UPF_PFCP_HB_RESPONSE_ERROR = 15,
   UPF_PFCP_PFD_MANAGEMENT_REQUEST_OK = 16,
   UPF_PFCP_PFD_MANAGEMENT_REQUEST_ERROR = 17,
   UPF_PFCP_PFD_MANAGEMENT_RESPONSE_OK = 18,
@@ -585,10 +585,10 @@ typedef enum
   _ (IPFIX_RECORDS_SENT, ipfix_records_sent, upf)                                               \
   _ (IPFIX_MESSAGES_SENT, ipfix_messages_sent, upf)                                             \
   _ (PFCP_RECEIVED_CORRUPTED, pfcp_received_incorrect, upf)                                     \
-  _ (PFCP_RX_HB_REQUEST_OK, pfcp_rx_heartbeat_request_ok, upf)                                        \
-  _ (PFCP_RX_HB_REQUEST_ERROR, pfcp_rx_heartbeat_request_error, upf)                                  \
-  _ (PFCP_RX_HB_RESPONSE_OK, pfcp_rx_heartbeat_response_ok, upf)                                      \
-  _ (PFCP_RX_HB_RESPONSE_ERROR, pfcp_rx_heartbeat_response_error, upf)                                \
+  _ (PFCP_HB_REQUEST_OK, pfcp_heartbeat_request_ok, upf)                                        \
+  _ (PFCP_HB_REQUEST_ERROR, pfcp_heartbeat_request_error, upf)                                  \
+  _ (PFCP_HB_RESPONSE_OK, pfcp_heartbeat_response_ok, upf)                                      \
+  _ (PFCP_HB_RESPONSE_ERROR, pfcp_heartbeat_response_error, upf)                                \
   _ (PFCP_PFD_MANAGEMENT_REQUEST_OK, pfcp_pfd_management_request_ok, upf)                       \
   _ (PFCP_PFD_MANAGEMENT_REQUEST_ERROR, pfcp_pfd_management_request_error, upf)                 \
   _ (PFCP_PFD_MANAGEMENT_RESPONSE_OK, pfcp_pfd_management_response_ok, upf)                     \

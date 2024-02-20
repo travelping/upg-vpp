@@ -3044,8 +3044,8 @@ typedef struct
 
 /* clang-format off */
 static msg_handler_t msg_handlers[] = {
-  [PFCP_MSG_HEARTBEAT_REQUEST] = { handle_heartbeat_request, UPF_PFCP_RX_HB_REQUEST_OK },
-  [PFCP_MSG_HEARTBEAT_RESPONSE] = { handle_heartbeat_response, UPF_PFCP_RX_HB_RESPONSE_OK },
+  [PFCP_MSG_HEARTBEAT_REQUEST] = { handle_heartbeat_request, UPF_PFCP_HB_REQUEST_OK },
+  [PFCP_MSG_HEARTBEAT_RESPONSE] = { handle_heartbeat_response, UPF_PFCP_HB_RESPONSE_OK },
   [PFCP_MSG_PFD_MANAGEMENT_REQUEST] = { handle_pfd_management_request, UPF_PFCP_PFD_MANAGEMENT_REQUEST_OK },
   [PFCP_MSG_PFD_MANAGEMENT_RESPONSE] = { handle_pfd_management_response, UPF_PFCP_PFD_MANAGEMENT_RESPONSE_OK },
   [PFCP_MSG_ASSOCIATION_SETUP_REQUEST] = { handle_association_setup_request, UPF_PFCP_ASSOCIATION_SETUP_REQUEST_OK },
