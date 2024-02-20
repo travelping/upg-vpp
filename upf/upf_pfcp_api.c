@@ -1939,7 +1939,8 @@ handle_update_urr (upf_session_t *sx, pfcp_ie_update_urr_t *update_urr,
       update->methods = urr->measurement_method;
       update->triggers = OPT (urr, UPDATE_URR_REPORTING_TRIGGERS,
                               reporting_triggers, update->triggers);
-      update->status &= ~(URR_OVER_QUOTA | URR_REPORTED);
+      update->status &=
+        ~(URR_OVER_QUOTA | URR_OVER_VOLUME_THRESHOLD | URR_REPORTED);
 
       if (ISSET_BIT (urr->grp.fields, UPDATE_URR_MEASUREMENT_PERIOD))
         {

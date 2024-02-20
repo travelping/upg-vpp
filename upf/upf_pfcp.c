@@ -2485,13 +2485,11 @@ urr_increment_and_check_counter (u64 *packets, u64 *bytes, u64 *consumed,
 {
   int r = URR_OK;
 
-  if (quota != 0 &&
-      PREDICT_FALSE (*consumed < quota && *consumed + n_bytes >= quota))
+  if (quota != 0 && PREDICT_FALSE (*consumed + n_bytes >= quota))
     r |= URR_QUOTA_EXHAUSTED;
   *consumed += n_bytes;
 
-  if (threshold != 0 &&
-      PREDICT_FALSE (*bytes < threshold && *bytes + n_bytes >= threshold))
+  if (threshold != 0 && PREDICT_FALSE (*bytes + n_bytes >= threshold))
     r |= URR_THRESHOLD_REACHED;
   *bytes += n_bytes;
 
@@ -2623,7 +2621,7 @@ display_packet_for_urr (vlib_main_t *vm, vlib_buffer_t *b,
 /**
  * @brief Function to process URRs.
  *
- * @return true if the packet should be dropped, false otherwise
+ * @return true if the packet consumed quota and is allowed to be forwarded
  */
 bool
 process_urrs (vlib_main_t *vm, upf_session_t *sess, const char *node_name,
@@ -2699,9 +2697,10 @@ process_urrs (vlib_main_t *vm, upf_session_t *sess, const char *node_name,
         urr->time_of_first_packet = now;
       urr->time_of_last_packet = now;
 
-      if ((urr->methods & PFCP_URR_VOLUME))
+      if ((urr->methods & PFCP_URR_VOLUME) && !(urr->status & URR_OVER_QUOTA))
         {
           uword len = vlib_buffer_length_in_chain (vm, b);
+          int vol_r = URR_OK;
 
 #define urr_incr_and_check(V, D, L)                                           \
   urr_increment_and_check_counter (&V.measure.packets.D, &V.measure.bytes.D,  \
@@ -2709,11 +2708,11 @@ process_urrs (vlib_main_t *vm, upf_session_t *sess, const char *node_name,
                                    V.quota.D, (L))
 
           if (is_ul)
-            r |= urr_incr_and_check (urr->volume, ul, len);
+            vol_r |= urr_incr_and_check (urr->volume, ul, len);
           if (is_dl)
-            r |= urr_incr_and_check (urr->volume, dl, len);
+            vol_r |= urr_incr_and_check (urr->volume, dl, len);
 
-          r |= urr_incr_and_check (urr->volume, total, len);
+          vol_r |= urr_incr_and_check (urr->volume, total, len);
 
 #ifdef UPF_TRAFFIC_LOG
           ip4_header_t *iph =
@@ -2725,8 +2724,25 @@ process_urrs (vlib_main_t *vm, upf_session_t *sess, const char *node_name,
             (iph->ip_version_and_header_length & 0xF0) == 0x40);
 #endif
 
-          if (PREDICT_FALSE (r & URR_QUOTA_EXHAUSTED))
-            urr->status |= URR_OVER_QUOTA;
+          if (PREDICT_FALSE (vol_r != URR_OK))
+            {
+              /* set triggers in return value only if report triggers happened
+               * first time for this urr state */
+
+              if (vol_r & URR_QUOTA_EXHAUSTED)
+                if (!(urr->status & URR_OVER_QUOTA))
+                  {
+                    urr->status |= URR_OVER_QUOTA;
+                    r |= URR_QUOTA_EXHAUSTED;
+                  }
+
+              if (vol_r & URR_THRESHOLD_REACHED)
+                if (!(urr->status & URR_OVER_VOLUME_THRESHOLD))
+                  {
+                    urr->status |= URR_OVER_VOLUME_THRESHOLD;
+                    r |= URR_THRESHOLD_REACHED;
+                  }
+            }
         }
 
       if ((urr->methods & PFCP_URR_EVENT) &&

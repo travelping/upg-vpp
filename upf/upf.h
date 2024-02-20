@@ -596,6 +596,7 @@ typedef struct
 #define URR_OVER_QUOTA            BIT (0)
 #define URR_AFTER_MONITORING_TIME BIT (1)
 #define URR_REPORTED              BIT (2)
+#define URR_OVER_VOLUME_THRESHOLD BIT (3)
 
   u8 update_flags;
 #define PFCP_URR_UPDATE_VOLUME_QUOTA        BIT (0)
