@@ -568,7 +568,7 @@ typedef enum
   UPF_PFCP_SESSION_REPORT_RESPONSE_OK = 54,
   UPF_PFCP_SESSION_REPORT_RESPONSE_ERROR = 55,
 
-  UPF_SESSION_REPORTS_SENT = 56,
+  UPF_SESSION_REPORTS_GENERATED = 56,
 
   UPF_N_COUNTERS = 57,
 } upf_counters_type_t;
@@ -631,7 +631,7 @@ typedef enum
   _ (PFCP_SESSION_REPORT_REQUEST_ERROR, pfcp_session_report_request_error, upf)                 \
   _ (PFCP_SESSION_REPORT_RESPONSE_OK, pfcp_session_report_response_ok, upf)                     \
   _ (PFCP_SESSION_REPORT_RESPONSE_ERROR, pfcp_session_report_response_error, upf)               \
-  _ (SESSION_REPORTS_SENT, session_reports_sent, upf)
+  _ (SESSION_REPORTS_GENERATED, session_reports_generated, upf)
 /* clang-format on */
 
 /* TODO: measure if more optimize cache line aware layout

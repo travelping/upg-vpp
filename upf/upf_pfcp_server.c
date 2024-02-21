@@ -826,7 +826,6 @@ upf_pfcp_session_up_deletion_report (upf_session_t *sx)
         now);
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
                               &req->usage_report);
-      upf_increment_counter (UPF_SESSION_REPORTS_SENT, 0, 1);
       upf_usage_report_free (&report);
     }
   else
@@ -925,7 +924,6 @@ upf_pfcp_session_usage_report (upf_session_t *sx, ip46_address_t *ue,
       upf_usage_report_build (sx, ue, active->urr, now, &report,
                               &req->usage_report);
       upf_pfcp_server_send_session_request (sx, &dmsg);
-      upf_increment_counter (UPF_SESSION_REPORTS_SENT, 0, 1);
     }
 
   pfcp_free_dmsg_contents (&dmsg);
@@ -1251,7 +1249,6 @@ upf_pfcp_session_urr_timer (upf_session_t *sx, f64 now)
       upf_usage_report_build (sx, NULL, active->urr, now, &report,
                               &req->usage_report);
       upf_pfcp_server_send_session_request (sx, &dmsg);
-      upf_increment_counter (UPF_SESSION_REPORTS_SENT, 0, 1);
     }
 
   pfcp_free_dmsg_contents (&dmsg);
