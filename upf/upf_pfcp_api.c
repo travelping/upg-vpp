@@ -2665,7 +2665,7 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
   upf_usage_report_t report;
   pfcp_ie_query_urr_t *qry;
   pfcp_ie_remove_urr_t *rurr;
-  bool have_report = false;
+  bool has_report = false;
   struct rules *active;
   upf_session_t *sess;
   f64 now = psm->now;
@@ -2706,7 +2706,7 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
       vec_len (req->remove_urr) != 0)
     {
       upf_usage_report_init (&report, vec_len (active->urr));
-      have_report = true;
+      has_report = true;
       UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
 
       vec_foreach (rurr, req->remove_urr)
@@ -2802,9 +2802,9 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
       vec_len (req->query_urr) != 0)
     {
       UPF_SET_BIT (resp->grp.fields, SESSION_PROCEDURE_RESPONSE_USAGE_REPORT);
-      if (!have_report)
+      if (!has_report)
         {
-          have_report = true;
+          has_report = true;
           upf_usage_report_init (&report, vec_len (active->urr));
         }
 
@@ -2824,9 +2824,9 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
                       SESSION_MODIFICATION_REQUEST_PFCPSMREQ_FLAGS) &&
            req->pfcpsmreq_flags & PFCP_PFCPSMREQ_QAURR)
     {
-      if (!have_report)
+      if (!has_report)
         {
-          have_report = true;
+          has_report = true;
           upf_usage_report_init (&report, vec_len (active->urr));
         }
       if (vec_len (active->urr) != 0)
@@ -2838,7 +2838,7 @@ handle_session_modification_request (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
         }
     }
 
-  if (have_report)
+  if (has_report)
     upf_usage_report_build (sess, NULL, active->urr, now, &report,
                             &resp->usage_report);
 
@@ -2852,7 +2852,7 @@ out_send_resp:
     resp->cause = PFCP_CAUSE_REQUEST_ACCEPTED;
 
   upf_pfcp_send_response (msg, &resp_dmsg);
-  if (have_report)
+  if (has_report)
     upf_usage_report_free (&report);
 
   return r;
@@ -3035,41 +3035,41 @@ upf_pfcp_error_report (upf_session_t *sx, gtp_error_ind_t *error)
   upf_pfcp_send_request (sx, &dmsg);
 }
 
-typedef int (*msg_handler_t) (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg);
+typedef int (*msg_handler_fun_t) (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg);
 
+typedef struct
+{
+  msg_handler_fun_t fun;
+  upf_counters_type_t counter;
+} msg_handler_t;
+
+/* clang-format off */
 static msg_handler_t msg_handlers[] = {
-  [PFCP_MSG_HEARTBEAT_REQUEST] = handle_heartbeat_request,
-  [PFCP_MSG_HEARTBEAT_RESPONSE] = handle_heartbeat_response,
-  [PFCP_MSG_PFD_MANAGEMENT_REQUEST] = handle_pfd_management_request,
-  [PFCP_MSG_PFD_MANAGEMENT_RESPONSE] = handle_pfd_management_response,
-  [PFCP_MSG_ASSOCIATION_SETUP_REQUEST] = handle_association_setup_request,
-  [PFCP_MSG_ASSOCIATION_SETUP_RESPONSE] = handle_association_setup_response,
-  [PFCP_MSG_ASSOCIATION_UPDATE_REQUEST] = handle_association_update_request,
-  [PFCP_MSG_ASSOCIATION_UPDATE_RESPONSE] = handle_association_update_response,
-  [PFCP_MSG_ASSOCIATION_RELEASE_REQUEST] = handle_association_release_request,
-  [PFCP_MSG_ASSOCIATION_RELEASE_RESPONSE] =
-    handle_association_release_response,
-  [PFCP_MSG_VERSION_NOT_SUPPORTED_RESPONSE] =
-    0, /* handle_version_not_supported_response, */
-  [PFCP_MSG_NODE_REPORT_REQUEST] = handle_node_report_request,
-  [PFCP_MSG_NODE_REPORT_RESPONSE] = handle_node_report_response,
-  [PFCP_MSG_SESSION_SET_DELETION_REQUEST] =
-    handle_session_set_deletion_request,
-  [PFCP_MSG_SESSION_SET_DELETION_RESPONSE] =
-    handle_session_set_deletion_response,
-  [PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST] =
-    handle_session_establishment_request,
-  [PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE] =
-    handle_session_establishment_response,
-  [PFCP_MSG_SESSION_MODIFICATION_REQUEST] =
-    handle_session_modification_request,
-  [PFCP_MSG_SESSION_MODIFICATION_RESPONSE] =
-    handle_session_modification_response,
-  [PFCP_MSG_SESSION_DELETION_REQUEST] = handle_session_deletion_request,
-  [PFCP_MSG_SESSION_DELETION_RESPONSE] = handle_session_deletion_response,
-  [PFCP_MSG_SESSION_REPORT_REQUEST] = handle_session_report_request,
-  [PFCP_MSG_SESSION_REPORT_RESPONSE] = handle_session_report_response,
+  [PFCP_MSG_HEARTBEAT_REQUEST] = { handle_heartbeat_request, UPF_PFCP_HB_REQUEST_OK },
+  [PFCP_MSG_HEARTBEAT_RESPONSE] = { handle_heartbeat_response, UPF_PFCP_HB_RESPONSE_OK },
+  [PFCP_MSG_PFD_MANAGEMENT_REQUEST] = { handle_pfd_management_request, UPF_PFCP_PFD_MANAGEMENT_REQUEST_OK },
+  [PFCP_MSG_PFD_MANAGEMENT_RESPONSE] = { handle_pfd_management_response, UPF_PFCP_PFD_MANAGEMENT_RESPONSE_OK },
+  [PFCP_MSG_ASSOCIATION_SETUP_REQUEST] = { handle_association_setup_request, UPF_PFCP_ASSOCIATION_SETUP_REQUEST_OK },
+  [PFCP_MSG_ASSOCIATION_SETUP_RESPONSE] = { handle_association_setup_response, UPF_PFCP_ASSOCIATION_SETUP_RESPONSE_OK },
+  [PFCP_MSG_ASSOCIATION_UPDATE_REQUEST] = { handle_association_update_request, UPF_PFCP_ASSOCIATION_UPDATE_REQUEST_OK },
+  [PFCP_MSG_ASSOCIATION_UPDATE_RESPONSE] = { handle_association_update_response, UPF_PFCP_ASSOCIATION_UPDATE_RESPONSE_OK },
+  [PFCP_MSG_ASSOCIATION_RELEASE_REQUEST] = { handle_association_release_request, UPF_PFCP_ASSOCIATION_RELEASE_REQUEST_OK },
+  [PFCP_MSG_ASSOCIATION_RELEASE_RESPONSE] = { handle_association_release_response, UPF_PFCP_ASSOCIATION_RELEASE_RESPONSE_OK },
+  [PFCP_MSG_VERSION_NOT_SUPPORTED_RESPONSE] = {0, ~0}, /* handle_version_not_supported_response, */
+  [PFCP_MSG_NODE_REPORT_REQUEST] = { handle_node_report_request, UPF_PFCP_NODE_REPORT_REQUEST_OK },
+  [PFCP_MSG_NODE_REPORT_RESPONSE] = { handle_node_report_response, UPF_PFCP_NODE_REPORT_RESPONSE_OK },
+  [PFCP_MSG_SESSION_SET_DELETION_REQUEST] = { handle_session_set_deletion_request, UPF_PFCP_SESSION_SET_DELETION_REQUEST_OK },
+  [PFCP_MSG_SESSION_SET_DELETION_RESPONSE] = { handle_session_set_deletion_response, UPF_PFCP_SESSION_SET_DELETION_RESPONSE_OK },
+  [PFCP_MSG_SESSION_ESTABLISHMENT_REQUEST] = { handle_session_establishment_request, UPF_PFCP_SESSION_ESTABLISHMENT_REQUEST_OK },
+  [PFCP_MSG_SESSION_ESTABLISHMENT_RESPONSE] = { handle_session_establishment_response, UPF_PFCP_SESSION_ESTABLISHMENT_RESPONSE_OK },
+  [PFCP_MSG_SESSION_MODIFICATION_REQUEST] = { handle_session_modification_request, UPF_PFCP_SESSION_MODIFICATION_REQUEST_OK },
+  [PFCP_MSG_SESSION_MODIFICATION_RESPONSE] = { handle_session_modification_response, UPF_PFCP_SESSION_MODIFICATION_RESPONSE_OK },
+  [PFCP_MSG_SESSION_DELETION_REQUEST] = { handle_session_deletion_request, UPF_PFCP_SESSION_DELETION_REQUEST_OK },
+  [PFCP_MSG_SESSION_DELETION_RESPONSE] = { handle_session_deletion_response, UPF_PFCP_SESSION_DELETION_RESPONSE_OK },
+  [PFCP_MSG_SESSION_REPORT_REQUEST] = { handle_session_report_request, UPF_PFCP_SESSION_REPORT_REQUEST_OK },
+  [PFCP_MSG_SESSION_REPORT_RESPONSE] = { handle_session_report_response, UPF_PFCP_SESSION_REPORT_RESPONSE_OK },
 };
+/* clang-format on */
 
 /**
  * @brief Handle a PFCP message
@@ -3090,7 +3090,8 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
   upf_debug ("received message %U", format_pfcp_msg_type,
              pfcp_msg_type (msg->data));
 
-  if (type >= ARRAY_LEN (msg_handlers) || !msg_handlers[type])
+  msg_handler_t *handler = &msg_handlers[type];
+  if (type >= ARRAY_LEN (msg_handlers) || !handler->fun)
     {
       /* probably non-PFCP datagram, nothing to reply */
       upf_debug ("PFCP: msg type invalid: %d.", type);
@@ -3098,10 +3099,15 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
     }
 
   r = pfcp_decode_msg (msg->data, vec_len (msg->data), &dmsg, &err);
+
+  upf_counters_type_t counter =
+    r == 0 ? handler->counter : handler->counter + 1;
+
   if (r < 0)
     {
       /* not enough info in the message to produce any meaningful reply */
       upf_debug ("PFCP: broken message");
+      upf_increment_counter (UPF_PFCP_RECEIVED_CORRUPTED, 0, 1);
       return -1;
     }
 
@@ -3127,12 +3133,16 @@ upf_pfcp_handle_msg (pfcp_msg_t *msg)
           break;
         }
 
-      pfcp_free_dmsg_contents (&dmsg);
       vec_free (err);
-      return r;
+      goto count;
     }
 
-  r = msg_handlers[type](msg, &dmsg);
+  // handle message
+  r = handler->fun (msg, &dmsg);
+
+count:
+  upf_increment_counter (counter, 0, 1);
+
   pfcp_free_dmsg_contents (&dmsg);
 
   return r;
