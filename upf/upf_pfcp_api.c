@@ -2483,6 +2483,7 @@ upf_usage_report_build (upf_session_t *sx, ip46_address_t *ue, upf_urr_t *urr,
                              now, usage_report);
         }
     }
+  upf_increment_counter (UPF_SESSION_REPORTS_GENERATED, 0, 1);
 }
 
 static int
