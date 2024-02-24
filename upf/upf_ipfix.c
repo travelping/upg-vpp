@@ -728,37 +728,63 @@ upf_ipfix_init (vlib_main_t *vm)
   return error;
 }
 
+static bool
+compare_cstr_vec (const char *cstr, u8 *vstr)
+{
+  u32 cl = strlen (cstr);
+  u32 vl = vec_len (vstr);
+
+  if (cl == vl)
+    if (0 == memcmp (cstr, vstr, cl))
+      return true;
+  return false;
+}
+
 upf_ipfix_policy_t
 upf_ipfix_lookup_policy (u8 *name, bool *ok)
 {
-  upf_ipfix_policy_t policy;
-  u32 name_len = vec_len (name);
+  upf_ipfix_policy_t policy, result = UPF_IPFIX_POLICY_UNSPECIFIED;
 
+  u32 name_len = vec_len (name);
   if (!name_len)
     {
-      if (ok)
-        *ok = true;
-      return UPF_IPFIX_POLICY_NONE;
+      result = UPF_IPFIX_POLICY_NONE;
+      goto _return;
     }
-  else if (ok)
-    *ok = false;
 
   for (policy = UPF_IPFIX_POLICY_NONE; policy < UPF_IPFIX_N_POLICIES; policy++)
     {
-      u32 l = strlen (upf_ipfix_templates[policy].name);
-      if (l == name_len && !memcmp (name, upf_ipfix_templates[policy].name, l))
+      if (compare_cstr_vec (upf_ipfix_templates[policy].name, name))
         {
-          if (ok)
-            *ok = true;
-          return policy;
+          result = policy;
+          goto _return;
         }
+
+      if (upf_ipfix_templates[policy].alt_name)
+        if (compare_cstr_vec (upf_ipfix_templates[policy].alt_name, name))
+          {
+            result = policy;
+            goto _return;
+          }
     }
 
-  /* avoid silently ignoring the error */
-  if (!ok)
-    clib_warning ("Bad IPFIX policy: %v", name);
+_return:
+  if (result == UPF_IPFIX_POLICY_UNSPECIFIED)
+    {
+      if (ok)
+        *ok = false;
 
-  return UPF_IPFIX_POLICY_NONE;
+      /* avoid silently ignoring the error */
+      clib_warning ("Bad IPFIX policy: %v", name);
+      return UPF_IPFIX_POLICY_NONE;
+    }
+  else
+    {
+      if (ok)
+        *ok = true;
+
+      return result;
+    }
 }
 
 uword
