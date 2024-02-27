@@ -93,6 +93,7 @@ typedef struct
 typedef struct
 {
   char *name;
+  char *alt_name;
   upf_ipfix_template_proto_t per_ip[FIB_PROTOCOL_IP_MAX];
 } upf_ipfix_template_t;
 

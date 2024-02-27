@@ -171,6 +171,7 @@ upf_ipfix_template_t upf_ipfix_templates[UPF_IPFIX_N_POLICIES] = {
   },
   [UPF_IPFIX_POLICY_NAT_EVENT] = {
     .name = "NatEvent",
+    .alt_name = "default",
     .per_ip={
       [FIB_PROTOCOL_IP4] = {
         .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_NAT_EVENT_IPV4,
@@ -188,6 +189,7 @@ upf_ipfix_template_t upf_ipfix_templates[UPF_IPFIX_N_POLICIES] = {
   },
   [UPF_IPFIX_POLICY_FLOW_USAGE] = {
     .name = "FlowUsage",
+    .alt_name = "dest",
     .per_ip={
       [FIB_PROTOCOL_IP4] = {
         .field_count = IPFIX_TEMPLATE_COUNT (IPFIX_TEMPLATE_FLOW_USAGE_IPV4,
