@@ -117,9 +117,7 @@ set(UPF_PLUGIN_HEADER_FILES
     upf/upf_ipfix_templates.h
     upf/upf_gtpu_error.def
     upf/version.h
-    upf/llist.h
-    upf/qwe/qwe.h
-    )
+    upf/llist.h)
 
 set(UPF_API_GENERATED_FILES ${DEST_DIR}/upf.api.h ${DEST_DIR}/upf.api_types.h
                             ${DEST_DIR}/upf.api_enum.h)
