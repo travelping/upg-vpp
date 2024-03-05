@@ -186,16 +186,12 @@ file(MAKE_DIRECTORY ${DEST_DIR}/upf)
 # Copy header files
 foreach(FILE ${UPF_PLUGIN_HEADER_FILES})
   # Get the path of the file relative to the source directory
-  # file(RELATIVE_PATH RELATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/upf" "${FILE}")
   get_filename_component(DIR "${FILE}" DIRECTORY)
-  message(STATUS "DIR: ${DIR}")
 
   # Make sure the destination directory exists
   file(MAKE_DIRECTORY "${DEST_DIR}/${DIR}")
-  message(STATUS "Copying ${FILE} to ${DEST_DIR}/${DIR}")
 
   configure_file("${FILE}" "${DEST_DIR}/${DIR}" COPYONLY)
-  message(STATUS "configure file ${FILE} ${DEST_DIR}/${DIR}")
 endforeach()
 
 set(VPP_INSTALL_PLUGIN ${UPF_INSTALL_PREFIX}/vpp_plugins)
