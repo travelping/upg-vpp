@@ -690,8 +690,10 @@ upf_ipfix_ensure_context (const upf_ipfix_context_key_t *key)
                                  &context->template_id, key->is_ip4, true);
   if (rv)
     {
-      clib_warning ("couldn't add IPFIX report, perhaps "
-                    "the exporter has been deleted?");
+      vlib_log_err (
+        fm->log_failure_class,
+        "IPFIX report add reason %U, exporter misconfigured or deleted",
+        format_vnet_api_errno, rv);
       pool_put (fm->contexts, context);
       return ~0;
     }
@@ -717,6 +719,9 @@ upf_ipfix_init (vlib_main_t *vm)
 
   /* Set up time reference pair */
   fm->vlib_time_0 = (u32) vlib_time_now (vm);
+
+  fm->log_failure_class =
+    vlib_log_register_class_rate_limit ("ipfix", "failure", 1);
 
   /* initialize the IP/TEID hash's */
   clib_bihash_init_24_8 (&fm->context_by_key, "context_by_key",

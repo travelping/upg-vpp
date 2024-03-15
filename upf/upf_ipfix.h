@@ -70,6 +70,8 @@ typedef struct
   u16 template_id;
   u32 vlib_time_0;
 
+  vlib_log_class_t log_failure_class; // rate limited log class
+
   /** convenience vlib_main_t pointer */
   vlib_main_t *vlib_main;
 } upf_ipfix_main_t;
