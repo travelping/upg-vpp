@@ -6,9 +6,9 @@ on:
     - "**"
 
 env:
-  CUR_REGISTRY: "registry.cennso.com"
-  REGISTRY: "quay.io"
-  IMAGE_NAME: travelping/upg-vpp
+  CUR_REGISTRY: ${{ vars.CUR_REGISTRY }} # "registry.cennso.com"
+  REGISTRY: ${{ vars.REGISTRY }} # "quay.io"
+  IMAGE_NAME: ${{ vars.IMAGE_NAME }} # travelping/upg-vpp
   # Make 'git am' work
   GIT_AUTHOR_NAME: Dummy
   GIT_AUTHOR_EMAIL: dummy@example.com
