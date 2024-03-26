@@ -32,7 +32,7 @@ env:
 
 jobs:
   build:
-    runs-on: ["self-hosted"]
+    # runs-on: ["self-hosted"]
     strategy:
       matrix:
         build_type: [debug, release]
@@ -84,7 +84,7 @@ jobs:
         path: image-dev-${{ matrix.build_type }}.txt
 
   checkstyle:
-    runs-on: ["self-hosted"]
+    # runs-on: ["self-hosted"]
     steps:
     - name: Clean the workspace
       uses: docker://alpine
@@ -104,7 +104,7 @@ jobs:
         clang-format-version: '11'
 
   integration:
-    runs-on: ["self-hosted", "hugepages"]
+    # runs-on: ["self-hosted", "hugepages"]
     strategy:
       fail-fast: false
       matrix:
@@ -138,7 +138,7 @@ jobs:
         make retest DEV_IMAGE="${dev_image}"
 
   e2e:
-    runs-on: ["self-hosted", "hugepages"]
+    # runs-on: ["self-hosted", "hugepages"]
     strategy:
       fail-fast: false
       matrix:
@@ -194,7 +194,7 @@ jobs:
 
   # dummy job for release.yaml to wait on
   conclude:
-    runs-on: ["self-hosted"]
+    # runs-on: ["self-hosted"]
     needs:
     - checkstyle
     - integration
@@ -207,7 +207,7 @@ jobs:
   slack:
     needs:
     - conclude
-    runs-on: ["self-hosted"]
+    # runs-on: ["self-hosted"]
     if: always()
     steps:
     - name: Set status
