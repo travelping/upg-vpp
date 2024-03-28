@@ -58,15 +58,15 @@ jobs:
         registry: ${{ env.REGISTRY }}
         username: ${{ secrets.QUAY_USER_ID }}
         password: ${{ secrets.QUAY_TOKEN }}
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
     - name: Checkout
       uses: actions/checkout@v2
       with:
         # for git describe
         fetch-depth: 0
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
     - name: Build UPG image
       run: |
         make ci-build BUILD_TYPE="${{ matrix.build_type }}"
