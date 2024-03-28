@@ -50,18 +50,18 @@ FINAL_IMAGE_NAME="${IMAGE_BASE_NAME}:${IMAGE_BASE_TAG}_${BUILD_TYPE}"
 echo >&2 "Building VPP and extracting the artifacts ..."
 rm -rf /tmp/_out
 mkdir /tmp/_out
-do_build --opt target=artifacts --output type=local,dest=/tmp/_out
+do_build --target=artifacts --output type=local,dest=/tmp/_out
 
 echo >&2 "Building the dev image from ${DOCKERFILE} ..."
 push=",push=true"
 if [[ ${NO_PUSH} ]]; then
   push=""
 fi
-do_build --opt target=dev-stage \
+do_build --target=dev-stage \
          --output type="image,\"name=${DEV_IMAGE_NAME}\"${push}"
 
 echo >&2 "Building the final image from ${DOCKERFILE} ..."
-do_build --opt target=final-stage \
+do_build --target=final-stage \
          --output type="image,\"name=${FINAL_IMAGE_NAME}\"${push}"
 
 echo "${DEV_IMAGE_NAME}" > "image-dev-${BUILD_TYPE}.txt"
