@@ -19,7 +19,8 @@ function do_build {
   # --export-cache type=inline \
   # --import-cache type=registry,ref="${IMAGE_BASE_NAME}" \
   set -x
-  buildctl build \
+  # buildctl
+  docker build \
            --frontend dockerfile.v0 \
            --progress=plain \
            --local context=. \
