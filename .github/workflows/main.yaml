@@ -127,6 +127,8 @@ jobs:
         registry: ${{ env.CUR_REGISTRY }}
         username: ${{ secrets.CUR_REGISTRY_LOGIN }}
         password: ${{ secrets.CUR_REGISTRY_PASSWORD }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
     - name: Checkout
       uses: actions/checkout@v2
       with:
