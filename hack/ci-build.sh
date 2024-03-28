@@ -21,7 +21,6 @@ function do_build {
   set -x
   # buildctl
   docker build \
-           --frontend dockerfile.v0 \
            --progress=plain \
            --local context=. \
            --local dockerfile=. \
