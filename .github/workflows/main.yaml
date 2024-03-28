@@ -33,7 +33,7 @@ env:
 jobs:
   build:
     runs-on:
-    - ubuntu-22.02
+    - ubuntu-22.04
     strategy:
       matrix:
         build_type: [debug, release]
@@ -86,7 +86,7 @@ jobs:
 
   checkstyle:
     runs-on:
-      - ubuntu-22.02
+      - ubuntu-22.04
     steps:
     - name: Clean the workspace
       uses: docker://alpine
@@ -215,7 +215,7 @@ jobs:
     needs:
     - conclude
     runs-on:
-    - ubuntu-22.02
+    - ubuntu-22.04
     if: always()
     steps:
     - name: Set status
