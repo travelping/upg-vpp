@@ -110,9 +110,11 @@ jobs:
         clang-format-version: '11'
 
   integration:
+    # runs-on:
+    #   - self-hosted
+    #   - hugepages
     runs-on:
-      - self-hosted
-      - hugepages
+      - ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -146,9 +148,11 @@ jobs:
         make retest DEV_IMAGE="${dev_image}"
 
   e2e:
+    # runs-on:
+    #   - self-hosted
+    #   - hugepages
     runs-on:
-      - self-hosted
-      - hugepages
+      - ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:

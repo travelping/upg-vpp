@@ -19,17 +19,6 @@ function do_build {
   # --export-cache type=inline \
   # --import-cache type=registry,ref="${IMAGE_BASE_NAME}" \
   set -x
-  # buildctl build \
-  #          --frontend dockerfile.v0 \
-  #          --progress=plain \
-  #          --local context=. \
-  #          --local dockerfile=. \
-  #          --opt filename="${DOCKERFILE}" \
-  #          --opt build-arg:BUILD_TYPE=${BUILD_TYPE} \
-  #          --opt build-arg:BASE=${VPP_IMAGE_BASE}_${BUILD_TYPE} \
-  #          --opt build-arg:DEVBASE=${VPP_IMAGE_BASE}_dev_${BUILD_TYPE} \
-  #          --opt label:quay.expires-after="${IMAGE_EXPIRES_AFTER}" \
-  #          "$@"
   docker buildx build \
     --progress plain \
     --file "${DOCKERFILE}" \
