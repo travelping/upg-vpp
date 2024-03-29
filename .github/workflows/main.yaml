@@ -32,7 +32,8 @@ env:
 
 jobs:
   build:
-    runs-on: ["self-hosted"]
+    runs-on:
+    - ubuntu-22.04
     strategy:
       matrix:
         build_type: [debug, release]
@@ -57,6 +58,8 @@ jobs:
         registry: ${{ env.REGISTRY }}
         username: ${{ secrets.QUAY_USER_ID }}
         password: ${{ secrets.QUAY_TOKEN }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
     - name: Checkout
       uses: actions/checkout@v2
       with:
@@ -84,7 +87,8 @@ jobs:
         path: image-dev-${{ matrix.build_type }}.txt
 
   checkstyle:
-    runs-on: ["self-hosted"]
+    runs-on:
+      - ubuntu-22.04
     steps:
     - name: Clean the workspace
       uses: docker://alpine
@@ -104,7 +108,8 @@ jobs:
         clang-format-version: '11'
 
   integration:
-    runs-on: ["self-hosted", "hugepages"]
+    runs-on:
+      - ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -138,7 +143,9 @@ jobs:
         make retest DEV_IMAGE="${dev_image}"
 
   e2e:
-    runs-on: ["self-hosted", "hugepages"]
+    runs-on:
+      - self-hosted
+      - hugepages
     strategy:
       fail-fast: false
       matrix:
@@ -194,7 +201,8 @@ jobs:
 
   # dummy job for release.yaml to wait on
   conclude:
-    runs-on: ["self-hosted"]
+    runs-on:
+    - ubuntu-latest
     needs:
     - checkstyle
     - integration
@@ -207,7 +215,8 @@ jobs:
   slack:
     needs:
     - conclude
-    runs-on: ["self-hosted"]
+    runs-on:
+    - ubuntu-22.04
     if: always()
     steps:
     - name: Set status
