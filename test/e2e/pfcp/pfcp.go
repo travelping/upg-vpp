@@ -918,8 +918,10 @@ func (pc *PFCPConnection) sendSessionReportResponse(req *message.SessionReportRe
 
 			up_seid = ses.up_seid
 		}
+	} else if sess := pc.sessions[SEID(req.SEID())]; sess != nil {
+		up_seid = sess.up_seid
 	} else {
-		up_seid = pc.sessions[SEID(req.SEID())].up_seid
+		return pc.send(message.NewSessionReportResponse(0, 0, 0, req.SequenceNumber, 0, ie.NewCause(ie.CauseSessionContextNotFound)))
 	}
 	ies = append(ies, ie.NewRecoveryTimeStamp(pc.timestamp))
 	return pc.send(message.NewSessionReportResponse(0, 0, uint64(up_seid), req.SequenceNumber, 0, ies...))

@@ -33,6 +33,7 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
+	gtpuie "github.com/wmnsk/go-gtp/gtpv1/ie"
 	gtpumessage "github.com/wmnsk/go-gtp/gtpv1/message"
 	"github.com/wmnsk/go-pfcp/ie"
 	"github.com/wmnsk/go-pfcp/message"
@@ -2215,6 +2216,74 @@ var _ = ginkgo.Describe("Error handling", func() {
 
 		// since we push 1 packet, there should be one dropped
 		gomega.Expect(errors).To(gomega.ContainElement("1 upf-ip4-forward FAR action drop error"))
+	})
+})
+
+var _ = ginkgo.Describe("PGW Error indication", func() {
+	f := framework.NewDefaultFramework(framework.UPGModePGW, framework.UPGIPModeV4)
+	ginkgo.It("Error indication for deleted session", func() {
+		ginkgo.By("Configuring session")
+
+		var sessionCfgs []framework.SessionConfig
+		var seids []pfcp.SEID
+
+		// Create another session to trigger crash
+		ueIPs := []net.IP{f.UEIP(), f.AddUEIP()}
+		for i, ueIP := range ueIPs {
+			sessionCfgs = append(sessionCfgs, framework.SessionConfig{
+				IdBase:      1,
+				UEIP:        ueIP,
+				Mode:        f.Mode,
+				VolumeQuota: 100000000,
+				TEIDPGWs5u:  framework.TEIDPGWs5u + uint32(i),
+				TEIDSGWs5u:  framework.TEIDSGWs5u + uint32(i),
+				PGWIP:       f.VPPCfg.GetVPPAddress("grx").IP,
+				SGWIP:       f.VPPCfg.GetNamespaceAddress("grx").IP,
+			})
+			seids = append(seids, f.PFCP.NewSEID())
+		}
+
+		for i := range sessionCfgs {
+			_, err := f.PFCP.EstablishSession(f.Context, seids[i], sessionCfgs[i].SessionIEs()...)
+			framework.ExpectNoError(err)
+		}
+
+		ginkgo.By("Starting some traffic")
+		tg, clientNS, serverNS := newTrafficGen(f, &traffic.UDPPingConfig{
+			PacketCount: 5,
+			Retry:       false,
+			Delay:       10 * time.Millisecond,
+		}, &traffic.SimpleTrafficRec{})
+		tg.Start(f.Context, clientNS, serverNS)
+
+		ginkgo.By("Sending error indication")
+
+		stopSpam := make(chan struct{}, 1)
+
+		spamErrorsIndications := func() {
+			for {
+				select {
+				case _, closed := <-stopSpam:
+					if closed {
+						return
+					}
+				default:
+					err := f.GTPUs[0].SendErrorIndication(0, 0,
+						gtpuie.NewTEIDDataI(sessionCfgs[0].TEIDSGWs5u),
+						gtpuie.NewGSNAddress(f.VPPCfg.GetNamespaceAddress("grx").IP.String()),
+					)
+					gomega.Expect(err).NotTo(gomega.HaveOccurred())
+					time.Sleep(time.Millisecond)
+				}
+			}
+		}
+		go spamErrorsIndications()
+
+		f.PFCP.DeleteSession(f.Context, seids[0])
+		time.Sleep(time.Second / 2)
+		f.PFCP.DeleteSession(f.Context, seids[1])
+		close(stopSpam)
+		time.Sleep(10 * time.Second)
 	})
 })
 
