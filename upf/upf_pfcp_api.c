@@ -2953,6 +2953,13 @@ handle_session_report_response (pfcp_msg_t *msg, pfcp_decoded_msg_t *dmsg)
       return -1;
     }
 
+  if (pool_is_free_index (gtm->sessions, msg->session.idx))
+    {
+      /* Precaution against buggy code */
+      ASSERT (0);
+      return -1;
+    }
+
   upf_session_t *sx = pool_elt_at_index (gtm->sessions, msg->session.idx);
 
   if (msg->up_seid != sx->up_seid)

@@ -22,6 +22,8 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/wmnsk/go-gtp/gtpv1/ie"
+	"github.com/wmnsk/go-gtp/gtpv1/message"
 
 	"github.com/sirupsen/logrus"
 
@@ -146,6 +148,14 @@ func (gtpu *GTPU) Stop() error {
 	}
 
 	return gtpu.up.Stop()
+}
+
+func (gtpu *GTPU) SendErrorIndication(teid uint32, seq uint16, IEs ...*ie.IE) error {
+	dst := net.UDPAddr{
+		IP:   gtpu.cfg.PGWIP,
+		Port: 2152,
+	}
+	return gtpu.up.WriteTo(&dst, message.NewErrorIndication(teid, seq, IEs...))
 }
 
 func (gtpu *GTPU) Context(parent context.Context) context.Context {

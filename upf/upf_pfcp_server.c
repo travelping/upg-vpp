@@ -1499,8 +1499,10 @@ pfcp_process (vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
                 pfcp_msg_t *tx = (pfcp_msg_t *) event_data[i];
                 // Handle case when session was removed before
                 // receiving this event
-
-                if (!pool_is_free_index (gtm->nodes, tx->node))
+                if (!pool_is_free_index (gtm->nodes, tx->node) &&
+                    !pool_is_free_index (gtm->sessions, tx->session.idx) &&
+                    pool_elt_at_index (gtm->sessions, tx->session.idx)
+                        ->up_seid == tx->up_seid)
                   {
                     pfcp_msg_t *msg;
 
@@ -1509,6 +1511,7 @@ pfcp_process (vlib_main_t *vm, vlib_node_runtime_t *rt, vlib_frame_t *f)
                   }
                 else
                   {
+                    upf_debug ("ignored tx event because session deleted");
                     vec_free (tx->data);
                   }
 
