@@ -1211,9 +1211,11 @@ upf_show_session_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
     }
   else
     {
+      int i = 0;
+
       pool_foreach (sess, gtm->sessions)
         {
-          if (limit != 0 && sess - gtm->sessions >= limit)
+          if (limit != 0 && ++i > limit)
             {
               vlib_cli_output (vm, "Max number of sessions displayed: %u",
                                limit);
