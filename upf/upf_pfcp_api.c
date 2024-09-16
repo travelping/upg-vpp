@@ -2561,7 +2561,7 @@ handle_session_establishment_request (pfcp_msg_t *msg,
         {
           /* try to generate random seid */
           up_seid = random_u64 (&seed);
-          if (up_seid == 0 || up_seid == ~0)
+          if (up_seid == 0 || up_seid == ~(u64)0)
             {
               continue;
             }
@@ -2571,7 +2571,7 @@ handle_session_establishment_request (pfcp_msg_t *msg,
               break;
             }
         }
-      while (retry_cnt--);
+      while (--retry_cnt);
 
       if (retry_cnt == 0)
         {
