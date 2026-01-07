@@ -1,0 +1,3 @@
+[submodule "vpp-base"]
+	path = vpp-base
+	url = git@github.com:travelping/fpp-vpp.git

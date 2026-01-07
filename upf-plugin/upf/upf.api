@@ -1,0 +1,472 @@
+/*
+ * Copyright (c) 2019 Travelping GmbH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+option version = "2.0.0";
+import "vnet/interface_types.api";
+import "vnet/ip/ip_types.api";
+
+enum upf_ipfix_which_flags : u8
+{
+  UPF_IPFIX_WHICH_FLAG_IP4 = 0x1,
+  UPF_IPFIX_WHICH_FLAG_IP6 = 0x2,
+};
+
+enum upf_ipfix_record_flags : u8
+{
+  UPF_IPFIX_RECORD_FLAG_L3 = 0x1,
+  UPF_IPFIX_RECORD_FLAG_L4 = 0x2,
+};
+
+// all adf binapis use cstrings
+
+/** \brief Add ADF application
+    @param client_index - opaque cookie to identify the sender
+    @param context - sender context, to match reply w/ request
+    @param name - ADF application name (pfcp id)
+    @param flags - is it proxy
+*/
+autoreply define adf_create_application {
+  u32 client_index;
+  u32 context;
+  u8 name[64];
+  u32 flags;
+};
+
+/** \brief Delete ADF application
+    @param client_index - opaque cookie to identify the sender
+    @param context - sender context, to match reply w/ request
+    @param name - ADF application name (pfcp id)
+*/
+autoreply define adf_delete_application {
+  u32 client_index;
+  u32 context;
+  u8 name[64];
+};
+
+define adf_application_details {
+  u32 client_index;
+  u32 context;
+  u8 name[64];
+  u32 flags;
+};
+
+define adf_application_dump {
+  u32 client_index;
+  u32 context;
+};
+
+/** \brief Add ADF Version
+    @param client_index - opaque cookie to identify the sender
+    @param context - sender context, to match reply w/ request
+    @param app_name - ADF application name
+*/
+autoreply define adf_create_version{
+  u32 client_index;
+  u32 context;
+  u8 app_name[64];
+};
+
+/** \brief Add/delete ADF application IP rule
+    @param client_index - opaque cookie to identify the sender
+    @param context - sender context, to match reply w/ request
+    @param app_name - ADF application name
+    @param rule - rule in acl format
+*/
+autoreply define adf_add_ip_rule {
+  u32 client_index;
+  u32 context;
+  u8 app_name[64];
+  u8 rule[1024];
+};
+
+/** \brief Add/delete ADF application Layer 7 rule
+    @param client_index - opaque cookie to identify the sender
+    @param context - sender context, to match reply w/ request
+    @param app_name - ADF application name
+    @param regex - Layer 7 detection regular expression
+*/
+autoreply define adf_add_l7_rule {
+  u32 client_index;
+  u32 context;
+  u8 app_name[64];
+  u8 regex[1024];
+};
+
+/** \brief Commit ADF Version
+    @param client_index - opaque cookie to identify the sender
+    @param context - sender context, to match reply w/ request
+    @param app_name - ADF application name
+*/
+autoreply define adf_version_commit {
+  u32 client_index;
+  u32 context;
+  u8 app_name[64];
+};
+
+/** \brief Drop ADF uncommited version
+    @param client_index - opaque cookie to identify the sender
+    @param context - sender context, to match reply w/ request
+    @param app_name - ADF application name
+*/
+autoreply define adf_version_drop {
+  u32 client_index;
+  u32 context;
+  u8 app_name[64];
+};
+
+define adf_active_version_details {
+  u32 client_index;
+  u32 context;
+  bool is_regex;
+  u8 rule[1024];
+};
+
+define adf_active_version_dump {
+  u32 client_index;
+  u32 context;
+  u8 app_name[64];
+};
+
+// #### end of ADF api ####
+
+define upf_pfcp_reencode {
+  u32 client_index;
+  u32 context;
+  u32 packet_len;
+  u8 packet[packet_len];
+};
+
+define upf_pfcp_reencode_reply {
+  u32 context;
+  i32 retval;
+  u32 packet_len;
+  u8 packet[packet_len];
+};
+
+define upf_pfcp_format {
+  u32 client_index;
+  u32 context;
+  u32 packet_len;
+  u8 packet[packet_len];
+};
+
+define upf_pfcp_format_reply {
+  u32 context;
+  i32 retval;
+  u32 text_len;
+  u8 text[text_len];
+};
+
+define upf_nat_pool_details {
+  u32 context;
+
+  u8 name[64];
+  u16 block_size;
+  u32 max_users;
+  u32 current_users;
+  u8 nwi_len;
+  u8 nwi[nwi_len];
+};
+
+define upf_nat_pool_dump {
+  u32 client_index;
+  u32 context;
+};
+
+autoreply define upf_policy_add_del {
+  u32 client_index;
+  u32 context;
+  u8 action;
+  string identifier[64];
+  u32 ip4_table_id;
+  u32 ip6_table_id;
+};
+
+define upf_policy_details {
+  u32 client_index;
+  u32 context;
+  string identifier[64];
+  u32 ip4_table_id;
+  u32 ip6_table_id;
+};
+
+define upf_policy_dump {
+  u32 client_index;
+  u32 context;
+};
+
+autoreply define upf_nwi_add_del {
+  u32 client_index;
+  u32 context;
+  u8 add;
+  u32 ip4_table_id;
+  u32 ip6_table_id;
+  u32 tx_ip4_table_id;
+  u32 tx_ip6_table_id;
+  u8 ipfix_policy[64];
+  vl_api_address_t ipfix_collector_ip;
+  u32 ipfix_report_interval;
+  u32 observation_domain_id;
+  u8 observation_domain_name[256];
+  u64 observation_point_id;
+  u8 nwi_len;
+  u8 nwi[nwi_len];
+};
+
+define upf_nwi_details {
+  u32 client_index;
+  u32 context;
+  u32 ip4_table_id;
+  u32 ip6_table_id;
+  u32 tx_ip4_table_id;
+  u32 tx_ip6_table_id;
+  u8 ipfix_policy[64];
+  vl_api_address_t ipfix_collector_ip;
+  u32 ipfix_report_interval;
+  u32 observation_domain_id;
+  u8 observation_domain_name[256];
+  u64 observation_point_id;
+  u8 nwi_len;
+  u8 nwi[nwi_len];
+};
+
+define upf_nwi_dump {
+  u32 client_index;
+  u32 context;
+};
+
+autoreply define upf_pfcp_endpoint_add_del {
+  u32 client_index;
+  u32 context;
+  u8 is_add;
+  u32 table_id;
+  vl_api_address_t ip;
+};
+
+define upf_pfcp_endpoint_details {
+  u32 client_index;
+  u32 context;
+  u32 table_id;
+  vl_api_address_t ip;
+};
+
+define upf_pfcp_endpoint_dump {
+  u32 client_index;
+  u32 context;
+};
+
+autoreply define upf_pfcp_server_set {
+  u32 client_index;
+  u32 context;
+  u32 fifo_size;  /* in KB */
+  u32 prealloc_fifos;
+  u32 segment_size; /* in MB */
+};
+
+define upf_pfcp_server_show {
+  u32 client_index;
+  u32 context;
+};
+
+define upf_pfcp_server_show_reply {
+  u32 client_index;
+  u32 context;
+  u32 fifo_size;  /* in KB */
+  u32 prealloc_fifos;
+  u32 segment_size; /* in MB */
+};
+
+autoreply define upf_pfcp_heartbeats_set {
+  u32 client_index;
+  u32 context;
+  u32 timeout;
+  u32 retries;
+};
+
+define upf_pfcp_heartbeats_get {
+  u32 client_index;
+  u32 context;
+};
+
+define upf_pfcp_heartbeats_get_reply {
+  u32 client_index;
+  u32 context;
+  u32 timeout;
+  u32 retries;
+};
+
+enum upf_node_id_type : u8
+{
+  UPF_NODE_TYPE_IPv4 = 0,
+  UPF_NODE_TYPE_IPv6 = 1,
+  UPF_NODE_TYPE_FQDN = 2,
+};
+
+autoreply define upf_set_node_id {
+  u32 client_index;
+  u32 context;
+  u8 type;
+  vl_api_address_t ip;
+  u8 fqdn_len;
+  u8 fqdn[fqdn_len];
+};
+
+define upf_get_node_id {
+  u32 client_index;
+  u32 context;
+};
+
+define upf_get_node_id_reply {
+  u32 client_index;
+  u32 context;
+  i32 retval;
+  u8 type;
+  vl_api_address_t ip;
+  u8 fqdn_len;
+  u8 fqdn[fqdn_len];
+};
+
+autoreply define upf_tdf_ul_enable_disable {
+  u32 client_index;
+  u32 context;
+
+  bool enable;
+  vl_api_interface_index_t interface;
+  bool is_ipv6;
+};
+
+define upf_tdf_ul_table {
+  u32 client_index;
+  u32 context;
+  bool is_ipv6;
+};
+
+define upf_tdf_ul_table_reply {
+  u32 client_index;
+  u32 context;
+
+  /* must be mod 2 */
+  u8 mappings_len;
+  /* vector of tuples (table, src-lookup-table) */
+  u32 mappings[mappings_len];
+};
+
+autoreply define upf_tdf_ul_table_add {
+  u32 client_index;
+  u32 context;
+
+  bool is_add;
+  bool is_ipv6;
+  u32 table_id;
+  u32 src_lookup_table_id;
+};
+
+autoreply define upf_ueip_pool_nwi_add {
+  u32 client_index;
+  u32 context;
+
+  bool is_add;
+  u8 identity_len;
+  u8 identity[64];
+  u8 nwi_name_len;
+  u8 nwi_name[nwi_name_len];
+};
+
+define upf_ueip_pool_details {
+  u32 context;
+
+  u8 identity_len;
+  u8 identity[64];
+  u8 nwi_name_len;
+  u8 nwi_name[nwi_name_len];
+};
+
+define upf_ueip_pool_dump {
+  u32 client_index;
+  u32 context;
+};
+
+autoreply define upf_nat_pool_add {
+  u32 client_index;
+  u32 context;
+
+  bool is_add;
+
+  u16 min_port;
+  u16 max_port;
+  u32 block_size;
+  vl_api_ip4_address_t start;
+  vl_api_ip4_address_t end;
+
+  u8 name_len;
+  u8 name[64];
+  u8 nwi_len;
+  u8 nwi[nwi_len];
+};
+
+autoreply define upf_ueip_export_enable {
+  u32 client_index;
+  u32 context;
+
+  bool is_enable;
+
+  u32 table_id;
+  u8 if_name_len;
+  u8 if_name[64];
+  u8 ns_path_len;
+  u8 ns_path[ns_path_len];
+};
+
+define upf_show_ueip_export {
+  u32 client_index;
+  u32 context;
+};
+
+define upf_show_ueip_export_reply {
+  u32 context;
+
+  bool enabled;
+  u32 table_id;
+  u8 if_name_len;
+  u8 if_name[64];
+  u8 ns_path_len;
+  u8 ns_path[ns_path_len];
+};
+
+autoreply define upf_imsi_netcap_enable_disable {
+  u32 client_index;
+  u32 context;
+
+  u8 imsi[8];
+  u8 target_len;
+  u8 target[64];
+  u16 packet_max_bytes;
+  bool is_enable;
+};
+
+define netcap_imsi_details {
+  u32 context;
+
+  u8 imsi[8];
+  u8 target_len;
+  u8 target[64];
+  u16 packet_max_bytes;
+};
+
+define netcap_imsi_dump {
+  u32 client_index;
+  u32 context;
+};

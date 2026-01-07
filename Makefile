@@ -1,69 +1,115 @@
-.PHONY: install-hooks checkstyle ci-build image install retest test e2e retest-e2e buildenv \
-version
+.PHONY: image test e2e debs buildenv initialize vpp-base
 
-SHELL = /bin/bash
 BUILD_TYPE ?= debug
-IMAGE_BASE ?= upg
-TEST_VERBOSITY ?= 2
-VERSION = $(shell . hack/version.sh && echo "$${UPG_GIT_VERSION}")
-include vpp.spec
+CI_BUILD ?= 0
+DO_PUSH ?= n
 
-install-hooks:
-	hack/install-hooks.sh
+BASE_REPO ?= quay.io/travelping/fpp-vpp
+BASE_TAG ?= local
+BUILDER_REPO ?= quay.io/travelping/vpp-builder
+QUAY_IO_IMAGE_EXPIRES_AFTER ?=
 
-# avoid rebuilding part of the source each time
-version:
-	ver_tmp=`mktemp version-XXXXXXXX`; \
-	echo "#ifndef UPG_VERSION" >"$${ver_tmp}"; \
-	echo "#define UPG_VERSION \"$(VERSION)\"" >>"$${ver_tmp}"; \
-	echo "#endif" >>"$${ver_tmp}"; \
-	if ! cmp upf/version.h "$${ver_tmp}"; then \
-	  mv "$${ver_tmp}" upf/version.h; \
-	else \
-	  rm -f "$${ver_tmp}"; \
-	fi
+UPG_REPO ?= quay.io/travelping/cennso-dev/upg-vpp
 
-checkstyle:
-	git ls-files | grep -e "\\.[c|h]$$" | xargs clang-format-11 -n --Werror
+image: vpp-base
+ifeq ($(CI_BUILD), 1)
+	BASE_TAG=${BASE_TAG} BASE_REPO=${BASE_REPO} \
+	BUILD_TYPE=${BUILD_TYPE} DO_PUSH=${DO_PUSH} \
+	UPG_REPO=${UPG_REPO} \
+	QUAY_IO_IMAGE_EXPIRES_AFTER=${QUAY_IO_IMAGE_EXPIRES_AFTER} \
+	build/ci-build.sh
+else
+	cd upf-plugin && \
+	BUILD_TYPE=${BUILD_TYPE} \
+	IMAGE_BASE=${UPG_REPO} \
+	VPP_IMAGE_BASE=${BASE_REPO}:${BASE_TAG} \
+	$(MAKE) image
+endif
 
-ci-build: version
-	hack/ci-build.sh
+vpp-base: initialize
+	cd vpp-base && \
+	BASE_TAG=${BASE_TAG} BASE_REPO=${BASE_REPO} \
+	BUILD_TYPE=${BUILD_TYPE} CI_BUILD=${CI_BUILD} \
+	BUILDER_REPO=${BUILDER_REPO} \
+	$(MAKE) image
 
-image: version
-	DOCKER_BUILDKIT=1 \
-	docker build -t $(IMAGE_BASE):${BUILD_TYPE} \
-	  --build-arg BUILD_TYPE=${BUILD_TYPE} \
-	  --build-arg BASE=$(VPP_IMAGE_BASE)_${BUILD_TYPE} \
-	  --build-arg DEVBASE=$(VPP_IMAGE_BASE)_dev_$(BUILD_TYPE) .
+initialize:
+	build/ensure-vpp-with-plugins-initialized.sh
+	cd upf-plugin && $(MAKE) version
 
-install: version
-	hack/buildenv.sh hack/build-internal.sh install
+buildenv: vpp-base
+	VPP_IMAGE_BASE=${BASE_REPO}:${BASE_TAG} BUILDENV_PRIVILEGED=1 BUILDENV_WORKDIR=/src/upf-plugin build/buildenv.sh
 
-retest:
-	hack/buildenv.sh hack/run-integration-tests-internal.sh
+ifeq ($(CI_BUILD), 1)
+  BUILDENV_DEPS =
+else
+  BUILDENV_DEPS = vpp-base
+endif
 
-test: version
-	hack/buildenv.sh /bin/bash -c \
-	  'make install && hack/run-integration-tests-internal.sh'
+test: $(BUILDENV_DEPS)
+	VPP_IMAGE_BASE=${BASE_REPO}:${BASE_TAG} BUILDENV_PRIVILEGED=1 build/buildenv.sh \
+	bash -c "cd upf-plugin && $(MAKE) test"
 
-e2e: version
-	UPG_BUILDENV_PRIVILEGED=1 hack/buildenv.sh /bin/bash -c \
-	  'make install && hack/e2e.sh'
+e2e: $(BUILDENV_DEPS)
+	VPP_IMAGE_BASE=${BASE_REPO}:${BASE_TAG} BUILDENV_PRIVILEGED=1 build/buildenv.sh \
+	bash -c "cd upf-plugin && $(MAKE) e2e"
 
-retest-e2e:
-	UPG_BUILDENV_PRIVILEGED=1 hack/buildenv.sh hack/e2e.sh
+generate-binapi: $(BUILDENV_DEPS)
+	VPP_IMAGE_BASE=${BASE_REPO}:${BASE_TAG} BUILDENV_PRIVILEGED=1 build/buildenv.sh \
+	bash -c "(cd upf-plugin && $(MAKE) genbinapi)"
 
-buildenv: version
-	UPG_BUILDENV_PRIVILEGED=1 hack/buildenv.sh
-
-clean-buildenv:
-	hack/buildenv.sh clean
-
-genbinapi:
-	hack/buildenv.sh /bin/bash -c 'make install && hack/genbinapi.sh'
+debs: vpp-base
+	cd upf-plugin && BUILD_TYPE=${BUILD_TYPE} VPP_IMAGE_BASE=${BASE_REPO}:${BASE_TAG} $(MAKE) debs
 
 # Open VSCode attached to buildenv container
-code:
-	DEVENV_BG=1 UPG_BUILDENV_PRIVILEGED=1 hack/buildenv.sh
+code: vpp-base
+	VPP_IMAGE_BASE=${BASE_REPO}:${BASE_TAG} DEVENV_BG=1 BUILDENV_PRIVILEGED=1 build/buildenv.sh
 	ENCNAME=`printf {\"containerName\":\"/vpp-build-$(BUILD_TYPE)-bg\"} | od -A n -t x1 | tr -d '[\n\t ]'`; \
 	code --folder-uri "vscode-remote://attached-container+$${ENCNAME}/src"
+
+# VPP include files differ from vpp-base source file, extract them to use language servers (like clangd)
+.PHONY: extract-vpp-include
+extract-vpp-include:
+	@rm -rf .vpp-include.new
+	mkdir .vpp-include.new
+	BUILDENV_EXTRA_ARGS="--user $(shell id -u):$(shell id -g)" \
+	VPP_IMAGE_BASE=${BASE_REPO}:${BASE_TAG} \
+	build/buildenv.sh bash -c '\
+		for pkg in libvppinfra-dev vpp-dev libnl-3-dev; do \
+			dpkg -L $$pkg | grep "^/usr/include/" | xargs -I {} cp --parents {} /src/.vpp-include.new/ 2>/dev/null || true; \
+		done'
+	@rm -rf .vpp-include
+	mv .vpp-include.new .vpp-include
+
+.clangd: hack/clangd.template extract-vpp-include
+	sed -e 's|{{PROJECT_ROOT}}|$(CURDIR)|g' \
+	    hack/clangd.template > .clangd
+
+.PHONY: help
+help:
+	@echo "Usage: make [target] [BUILD_TYPE=debug|release]"
+	@echo ""
+	@echo "Main Targets:"
+	@echo "  vpp-base                 VPP with patches"
+	@echo "  image                    VPP with UPF plugin"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test                     Run UPF plugin unit tests"
+	@echo "  e2e                      Run UPF plugin E2E tests"
+	@echo ""
+	@echo "Development:"
+	@echo "  initialize               Pull upstream VPP and apply patches"
+	@echo "  buildenv                 Start build environment container"
+	@echo "  code                     Open VSCode in build environment"
+	@echo "  .clangd                  Generate configuration for clangd LSP server"
+	@echo "  generate-binapi          Generate govpp binapi wrappers"
+	@echo ""
+	@echo "Charts:"
+	@echo "  charts-test              Test Helm charts"
+	@echo ""
+	@echo "Other:"
+	@echo "  debs                     "
+	@echo ""
+	@echo "Environment Variables:"
+	@echo "  BUILD_TYPE               Build type: debug (default) or release"
+

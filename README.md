@@ -1,6 +1,6 @@
 User Plane Gateway (UPG) based on VPP
 =====================================
-[![CI](https://github.com/travelping/upg-vpp/actions/workflows/main.yaml/badge.svg?branch=master)](https://github.com/travelping/upg-vpp/actions/workflows/main.yaml)
+[![CI](https://github.com/travelping/upg-vpp/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/travelping/upg-vpp/actions/workflows/ci.yaml)
 
 UPG implements a GTP-U user plane based on [3GPP TS 23.214][TS23214]
 and [3GPP TS 29.244][TS29244] Release 15. It is implemented as an
@@ -18,7 +18,7 @@ UPG is used in production in conjunction with [erGW][erGW] as GGSN/PGW
 in multiple installation in several telecom operators (Tier 1 and
 smaller).
 
-For the list of known issues, see [KNOWN_ISSUES document](KNOWN_ISSUES.md).
+For the list of known issues, see [KNOWN_ISSUES document](upf-plugin/KNOWN_ISSUES.md).
 
 Working features
 ----------------
@@ -62,67 +62,67 @@ Design rationale for the development environment is this:
   upstream them
 
 Relevant parts of the source tree layout:
-* `hack/` contains helper scripts most of which are wrapped in `make`
+* `build/` contains helper scripts most of which are wrapped in `make`
   commands
 * `Makefile` provides user interface for the environment
 * `upf/` contains the source code of the plugin<sup>[1](#footnote-1)</sup>
 * `upf/test/` contains the integration tests<sup>[1](#footnote-1)</sup>
 * `vpp.spec` contains the info on VPP-base repo, branch and commit to use
 
-There's a simple dockerized environment wrapped in 'make'
-commands.
+DEB packages containing UPG can be built using:
 
-The "build image" which is used for the devenv is tagged with a hash
-of `Dockerfile.build` as well as VPP's external dependencies.
+```bash
+make debs
+```
 
-The following `make` commands are supported:
+After a successful build, you can find the packages in the  `.out` directory.
 
-* `make image` builds UPG Docker image
-* `make test` build VPP and run UPG integration tests. The compilation
-  results are retained under `vpp/`
-* `make retest` run UPG integration tests without building VPP. These
-  can be run under `make test` to re-run the tests quickly if there
-  were no UPG / VPP code changes
-* `make ensure-build-image` checks if the build image exists or can be
-  pulled and builds it otherwise
-* `make update-build-image-tag` updates the build image tag in
-  the Dockerfiles according to the hash calculated
-  from `Dockerfile.build` and VPP external dependencies
-* `make install-hooks` installs git hooks in the repo which prevent
-  the user from making commits that contain `ZZZZZ:` substring. This
-  is handy for debug print like `clib_warning("ZZZZZ: i %d", i);`
-* `make update-vpp` re-clones VPP into `vpp/` directory
-* `make buildenv` runs an interactive shell inside the build
-  environment with UPG and VPP sources mounted into the container
-* `make e2e` build UPG and run E2E tests for it. For more information,
-  see [E2E test documentation](test/e2e/README.md)
-* `make checkstyle` performs style checks on the source code
+To build a Docker image that contains UPG along with the base VPP, run:
 
-Commands for building images and running tests default to debug builds.
+```bash
+make image
+```
+
+You can run integration tests with:
+
+```bash
+make test
+```
+
+To run E2E tests, use:
+
+```bash
+make e2e
+```
+
+Commands for building an image and running tests default to debug builds.
 To do release build instead, pass `BUILD_TYPE=release` to `make`:
 
 ```sh
 make e2e BUILD_TYPE=release
 ```
 
-If docker is used, one should set the following environment variable
-to enable wrapping the internally run commands in a docker container:
+There's a simple dockerized environment wrapped in 'make'
+commands. To enter it, run:
 
-```sh
-export UPG_BUILDENV=docker
+```bash
+make buildenv
 ```
 
-It is also possible to use a k8s cluster to run the build container in a pod:
-```
-export UPG_BUILDENV=k8s
-# optional: specify the node to run the build pod
-export UPG_BUILDENV_NODE=somenode
-```
-In this case, the buildenv is run as statefulset inside the cluster.
-It can be removed using
-```sh
-hack/buildenv.sh clean
-```
+The following `make` commands are supported in a dockerized environment:
+
+* `make install` rebuilds UPG and installs the resulting binaries into the
+  current environment.
+* `make test` builds VPP and runs UPG integration tests. The compilation
+  results are retained under `vpp/`.
+* `make retest` runs UPG integration tests without building VPP. These
+  can be run under `make test` to rerun the tests quickly if there
+  were no UPG / VPP code changes.
+* `make e2e` builds UPG and runs E2E tests for it. For more information,
+  see [E2E test documentation](upf-plugin/test/e2e/README.md).
+* `make retest-e2e` runs E2E tests without building VPP.
+* `make checkstyle` performs style checks on the source code.
+* `make genbinapi` generates the govpp binary API used in E2E tests.
 
 CI and releases
 ---------------
@@ -141,15 +141,11 @@ The images built per-commit expire within 7 days.
 
 When a tag is pushed, the `release` workflow is also run for it,
 re-tagging the images built as part of normal build process
-(preserving the old tags too). In case if the tag doesn't have `test`
-substring in it, it is also published as a release. The release notes
+(preserving the old tags too). The release notes
 list the PRs with the following tags:
 - `feature`, `enhancement`: features
 - `fix`: fixes
 - `test`: tests
-
-The releases for tags that contain `pre` substring are marked as
-pre-releases.
 
 [VPP]: https://fd.io
 [erGW]: https://github.com/travelping/ergw

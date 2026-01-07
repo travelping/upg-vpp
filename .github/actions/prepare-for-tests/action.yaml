@@ -1,0 +1,27 @@
+name: 'Prepare for tests'
+description: 'Prepare for tests'
+
+inputs:
+  base_repo:
+    description: 'Base VPP image repo'
+    required: false
+    default: quay.io/travelping/fpp-vpp
+
+runs:
+  using: "composite"
+  steps:
+    - name: Pull image
+      shell: bash
+      run: |
+        BASE_REPO="${{ inputs.base_repo }}"
+        BASE_HASH="$(git rev-parse HEAD:vpp-base)"
+
+        DEV_IMAGE_HASH_NAME="${BASE_REPO}:dev-debug-sha-${BASE_HASH}"
+
+        if ! vpp-base/build/try-pull-docker-image.sh "${DEV_IMAGE_HASH_NAME}"; then
+            echo "Failed to pull image ${DEV_IMAGE_HASH_NAME}" > /dev/stderr
+            exit 1
+        fi
+
+        docker tag "${DEV_IMAGE_HASH_NAME}" "${BASE_REPO}:local_dev_debug"
+

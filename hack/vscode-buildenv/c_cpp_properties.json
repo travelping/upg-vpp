@@ -5,7 +5,7 @@
       "name": "Linux",
       "includePath": [
         "${workspaceFolder}/**",
-        "/vpp-src/**"
+        "/src/vpp-base/vpp/**"
       ],
       "defines": [],
       "compilerPath": "/usr/bin/clang-11",

@@ -1,16 +1,49 @@
 {
 	"version": "2.0.0",
 	"tasks": [
-		{
-			"label": "Build VPP",
-			"type": "shell",
-			"command": "./hack/build-internal.sh",
-		},
-		{
-			"label": "Run e2e tests",
-			"type": "shell",
-			"command": "make e2e E2E_QUICK=1 E2E_FOCUS=\"\" E2E_GDBSERVER=1",
-			"isBackground": true,
-		}
-	]
+       {
+               "label": "Build upf plugin",
+               "type": "shell",
+               "command": "VER=\"$(../build/get-git-version.sh)\" ./hack/build-internal.sh",
+               "options": {
+                       "cwd": "${workspaceFolder}/upf-plugin"
+               }
+       },
+       {
+               "label": "Run tests",
+               "type": "shell",
+               "command": "make test",
+               "isBackground": true,
+               "options": {
+                       "cwd": "${workspaceFolder}/upf-plugin"
+               }
+       },
+       {
+               "label": "Rerun tests",
+               "type": "shell",
+               "command": "make retest",
+               "isBackground": true,
+               "options": {
+                       "cwd": "${workspaceFolder}/upf-plugin"
+               }
+       },
+       {
+               "label": "Run e2e tests",
+               "type": "shell",
+               "command": "make e2e",
+               "isBackground": true,
+               "options": {
+                       "cwd": "${workspaceFolder}/upf-plugin"
+               }
+       },
+       {
+               "label": "Rerun e2e tests",
+               "type": "shell",
+               "command": "make retest-e2e",
+               "isBackground": true,
+               "options": {
+                       "cwd": "${workspaceFolder}/upf-plugin"
+               }
+       }
+    ]
 }

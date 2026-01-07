@@ -1,0 +1,253 @@
+/*
+ * Copyright (c) 2020-2025 Travelping GmbH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* clang-format off */
+#ifndef UPF_INTEGRATIONS_UPF_IPFIX_TEMPLATES_H_
+#define UPF_INTEGRATIONS_UPF_IPFIX_TEMPLATES_H_
+
+/*
+ * NTP rfc868 : 2 208 988 800 corresponds to 00:00  1 Jan 1970 GMT
+ */
+#define NTP_TIMESTAMP 2208988800LU
+
+/*
+ * In each value macro:
+ * - v represents the value
+ * - n represents byte count when it's not fixed
+ * - c is a condition expression for fields that aren't
+ *   always applicable (NAT-related, for example)
+ */
+
+#define IPFIX_VALUE_DIRECT(v, n, c) to_b->data[offset++] = (v)
+
+#define IPFIX_VALUE_MEMCPY_DIRECT(v, n, c)		\
+  do {							\
+    clib_memcpy_fast (to_b->data + offset, v, n);	\
+    offset += n;					\
+  } while (0)
+
+#define IPFIX_VALUE_MEMCPY_DIRECT_COND(v, n, c)		\
+  do {							\
+    if (c)						\
+      clib_memcpy_fast (to_b->data + offset, v, n);	\
+    else						\
+      clib_memset (to_b->data + offset, 0, n);		\
+    offset += n;					\
+  } while (0)
+
+#define IPFIX_VALUE_U8(v, n, c) \
+  to_b->data[offset++] = v;
+
+#define IPFIX_VALUE_U8_COND(v, n, c)	\
+  to_b->data[offset++] = (c) ? (v) : 0
+
+#define IPFIX_VALUE_U16(v, n, c)				\
+  do {								\
+    u16 tmp = clib_host_to_net_u16 (v);				\
+    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u16));	\
+    offset += sizeof (u16);					\
+  } while (0)
+
+#define IPFIX_VALUE_U16_COND(v, n, c)				\
+  do {								\
+    u16 tmp = (c) ? clib_host_to_net_u16 (v) : 0;		\
+    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u16));	\
+    offset += sizeof (u16);					\
+  } while (0)
+
+#define IPFIX_VALUE_U32(v, n, c)				\
+  do {								\
+    u64 tmp = clib_host_to_net_u32 (v);				\
+    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u32));	\
+    offset += sizeof (u32);					\
+  } while (0)
+
+#define IPFIX_VALUE_U64(v, n, c)				\
+  do {								\
+    u64 tmp = clib_host_to_net_u64 (v);				\
+    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u64));	\
+    offset += sizeof (u64);					\
+  } while (0)
+
+#define IPFIX_VALUE_DELTA_U64(v, n, c)				\
+  do {								\
+    u64 tmp = clib_host_to_net_u64 (v);				\
+    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u64));	\
+    offset += sizeof (u64);					\
+    v = 0;							\
+  } while (0)
+
+#define IPFIX_VALUE_DATETIME_MILLISECONDS(v, n, c)		\
+  do {								\
+    u64 tmp = clib_host_to_net_u64((v));	\
+    clib_memcpy_fast (to_b->data + offset, &tmp, sizeof (u64));	\
+    offset += sizeof (u64);					\
+  } while (0)
+
+#define IPFIX_VALUE_MOBILE_IMSI(v, n, c)		\
+  do {							\
+    uword l = pfcp_tbcd_len (v, n);				\
+    to_b->data[offset++] = l;				\
+    decode_pfcp_tbcd (v, n, to_b->data + offset, l);		\
+    offset += l;					\
+  } while (0)
+
+#define IPFIX_VALUE_STRING(v, n, c)			\
+  do {							\
+    u64 l = clib_min(255, vec_len (v));			\
+    to_b->data[offset++] = (u8) l;			\
+    if (l)						\
+      clib_memcpy_fast (to_b->data + offset, v, l);	\
+    offset += l;					\
+  } while (0)
+
+#define IPFIX_FIELD_SOURCE_IPV4_ADDRESS(F)			\
+  F(sourceIPv4Address, 4,					\
+    IPFIX_VALUE_MEMCPY_DIRECT,					\
+    &f->ip[UPF_DIR_UL].ip4,	\
+    sizeof(ip4_address_t), 1)
+#define IPFIX_FIELD_SOURCE_IPV6_ADDRESS(F)			\
+  F(sourceIPv6Address, 16,					\
+    IPFIX_VALUE_MEMCPY_DIRECT,					\
+    &f->ip[UPF_DIR_UL].ip6,	\
+    sizeof(ip6_address_t), 1)
+#define IPFIX_FIELD_DESTINATION_IPV4_ADDRESS(F)			\
+  F(destinationIPv4Address, 4,					\
+    IPFIX_VALUE_MEMCPY_DIRECT,					\
+    &f->ip[UPF_DIR_DL].ip4,	\
+    sizeof(ip4_address_t), 1)
+#define IPFIX_FIELD_DESTINATION_IPV6_ADDRESS(F)			\
+  F(destinationIPv6Address, 16,					\
+    IPFIX_VALUE_MEMCPY_DIRECT,					\
+    &f->ip[UPF_DIR_DL].ip6,	\
+    sizeof(ip6_address_t), 1)
+#define IPFIX_FIELD_PROTOCOL_IDENTIFIER(F)			\
+  F(protocolIdentifier, 1,					\
+    IPFIX_VALUE_DIRECT, f->proto, 1, 1)
+#define IPFIX_FIELD_MOBILE_IMSI(F)				\
+  F(455, 65535,							\
+    IPFIX_VALUE_MOBILE_IMSI,					\
+    sx->user_id.imsi, sx->user_id.imsi_len, 1)
+#define IPFIX_FIELD_INITIATOR_PACKETS(F)			\
+  F(initiatorPackets, 8,					\
+    IPFIX_VALUE_DELTA_U64,					\
+    f->stats[UPF_DIR_UL].pkts_unreported,			\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_RESPONDER_PACKETS(F)			\
+  F(responderPackets, 8,					\
+    IPFIX_VALUE_DELTA_U64,					\
+    f->stats[UPF_DIR_DL].pkts_unreported,			\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_INITIATOR_OCTETS(F)				\
+  F(initiatorOctets, 8,						\
+    IPFIX_VALUE_DELTA_U64,					\
+    f->stats[UPF_DIR_UL].bytes_unreported,		\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_RESPONDER_OCTETS(F)				\
+  F(responderOctets, 8,						\
+    IPFIX_VALUE_DELTA_U64,					\
+    f->stats[UPF_DIR_DL].bytes_unreported,		\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_FLOW_START_MILLISECONDS(F)			\
+  F(flowStartMilliseconds, 8,					\
+    IPFIX_VALUE_DATETIME_MILLISECONDS,				\
+    f->unix_start_time * 1000,						\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_FLOW_END_MILLISECONDS(F)			\
+  F(flowEndMilliseconds, 8,					\
+    IPFIX_VALUE_DATETIME_MILLISECONDS,				\
+    f->unix_last_time * 1000,						\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_SOURCE_TRANSPORT_PORT(F)			\
+  F(sourceTransportPort, 2,					\
+    IPFIX_VALUE_U16,					\
+    f->port[UPF_DIR_UL],	\
+    2, 1)
+#define IPFIX_FIELD_DESTINATION_TRANSPORT_PORT(F)		\
+  F(destinationTransportPort, 2,				\
+    IPFIX_VALUE_U16,					\
+    f->port[UPF_DIR_DL],	\
+    2, 1)
+#define IPFIX_FIELD_POST_NAPT_SOURCE_TRANSPORT_PORT(F)		\
+  F(postNAPTSourceTransportPort, 2,				\
+    IPFIX_VALUE_U16_COND,					\
+    nat_flow->nat_port, sizeof (u16),					\
+    nat_flow != NULL)
+#define IPFIX_FIELD_POST_NAT_SOURCE_IPV4_ADDRESS(F)		\
+  F(postNATSourceIPv4Address, 4,				\
+    IPFIX_VALUE_MEMCPY_DIRECT_COND,				\
+    &nat_binding->external_addr, \
+    sizeof(ip4_address_t),					\
+    nat_binding != NULL)
+#define IPFIX_FIELD_VRF_NAME(F)					\
+  F(VRFname, 65535,						\
+    IPFIX_VALUE_STRING,						\
+    info->vrf_name, vec_len (info->vrf_name), 1)
+#define IPFIX_FIELD_INTERFACE_NAME(F)				\
+  F(interfaceName, 65535,					\
+    IPFIX_VALUE_STRING,						\
+    info->sw_if_name,					\
+    vec_len (info->interface_name), 1)
+#define IPFIX_FIELD_OBSERVATION_DOMAIN_NAME(F)			\
+  F(observationDomainName, 65535,				\
+    IPFIX_VALUE_STRING,						\
+    uplink_nwif->ipfix.observation_domain_name, 				\
+    vec_len (nwif->ipfix.bservation_domain_name), 1)
+#define IPFIX_FIELD_OBSERVATION_POINT_ID(F)			\
+  F(observationPointId, 8,					\
+    IPFIX_VALUE_U64,						\
+    uplink_nwif->ipfix.observation_point_id,					\
+    sizeof(u64), 1)
+#define IPFIX_FIELD_BIFLOW_DIRECTION(F) \
+  F(biflowDirection, 1,\
+    IPFIX_VALUE_U8, \
+    (f->initiator == UPF_DIR_UL) ? 1 /* initiator */ : 2 /* reverseInitiator */ , \
+    sizeof(u8), 1)
+
+#define UPF_NAT_EVENT_NAT44_SESSION_CREATE 4
+#define UPF_NAT_EVENT_NAT44_SESSION_DELETE 5
+#define IPFIX_FIELD_NAT_EVENT(F)				\
+  F(natEvent, 1,						\
+    IPFIX_VALUE_U8_COND,					\
+    !f->ipfix_exported ? UPF_NAT_EVENT_NAT44_SESSION_CREATE :		\
+    last ? UPF_NAT_EVENT_NAT44_SESSION_DELETE : 0,		\
+    sizeof (u8), 1)
+
+#define IPFIX_FIELD(fieldName, specLen, valCopy, v, n, c)	\
+  do {								\
+    f->e_id_length = ipfix_e_id_length (0, fieldName, specLen);	\
+    f++;							\
+  } while (0);
+
+#define IPFIX_VALUE(fieldName, specLen, valCopy, v, n, c)	\
+  valCopy(v, n, c);
+
+#define IPFIX_COUNT(fieldName, specLen, valCopy, v, n, c) 1 +
+
+#define IPFIX_TEMPLATE_COUNT(T1, T2) 		\
+  (T1(IPFIX_COUNT) T2(IPFIX_COUNT) 0)
+#define IPFIX_TEMPLATE_FIELDS(T1, T2)		\
+  T1 (IPFIX_FIELD);				\
+  T2 (IPFIX_FIELD);				\
+  return f
+#define IPFIX_TEMPLATE_VALUES(T1, T2)		\
+  u16 start = offset;				\
+  T1 (IPFIX_VALUE);				\
+  T2 (IPFIX_VALUE);				\
+  return offset - start
+
+#endif // UPF_INTEGRATIONS_UPF_IPFIX_TEMPLATES_H_

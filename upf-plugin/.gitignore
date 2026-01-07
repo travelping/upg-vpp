@@ -1,0 +1,15 @@
+/vpp
+/vpp-out
+__pycache__
+*.pyc
+debug
+release
+# For local E2E artifacts
+artifacts
+*.log
+attic
+upf/version.h
+build-root
+test/e2e/bin
+.cache
+compile_commands.json

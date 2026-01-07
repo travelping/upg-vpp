@@ -13,3 +13,6 @@ build-root
 test/e2e/bin
 .cache
 compile_commands.json
+.vpp-include
+.clangd
+.vscode
