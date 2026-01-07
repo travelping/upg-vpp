@@ -15,7 +15,7 @@ Current State
 -------------
 
 UPG is used in production in conjunction with [erGW][erGW] as GGSN/PGW
-in multiple installation in several telecom operators (Tier 1 and
+in multiple installations in several telecom operators (Tier 1 and
 smaller).
 
 For the list of known issues, see [KNOWN_ISSUES document](upf-plugin/KNOWN_ISSUES.md).
@@ -24,10 +24,10 @@ Working features
 ----------------
 
 * PFCP protocol
-  * en/decoding of most IEs
+  * en-/decoding of most IEs
   * heartbeat
-  * node related messages
-  * session related messages
+  * node-related messages
+  * session-related messages
 * Uplink and Downlink Packet Detection Rules (PDR) and
   Forward Action Rules (FAR) -- (some parts)
 * IPv4 -- inner and outer
@@ -36,7 +36,7 @@ Working features
 * PFCP Session Reports
 * Linked Usage Reports
 
-No yet working
+Not yet working
 --------------
 
 * Buffer Action Rules (BAR)
@@ -58,13 +58,13 @@ Design rationale for the development environment is this:
   usable both on CI and locally
 * provide quick commands for common tasks
 * simplify bisecting against upstream VPP
-* discourage downstream VPP changes, as we should make effort to
+* discourage downstream VPP changes, as we should make an effort to
   upstream them
 
 Relevant parts of the source tree layout:
-* `build/` contains helper scripts most of which are wrapped in `make`
+* `build/` contains helper scripts, most of which are wrapped in `make`
   commands
-* `Makefile` provides user interface for the environment
+* `Makefile` provides a user interface for the environment
 * `upf/` contains the source code of the plugin<sup>[1](#footnote-1)</sup>
 * `upf/test/` contains the integration tests<sup>[1](#footnote-1)</sup>
 * `vpp.spec` contains the info on VPP-base repo, branch and commit to use
@@ -96,7 +96,7 @@ make e2e
 ```
 
 Commands for building an image and running tests default to debug builds.
-To do release build instead, pass `BUILD_TYPE=release` to `make`:
+To do a release build instead, pass `BUILD_TYPE=release` to `make`:
 
 ```sh
 make e2e BUILD_TYPE=release
@@ -130,8 +130,8 @@ CI and releases
 The CI for UPG-VPP is based on [GitHub Actions][GHACTIONS]. Currently,
 the CI only runs for pushes to branches in the repository itself.
 The jobs include:
-- `prepare`: make sure build image is available for the commit
-- `build` (debug + release): build the docker images and binaries / packages
+- `prepare`: make sure the build image is available for the commit
+- `build` (debug + release): build Docker images and binaries/packages
 - `checkstyle`: check for style errors in the code
 - `test`: unit and e2e tests for release and debug builds
 - `conclude`: intermediate job used for sync by the release workflow
@@ -140,7 +140,7 @@ The jobs include:
 The images built per-commit expire within 7 days.
 
 When a tag is pushed, the `release` workflow is also run for it,
-re-tagging the images built as part of normal build process
+re-tagging the images built as part of the normal build process
 (preserving the old tags too). The release notes
 list the PRs with the following tags:
 - `feature`, `enhancement`: features
@@ -159,14 +159,14 @@ list the PRs with the following tags:
 VS Code
 ---------------
 
-It is possible to attach to running buildenv container with VS Code to get full intellisense.
+It is possible to attach to a running buildenv container with VS Code to get full IntelliSense.
 
-To do that run `make code`.
+To do that, run `make code`.
 
-*Note:* this command leaves the buildenv running in the background.
+*Note:* This command leaves the buildenv running in the background.
 
-After attaching for the first time, some vscode plugins may not be enabled.
-To fix that open: `F1 -> "Dev Containers: Open Named Container Configuration File"`
+After attaching for the first time, some VS Code plugins may not be enabled.
+To fix that, open: `F1 -> "Dev Containers: Open Named Container Configuration File"`
 And specify what plugins you'd like loaded at start.
 
 Here are some nice plugins to work with this repo:
