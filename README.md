@@ -65,9 +65,9 @@ Relevant parts of the source tree layout:
 * `build/` contains helper scripts, most of which are wrapped in `make`
   commands
 * `Makefile` provides a user interface for the environment
-* `upf/` contains the source code of the plugin<sup>[1](#footnote-1)</sup>
-* `upf/test/` contains the integration tests<sup>[1](#footnote-1)</sup>
-* `vpp.spec` contains the info on VPP-base repo, branch and commit to use
+* `upf-plugin/upf/` contains the source code of the plugin<sup>[1](#footnote-1)</sup>
+* `upf-plugin/upf/test/` contains the integration tests<sup>[1](#footnote-1)</sup>
+* `upf-plugin/vpp-base/` contains the [base VPP repository](https://github.com/travelping/fpp-vpp)
 
 DEB packages containing UPG can be built using:
 
