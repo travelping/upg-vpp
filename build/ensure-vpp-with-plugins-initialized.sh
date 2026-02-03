@@ -4,7 +4,7 @@ set -e
 
 CI_BUILD="${CI_BUILD:-}"
 
-if [[ CI_BUILD -ne 1 ]]; then
+if [[ "${CI_BUILD}" -ne 1 ]]; then
     git submodule update --init --recursive
 fi
 
