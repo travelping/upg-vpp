@@ -1,0 +1,115 @@
+name: Build images
+
+on:
+  workflow_call:
+    inputs:
+      build_type:
+        required: true
+        type: string
+
+env:
+  BUILDKIT_CACHE_MAP: |
+    {
+      "var-cache-apt": "/var/cache/apt",
+      "var-lib-apt": "/var/lib/apt",
+      "ccache": "/ccache"
+    }
+
+  DO_PUSH: y
+
+jobs:
+  build-images:
+    runs-on:
+      - ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # for git describe (operator stage)
+          fetch-depth: 0
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare repo
+        run: |
+          git config --global user.email "dummy@example.com"
+          git config --global user.name "dummy user"
+
+      - name: Login to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.REGISTRY_DOMAIN }}
+          username: ${{ secrets.QUAY_USER_ID }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
+
+      - name: Set up Buildkit Cache action
+        run: |
+          set -e
+          git clone https://github.com/reproducible-containers/buildkit-cache-dance.git
+          cd buildkit-cache-dance
+          git checkout 5b81f4d29dc8397a7d341dba3aeecc7ec54d6361
+
+      - name: Restore apt caches
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            var-lib-apt
+            var-cache-apt
+          key: apt-${{ hashFiles('vpp-base/Dockerfile') }}-${{ hashFiles('vpp-base/vpp-builder.Dockerfile') }}-${{ hashFiles('vpp-base/vpp.spec') }}
+          restore-keys: apt-
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v3
+        with:
+          path: ccache
+          key: ccache-${{ inputs.build_type }}-${{ hashFiles('vpp-base/Dockerfile') }}-${{ hashFiles('vpp-base/vpp-builder.Dockerfile') }}-${{ hashFiles('vpp-base/vpp.spec') }}
+          restore-keys: ccache-${{ inputs.build_type }}-
+
+      - name: Inject caches into docker
+        run:
+          node  ./buildkit-cache-dance/dist/index.js --cache-map "${BUILDKIT_CACHE_MAP}"
+
+      - name: Build images
+        id: build
+        run: |
+          BUILD_TYPE="${{ inputs.build_type }}" \
+          CI_BUILD=1 \
+          BUILDKIT_PROGRESS=plain \
+          DO_PUSH="${{ env.DO_PUSH }}" \
+          UPG_REPO="${{ vars.UPG_REPO }}" \
+          BASE_REPO="${{ vars.BASE_REPO }}" \
+          BUILDER_REPO="${{ vars.BUILDER_REPO }}" \
+          QUAY_IO_IMAGE_EXPIRES_AFTER="${{ vars.QUAY_IO_IMAGE_EXPIRES_AFTER }}" \
+          make image
+
+      - name: Retag upg image
+        if: github.ref_type == 'tag'
+        run: |
+          BUILD_TYPE="${{ inputs.build_type }}" UPG_REPO="${{ vars.UPG_REPO }}" build/retag-upg-image.sh
+
+      - name: Extract caches from docker
+        run:
+          node  ./buildkit-cache-dance/dist/index.js --extract --cache-map "${BUILDKIT_CACHE_MAP}"
+
+      - name: Save apt caches
+        if: steps.build.outputs.registry_cache_used == 'none'
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            var-lib-apt
+            var-cache-apt
+          key: apt-${{ hashFiles('vpp-base/Dockerfile') }}-${{ hashFiles('vpp-base/vpp-builder.Dockerfile') }}-${{ hashFiles('vpp-base/vpp.spec') }}
+
+      - name: Save ccache
+        if: steps.build.outputs.registry_cache_used != 'vpp-base'
+        uses: actions/cache/save@v3
+        with:
+          path: ccache
+          key: ccache-${{ inputs.build_type }}-${{ hashFiles('vpp-base/Dockerfile') }}-${{ hashFiles('vpp-base/vpp-builder.Dockerfile') }}-${{ hashFiles('vpp-base/vpp.spec') }}
+

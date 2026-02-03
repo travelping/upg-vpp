@@ -10,8 +10,7 @@
       "remote": true,
       "cwd": "${workspaceRoot}",
       "valuesFormatting": "parseText",
-      "gdbpath": "./hack/attach-gdb.sh",
-      "preLaunchTask": "Run e2e tests",
+      "gdbpath": "./hack/attach-gdb.sh"
     }
   ]
 }

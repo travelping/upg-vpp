@@ -1,0 +1,170 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+
+env:
+  # FIXME: UDP tests are unstable, likely due to a shortcoming in
+  # Linux namespace handling code
+  E2E_SKIP: ".*IPv6 session measurement.*counts UDP traffic.*"
+  # Uncomment/change the following to run only a subset of tests.
+  # But don't forget to comment it back for a finished PR!
+  # E2E_FOCUS: "TDF.*IPv4.*no proxy.*counts plain HTTP traffic"
+
+jobs:
+  build-images:
+    strategy:
+      matrix:
+        build_type: [debug, release]
+
+    uses: ./.github/workflows/build-images.yaml
+    with:
+      build_type: ${{ matrix.build_type }}
+    secrets: inherit
+
+  check-style:
+    runs-on: [ubuntu-24.04]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup workspace
+        uses: docker://alpine/git
+        with:
+          entrypoint: /bin/sh
+          args: -c "git config --global --add safe.directory /github/workspace && git clean -df && git clean -dfX"
+
+      - name: Check upf style
+        uses: jidicula/clang-format-action@v4.15.0
+        with:
+          clang-format-version: '11'
+          check-path: upf-plugin
+
+  check-binapi:
+    needs: build-images
+    runs-on: [ubuntu-24.04]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup workspace
+        uses: docker://alpine/git
+        with:
+          entrypoint: /bin/sh
+          args: -c "git config --global --add safe.directory /github/workspace && git clean -df && git clean -dfX"
+
+      - name: Login to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.REGISTRY_DOMAIN }}
+          username: ${{ secrets.QUAY_USER_ID }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Download dev image
+        uses: ./.github/actions/prepare-for-tests
+        with:
+          base_repo: ${{ vars.BASE_REPO }}
+
+      - name: Generate binapi
+        run: |
+          CI_BUILD=1 BASE_REPO="${{ vars.BASE_REPO }}" make generate-binapi
+
+      - name: Check generated files style
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "*** CHECK FAILED ***" >&2
+            git diff >&2
+            exit 1
+          fi
+
+  test-integration:
+    needs: build-images
+    runs-on: ["self-hosted", "hugepages"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.REGISTRY_DOMAIN }}
+          username: ${{ secrets.QUAY_USER_ID }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Prepare for tests
+        uses: ./.github/actions/prepare-for-tests
+        with:
+          base_repo: ${{ vars.BASE_REPO }}
+
+      - name: Run unit tests
+        run: |
+          CI_BUILD=1 BASE_REPO="${{ vars.BASE_REPO }}" make test
+
+  test-e2e:
+    needs: build-images
+    runs-on: ["self-hosted", "hugepages"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.REGISTRY_DOMAIN }}
+          username: ${{ secrets.QUAY_USER_ID }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Prepare for tests
+        uses: ./.github/actions/prepare-for-tests
+        with:
+          base_repo: ${{ vars.BASE_REPO }}
+
+      - name: Run e2e tests
+        env:
+          E2E_RETEST: y
+          E2E_PARALLEL: y
+          E2E_QUICK: y
+          E2E_ARTIFACTS_DIR: "/src/artifacts"
+          E2E_JUNIT_DIR: "/src/artifacts/junit-output"
+          E2E_FOCUS: ${{ env.E2E_FOCUS }}
+          E2E_SKIP: ${{ env.E2E_SKIP }}
+          E2E_NO_GDB: 1
+          GRAB_ARTIFACTS: 1
+        run: |
+          E2E_PARALLEL_NODES=$(nproc) \
+          CI_BUILD=1 \
+          BUILD_TYPE=debug \
+          BASE_REPO="${{ vars.BASE_REPO }}" \
+          make e2e
+
+      - name: Fix artifacts ownership
+        if: always()
+        run: |
+          docker run -v "${PWD}:/src" alpine /bin/sh -c "chown -v -R $(id -u):$(id -g) /src/artifacts"
+
+      - name: Upload artifacts for failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-upf-test-artifacts
+          path: artifacts/
+          retention-days: 3
+

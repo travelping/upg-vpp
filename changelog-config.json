@@ -2,7 +2,7 @@
   "categories": [
     {
       "title": "## Features 🚀",
-      "labels": ["feature", "enhancement"]
+      "labels": ["feat", "feature", "enhancement", "perf"]
     },
     {
       "title": "## Fixes 🐛",
@@ -29,6 +29,16 @@
       "pattern": "(.) (.+)",
       "target": "$1",
       "on_property": "title"
+    },
+    {
+      "pattern": "^(\\[[A-Z0-9\\-]+\\]\\s*)*(feat|fix|perf|test){1}(\\([\\w\\-\\.]+\\))?(!)?: ([\\w ])+([\\s\\S]*)",
+      "on_property": "title",
+      "target": "$2"
+    },
+    {
+      "pattern": "^(\\[[A-Z0-9\\-]+\\]\\s*)*(build|chore|ci|docs|refactor|revert|style){1}(\\([\\w\\-\\.]+\\))?(!)?: ([\\w ])+([\\s\\S]*)",
+      "on_property": "title",
+      "target": "$2"
     }
   ],
   "transformers": [

@@ -1,149 +1,85 @@
 name: Release
+
 on:
   push:
-    tags:
-    - "*"
+    tags: ["v*"]
 
 jobs:
-  release:
-    runs-on: self-hosted
+  retag-upg-image:
+    runs-on:
+      - ubuntu-24.04
+
+    strategy:
+      matrix:
+        build_type: [debug, release]
+
     steps:
-    - name: Clean the workspace
-      uses: docker://alpine
-      with:
-        args: /bin/sh -c "rm -rf /github/workspace/.* 2>/dev/null || rm -rf /github/workspace/*"
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # for git describe
+          fetch-depth: 0
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Login to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.REGISTRY_DOMAIN }}
+          username: ${{ secrets.QUAY_USER_ID }}
+          password: ${{ secrets.QUAY_TOKEN }}
 
-    - name: Wait for build to succeed
-      uses: fountainhead/action-wait-for-check@v1.0.0
-      id: wait-for-build
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        checkName: conclude
-        ref: ${{ github.sha }}
-        timeoutSeconds: 6000
+      - name: Ensure upg image to retag is present
+        id: ensure-upg-image-to-retag
+        run: |
+          BUILD_TYPE="${{ matrix.build_type }}" UPG_REPO="${{ vars.UPG_REPO }}" build/ensure-upg-image-to-retag.sh
 
-    - name: Fail if the build did not succeed
-      if: steps.wait-for-build.outputs.conclusion == 'failure'
-      run: exit 1
+      - name: Retag upg image
+        if: steps.ensure-upg-image-to-retag.outputs.image_to_retag_present == 'true'
+        run: |
+          BUILD_TYPE="${{ matrix.build_type }}" UPG_REPO="${{ vars.UPG_REPO }}" build/retag-upg-image.sh
 
-    # increase our chances of getting the artifacts on 1st try
-    - name: Delay
-      run: sleep 20
+    outputs:
+      debug_image_to_retag_present: ${{ steps.ensure-upg-image-to-retag.outputs.debug_image_to_retag_present }}
+      release_image_to_retag_present: ${{ steps.ensure-upg-image-to-retag.outputs.release_image_to_retag_present }}
 
-    # It may take some time for the workflow to finish and the artifacts to appear
-    # FIXME: https://github.com/dawidd6/action-download-artifact/issues/43
-    - name: Get debug image name
-      uses: dawidd6/action-download-artifact@v2
-      continue-on-error: true
-      id: download
-      with:
-        workflow: main.yaml
-        workflow_conclusion: success
-        commit: ${{github.sha}}
-        name: image-debug
+  rebuild-and-tag-upg-release-image:
+    needs: retag-upg-image
+    if: needs.retag-upg-image.outputs.release_image_to_retag_present == 'false'
+    uses: ./.github/workflows/build-images.yaml
+    with:
+      build_type: release
+    secrets: inherit
 
-    # FIXME: no clean way to retry the action
-    - name: Delay
-      if: steps.download.outcome=='failure'
-      run: sleep 40
+  rebuild-and-tag-upg-debug-image:
+    needs: retag-upg-image
+    if: needs.retag-upg-image.outputs.debug_image_to_retag_present == 'false'
+    uses: ./.github/workflows/build-images.yaml
+    with:
+      build_type: debug
+    secrets: inherit
 
-    - name: Retry download (1)
-      if: steps.download.outcome=='failure'
-      uses: dawidd6/action-download-artifact@v2
-      continue-on-error: true
-      id: download1
-      with:
-        workflow: main.yaml
-        workflow_conclusion: success
-        commit: ${{github.sha}}
-        name: image-debug
+  changelog:
+    runs-on:
+      - ubuntu-24.04
 
-    - name: Delay
-      if: steps.download1.outcome=='failure'
-      run: sleep 80
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-    - name: Retry download (2)
-      if: steps.download1.outcome=='failure'
-      uses: dawidd6/action-download-artifact@v2
-      with:
-        workflow: main.yaml
-        workflow_conclusion: success
-        commit: ${{github.sha}}
-        name: image-debug
+      - name: Build Changelog
+        id: build_changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          configuration: "changelog-config.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Promote (retag) the debug image
-      env:
-        REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
-        REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }}
-      run: |
-        # hack/retag-unexpire.sh quay.io travelping/upg source_tag dest_tag
-        hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-debug.txt) "${GITHUB_REF##*/}_debug"
-
-    - name: Get release image name
-      uses: dawidd6/action-download-artifact@v2
-      with:
-        workflow: main.yaml
-        workflow_conclusion: success
-        commit: ${{github.sha}}
-        name: image-release
-
-    - name: Promote (retag) the release image
-      env:
-        REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
-        REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }}
-      run: |
-        # hack/retag-unexpire.sh quay.io travelping/upg source_tag dest_tag
-        hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-release.txt) "${GITHUB_REF##*/}_release"
-
-    - name: Get dev release image name
-      uses: dawidd6/action-download-artifact@v2
-      with:
-        workflow: main.yaml
-        workflow_conclusion: success
-        commit: ${{github.sha}}
-        name: image-dev-release
-
-    - name: Promote (retag) the dev release image
-      env:
-        REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
-        REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }}
-      run: |
-        hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-dev-release.txt) "${GITHUB_REF##*/}_dev_release"
-
-    - name: Get dev debug image name
-      uses: dawidd6/action-download-artifact@v2
-      with:
-        workflow: main.yaml
-        workflow_conclusion: success
-        commit: ${{github.sha}}
-        name: image-dev-debug
-
-    - name: Promote (retag) the dev debug image
-      env:
-        REGISTRY_LOGIN: ${{ secrets.QUAY_USER_ID }}
-        REGISTRY_PASSWORD: ${{ secrets.QUAY_TOKEN }}
-      run: |
-        hack/retag-unexpire.sh $(sed 's@/@ @;s/:/ /' image-dev-debug.txt) "${GITHUB_REF##*/}_dev_debug"
-
-    - name: Build Changelog
-      id: build_changelog
-      uses: mikepenz/release-changelog-builder-action@v1
-      if: ${{ !contains(github.ref, 'test') }}
-      with:
-        configuration: "changelog-config.json"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Post the release
-      uses: softprops/action-gh-release@v1
-      # TODO: prerelease for 'pre'
-      # TODO: no release for 'test'
-      if: ${{ !contains(github.ref, 'test') }}
-      with:
-        body: ${{ steps.build_changelog.outputs.changelog }}
-        prerelease: ${{ contains(github.ref, 'pre') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Post the release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.build_changelog.outputs.changelog }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
