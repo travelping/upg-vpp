@@ -118,6 +118,7 @@ typedef struct
 
   u8 has_sxu : 1;
   u8 is_up_termination : 1;
+  u8 is_rules_refresh : 1;
   u8 is_sent : 1; // only for debug
   upf_session_state_t prev_state : 4;
   upf_mt_session_req_kind_t mt_req_kind : 4;
@@ -222,7 +223,8 @@ void upf_session_free (upf_session_t *sx);
 
 upf_session_procedure_t *upf_session_enqueue_procedure (
   upf_session_t *sx, upf_mt_session_req_kind_t req_kind, upf_sxu_t *sxu,
-  upf_lidset_t *p_immediate_report_urrs, bool is_up_termination);
+  upf_lidset_t *p_immediate_report_urrs, bool is_up_termination,
+  bool is_rules_refresh);
 void upf_session_send_next_procedure (upf_session_t *sx);
 void upf_session_queue_rules_refresh (upf_session_t *sx);
 void upf_session_trigger_deletion (upf_session_t *sx,

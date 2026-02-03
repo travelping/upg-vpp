@@ -20,6 +20,7 @@
 #include "upf/rules/upf_ipfilter.h"
 #include "upf/integrations/upf_ipfix.h"
 #include "upf/sxu/upf_session_update.h"
+#include "upf/sxu/upf_sxu_inlines.h"
 #include "upf/rules/upf_session_dpo.h"
 #include "upf/rules/upf_gtpu.h"
 #include "upf/nat/nat.h"
@@ -151,6 +152,14 @@ _upf_sxu_stage_3_compile_traffic_ep (upf_sxu_t *sxu, u8 xid,
   rules_tep_t tep = {
     .capture_set_lid = ~0,
   };
+
+  sxu_capture_set_key_t cap_key = {
+    .nwi_id = slot->key.nwi_id,
+    .intf = slot->key.intf,
+  };
+  upf_xid_t cap_set_xid = sxu_get_capture_set_xid_by_key (sxu, cap_key);
+  tep.capture_set_lid = _remap_to_lid (capture_sets, cap_set_xid);
+
   tep.is_destination_ip = slot->key.is_destination_ip;
   tep.is_gtpu = slot->key.is_gtpu;
   tep.is_ue_ip4 = slot->key.is_ip4;
@@ -747,6 +756,8 @@ upf_sxu_stage_3_compile_rules (upf_sxu_t *sxu)
 
       rules->nat_pool_id = slot->key.pool_id;
       rules->nat_binding_id = slot->val.binding_id;
+      rules->nat_netcap_set_lid =
+        _remap_to_lid (capture_sets, slot->val.capture_set_xid);
     }
 
   _upf_sxu_stage_3_update_pdr_lidsets (sxu, rules, _pdrs_vec, _urrs_vec,

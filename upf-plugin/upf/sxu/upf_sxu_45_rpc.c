@@ -195,7 +195,7 @@ upf_sxu_stage_4_before_rpc (upf_sxu_t *sxu)
             }
 
           u8 *iface_name =
-            format (NULL, "%U-%U-%U", format_pfcp_tbcd, &sx->user_id.imsi,
+            format (NULL, "%U-%v-%U", format_pfcp_tbcd, &sx->user_id.imsi,
                     sizeof (sx->user_id.imsi), nwi_name,
                     format_upf_interface_type, u_cap_set->key.intf);
 
@@ -210,36 +210,44 @@ upf_sxu_stage_4_before_rpc (upf_sxu_t *sxu)
               bool stream_existed =
                 imsi_cap->state.has_existed && u_cap_set->state.has_existed;
 
-              bool actually_existed = false;
+              upf_imsi_capture_t *request = pool_elt_at_index (
+                um->netcap.captures, imsi_cap->key.imsi_capture_id);
+
+              bool already_added = false;
               rules_netcap_stream_t *stream;
               vec_foreach (stream, r_cap_set->streams)
                 {
                   if (stream->imsi_capture_id == imsi_cap->key.imsi_capture_id)
                     {
-                      ASSERT (!actually_existed);
-                      actually_existed = true;
+                      already_added = true;
+                      break;
                     }
                 }
-              ASSERT (actually_existed == stream_existed);
-              if (stream_existed)
-                // nothing to do here
+              if (already_added)
                 continue;
 
-              upf_imsi_capture_t *request = pool_elt_at_index (
-                um->netcap.captures, imsi_cap->key.imsi_capture_id);
-
               netcap_stream_id_t netcap_stream_id = ~0;
-              err = um->netcap.methods.create_stream (
-                &netcap_stream_id, um->netcap.class_session_ip, iface_name,
-                request->target, metadata);
-              if (err)
+              if (stream_existed)
                 {
-                  clib_warning ("failed to create stream %v for %v: %U",
-                                iface_name, request->target, format_clib_error,
-                                err);
-                  ASSERT (0);
+                  if (imsi_cap_xid < vec_len (u_cap_set->val.capture_streams))
+                    netcap_stream_id =
+                      vec_elt (u_cap_set->val.capture_streams, imsi_cap_xid);
                 }
-              else
+
+              if (!stream_existed)
+                {
+                  err = um->netcap.methods.create_stream (
+                    &netcap_stream_id, um->netcap.class_session_ip, iface_name,
+                    request->target, request->tag, metadata);
+                  if (err)
+                    {
+                      clib_warning ("failed to create stream %v for %v: %U",
+                                    iface_name, request->target,
+                                    format_clib_error, err);
+                    }
+                }
+
+              if (is_valid_id (netcap_stream_id))
                 {
                   rules_netcap_stream_t rule_stream = {
                     .netcap_stream_id = netcap_stream_id,
@@ -247,7 +255,7 @@ upf_sxu_stage_4_before_rpc (upf_sxu_t *sxu)
                     .packet_max_bytes = request->packet_max_bytes,
                   };
                   vec_add1 (r_cap_set->streams, rule_stream);
-                  rules->want_netcap = vec_len (sxu->capture_sets) != 0;
+                  rules->want_netcap = 1;
                 }
             }
 

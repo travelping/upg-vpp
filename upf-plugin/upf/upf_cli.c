@@ -1983,6 +1983,7 @@ upf_netcap_session_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
   bool has_imsi = false;
   upf_imsi_t key;
   u8 *target = NULL;
+  u8 *tag = NULL;
   u32 packet_max_bytes = 9000;
   clib_error_t *err = NULL;
 
@@ -1998,6 +1999,8 @@ upf_netcap_session_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
       else if (unformat (line_input, "packet_max_bytes %u", &packet_max_bytes))
         ;
       else if (unformat (line_input, "target %v", &target))
+        ;
+      else if (unformat (line_input, "tag %v", &tag))
         ;
       else
         {
@@ -2028,17 +2031,20 @@ upf_netcap_session_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
       goto cleanup;
     }
 
-  err = upf_imsi_netcap_enable_disable (key, target, packet_max_bytes, enable);
+  err = upf_imsi_netcap_enable_disable (key, target, tag, packet_max_bytes,
+                                        enable);
 
 cleanup:
   if (target)
     vec_free (target);
+  if (tag)
+    vec_free (tag);
   return err;
 }
 
 VLIB_CLI_COMMAND (upf_netcap_session_command, static) = {
   .path = "upf netcap session",
-  .short_help = "upf netcap session imsi <IMSI> target <name> "
+  .short_help = "upf netcap session imsi <IMSI> target <name> [tag <tag>] "
                 "[packet_max_bytes 9000] [disable]",
   .function = upf_netcap_session_command_fn,
 };
@@ -2061,8 +2067,9 @@ upf_netcap_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
       upf_llist_foreach (capture, um->netcap.captures, imsi_list_anchor,
                          imsi_cap_list)
 
-        vlib_cli_output (vm, "  %U: %v, max_bytes: %u\n", format_pfcp_tbcd,
+        vlib_cli_output (vm, "  %U: %v%s%v, max_bytes: %u\n", format_pfcp_tbcd,
                          &imsi->tbcd, sizeof (imsi->tbcd), capture->target,
+                         vec_len (capture->tag) ? ", tag: " : "", capture->tag,
                          capture->packet_max_bytes);
     }));
 

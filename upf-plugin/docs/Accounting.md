@@ -7,7 +7,7 @@ If volume measurements is not enabled, then traffic measurements are not updated
 
 Volume QUOTA report sent when packet tries to consume quota. It means that reported measurement during volume QUOTA report often a little smaller then quota because of unaccounted last packet.
 
-Because Volume Quota checked before measurement and Volume Threshold checked after measurement it can be that volume threshold report is skipped if volume quota report prevents packet from doing measurement. This shouldn't happen usually since Volume Threshold is noticeably smaller then Volume Quota.
+Because Volume Quota checked before measurement and Volume Threshold checked after measurement it can be that volume threshold report is skipped if volume quota report prevents packet from doing measurement. This shouldn't happen usually, since Volume Threshold is noticeably smaller then Volume Quota.
 
 ## Time measurements
 

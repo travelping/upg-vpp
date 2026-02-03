@@ -20,7 +20,7 @@
 #define UPF_DEBUG_ENABLE 0
 
 clib_error_t *
-upf_imsi_netcap_enable_disable (upf_imsi_t imsi, u8 *target,
+upf_imsi_netcap_enable_disable (upf_imsi_t imsi, u8 *target, u8 *tag,
                                 u16 packet_max_bytes, bool enable)
 {
   upf_main_t *um = &upf_main;
@@ -59,9 +59,9 @@ upf_imsi_netcap_enable_disable (upf_imsi_t imsi, u8 *target,
     }
 
   upf_debug (
-    "imsi %U target %v mb %d enable %d imsi_capture_list_id %d cap %lx",
-    format_pfcp_tbcd, &imsi.tbcd, sizeof (imsi.tbcd), target, packet_max_bytes,
-    enable, imsi_capture_list_id, capture);
+    "imsi %U target %v tag %v mb %d enable %d imsi_capture_list_id %d cap %lx",
+    format_pfcp_tbcd, &imsi.tbcd, sizeof (imsi.tbcd), target, tag,
+    packet_max_bytes, enable, imsi_capture_list_id, capture);
 
   if (enable)
     {
@@ -84,6 +84,7 @@ upf_imsi_netcap_enable_disable (upf_imsi_t imsi, u8 *target,
       pool_get_zero (um->netcap.captures, capture);
       capture->packet_max_bytes = packet_max_bytes;
       capture->target = vec_dup (target);
+      capture->tag = vec_dup (tag);
       upf_imsi_capture_list_anchor_init (capture);
 
       upf_imsi_capture_list_insert_tail (um->netcap.captures,
@@ -98,6 +99,7 @@ upf_imsi_netcap_enable_disable (upf_imsi_t imsi, u8 *target,
       upf_imsi_capture_list_remove (um->netcap.captures, imsi_capture_list,
                                     capture);
       vec_free (capture->target);
+      vec_free (capture->tag);
       pool_put (um->netcap.captures, capture);
 
       if (upf_imsi_capture_list_is_empty (imsi_capture_list))

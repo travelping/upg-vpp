@@ -181,7 +181,8 @@ handle_mt_event_w2m_session_resp (u16 wk_thread_id, upf_mt_session_resp_t *ev)
 
   // response always present unless session is terminated
   ASSERT (procedure->is_up_termination !=
-          is_valid_id (procedure->response_id));
+            is_valid_id (procedure->response_id) ||
+          procedure->is_rules_refresh);
 
   if (is_valid_id (procedure->response_id))
     {

@@ -480,7 +480,7 @@ upf_session_enqueue_procedure (upf_session_t *sx,
                                upf_mt_session_req_kind_t req_kind,
                                upf_sxu_t *sxu,
                                upf_lidset_t *p_immediate_report_urrs,
-                               bool is_up_termination)
+                               bool is_up_termination, bool is_rules_refresh)
 {
   upf_main_t *um = &upf_main;
 
@@ -497,6 +497,7 @@ upf_session_enqueue_procedure (upf_session_t *sx,
     .mt_req_kind = req_kind,
     .old_rules_id = sx->rules_id,
     .is_up_termination = is_up_termination,
+    .is_rules_refresh = is_rules_refresh,
   };
   upf_session_procedures_list_anchor_init (procedure);
 
@@ -549,7 +550,7 @@ upf_session_queue_rules_refresh (upf_session_t *sx)
   upf_sxu_stage_3_compile_rules (&sxu);
 
   upf_session_enqueue_procedure (sx, UPF_MT_SESSION_REQ_UPDATE, &sxu, NULL,
-                                 false);
+                                 false, true);
 }
 
 void
@@ -588,7 +589,7 @@ upf_session_trigger_deletion (upf_session_t *sx,
   upf_debug ("3 %U", format_upf_sxu, &sxu);
 
   upf_session_enqueue_procedure (sx, UPF_MT_SESSION_REQ_DELETE, &sxu, NULL,
-                                 true);
+                                 true, false);
 
   sx->c_state = UPF_SESSION_STATE_DELETED;
 }

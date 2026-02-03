@@ -32,6 +32,7 @@ UPF_LLIST_TEMPLATE_TYPES (upf_imsi_capture_list);
 typedef struct
 {
   u8 *target;
+  u8 *tag;
   u16 packet_max_bytes;
 
   upf_imsi_capture_list_anchor_t imsi_list_anchor;
@@ -46,7 +47,7 @@ UPF_LLIST_TEMPLATE_DEFINITIONS (upf_imsi_capture_list, upf_imsi_capture_t,
 unformat_function_t unformat_upf_imsi_key;
 
 clib_error_t *upf_imsi_netcap_enable_disable (upf_imsi_t imsi, u8 *target,
-                                              u16 packet_max_bytes,
+                                              u8 *tag, u16 packet_max_bytes,
                                               bool enable);
 
 #endif // UPF_INTEGRATIONS_UPF_NETCAP_H_

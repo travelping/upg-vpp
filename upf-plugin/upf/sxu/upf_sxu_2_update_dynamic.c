@@ -550,7 +550,16 @@ _upf_sxu_capture_streams_update_if_needed (upf_sxu_t *sxu)
       slot->state.will_exist = 0;
     }
 
-  if (!is_valid_id (sxu->capture_list_id))
+  // reset capture_set_xid in nat_bindings
+  upf_xid_t nat_binding_xid;
+  vec_foreach_index (nat_binding_xid, sxu->nat_bindings)
+    {
+      sxu_slot_nat_binding_t *nat_binding =
+        vec_elt_at_index (sxu->nat_bindings, nat_binding_xid);
+      nat_binding->val.capture_set_xid = ~0;
+    }
+
+  if (!is_valid_id (sxu->capture_list_id) || ((sxu->is_session_deletion)))
     // no capture is required anymore for this session
     return;
 
@@ -591,7 +600,6 @@ _upf_sxu_capture_streams_update_if_needed (upf_sxu_t *sxu)
       slot->state.will_exist = 1;
     }
 
-  upf_xid_t nat_binding_xid;
   vec_foreach_index (nat_binding_xid, sxu->nat_bindings)
     {
       sxu_slot_nat_binding_t *nat_binding =
@@ -615,6 +623,7 @@ _upf_sxu_capture_streams_update_if_needed (upf_sxu_t *sxu)
       sxu_slot_capture_set_t *slot =
         vec_elt_at_index (sxu->capture_sets, cap_set_xid);
       slot->state.will_exist = 1;
+      nat_binding->val.capture_set_xid = cap_set_xid;
     }
 }
 

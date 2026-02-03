@@ -50,7 +50,7 @@ _start_procedure_with_pfcp_request (upf_session_t *sx,
   upf_pfcp_response_t *pfcp_resp = upf_pfcp_response_create (in_req);
 
   upf_session_procedure_t *procedure = upf_session_enqueue_procedure (
-    sx, req_kind, sxu, p_immediate_report_urrs, false);
+    sx, req_kind, sxu, p_immediate_report_urrs, false, false);
 
   procedure->response_id = pfcp_resp - psm->responses;
 }
@@ -618,6 +618,20 @@ _handle_session_establishment_request (upf_pfcp_message_t *msg,
   upf_sxu_t sxu;
   upf_sxu_init (&sxu, sx - um->sessions, sx->session_generation,
                 sx->thread_index, ~0);
+
+  if (BIT_ISSET (req->grp.fields, SESSION_ESTABLISHMENT_REQUEST_USER_ID) &&
+      req->user_id.imsi_len)
+    {
+      upf_imsi_t imsi = {};
+      memcpy (imsi.tbcd, req->user_id.imsi, req->user_id.imsi_len);
+
+      upf_imsi_capture_list_id_t *p_imsi_capture_list_id =
+        (upf_imsi_capture_list_id_t *) mhash_get (
+          &um->mhash_imsi_to_capture_list_id, &imsi);
+
+      if (p_imsi_capture_list_id)
+        sxu.capture_list_id = *p_imsi_capture_list_id;
+    }
 
   upf_sxu_pfcp_actions_t actions = {
     .create_pdrs = req->create_pdr,

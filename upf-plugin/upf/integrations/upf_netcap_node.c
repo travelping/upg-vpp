@@ -168,7 +168,7 @@ _upf_netcap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
             }
 
           upf_lid_t stream_set_lid = ~0;
-          upf_lid_t source_lid = upf_buffer_opaque (b)->gtpu.packet_source;
+          upf_lid_t source_lid = upf_buffer_opaque (b)->gtpu.source_lid;
           switch (upf_buffer_opaque (b)->gtpu.packet_source)
             {
             case UPF_PACKET_SOURCE_GTPU:

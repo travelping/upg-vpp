@@ -25,7 +25,7 @@ const _ = api.GoVppAPIPackageIsVersion2
 const (
 	APIFile    = "upf"
 	APIVersion = "2.0.0"
-	VersionCrc = 0x60d06e88
+	VersionCrc = 0x72261e75
 )
 
 // UpfIpfixRecordFlags defines enum 'upf_ipfix_record_flags'.
@@ -775,12 +775,14 @@ type NetcapImsiDetails struct {
 	Imsi           []byte `binapi:"u8[8],name=imsi" json:"imsi,omitempty"`
 	TargetLen      uint8  `binapi:"u8,name=target_len" json:"target_len,omitempty"`
 	Target         []byte `binapi:"u8[64],name=target" json:"target,omitempty"`
+	TagLen         uint8  `binapi:"u8,name=tag_len" json:"tag_len,omitempty"`
+	Tag            []byte `binapi:"u8[64],name=tag" json:"tag,omitempty"`
 	PacketMaxBytes uint16 `binapi:"u16,name=packet_max_bytes" json:"packet_max_bytes,omitempty"`
 }
 
 func (m *NetcapImsiDetails) Reset()               { *m = NetcapImsiDetails{} }
 func (*NetcapImsiDetails) GetMessageName() string { return "netcap_imsi_details" }
-func (*NetcapImsiDetails) GetCrcString() string   { return "057ab997" }
+func (*NetcapImsiDetails) GetCrcString() string   { return "e002db45" }
 func (*NetcapImsiDetails) GetMessageType() api.MessageType {
 	return api.ReplyMessage
 }
@@ -792,6 +794,8 @@ func (m *NetcapImsiDetails) Size() (size int) {
 	size += 1 * 8  // m.Imsi
 	size += 1      // m.TargetLen
 	size += 1 * 64 // m.Target
+	size += 1      // m.TagLen
+	size += 1 * 64 // m.Tag
 	size += 2      // m.PacketMaxBytes
 	return size
 }
@@ -803,6 +807,8 @@ func (m *NetcapImsiDetails) Marshal(b []byte) ([]byte, error) {
 	buf.EncodeBytes(m.Imsi, 8)
 	buf.EncodeUint8(m.TargetLen)
 	buf.EncodeBytes(m.Target, 64)
+	buf.EncodeUint8(m.TagLen)
+	buf.EncodeBytes(m.Tag, 64)
 	buf.EncodeUint16(m.PacketMaxBytes)
 	return buf.Bytes(), nil
 }
@@ -813,6 +819,9 @@ func (m *NetcapImsiDetails) Unmarshal(b []byte) error {
 	m.TargetLen = buf.DecodeUint8()
 	m.Target = make([]byte, 64)
 	copy(m.Target, buf.DecodeBytes(len(m.Target)))
+	m.TagLen = buf.DecodeUint8()
+	m.Tag = make([]byte, 64)
+	copy(m.Tag, buf.DecodeBytes(len(m.Tag)))
 	m.PacketMaxBytes = buf.DecodeUint16()
 	return nil
 }
@@ -929,13 +938,15 @@ type UpfImsiNetcapEnableDisable struct {
 	Imsi           []byte `binapi:"u8[8],name=imsi" json:"imsi,omitempty"`
 	TargetLen      uint8  `binapi:"u8,name=target_len" json:"target_len,omitempty"`
 	Target         []byte `binapi:"u8[64],name=target" json:"target,omitempty"`
+	TagLen         uint8  `binapi:"u8,name=tag_len" json:"tag_len,omitempty"`
+	Tag            []byte `binapi:"u8[64],name=tag" json:"tag,omitempty"`
 	PacketMaxBytes uint16 `binapi:"u16,name=packet_max_bytes" json:"packet_max_bytes,omitempty"`
 	IsEnable       bool   `binapi:"bool,name=is_enable" json:"is_enable,omitempty"`
 }
 
 func (m *UpfImsiNetcapEnableDisable) Reset()               { *m = UpfImsiNetcapEnableDisable{} }
 func (*UpfImsiNetcapEnableDisable) GetMessageName() string { return "upf_imsi_netcap_enable_disable" }
-func (*UpfImsiNetcapEnableDisable) GetCrcString() string   { return "e263ce43" }
+func (*UpfImsiNetcapEnableDisable) GetCrcString() string   { return "4d8ef09f" }
 func (*UpfImsiNetcapEnableDisable) GetMessageType() api.MessageType {
 	return api.RequestMessage
 }
@@ -947,6 +958,8 @@ func (m *UpfImsiNetcapEnableDisable) Size() (size int) {
 	size += 1 * 8  // m.Imsi
 	size += 1      // m.TargetLen
 	size += 1 * 64 // m.Target
+	size += 1      // m.TagLen
+	size += 1 * 64 // m.Tag
 	size += 2      // m.PacketMaxBytes
 	size += 1      // m.IsEnable
 	return size
@@ -959,6 +972,8 @@ func (m *UpfImsiNetcapEnableDisable) Marshal(b []byte) ([]byte, error) {
 	buf.EncodeBytes(m.Imsi, 8)
 	buf.EncodeUint8(m.TargetLen)
 	buf.EncodeBytes(m.Target, 64)
+	buf.EncodeUint8(m.TagLen)
+	buf.EncodeBytes(m.Tag, 64)
 	buf.EncodeUint16(m.PacketMaxBytes)
 	buf.EncodeBool(m.IsEnable)
 	return buf.Bytes(), nil
@@ -970,6 +985,9 @@ func (m *UpfImsiNetcapEnableDisable) Unmarshal(b []byte) error {
 	m.TargetLen = buf.DecodeUint8()
 	m.Target = make([]byte, 64)
 	copy(m.Target, buf.DecodeBytes(len(m.Target)))
+	m.TagLen = buf.DecodeUint8()
+	m.Tag = make([]byte, 64)
+	copy(m.Tag, buf.DecodeBytes(len(m.Tag)))
 	m.PacketMaxBytes = buf.DecodeUint16()
 	m.IsEnable = buf.DecodeBool()
 	return nil
@@ -2813,11 +2831,11 @@ func file_upf_binapi_init() {
 	api.RegisterMessage((*AdfVersionCommitReply)(nil), "adf_version_commit_reply_e8d4e804")
 	api.RegisterMessage((*AdfVersionDrop)(nil), "adf_version_drop_396ae46d")
 	api.RegisterMessage((*AdfVersionDropReply)(nil), "adf_version_drop_reply_e8d4e804")
-	api.RegisterMessage((*NetcapImsiDetails)(nil), "netcap_imsi_details_057ab997")
+	api.RegisterMessage((*NetcapImsiDetails)(nil), "netcap_imsi_details_e002db45")
 	api.RegisterMessage((*NetcapImsiDump)(nil), "netcap_imsi_dump_51077d14")
 	api.RegisterMessage((*UpfGetNodeID)(nil), "upf_get_node_id_51077d14")
 	api.RegisterMessage((*UpfGetNodeIDReply)(nil), "upf_get_node_id_reply_4f226741")
-	api.RegisterMessage((*UpfImsiNetcapEnableDisable)(nil), "upf_imsi_netcap_enable_disable_e263ce43")
+	api.RegisterMessage((*UpfImsiNetcapEnableDisable)(nil), "upf_imsi_netcap_enable_disable_4d8ef09f")
 	api.RegisterMessage((*UpfImsiNetcapEnableDisableReply)(nil), "upf_imsi_netcap_enable_disable_reply_e8d4e804")
 	api.RegisterMessage((*UpfNatPoolAdd)(nil), "upf_nat_pool_add_53c81402")
 	api.RegisterMessage((*UpfNatPoolAddReply)(nil), "upf_nat_pool_add_reply_e8d4e804")

@@ -43,7 +43,7 @@ export E2E_MULTICORE=y
 make e2e
 ```
 
-It will start docker container from development image, build project from sources and start e2e tests against it.
+It will build project from sources and start e2e tests.
 
 ## Packet metadata
 
@@ -76,11 +76,16 @@ Examples: `_upf_nwi_ensure_by_name`, `flowtable_get_flow_by_id`, `upf_session_de
 
 ### Core
 
-Multithreading is implemented by assigning sessions to threads and keeping all information related to that session locally on assigned thread. This per thread information (only worker thread is allowed to be modify it) includes: flow table and flows (nat, proxy), URRs state and etc.
+Multithreading is implemented by assigning sessions to threads and keeping all information related to that session locally on assigned thread. This per thread information (only worker thread is allowed to be modify it) includes: upf flows, nat flows, proxy flows, URRs state and etc.
 
-Worker objects management is done using asynchronous lifecycle when first object allocated on main thread, then information about them transferred to worker threads, and after acknowledge received by main thread these objects are allowed to participate in forwarding. Same thing done in reverse during destruction: disable forwarding, request objects removal, wait for acknowledge, deallocate on main thread. Such system allows to avoid most of spinlocks and simplifies management.
+Synchronisation of objects that should be shared between threads is done using asynchronous lifecycle and events passing. Such objects usually are entry point for packets and should contain information to redirect packets to proper thread. This makes it so any thread can access them. Usually they follow this sequence:
+- Object is allocated by main thread. This can be id allocation or memory allocation. But main point that no other session will be able to allocate this object again while async operation is in progress.
+- Object is transferred to worker thread using events queue.
+- Worker thread updates own structures to use new object. After this point worker thread can start receiving traffic for this session or related objects.
+- Worker thread sends event to main thread.
+- Main thread receives event and updates global entries (fib DPO or bihash) to use new objects.
 
-Forwarding of traffic to workers is done by using global maps which contain destination thread with other information.
+When removing objects same thing happens in reverse: disable forwarding for this object, send multithreaded request for objects removal, wait for acknowledge, deallocate object on main thread.
 
 ### Handoff
 
@@ -88,7 +93,11 @@ Handoff to assigned thread is done only once and as early as possible, when targ
 
 ### Allocation
 
-Most of objects are allocated in pools on main thread when possible. For thread safety worker barrier is used if reallocation is needed. Because of shared global pools such worker barriers will be needed only few times before pools reach some stable size. If objects need to be modified by worker threads (like URRs or flows structure), then such objects should be allocated using per-thread pools, or should use CACHE_LINE alignment, to avoid false sharing and need of spinlocks.
+Most of thread-shared objects are allocated in global pools from main thread when it possible. In such cases worker barrier is used to cover case when pool pointer changes during resize. Because of nature of pools such worker barriers will be needed only few times before pools reach some stable size.
+
+Thread-local worker objects usually allocated using one of 2 strategies:
+- allocation using per-thread pool
+- allocation in global shared pool, but structure uses CACHE_LINE to avoid false sharing and spinlock as consequence
 
 ### Event delivery
 
@@ -161,9 +170,9 @@ PFCP   Main  Worker  Traffic || Notes:
 
 Because lots of objects are required to be managed per sessions, it is beneficial if specific convention will be followed.
 
-Session objects (like PDR or FAR) are called "Local" and indexed using "Local IDs", LIDs for short or via type `upf_lid_t`. For simplicity we limit total amount of local objects to 32-128 elements. This allows to store multiple objects indexes in 32-128 bits set without allocation of clib_bitmaps and indirection in runtime. A lot of code depends on such sets of LIDs and use `upf_lidset_t` type for this.
+Session objects (like PDRs or FARs) are called "Local" and indexed using "Local IDs", LIDs for short or via type `upf_lid_t`. For simplicity we limit total amount of local objects to 32-128 elements per session. This allows to store multiple objects indexes in 32-128 bits set without allocation of clib_bitmaps and additional indirection in runtime. A lot of code depends on such sets of LIDs and use `upf_lidset_t` type for this.
 
-Local per session pools are allocated in global pools using `vppinfra/heap.h` structure, which allows to allocate multiple elements in vector sequentially. To manage such "vector inside vector" allocations UPF implements `upf_heap_handle_t` or `upf_hh_t` optimized wrapper around VPP heap handler.
+Local per session object arrays are allocated in global pools using `vppinfra/heap.h` structure. It allows to allocate multiple elements in vector sequentially. To manage such "vector inside vector" allocations UPF implements `upf_heap_handle_t` or `upf_hh_t` optimized wrapper around VPP heap handler.
 
 For example, when session needs multple PDRs, instead of allocating each PDR individually from global pool, the session requests contiguous block of PDRs. `upf_heap_handle_t` would then point to the start and size of this block within the global pool. This is like having a small, private vector of PDRs for the session, allocated from a larger shared heap/pool of PDRs.
 
@@ -173,11 +182,11 @@ LIDs which are in use by worker threads can benefit from "pool" behavior, when a
 
 Session update procedure (or `sxu`) structure represents temporary state needed during session rules update. It contains created, modified and removed objects state. After procedure temporary state is freed and only resulted rules are kept.
 
-Session modification is more complex, and rarely tested. Because of this one of `sxu` procedure goal is to do rules creation and removal the same way as modification, and reuse modification code path for creation and removal as much as possible. This is done by removing modification step as early as possible and replacing it with creation or removal of dynamic objects.
+Session modification is more complex, and it is much harder to test it properly due to combinatoric complexity of all possible cases of session state. Because of this one of `sxu` procedure goal is to do rules creation and removal the same way as modification, and reuse modification code path for creation and removal as much as possible. This is done by removing modification step as early as possible and replacing it with creation or removal of dynamic objects.
 
-Additonally to PFCP objects, separated local object is managed for each global object reference (like FIB entry or TEID allocation). This helps to cover lots of ownership cases when multiple local objects reference the same global object. Like when multiple PDRs use the same TEID allocation. Such objects reuse the same infra as PFCP objects, but created and removed using reference counts.
+Additionally to PFCP objects, separated local object is managed for each global object reference (like FIB entry or TEID allocation). This helps to cover ownership cases when multiple local objects reference the same global object. Like when multiple PDRs use the same TEID allocation. Such objects reuse the same infra as PFCP objects, but created and removed using reference counts.
 
-Because order of objects creation is not known, they are managed "lazely" using `slots` structure. The slots structure acts as a placeholder, storage and dependency resolver for objects during rule updates. During object creations references to other objects are always successful and result in creation of `slot` structure, which contains requested object key without populating values. `slot` structure ensures valid `xid` index for objects before their creation, allowing to reference not yet created objects. Later unprovided `slots` are fulfilled, and if it is not possible to fullfil such slot key, then then procedure fails. For example when reference to invalid NAT pool is requested.
+Because order of objects creation is not known, they are managed "lazily" using `slots` structure inside sxu. The slots structure acts as a placeholder, storage and dependency resolver for objects during rule updates. During object creations references to other objects are always successful and result in creation of `slot` structure, which contains requested object key without populating values. `slot` structure ensures valid `xid` index for objects before their creation, allowing to reference not yet created objects. Later unprovided `slots` are fulfilled, and if it is not possible to fulfill such slot key, then procedure fails. For example when reference to invalid NAT pool is requested.
 
 Schematic example of PDR 42 referencing URRs 100 and 200 before they are created:
 
@@ -198,11 +207,11 @@ slots_URRs:
 
 ### Intrusive linked list
 
-Usually it is not adviced to use linked lists on their own due to cache locality issues. But linked lists sometimes have huge advantages in insertion or removal operations compared to vector-based collections.
+Usually it is advised to not use linked lists due to cache locality issues. But linked lists sometimes have huge advantages in insertion or removal operations compared to vector-based collections.
 
 For such cases UPF implements own version of intrusive linked list - `upf_llist_t` for objects managed in vectors or pools. Additionally, for typesafety there are `UPF_LLIST_TEMPLATE_*` macros to create inline wrappers around linked list.
 
-Only doubly linked list implementation is provided, since singly linked are often not practical due to O(n) runtime cost for element removal.
+Only doubly linked list implementation is provided. This is because usually in cases when linked list is needed, singly linked lists are often not practical due to O(n) runtime cost for element removal.
 
 ### Worker pool
 

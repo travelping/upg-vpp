@@ -36,14 +36,6 @@ upf pfcp server set fifo-size 512
 ```
 The default FIFO size is 64 KiB.
 
-Utilizing multiple cores
-------------------------
-
-At this moment, UPG is unstable unless it's forced to use separate
-worker cores, so presently one must pass `cpu { workers 0 }` in the
-VPP command line. This problem is to be solved in near future,
-starting with support for a separate core for Sx processing.
-
 Important VPP Issues
 ====================
 

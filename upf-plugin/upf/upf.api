@@ -453,6 +453,8 @@ autoreply define upf_imsi_netcap_enable_disable {
   u8 imsi[8];
   u8 target_len;
   u8 target[64];
+  u8 tag_len;
+  u8 tag[64];
   u16 packet_max_bytes;
   bool is_enable;
 };
@@ -463,6 +465,8 @@ define netcap_imsi_details {
   u8 imsi[8];
   u8 target_len;
   u8 target[64];
+  u8 tag_len;
+  u8 tag[64];
   u16 packet_max_bytes;
 };
 

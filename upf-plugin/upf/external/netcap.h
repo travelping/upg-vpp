@@ -30,7 +30,7 @@ typedef clib_error_t *(*netcap_plugin_v1_register_class_fn_t) (
 
 typedef clib_error_t *(*netcap_plugin_v1_create_stream_fn_t) (
   netcap_stream_id_t *, netcap_class_id_t class_id, u8 *interface, u8 *target,
-  u8 *metadata);
+  u8 *tag, u8 *metadata);
 
 typedef void (*netcap_plugin_v1_delete_stream_fn_t) (
   netcap_stream_id_t stream_id);

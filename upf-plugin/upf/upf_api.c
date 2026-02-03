@@ -1251,12 +1251,22 @@ vl_api_upf_imsi_netcap_enable_disable_t_handler (
   int rv = 0;
   upf_main_t *um = &upf_main;
   vl_api_upf_imsi_netcap_enable_disable_reply_t *rmp;
+  clib_error_t *err = NULL;
 
   u8 *target_vec = 0;
+  u8 *tag_vec = 0;
+
   if (mp->target_len > 64)
     {
       rv = VNET_API_ERROR_INVALID_VALUE;
-      upf_debug ("netcap target too long: %d", mp->target_len);
+      upf_debug ("netcap target len invalid: %d", mp->target_len);
+      goto reply;
+    }
+
+  if (mp->tag_len > 64)
+    {
+      rv = VNET_API_ERROR_INVALID_VALUE;
+      upf_debug ("netcap tag len invalid: %d", mp->tag_len);
       goto reply;
     }
 
@@ -1271,21 +1281,40 @@ vl_api_upf_imsi_netcap_enable_disable_t_handler (
     }
 
   target_vec = vec_new (u8, mp->target_len);
-  memcpy (target_vec, mp->target, mp->target_len);
+  if (mp->target_len > 0 && target_vec == NULL)
+    {
+      rv = VNET_API_ERROR_INVALID_MEMORY_SIZE;
+      goto cleanup;
+    }
+  clib_memcpy (target_vec, mp->target, mp->target_len);
+
+  if (mp->tag_len > 0)
+    {
+      tag_vec = vec_new (u8, mp->tag_len);
+      if (tag_vec == NULL)
+        {
+          rv = VNET_API_ERROR_INVALID_MEMORY_SIZE;
+          goto cleanup;
+        }
+      clib_memcpy (tag_vec, mp->tag, mp->tag_len);
+    }
 
   upf_imsi_t imsi;
   memcpy (imsi.tbcd, mp->imsi, sizeof (imsi.tbcd));
   STATIC_ASSERT (sizeof (imsi.tbcd) == sizeof (mp->imsi),
                  "imsi sizes don't match");
 
-  clib_error_t *err = upf_imsi_netcap_enable_disable (
-    imsi, target_vec, packet_max_bytes, mp->is_enable);
+  err = upf_imsi_netcap_enable_disable (imsi, target_vec, tag_vec,
+                                        packet_max_bytes, mp->is_enable);
   if (err != NULL)
     {
       rv = err->code;
     }
 
+cleanup:
   vec_free (target_vec);
+  vec_free (tag_vec);
+  clib_error_free (err);
 
 reply:
   REPLY_MACRO (VL_API_UPF_IMSI_NETCAP_ENABLE_DISABLE_REPLY);
@@ -1308,6 +1337,12 @@ send_upf_netcap_imsi_details (vl_api_registration_t *reg, upf_imsi_t *imsi,
   ASSERT (target_len <= 64);
   mp->target_len = (u8) target_len;
   memcpy (mp->target, capture->target, target_len);
+
+  u32 tag_len = vec_len (capture->tag);
+  ASSERT (tag_len <= 64);
+  mp->tag_len = (u8) tag_len;
+  memcpy (mp->tag, capture->tag, tag_len);
+
   mp->packet_max_bytes = htons (capture->packet_max_bytes);
 
   vl_api_send_msg (reg, (u8 *) mp);
