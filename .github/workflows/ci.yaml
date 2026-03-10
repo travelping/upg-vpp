@@ -77,7 +77,7 @@ jobs:
 
       - name: Generate binapi
         run: |
-          CI_BUILD=1 BASE_REPO="${{ vars.BASE_REPO }}" make generate-binapi
+          CI_BUILD=1 SKIP_DEPS=1 BASE_REPO="${{ vars.BASE_REPO }}" make generate-binapi
 
       - name: Check generated files style
         run: |
@@ -112,7 +112,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          CI_BUILD=1 BASE_REPO="${{ vars.BASE_REPO }}" make test
+          CI_BUILD=1 SKIP_DEPS=1 BASE_REPO="${{ vars.BASE_REPO }}" make test
 
   test-e2e:
     needs: build-images
@@ -151,6 +151,7 @@ jobs:
         run: |
           E2E_PARALLEL_NODES=$(nproc) \
           CI_BUILD=1 \
+          SKIP_DEPS=1 \
           BUILD_TYPE=debug \
           BASE_REPO="${{ vars.BASE_REPO }}" \
           make e2e
