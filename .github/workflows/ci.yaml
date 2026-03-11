@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: true
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -41,7 +41,7 @@ jobs:
           args: -c "git config --global --add safe.directory /github/workspace && git clean -df && git clean -dfX"
 
       - name: Check upf style
-        uses: jidicula/clang-format-action@v4.15.0
+        uses: jidicula/clang-format-action@4726374d1aa3c6aecf132e5197e498979588ebc8 # v4.15.0
         with:
           clang-format-version: '11'
           check-path: upf-plugin
@@ -52,7 +52,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: true
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -64,7 +64,7 @@ jobs:
           args: -c "git config --global --add safe.directory /github/workspace && git clean -df && git clean -dfX"
 
       - name: Login to the registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ vars.REGISTRY_DOMAIN }}
           username: ${{ secrets.QUAY_USER_ID }}
@@ -93,13 +93,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to the registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ vars.REGISTRY_DOMAIN }}
           username: ${{ secrets.QUAY_USER_ID }}
@@ -120,13 +120,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to the registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ vars.REGISTRY_DOMAIN }}
           username: ${{ secrets.QUAY_USER_ID }}
@@ -162,7 +162,7 @@ jobs:
 
       - name: Upload artifacts for failed tests
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: e2e-upf-test-artifacts
           path: artifacts/
