@@ -1,6 +1,7 @@
 .PHONY: image test e2e debs buildenv initialize vpp-base
 
 BUILD_TYPE ?= debug
+SKIP_DEPS ?= 0
 CI_BUILD ?= 0
 DO_PUSH ?= n
 
@@ -40,7 +41,7 @@ initialize:
 buildenv: vpp-base
 	VPP_IMAGE_BASE=${BASE_REPO}:${BASE_TAG} BUILDENV_PRIVILEGED=1 BUILDENV_WORKDIR=/src/upf-plugin build/buildenv.sh
 
-ifeq ($(CI_BUILD), 1)
+ifeq ($(SKIP_DEPS), 1)
   BUILDENV_DEPS =
 else
   BUILDENV_DEPS = vpp-base
