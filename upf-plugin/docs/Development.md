@@ -25,8 +25,6 @@ This guide outlines key development practices, architectural patterns, and conve
 Simplest way to run tests in docker is to use such script:
 
 ```bash
-# Use docker (default)
-export RUN_MODE=docker
 # Filter specific test
 # export E2E_FOCUS='PGW.*IPv4.*counts ICMP echo requests and responses'
 # Create and keep test artifacts
