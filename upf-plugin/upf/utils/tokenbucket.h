@@ -24,7 +24,7 @@
 
 typedef struct
 {
-  f32 last_update; // time in seconds
+  f64 last_update; // time in seconds
   u32 available;   // current number of tokens in bucket
   f32 rate;        // refill rate (tokens per second)
   f32 fill_time; // how long in seconds it takes to fill the bucket completely
@@ -32,35 +32,46 @@ typedef struct
 } tokenbucket_t;
 
 __clib_unused static void
-tokenbucket_init (tokenbucket_t *lb, f32 now, f32 rate, u32 capacity)
+tokenbucket_init (tokenbucket_t *lb, f64 now, f32 rate, u32 capacity)
 {
   lb->rate = rate;
   lb->capacity = capacity;
   lb->available = capacity;
   lb->last_update = now;
-  lb->fill_time = ((f32) capacity) / ((f32) rate);
+  lb->fill_time = ((f32) capacity) / rate;
 };
 
 __clib_unused static void
-tokenbucket_refill (tokenbucket_t *lb, f32 now)
+tokenbucket_refill (tokenbucket_t *lb, f64 now)
 {
-  f32 elapsed = now - lb->last_update;
-  lb->last_update = now;
+  f64 elapsed = now - lb->last_update;
+  if (elapsed <= 0)
+    return;
 
-  if (elapsed > lb->fill_time)
+  if (elapsed >= (f64) lb->fill_time)
     {
       lb->available = lb->capacity;
+      lb->last_update = now;
       return;
     }
 
-  // add 0.5 to round to nearest instead of down
-  u32 tokens_to_add = (u32) (elapsed * lb->rate + 0.5);
+  u32 tokens_to_add = (u32) (elapsed * (f64) lb->rate);
+  if (tokens_to_add > 0)
+    {
+      u32 available = lb->available + tokens_to_add;
+      if (available > lb->capacity)
+        {
+          tokens_to_add = lb->capacity - lb->available;
+          available = lb->capacity;
+          lb->last_update = now;
+        }
+      else
+        {
+          lb->last_update += (f64) tokens_to_add / (f64) lb->rate;
+        }
 
-  u32 available = lb->available + tokens_to_add;
-  if (available > lb->capacity)
-    available = lb->capacity;
-
-  lb->available = available;
+      lb->available = available;
+    }
 };
 
 __clib_unused static bool

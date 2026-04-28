@@ -1,6 +1,6 @@
 module github.com/travelping/upg-vpp/test/e2e
 
-go 1.24.9
+go 1.25.7
 
 replace go.fd.io/govpp => github.com/travelping/govpp v0.8.0-alpha-tp.1
 

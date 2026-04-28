@@ -1,4 +1,4 @@
-FROM summerwind/actions-runner:latest
+FROM summerwind/actions-runner:v2.333.0-ubuntu-24.04@sha256:7c6f1e11b38575c451974ae228c9c05e222ba5a8c870ce9508a637abbfcff4c9
 
 ENV BUILDKIT_VERSION "v0.8.2"
 ENV BUILDCTL_SHA256 "b64aec46fb438ea844616b3205c33b01a3a49ea7de1f8539abd0daeb4f07b9f9"

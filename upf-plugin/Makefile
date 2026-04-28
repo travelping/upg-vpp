@@ -1,7 +1,8 @@
-.PHONY: install-hooks checkstyle ci-build image install retest test e2e retest-e2e version
+.PHONY: install-hooks checkstyle image install test e2e version
 
 SHELL = /bin/bash
 BUILD_TYPE ?= debug
+SKIP_BUILD ?= 0
 IMAGE_BASE ?= upg
 TEST_VERBOSITY ?= 2
 BINARY_VERSION = $(shell . ../build/get-project-version.sh && echo "$${VPP_GIT_VERSION}")
@@ -37,19 +38,21 @@ image: version
 install: version
 	BUILD_TYPE=$(BUILD_TYPE) VER=${PACKAGES_VERSION} hack/build-internal.sh install
 
-retest:
-	hack/run-integration-tests-internal.sh
-
 test: version
+ifeq ($(SKIP_BUILD),1)
+	hack/run-integration-tests-internal.sh
+else
 	BUILD_TYPE=$(BUILD_TYPE) VER=${PACKAGES_VERSION} /bin/bash -c \
 	  'make install && hack/run-integration-tests-internal.sh'
+endif
 
 e2e: version
+ifeq ($(SKIP_BUILD),1)
+	hack/e2e.sh
+else
 	BUILD_TYPE=$(BUILD_TYPE) VER=${PACKAGES_VERSION} /bin/bash -c \
 	  'make install && hack/e2e.sh'
-
-retest-e2e:
-	hack/e2e.sh
+endif
 
 genbinapi:
 	VER=${PACKAGES_VERSION} VPP_IMAGE_BASE=${VPP_IMAGE_BASE} \

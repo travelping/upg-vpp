@@ -496,7 +496,7 @@ _process_urrs (u16 thread_id, upf_dp_session_t *dsx, upf_rules_t *rules,
 }
 
 static bool
-_process_qers (upf_rules_t *rules, rules_pdr_t *pdr, f32 vlib_now,
+_process_qers (upf_rules_t *rules, rules_pdr_t *pdr, f64 vlib_now,
                uword packet_len, upf_forward_error_t *error)
 {
   if (upf_lidset_is_empty (&pdr->qer_lids))
@@ -634,7 +634,7 @@ _upf_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
   u32 thread_index = vm->thread_index;
   flowtable_wk_t *fwk = vec_elt_at_index (fm->workers, thread_index);
 
-  f32 vlib_now_f32 = vlib_time_now (vm);
+  f64 vlib_now = vlib_time_now (vm);
   upf_time_t unix_now = upf_time_now (thread_index);
 
   from = vlib_frame_vector_args (from_frame);
@@ -882,8 +882,8 @@ _upf_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
               bool qer_forward = false;
               if (action_forward)
                 {
-                  qer_forward = _process_qers (rules, pdr, vlib_now_f32,
-                                               packet_len, &error);
+                  qer_forward =
+                    _process_qers (rules, pdr, vlib_now, packet_len, &error);
                 }
 
               bool urr_forward =
@@ -909,7 +909,7 @@ _upf_forward (vlib_main_t *vm, vlib_node_runtime_t *node,
                       _flow_update_stats (vm, b, flow, is_ip4, unix_now,
                                           packet_len);
                       upf_ipfix_flow_stats_update_handler (flow,
-                                                           (u32) vlib_now_f32);
+                                                           (u32) vlib_now);
                       proto = flow->proto;
                     }
                   else

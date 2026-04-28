@@ -53,7 +53,7 @@ upf_gtpu_endpoint_add_del (ip4_address_t *ip4, ip6_address_t *ip6,
         }
       else
         {
-          if (nwi->interfaces_ids[intf] == nwi->_default_gtpu_endpoint_id)
+          if (nwi->gtpu_endpoints_ids[intf] != nwi->_default_gtpu_endpoint_id)
             return VNET_API_ERROR_VALUE_EXIST;
         }
 
@@ -133,7 +133,7 @@ upf_gtpu_endpoint_add_del (ip4_address_t *ip4, ip6_address_t *ip6,
           nwi->_default_gtpu_endpoint_id = ~0;
 
           for (int i = 0; i < UPF_INTERFACE_N_TYPE; i++)
-            if (nwi->interfaces_ids[i] == ep_id)
+            if (nwi->gtpu_endpoints_ids[i] == ep_id)
               nwi->gtpu_endpoints_ids[i] = ~0;
         }
       else

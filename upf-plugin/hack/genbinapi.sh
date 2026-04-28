@@ -47,10 +47,12 @@ function make_binapi_generator ()
 function extract_binapi_files ()
 {
   if [[ $(uname) = Linux && -d /src && -d /usr/share/vpp/api ]]; then
-    # inside the devenv container
+    # inside the testenv container
     tar -C /usr/share/vpp/api -c .
   else
-    docker run --entrypoint /bin/tar "${VPP_IMAGE_BASE}_dev_debug" \
+    # Use testenv image which has VPP API files
+    : ${TESTENV_IMAGE:=registry.cennso.com/cennso-dev/vpp-testenv:local_debug}
+    docker run --rm --entrypoint /bin/tar "${TESTENV_IMAGE}" \
            -C /usr/share/vpp/api -c .
   fi |
     tar -C "${workdir}" -xv --strip-components=1
