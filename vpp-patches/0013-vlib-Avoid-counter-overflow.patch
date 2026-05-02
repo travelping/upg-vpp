@@ -1,0 +1,36 @@
+From 49110c1919713214489872f4f87f2d9e2fd69984 Mon Sep 17 00:00:00 2001
+From: Sergey Matov <sergey.matov@travelping.com>
+Date: Thu, 25 Feb 2021 10:47:29 +0400
+Subject: [PATCH] vlib: Avoid counter overflow
+
+While debug image keeps assertion, we have to prevent simple
+counter overflow in decrement method.
+
+Type: fix
+
+Signed-off-by: Sergey Matov <sergey.matov@travelping.com>
+Change-Id: I2600fe935ff178d3d609d23cdbe0fc59c1c52c67
+---
+ src/vlib/counter.h | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/src/vlib/counter.h b/src/vlib/counter.h
+index 04ab83769..1324239bb 100644
+--- a/src/vlib/counter.h
++++ b/src/vlib/counter.h
+@@ -98,7 +98,11 @@ vlib_decrement_simple_counter (vlib_simple_counter_main_t * cm,
+ 
+   my_counters = cm->counters[thread_index];
+ 
+-  ASSERT (my_counters[index] >= decrement);
++  if (my_counters[index] < decrement)
++    {
++      ASSERT (0);
++      return;
++    }
+ 
+   my_counters[index] -= decrement;
+ }
+-- 
+2.24.3 (Apple Git-128)
+
